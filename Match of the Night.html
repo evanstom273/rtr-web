@@ -1,0 +1,946 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Match of the Night</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Barlow+Semi+Condensed:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: one-screen broadcast HUD. Crowd level across the top, wrestlers either side, commentary in the middle, action dock beneath it. */
+:root{
+  --ink:#0c0d14;
+  --panel:#151724;
+  --panel-2:#1c1f31;
+  --line:#2a2e46;
+  --fg:#efeadf;
+  --mute:#9093ab;
+  --you:#5397ec;
+  --them:#e6525c;
+  --gold:#ebb640;
+  --crowd:#a977f3;
+  --risk:#ee8a4a;
+  --display:"Big Shoulders Display","Arial Narrow",Impact,sans-serif;
+  --body:"Barlow Semi Condensed","Arial Narrow",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html{height:100%;box-sizing:border-box}
+*,*::before,*::after{box-sizing:border-box}
+body{height:100%;margin:0;background:var(--ink);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.4;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0;overflow:hidden}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+em{font-style:normal;font-weight:600;color:var(--fg)}
+.gold{color:var(--gold);font-weight:700}
+.big{font-family:var(--display);font-weight:900;font-size:1.15em;letter-spacing:.02em}
+.ropes{display:grid;gap:4px;margin-block:18px}
+.ropes i{display:block;height:2px;border-radius:2px}
+.ropes i:nth-child(1){background:var(--them)}
+.ropes i:nth-child(2){background:var(--fg);opacity:.8}
+.ropes i:nth-child(3){background:var(--you)}
+.al{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;padding:1px 6px;border-radius:3px;border:1px solid}
+.al.face{color:var(--you);border-color:color-mix(in srgb,var(--you) 50%,transparent)}
+.al.heel{color:var(--them);border-color:color-mix(in srgb,var(--them) 50%,transparent)}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--mute);margin:0}
+.primary{background:var(--gold);color:#17130a;border:0;border-radius:6px;font-weight:700;font-size:17px;padding:12px 22px;letter-spacing:.02em}
+.primary:hover{filter:brightness(1.08)}
+.ghost{background:transparent;border:1px solid var(--line);border-radius:6px;padding:11px 16px;color:var(--fg)}
+.ghost:hover{border-color:var(--mute)}
+
+/* ---------- Setup ---------- */
+#setup,#result{height:100%;overflow-y:auto;overflow-x:hidden;margin-left:calc(-1 * max(16px,env(safe-area-inset-left,0px)));margin-right:calc(-1 * max(16px,env(safe-area-inset-right,0px)));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1080px;margin:0 auto;padding-block:28px 48px}
+.mast h1{font-family:var(--display);font-weight:900;text-transform:uppercase;font-size:clamp(3.4rem,15vw,7.5rem);line-height:.84;letter-spacing:-.005em;margin:10px 0 0;text-wrap:balance}
+.mast h1 span{color:var(--gold)}
+.lede{max-width:56ch;color:var(--mute);font-size:18px;margin:14px 0 0}
+.steps{display:flex;gap:8px;flex-wrap:wrap;margin:26px 0 12px}
+.step{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:8px 14px;font-weight:600;display:flex;gap:8px;align-items:baseline}
+.step span{font-weight:400;color:var(--mute)}
+.step.on.you{border-color:var(--you)}
+.step.on.them{border-color:var(--them)}
+.roster{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.rc{position:relative;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.rc:hover{border-color:var(--mute)}
+.rc.you{border-color:var(--you);background:color-mix(in srgb,var(--you) 9%,var(--panel))}
+.rc.them{border-color:var(--them);background:color-mix(in srgb,var(--them) 9%,var(--panel))}
+.badge{position:absolute;top:12px;right:12px;font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.1em;padding:2px 7px;border-radius:3px;color:var(--ink)}
+.badge.you{background:var(--you)}.badge.them{background:var(--them)}
+.rc-top{display:flex;gap:8px;align-items:center}
+.rc-promo{font-family:var(--mono);font-size:11px;color:var(--mute);letter-spacing:.08em}
+.rc-name{font-family:var(--display);font-weight:800;font-size:1.65rem;text-transform:uppercase;line-height:1;margin-top:6px}
+.rc-nick{font-style:italic;color:var(--mute)}
+.rc-cls{font-family:var(--mono);font-size:11.5px;color:var(--fg);opacity:.85;letter-spacing:.04em}
+.rc-bio{font-size:14.5px;color:var(--mute);margin-top:4px}
+.rc-fin{font-size:14px;margin-top:6px;color:var(--gold);font-weight:600}
+.rc-fin span{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute);font-weight:400;margin-right:4px}
+.matchcard{margin-top:22px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px}
+.mc-vs{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px;font-family:var(--display);font-weight:900;text-transform:uppercase;font-size:clamp(2rem,8vw,3.6rem);line-height:.95;margin-top:8px}
+.mc-vs .you{color:var(--you)}.mc-vs .them{color:var(--them)}
+.mc-vs .vs{font-size:.45em;color:var(--mute);font-weight:700}
+.mc-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{background:transparent;border:0;padding:10px 14px;color:var(--mute)}
+.seg button.on{background:var(--panel-2);color:var(--fg);box-shadow:inset 0 -2px 0 var(--gold)}
+.mc-row .primary{margin-left:auto}
+.howto{margin-top:18px;color:var(--mute);max-width:70ch}
+.howto summary{cursor:pointer;color:var(--fg);font-weight:600}
+.howto ul{padding-left:18px;margin:10px 0 0;display:grid;gap:6px}
+.hits{margin-top:26px}
+.hits h3{font-family:var(--display);text-transform:uppercase;font-weight:800;font-size:1.4rem;margin:0 0 8px}
+.hits ol{list-style:none;padding:0;margin:0;display:grid;gap:6px}
+.hits li{display:flex;gap:12px;align-items:baseline;border-bottom:1px solid var(--line);padding-block:6px;min-width:0}
+.hits .hs{font-family:var(--display);font-weight:800;color:var(--gold);font-size:1.15rem;min-width:5.2em}
+.hits .hm{min-width:0;overflow-wrap:anywhere}
+.hits .hd{color:var(--mute);font-size:14px}
+
+/* ---------- Match ---------- */
+#match{height:100%;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto minmax(0,1fr) auto;
+  grid-template-areas:"hud hud" "you them" "log log" "dock dock";gap:8px;padding-block:8px}
+#hud{grid-area:hud;min-width:0}
+#crowd{display:block;width:100%;height:30px}
+.hudrow{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;margin-top:6px;font-family:var(--mono);font-size:12px;color:var(--mute);letter-spacing:.04em}
+#clock{font-family:var(--display);font-weight:800;font-size:1.35rem;color:var(--fg);letter-spacing:.03em;font-variant-numeric:tabular-nums}
+#phase{color:var(--fg);text-transform:uppercase;letter-spacing:.12em}
+#heatLbl{margin-left:auto;color:var(--crowd);text-transform:uppercase;letter-spacing:.12em}
+#evt{flex-basis:100%;order:-1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px;min-width:0;transition:border-color .2s}
+#card-you{grid-area:you}#card-them{grid-area:them}
+#card-you.active{border-color:var(--you)}
+#card-them.active{border-color:var(--them)}
+.cname{font-family:var(--display);font-weight:800;text-transform:uppercase;font-size:1.15rem;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#card-you .cname{color:var(--you)}#card-them .cname{color:var(--them)}
+.cmeta{font-family:var(--mono);font-size:10.5px;color:var(--mute);margin-top:4px;display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center}
+.cbody{display:flex;gap:10px;margin-top:8px;align-items:flex-start}
+.fig{width:30px;flex:none}
+.fig circle,.fig rect{stroke:var(--ink);stroke-width:1;transition:fill .4s}
+.cstats{flex:1;min-width:0;display:grid;gap:5px}
+.bar{display:flex;align-items:center;gap:6px}
+.bl{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--mute);width:2.6em;flex:none}
+.bt{flex:1;height:6px;background:var(--panel-2);border-radius:3px;overflow:hidden}
+.bt i{display:block;height:100%;width:0;border-radius:3px;transition:width .35s}
+.bt i.sta{background:var(--fg);opacity:.75}
+.bt i.mom{background:var(--crowd)}
+.bt i.mom.ready{background:var(--gold)}
+.fin{display:flex;align-items:center;gap:6px}
+.pips{display:flex;gap:4px}
+.pips b{width:10px;height:10px;transform:rotate(45deg);border:1.5px solid var(--gold);opacity:.45}
+.pips b.on{background:var(--gold);opacity:1}
+.sig{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;color:var(--gold);margin-left:auto}
+.hpnums{font-family:var(--mono);font-size:10.5px;color:var(--mute);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cpos{font-size:13px;color:var(--fg);opacity:.9;margin-top:6px;font-style:italic}
+#log{grid-area:log;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow-y:auto;padding:10px 12px;min-height:110px;min-width:0;scroll-behavior:smooth}
+.ln{display:flex;gap:10px;padding-block:3px;font-size:15.5px;animation:lnin .25s ease-out}
+.ln .ts{font-family:var(--mono);font-size:11.5px;color:var(--mute);padding-top:3px;flex:none;font-variant-numeric:tabular-nums}
+.ln .tx{min-width:0;overflow-wrap:anywhere}
+.ln.dim .tx{color:var(--mute)}
+.ln.hl{padding-block:6px}
+.ln.crowdln .tx{color:var(--crowd);font-style:italic}
+.ch{font-family:var(--display);font-weight:800;font-style:normal;letter-spacing:.03em;font-size:1.08em}
+.nm{font-weight:700}
+.nm.you{color:var(--you)}.nm.them{color:var(--them)}
+@keyframes lnin{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+#dock{grid-area:dock;min-width:0}
+.dock-head{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.chip{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;padding:6px 9px;border-radius:4px;background:var(--panel);border:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
+.chip.you{color:var(--you);border-color:color-mix(in srgb,var(--you) 55%,transparent)}
+.chip.them{color:var(--them);border-color:color-mix(in srgb,var(--them) 55%,transparent)}
+.tabs{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;flex:none}
+.tabs button{background:transparent;border:0;padding:8px 12px;color:var(--mute);font-weight:600}
+.tabs button.on{background:var(--panel-2);color:var(--fg);box-shadow:inset 0 -2px 0 var(--gold)}
+#pinBtn{flex:none;background:var(--panel-2);border:1px solid var(--gold);color:var(--gold);border-radius:6px;padding:8px 16px;font-family:var(--display);font-weight:900;font-size:1.15rem;letter-spacing:.06em}
+#pinBtn:disabled{border-color:var(--line);color:var(--mute);opacity:.5;cursor:default}
+#hand{max-height:34vh;overflow-y:auto;overflow-x:hidden}
+.specials{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
+.mv{text-align:left;background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:8px 10px;min-height:52px;display:flex;flex-direction:column;justify-content:center;gap:3px;min-width:0}
+.mv:hover:not(:disabled){border-color:var(--mute)}
+.mv:active:not(:disabled){transform:scale(.98)}
+.mn{font-weight:600;font-size:15.5px;line-height:1.15}
+.mi{display:flex;flex-wrap:wrap;gap:3px 6px;align-items:center;font-family:var(--mono);font-size:10.5px;color:var(--mute);text-transform:uppercase;letter-spacing:.05em}
+.mi .pts{letter-spacing:1px;color:var(--fg);opacity:.7}
+.mi .risk{color:var(--risk)}
+.mi .sub{color:var(--crowd)}
+.mi .flash{color:var(--gold)}
+.mi .warn{color:var(--them)}
+.mv.special{border-color:var(--gold);background:color-mix(in srgb,var(--gold) 10%,var(--panel-2))}
+.mv.special .mn{color:var(--gold);font-family:var(--display);font-weight:800;text-transform:uppercase;font-size:1.1rem;letter-spacing:.02em}
+.mv.special:disabled{border-style:dashed;border-color:var(--line);background:var(--panel);cursor:default}
+.mv.special:disabled .mn{color:var(--mute)}
+.mv.setup .mi{text-transform:none;letter-spacing:0;font-family:var(--body);font-size:13px}
+.wait{color:var(--mute);margin:6px 2px 4px;font-size:15px}
+
+/* ---------- Overlays ---------- */
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--panel);border-top:1px solid var(--line);
+  padding:16px max(16px,env(safe-area-inset-right,0px)) calc(18px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));
+  box-shadow:0 -18px 40px rgba(0,0,0,.45);touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.sheet .inner{max-width:720px;margin:0 auto}
+.mt-kicker{font-family:var(--mono);font-size:11.5px;letter-spacing:.16em;text-transform:uppercase}
+.sheet.off .mt-kicker{color:var(--you)}
+.sheet.def .mt-kicker{color:var(--them)}
+.mt-title{font-family:var(--display);font-weight:900;text-transform:uppercase;font-size:clamp(1.7rem,7vw,2.4rem);line-height:1;margin-top:2px}
+.mt-sub{color:var(--mute);margin-top:2px}
+.track{position:relative;height:48px;border-radius:6px;background:var(--ink);border:1px solid var(--line);margin-top:12px;overflow:hidden}
+.track .gold{position:absolute;top:0;bottom:0;background:color-mix(in srgb,var(--gold) 80%,transparent);box-shadow:0 0 18px color-mix(in srgb,var(--gold) 45%,transparent)}
+.track .marker{position:absolute;top:-2px;bottom:-2px;width:4px;background:var(--fg);transform:translateX(-50%);box-shadow:0 0 10px var(--fg);left:0}
+.sheet.hit .track{border-color:var(--gold)}
+.sheet.miss .track{border-color:var(--them);animation:shake .28s}
+.mt-hint{font-family:var(--mono);font-size:11px;color:var(--mute);margin-top:8px;letter-spacing:.06em;text-align:center}
+@keyframes shake{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.ov{position:fixed;inset:0;z-index:30;background:color-mix(in srgb,var(--ink) 90%,transparent);display:flex;align-items:center;justify-content:center;
+  padding:calc(20px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));user-select:none;-webkit-user-select:none;touch-action:none}
+.ov .inner{width:100%;max-width:560px;text-align:center}
+.pin-count{font-family:var(--display);font-weight:900;font-size:clamp(4.5rem,22vw,9rem);line-height:.9;letter-spacing:.01em}
+.ov.hit .pin-count{color:var(--gold)}
+.ov.shake .track{animation:shake .25s;border-color:var(--them)}
+.pin-sub{color:var(--mute);margin-top:6px}
+.track .fill{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--fg);opacity:.85}
+.bigbtn{margin-top:18px;width:100%;min-height:72px;border-radius:10px;border:1px solid var(--gold);background:var(--panel-2);color:var(--gold);font-family:var(--display);font-weight:900;font-size:1.6rem;letter-spacing:.05em;text-transform:uppercase;touch-action:none}
+.bigbtn:active{background:color-mix(in srgb,var(--gold) 18%,var(--panel-2))}
+.ov[data-mode="ref"] .bigbtn,.ov[data-mode="ref"] .track{display:none}
+.tug{display:flex;align-items:center;justify-content:space-between;padding-inline:10px;font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--mute);background:linear-gradient(90deg,color-mix(in srgb,var(--you) 22%,var(--ink)),var(--ink) 50%,color-mix(in srgb,var(--them) 22%,var(--ink)))}
+.tug .marker{left:50%}
+.sub-title{font-family:var(--display);font-weight:900;text-transform:uppercase;font-size:clamp(2rem,9vw,3.4rem);line-height:.95}
+#flash{position:fixed;left:50%;top:42%;z-index:40;transform:translate(-50%,-50%);pointer-events:none;font-family:var(--display);font-weight:900;text-transform:uppercase;
+  font-size:clamp(2.6rem,13vw,6rem);color:var(--gold);text-shadow:0 4px 30px rgba(0,0,0,.7);white-space:nowrap;opacity:0;max-width:96vw;overflow:hidden;text-overflow:ellipsis}
+#flash.go{animation:flash 1.15s ease-out}
+@keyframes flash{0%{opacity:0;transform:translate(-50%,-50%) scale(1.35)}15%{opacity:1;transform:translate(-50%,-50%) scale(1)}70%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(.98)}}
+
+/* ---------- Result ---------- */
+.stars{font-family:var(--display);font-weight:900;font-size:clamp(3.4rem,15vw,7rem);line-height:1;color:var(--gold);letter-spacing:.02em;margin-top:8px}
+.stars .off{color:var(--line)}
+.rnum{font-family:var(--mono);color:var(--mute);margin:4px 0 0}
+#rLine{font-family:var(--display);font-weight:800;text-transform:uppercase;font-size:clamp(1.6rem,6vw,2.4rem);line-height:1.05;margin:18px 0 0;text-wrap:balance}
+.verdict{font-size:19px;margin:8px 0 0;max-width:60ch}
+.break{display:grid;gap:12px}
+.br{display:grid;grid-template-columns:7.5em 1fr;gap:4px 14px;align-items:center}
+.br-l{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+.br-t{height:8px;background:var(--panel-2);border-radius:4px;overflow:hidden}
+.br-t i{display:block;height:100%;background:var(--gold);border-radius:4px}
+.br-n{grid-column:2;font-size:14.5px;color:var(--mute)}
+.recap{max-width:65ch;font-size:17px;margin-top:22px}
+.ractions{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}
+
+@media (min-width:900px){
+  #match{grid-template-columns:270px minmax(0,1fr) 270px;grid-template-rows:auto minmax(0,1fr) auto;
+    grid-template-areas:"hud hud hud" "you log them" "you dock them";gap:12px;padding-block:14px}
+  .card{align-self:start;padding:14px}
+  .cname{font-size:1.6rem}
+  .fig{width:44px}
+  .cmeta{font-size:11.5px}
+  #hand{max-height:32vh}
+  #evt{flex-basis:auto;order:0}
+}
+@media (max-width:380px){
+  .cname{font-size:1rem}
+  .fig{width:24px}
+  .hpnums{font-size:9.5px}
+}
+@media (prefers-reduced-motion:reduce){
+  .ln{animation:none}
+  #flash.go{animation:fadeonly 1.1s linear}
+  @keyframes fadeonly{0%,100%{opacity:0}20%,70%{opacity:1}}
+  .sheet.miss .track,.ov.shake .track{animation:none}
+}
+</style>
+
+<section id="setup">
+  <div class="wrap">
+    <header class="mast">
+      <p class="eyebrow">A wrestling game for people who rate matches</p>
+      <h1>Match of <span>the Night</span></h1>
+      <p class="lede">Win the match and steal the show. Every bout gets rated out of five by a crowd that has seen everything and is not easily impressed.</p>
+    </header>
+    <div class="ropes"><i></i><i></i><i></i></div>
+    <div class="steps">
+      <button class="step you" data-step="you" id="stepYou">1 · You <span id="pickYouName">—</span></button>
+      <button class="step them" data-step="them" id="stepThem">2 · Opponent <span id="pickThemName">—</span></button>
+    </div>
+    <div id="roster" class="roster"></div>
+    <div id="matchcard" class="matchcard"></div>
+    <details class="howto">
+      <summary>How it plays</summary>
+      <ul>
+        <li>Every move runs a timing bar. Stop it in the gold to land your move. When they attack, stop it in the gold to reverse.</li>
+        <li>Moves need the right positions. Corner moves need them in the corner, dives need you up top or them on the floor. Setup gets you there.</li>
+        <li>Landed moves build momentum. At full momentum your signature unlocks, and landing it banks a finisher (up to three). Counter their finisher and you steal one.</li>
+        <li>Pinned? Hold the button and let go inside the gold before three. Stuck in a hold? Mash.</li>
+        <li>You're rated on the match, not just the win: a hot crowd, a heat segment and a comeback, limb work that pays off, near-falls, and a finish that feels earned. Spam the same move and the crowd will tell you.</li>
+      </ul>
+    </details>
+    <div id="hits" class="hits"></div>
+  </div>
+</section>
+
+<section id="match" hidden>
+  <header id="hud">
+    <canvas id="crowd" aria-hidden="true"></canvas>
+    <div class="hudrow"><span id="evt"></span><span id="clock">00:00</span><span id="phase"></span><span id="heatLbl"></span></div>
+  </header>
+  <div class="card" id="card-you"></div>
+  <div class="card" id="card-them"></div>
+  <div id="log" aria-live="polite"><div id="logList"></div></div>
+  <div id="dock">
+    <div class="dock-head">
+      <span id="ctrlChip" class="chip"></span>
+      <div class="tabs"><button data-tab="moves" class="on" id="tabMoves">Moves</button><button data-tab="setup" id="tabSetup">Setup</button></div>
+      <button id="pinBtn" disabled>PIN</button>
+    </div>
+    <div id="hand"></div>
+  </div>
+</section>
+
+<section id="result" hidden>
+  <div class="wrap">
+    <p class="eyebrow" id="rLabel"></p>
+    <div class="stars" id="rStars"></div>
+    <p class="rnum" id="rNum"></p>
+    <h2 id="rLine"></h2>
+    <p class="verdict" id="rVerdict"></p>
+    <div class="ropes"><i></i><i></i><i></i></div>
+    <div id="rBreak" class="break"></div>
+    <p class="recap" id="rRecap"></p>
+    <div class="ractions"><button id="rematch" class="primary">Rematch</button><button id="newmatch" class="ghost">New match</button></div>
+    <div id="rHits" class="hits"></div>
+  </div>
+</section>
+
+<div id="meter" class="sheet" hidden>
+  <div class="inner">
+    <div class="mt-kicker"></div>
+    <div class="mt-title"></div>
+    <div class="mt-sub"></div>
+    <div class="track"><div class="gold"></div><div class="marker"></div></div>
+    <div class="mt-hint">Tap anywhere on this panel · Space</div>
+  </div>
+</div>
+<div id="pinOv" class="ov" hidden>
+  <div class="inner">
+    <div class="pin-count">ONE</div>
+    <div class="pin-sub"></div>
+    <div class="track"><div class="gold"></div><div class="fill"></div></div>
+    <button class="bigbtn" id="holdBtn">Hold · let go in the gold</button>
+  </div>
+</div>
+<div id="subOv" class="ov" hidden>
+  <div class="inner">
+    <div class="mt-kicker eyebrow" id="subKick"></div>
+    <div class="sub-title" id="subTitle"></div>
+    <div class="pin-sub" id="subSub"></div>
+    <div class="track tug"><span>Escape</span><div class="marker"></div><span>Tap</span></div>
+    <button class="bigbtn" id="mashBtn">Mash</button>
+  </div>
+</div>
+<div id="flash"></div>
+
+<script>
+(()=>{
+const $=s=>document.querySelector(s);
+const rnd=Math.random, clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), pick=a=>a[Math.floor(rnd()*a.length)];
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const other=k=>k==='you'?'them':'you';
+const art=n=>(/^[AEIOU]/i.test(n)?'an ':'a ')+`<em>${n}</em>`;
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+
+function M(name,cat,self,tgt,part,imp,risk,res,cls,x={}){return Object.assign({name,cat,self,tgt,part,imp,risk,res,cls},x)}
+
+const MOVES=[
+ M('Chop','strike','standing','standing','body',4,0,'standing',null),
+ M('Forearm smash','strike','standing','standing','head',5,0,'standing',null),
+ M('Low kick','strike','standing','standing','leg',4,0,'standing',['tech','striker']),
+ M('Clothesline','strike','standing','standing','head',6,0,'grounded',null),
+ M('Big boot','strike','standing','standing','head',7,0,'grounded',['power','striker']),
+ M('Superkick','strike','standing','standing','head',8,1,'grounded',['striker','flyer']),
+ M('Enzuigiri','strike','standing','standing','head',7,1,'grounded',['flyer','striker']),
+ M('Discus lariat','strike','standing','standing','head',8,1,'grounded',['power','striker','hardcore']),
+ M('Body slam','grapple','standing','standing','body',5,0,'grounded',null),
+ M('Snap suplex','grapple','standing','standing','body',6,0,'grounded',null),
+ M('DDT','grapple','standing','standing','head',7,0,'grounded',null),
+ M('Arm drag','grapple','standing','standing','arm',4,0,'grounded',['flyer','tech']),
+ M('Shoulder breaker','grapple','standing','standing','arm',6,0,'grounded',['tech','power']),
+ M('Dragon screw','grapple','standing','standing','leg',6,0,'grounded',['tech']),
+ M('Backbreaker','grapple','standing','standing','body',7,0,'grounded',['power','tech']),
+ M('German suplex','grapple','standing','standing','head',8,1,'grounded',['tech','power']),
+ M('Spinebuster','grapple','standing','standing','body',8,1,'grounded',['power']),
+ M('Brainbuster','grapple','standing','standing','head',9,1,'grounded',['tech','striker']),
+ M('Powerbomb','grapple','standing','standing','body',10,1,'grounded',['power','hardcore']),
+ M('Hurricanrana','air','standing','standing','head',7,2,'grounded',['flyer']),
+ M('Small package','grapple','standing','standing','body',2,0,'grounded',null,{flash:true}),
+ M('Backslide','grapple','standing','standing','body',2,0,'grounded',['tech','flyer'],{flash:true}),
+ M('Stomp','strike','standing','grounded','body',3,0,'grounded',null),
+ M('Elbow drop','strike','standing','grounded','head',5,0,'grounded',null),
+ M('Knee drop to the leg','strike','standing','grounded','leg',5,0,'grounded',null),
+ M('Arm stomp','strike','standing','grounded','arm',4,0,'grounded',null),
+ M('Standing senton','air','standing','grounded','body',6,1,'grounded',['flyer','power']),
+ M('Ground headlock','hold','standing','grounded','head',2,0,'grounded',null,{rest:true}),
+ M('Armbar','hold','standing','grounded','arm',3,0,'grounded',['tech','striker'],{sub:true}),
+ M('Kimura','hold','standing','grounded','arm',4,0,'grounded',['tech','striker'],{sub:true}),
+ M('Figure-four leglock','hold','standing','grounded','leg',4,0,'grounded',['tech','power'],{sub:true}),
+ M('Ankle lock','hold','standing','grounded','leg',4,0,'grounded',['tech','striker'],{sub:true}),
+ M('Boston crab','hold','standing','grounded','body',4,0,'grounded',['power','tech','hardcore'],{sub:true}),
+ M('Corner chops','strike','standing','corner','body',5,0,'corner',null),
+ M('Corner splash','strike','standing','corner','body',7,0,'standing',['power','hardcore']),
+ M('Running corner knee','strike','standing','corner','head',8,1,'grounded',['striker']),
+ M('Corner dropkick','air','standing','corner','head',7,1,'grounded',['flyer']),
+ M('Superplex','grapple','standing','corner','body',11,1,'grounded',['tech','power']),
+ M('Missile dropkick','air','top','standing','head',7,2,'grounded',['flyer','striker'],{selfRes:'standing'}),
+ M('Diving crossbody','air','top','standing','body',7,2,'grounded',null,{selfRes:'standing'}),
+ M('Diving elbow drop','air','top','grounded','head',9,2,'grounded',null,{selfRes:'standing'}),
+ M('Diving headbutt','air','top','grounded','head',10,2,'grounded',['hardcore','power'],{selfRes:'standing'}),
+ M('Frog splash','air','top','grounded','body',10,2,'grounded',['flyer'],{selfRes:'standing'}),
+ M('Diving knee to the leg','air','top','grounded','leg',8,2,'grounded',['tech','striker'],{selfRes:'standing'}),
+ M('Suicide dive','air','standing','outside','body',8,2,'outside',['flyer','striker'],{selfRes:'outside',spot:true}),
+ M('Tope con hilo','air','standing','outside','body',10,2,'outside',['flyer'],{selfRes:'outside',spot:true}),
+ M('Chop on the floor','strike','outside','outside','body',5,0,'outside',null),
+ M('Barricade whip','brawl','outside','outside','body',6,0,'outside',null,{spot:true}),
+ M('Ring post shot','brawl','outside','outside','arm',7,0,'outside',['hardcore','power','tech'],{spot:true}),
+ M('Steel steps','brawl','outside','outside','head',9,1,'outside',['hardcore'],{spot:true}),
+ M('Apron powerbomb','grapple','outside','outside','body',12,1,'outside',['power','hardcore'],{spot:true}),
+];
+
+const ROSTER=[
+ {id:'vale',name:'Ezra Vale',nick:'The Last Purist',promo:'VWF',from:'Pittsburgh',align:'face',cls:['tech','striker'],
+  st:{str:70,spd:68,tec:92,strk:75,cha:72,sta:85},
+  sig:M('Purity Test','grapple','standing','standing','head',9,1,'grounded',null,{sig:true}),
+  fin:M('Vale Lock','hold','standing','grounded','leg',7,0,'grounded',null,{fin:true,sub:true}),
+  bio:"Wrestles like it's 1997 and still keeps score in his head."},
+ {id:'grist',name:'Marlowe Grist',nick:"Steel City's Problem",promo:'ENDEAVOUR',from:'Sheffield',align:'heel',cls:['striker','hardcore'],
+  st:{str:78,spd:62,tec:60,strk:90,cha:80,sta:82},
+  sig:M('Bad Pint','strike','standing','standing','head',9,1,'grounded',null,{sig:true}),
+  fin:M('Last Orders','strike','standing','standing','head',13,1,'grounded',null,{fin:true}),
+  bio:'Throws hands like closing time. Has never once left quietly.'},
+ {id:'sol',name:'Sol Valentina',nick:'La Golondrina',promo:'SLN',from:'Guadalajara',align:'face',cls:['flyer'],
+  st:{str:52,spd:95,tec:74,strk:70,cha:86,sta:80},
+  sig:M('Ala Rota','air','standing','standing','head',9,1,'grounded',null,{sig:true}),
+  fin:M('Golondrina','air','top','grounded','body',13,2,'grounded',null,{fin:true,selfRes:'standing'}),
+  bio:'Third generation. Her abuela still rates her moonsault a seven.'},
+ {id:'barr',name:'Hollis Barr',nick:'The Northern Wall',promo:'TCG',from:'Thunder Bay',align:'face',cls:['power'],
+  st:{str:95,spd:45,tec:62,strk:70,cha:64,sta:78},
+  sig:M('Iron Range','grapple','standing','standing','body',10,1,'grounded',null,{sig:true}),
+  fin:M('Tundra Bomb','grapple','standing','standing','body',13,1,'grounded',null,{fin:true}),
+  bio:'Former logger. Lifts people the way other people lift shopping.'},
+ {id:'renjo',name:'Kaito Renjo',nick:'The Quiet Storm',promo:'NWGP',from:'Sendai',align:'heel',cls:['striker','tech'],
+  st:{str:72,spd:75,tec:85,strk:92,cha:58,sta:88},
+  sig:M('Raijin Kick','strike','standing','standing','head',9,1,'grounded',null,{sig:true}),
+  fin:M('Hagane','grapple','standing','standing','head',13,1,'grounded',null,{fin:true}),
+  bio:"Hasn't said a word on camera in three years. Hasn't needed to."},
+ {id:'thorne',name:'Silas Thorne',nick:'The Lantern Man',promo:'IVW',from:'The Black Forest',align:'heel',cls:['hardcore','power'],
+  st:{str:88,spd:50,tec:64,strk:74,cha:90,sta:84},
+  sig:M('Wick','grapple','standing','standing','body',10,1,'grounded',null,{sig:true}),
+  fin:M('Snuff','grapple','standing','standing','head',14,1,'grounded',null,{fin:true}),
+  bio:"Walks out in the dark carrying one lantern. Blows it out when he's done with you."},
+ {id:'rook',name:'Isla Rook',nick:'The Rook',promo:'ENDEAVOUR',from:'Glasgow',align:'face',cls:['tech'],
+  st:{str:60,spd:72,tec:95,strk:66,cha:76,sta:90},
+  sig:M('Castling','grapple','standing','standing','head',9,1,'grounded',null,{sig:true}),
+  fin:M('Checkmate','hold','standing','grounded','arm',7,0,'grounded',null,{fin:true,sub:true}),
+  bio:'Thinks four moves ahead. The fourth one usually bends your arm the wrong way.'},
+ {id:'juno',name:'Juno Vance',nick:'The Highlight',promo:'VWF',from:'Los Angeles',align:'heel',cls:['flyer','striker'],
+  st:{str:58,spd:90,tec:66,strk:84,cha:92,sta:76},
+  sig:M('Clip It','strike','standing','standing','head',9,1,'grounded',null,{sig:true}),
+  fin:M('Gone Viral','air','top','grounded','body',13,2,'grounded',null,{fin:true,selfRes:'standing'}),
+  bio:'Four million followers. Has filmed a reaction video to her own entrance.'},
+];
+const CLS={flyer:'High Flyer',power:'Powerhouse',tech:'Technician',striker:'Striker',hardcore:'Hardcore'};
+const POS={standing:'On their feet',grounded:'Down on the mat',corner:'Trapped in the corner',top:'Up on the top rope',outside:'Out on the floor'};
+const PL={head:'head',body:'midsection',arm:'arm',leg:'leg'};
+const PROMOS={
+ VWF:{event:'VWF Overdrive',cities:['New York','Chicago','Los Angeles'],title:'VWF Championship'},
+ ENDEAVOUR:{event:'ENDEAVOUR: Heavy Weather',cities:['Leeds','Glasgow','Cardiff','Sheffield'],title:'British Heavyweight Championship'},
+ SLN:{event:'SLN Noche de Fuego',cities:['Mexico City','Guadalajara'],title:'Anillo Mundial'},
+ TCG:{event:'TCG Cold Open',cities:['Calgary','Montreal','Toronto'],title:'TCG Heavyweight Championship'},
+ NWGP:{event:'NWGP Wrestle Ascension',cities:['Osaka','Tokyo'],title:'NWGP Global Championship'},
+ IVW:{event:'IVW Untergrund',cities:['Berlin','Hamburg'],title:'King of Europe Championship'},
+};
+const T={
+ strike:['{a} lights up {d} with {am}.','{a} fires off {am}.','{am} from {a} rocks {d}.','{a} cracks {d} with {am}.'],
+ grapple:['{a} plants {d} with {am}.','{a} drops {d} hard with {am}.','{a} hits {am} on {d}.','{a} snatches {d} into {am}.'],
+ air:['{a} takes flight with {am}!','{am} from {a} connects!','{a} soars in with {am}.'],
+ brawl:['{a} hits {am} out on the floor.','{a} with {am}. The front row scatters.','{am}! {a} is taking this somewhere ugly.'],
+ hold:['{a} grinds away with {am}.','{a} slows things down with {am}.'],
+ rev:['{d} sees {am} coming and counters.','{d} blocks {am} and turns it around.','{d} slips out of {am}.','{d} shuts down {am} before it starts.'],
+ crash:['{a} goes for {am} and there is nobody home. {a} crashes hard.','{a} flies with {am} and eats nothing but canvas.'],
+};
+const MILE={
+ head:{50:'{d} is seeing stars.',25:'{d} is out on their feet. That head is in a bad way.'},
+ body:{50:'{d} is clutching at the ribs.',25:'{d} can barely breathe through that midsection.'},
+ arm:{50:"{d}'s arm is starting to hang.",25:"{d} can't lift that arm any more."},
+ leg:{50:'{d} is limping now.',25:'{d} can barely stand on that leg.'},
+};
+
+let S=null, tab='moves', pickYou='rook', pickThem='juno', step='you', stakes='exh';
+let meterCtl=null, pinCtl=null, subCtl=null;
+const logBox=$('#log'), logList=$('#logList');
+
+/* ---------- helpers ---------- */
+function mkSide(w,key){return{key,w,name:w.name,cls:w.cls,st:w.st,align:w.align,sig:w.sig,fin:w.fin,
+ hp:{head:100,body:100,arm:100,leg:100},stamina:100,momentum:0,sigReady:false,finStock:0,pos:'standing',
+ used:{},lastMove:null,recentParts:[],partHits:{head:0,body:0,arm:0,leg:0},fkAbsorbed:0,firedUp:false,comeback:0,
+ cheapCd:0,tauntCd:0,setupRun:0,landed:0,focus:null,
+ moves:MOVES.filter(m=>!m.cls||m.cls.some(c=>w.cls.includes(c)))}}
+const costMult=a=>1.3-a.st.sta/200;
+const avgHP=d=>(d.hp.head+d.hp.body+d.hp.arm+d.hp.leg)/4;
+const N=k=>`<b class="nm ${k}">${S[k].name}</b>`;
+function fill(t,key,m){return t.replace(/\{a\}/g,N(key)).replace(/\{d\}/g,N(other(key))).replace(/\{am\}/g,m?art(m.name):'')}
+function fmt(t){const s=Math.round(t);return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')}
+function log(html,cls=''){const el=document.createElement('div');el.className='ln '+cls;el.innerHTML=`<span class="ts">${fmt(S.t)}</span><span class="tx">${html}</span>`;logList.appendChild(el);requestAnimationFrame(()=>{logBox.scrollTop=logBox.scrollHeight})}
+function chant(text,tail=''){log(`<span class="ch">“${text}”</span>${tail?' '+tail:''}`,'crowdln')}
+function heat(d){S.heat=clamp(S.heat+d,0,100);S.stats.heatPeak=Math.max(S.stats.heatPeak,S.heat);if(d>=8)S.pulse=Math.min(1,S.pulse+d/25)}
+function after(fn,ms){const id=S.id;setTimeout(()=>{if(S&&S.id===id)fn()},ms)}
+function flash(text){const f=$('#flash');f.textContent=text;f.classList.remove('go');void f.offsetWidth;f.classList.add('go')}
+function hpColor(h){const st=[[0,[200,63,74]],[40,[224,122,45]],[70,[201,162,39]],[100,[63,145,216]]];for(let i=1;i<st.length;i++){if(h<=st[i][0]){const[a,ca]=st[i-1],[b,cb]=st[i],f=(h-a)/(b-a);return`rgb(${ca.map((c,j)=>Math.round(c+(cb[j]-c)*f)).join(',')})`}}return'rgb(63,145,216)'}
+function hit(w,part,dmg){const b=w.hp[part];w.hp[part]=clamp(b-dmg,0,100);for(const th of[50,25]){if(b>th&&w.hp[part]<=th){S.miles.push(MILE[part][th].replace('{d}',N(w.key)));heat(th===25?4:2)}}}
+function flushMiles(){while(S.miles.length)log(S.miles.shift(),'dim')}
+function checkSig(w){if(w.momentum>=100&&!w.sigReady){w.sigReady=true;w.momentum=100;log(`${N(w.key)}'s signature is ready.`,'dim')}}
+function posOk(a,d,m){return m.self===a.pos&&(m.tgt===d.pos||(m.tgt==='standing'&&d.pos==='corner'&&m.cat==='strike'))}
+function ready(a,m){return m.sig?a.sigReady:m.fin?a.finStock>0:true}
+const pinOk=(a,d)=>a.pos==='standing'&&d.pos==='grounded';
+function setCtrl(k){S.ctrl=k;const a=S[k],d=S[other(k)];if(a.pos==='grounded'||a.pos==='corner')a.pos='standing';if(d.pos==='top')d.pos='standing'}
+function landedBy(k){const s=S.streak;if(s.who===k)s.n++;else{s.who=k;s.n=1}
+ S.stats.maxStreak[k]=Math.max(S.stats.maxStreak[k],s.n);
+ if(s.n>=4&&!S.stats.heatSeg)S.stats.heatSeg=k;
+ if(S.stats.heatSeg&&S.stats.heatSeg!==k&&s.n>=3&&!S.stats.comeback){S.stats.comeback=k;log(`${N(k)} is mounting a comeback!`,'hl');heat(8)}}
+function tick(){S.t+=20;S.beat++;const mins=S.t/60;heat(mins>15?-3:-2);
+ for(const k of['you','them']){const w=S[k];w.stamina=clamp(w.stamina+1,0,100);if(w.cheapCd>0)w.cheapCd--;if(w.tauntCd>0)w.tauntCd--}
+ S.stats.heatSum+=S.heat;S.stats.heatN++;
+ if(S.you.pos==='outside'&&S.them.pos==='outside'){S.outsideBeats++;
+  if(S.outsideBeats>=4){S.you.pos='standing';S.them.pos='standing';S.outsideBeats=0;log('Both wrestlers dive back in at nine. The referee is not impressed.','dim')}
+  else if(S.outsideBeats>=2)log(`The referee's count is up to ${S.outsideBeats*3}.`,'dim')}
+ else S.outsideBeats=0}
+
+function revChance(a,d,m,kind){
+ let c=kind==='setup'?(m.contest||25):m.fin?14:m.risk===2?28:m.risk===1?19:22;
+ if(d.stamina>70)c+=6;if(d.stamina<30)c-=10;
+ if(d.momentum>70)c+=8;if(a.momentum>70)c-=6;
+ if(a.stamina<25)c+=10;
+ if(kind!=='setup'){const u=a.used[m.name]||0;if(a.lastMove===m.name)c+=12;else if(u>=2)c+=6;
+  if(m.part&&d.hp[m.part]<40)c-=6;
+  if(m.part){const r=a.recentParts.slice(-5).filter(p=>p===m.part).length;if(r>=4)c+=6}}
+ if(d.st.tec>85)c+=4;
+ return clamp(c,5,60)}
+const meterDur=m=>m.fin?1550:m.risk===2?1700:m.risk===1?1780:1900;
+
+function pinPressure(a,d,ctx){const mins=S.t/60;let p=(ctx.imp||2)*2.5;
+ if(ctx.finisher)p+=32;else if(ctx.signature)p+=16;
+ p+=(100-avgHP(d))*0.55+(100-d.stamina)*0.2+Math.min(20,mins)+d.fkAbsorbed*12;
+ if(mins<5)p-=ctx.finisher?20:ctx.flash?35:55;else if(mins<10)p-=ctx.finisher?5:ctx.flash?10:20;
+ if(d.hp.head<35)p+=8;if(d.hp.body<35)p+=8;
+ if(ctx.flash)p+=35;
+ p-=(d.momentum-50)*0.1;
+ return clamp(p,0,135)}
+function ctxFor(k,beat){const L=S.lastLanded;if(L&&L.key===k&&L.beat===beat)return{imp:L.m.imp,signature:!!L.m.sig,finisher:!!L.m.fin,move:L.m};return{imp:2,move:null}}
+
+/* ---------- damage & moves ---------- */
+function applyDamage(a,d,m){const stat={strike:a.st.strk,grapple:a.st.str,air:a.st.spd,hold:a.st.tec,brawl:a.st.str}[m.cat];
+ let dmg=(m.imp*(1+(stat-65)/180)+(100-d.hp[m.part])*0.06)*(0.9+rnd()*0.2);
+ hit(d,m.part,dmg);
+ if(m.cat!=='strike'&&m.cat!=='hold'&&m.part!=='body')hit(d,'body',dmg*0.3);
+ d.stamina=clamp(d.stamina-m.imp*0.5,0,100);
+ d.partHits[m.part]++;a.recentParts.push(m.part)}
+function targetNote(d,m){const n=d.partHits[m.part];if(m.part!=='body'&&(n===3||n===5||n===7))return` ${pick(['Right back on the','Another shot to the','Still going after the'])} ${PL[m.part]}. That's ${n} now.`;return''}
+
+function resolveMove(k,m,landed){
+ const a=S[k],d=S[other(k)],st=S.stats;
+ a.stamina=clamp(a.stamina-(2+m.imp*0.7+(m.risk===2?4:0))*costMult(a),0,100);
+ const uses=a.used[m.name]=(a.used[m.name]||0)+1;
+ if(uses>=3&&!m.sig&&!m.fin){st.repeats++;heat(-3*(uses-2));if(uses===4)log(`The crowd groans. That's the fourth ${m.name.toLowerCase()}.`,'dim')}
+ a.lastMove=m.name;a.setupRun=0;
+ if(!landed){
+  if(m.risk===2){hit(a,'body',m.imp*0.55);a.pos=m.tgt==='outside'?'outside':'grounded';log(fill(pick(T.crash),k,m));st.crashes++;heat(6)}
+  else{log(fill(pick(T.rev),k,m));heat(5)}
+  st.reversals++;d.momentum=clamp(d.momentum+8,0,100);a.momentum=clamp(a.momentum-5,0,100);checkSig(d);
+  if(m.fin){d.finStock=Math.min(3,d.finStock+1);st.finRev++;heat(12);flash('Reversed');log(`${N(other(k))} counters the finisher and steals the moment.`,'hl')}
+  flushMiles();landedBy(other(k));setCtrl(other(k));return after(next,550)}
+ applyDamage(a,d,m);a.landed++;
+ d.pos=m.res;if(m.selfRes)a.pos=m.selfRes;else if(m.self==='top')a.pos='standing';
+ if(!m.sig){a.momentum=clamp(a.momentum+8+m.imp*0.5,0,100);checkSig(a)}
+ landedBy(k);S.lastLanded={key:k,m,beat:S.beat};
+ let h=m.imp*0.6;if(m.risk===2){h+=6;st.high++}if(m.spot){h+=4;st.spots++}if(m.rest){h=-5;st.rest++}
+ heat(h);
+ if(m.fin){log(`<span class="gold big">${m.name.toUpperCase()}!!</span> ${N(k)} hits it!`,'hl');flash(m.name);heat(18)}
+ else if(m.sig){a.sigReady=false;a.momentum=0;a.finStock=Math.min(3,a.finStock+1);log(`<span class="gold">${m.name.toUpperCase()}!</span> ${N(k)} lands the signature. Finisher banked.`,'hl');heat(12)}
+ else log(fill(pick(T[m.cat]),k,m)+targetNote(d,m));
+ flushMiles();
+ if(m.rest)a.stamina=clamp(a.stamina+8,0,100);
+ if(m.risk===2&&S.heat>68&&rnd()<0.45)chant('HOLY SHIT!');
+ if(m.sub)return after(()=>startSub(k,m),550);
+ if(m.flash)return after(()=>startPin(k,{imp:m.imp,flash:true,move:m}),350);
+ if(m.fin&&d.pos==='grounded'&&a.pos==='standing')return after(()=>startPin(k,{imp:m.imp,finisher:true,move:m}),700);
+ const n=S.streak.who===k?S.streak.n:0;
+ let p=0.9-0.07*n-(a.stamina<30?0.2:0)-(m.risk===2?0.12:0);if(m.sig)p=1;
+ if(rnd()<p)return after(next,450);
+ after(()=>neutral(k),550)}
+
+function neutral(lastK){
+ for(const k of['you','them']){const w=S[k];if(w.pos==='grounded'||w.pos==='corner'||w.pos==='top')w.pos='standing'}
+ const sc=k=>{const w=S[k];return w.stamina*0.5+w.momentum*0.4+avgHP(w)*0.3+(k===lastK?12:0)+rnd()*28};
+ const win=sc('you')>=sc('them')?'you':'them';
+ log(pick(['Both wrestlers need a second.','They trade shots in the middle of the ring.','A breather for both. The crowd claps them on.','They scramble back to their feet.'])+` ${N(win)} gets the upper hand.`,'dim');
+ setCtrl(win);next()}
+
+/* ---------- setups ---------- */
+const SETUPS=[
+ {id:'pickup',name:'Pick them up',hint:'Drag them to their feet',ok:(a,d)=>a.pos==='standing'&&d.pos==='grounded',contest:28,apply:(a,d)=>{d.pos='standing'},rev:a=>{a.pos='grounded'},line:'{a} drags {d} back to their feet.',revLine:"{d} fights out of {a}'s grip and pulls them down."},
+ {id:'whip',name:'Irish whip to the corner',hint:'Trap them in the corner',ok:(a,d)=>a.pos==='standing'&&d.pos==='standing',contest:27,apply:(a,d)=>{d.pos='corner'},rev:a=>{a.pos='corner'},line:'{a} whips {d} hard into the corner.',revLine:'{d} reverses the whip. {a} eats the turnbuckles instead.'},
+ {id:'climb',name:'Climb the turnbuckles',hint:'Go up top',ok:(a,d)=>a.pos==='standing'&&(d.pos==='grounded'||d.pos==='standing'),contest:(a,d)=>d.pos==='standing'?32:0,apply:a=>{a.pos='top'},rev:a=>{a.pos='grounded'},line:'{a} heads up top.',revLine:'{d} cuts {a} off on the way up and sends them crashing down.'},
+ {id:'down',name:'Climb down',hint:'Abandon the top rope',ok:a=>a.pos==='top',contest:0,apply:a=>{a.pos='standing'},line:'{a} thinks better of it and climbs down.'},
+ {id:'floor',name:'Send them to the floor',hint:'Toss them over the top rope',ok:(a,d)=>a.pos==='standing'&&(d.pos==='standing'||d.pos==='grounded'),contest:25,apply:(a,d)=>{d.pos='outside'},line:'{a} dumps {d} over the top rope to the floor.',revLine:'{d} hangs on to the top rope and fights back.'},
+ {id:'follow',name:'Follow them out',hint:'Take it to the floor',ok:(a,d)=>a.pos==='standing'&&d.pos==='outside',contest:0,apply:a=>{a.pos='outside'},line:'{a} goes out after {d}.'},
+ {id:'wait',name:'Let them back in',hint:'Make them come to you',ok:(a,d)=>a.pos==='standing'&&d.pos==='outside',contest:0,apply:(a,d)=>{d.pos='standing'},line:'{a} waits as {d} rolls back under the bottom rope.'},
+ {id:'rollin',name:'Roll them back in',hint:'Back in the ring with them down',ok:(a,d)=>a.pos==='outside'&&d.pos==='outside',contest:0,apply:(a,d)=>{a.pos='standing';d.pos='grounded'},line:'{a} rolls {d} back into the ring and slides in after.'},
+ {id:'getin',name:'Get back in the ring',hint:'Beat the count',ok:(a,d)=>a.pos==='outside'&&d.pos!=='outside',contest:0,apply:a=>{a.pos='standing'},line:'{a} slides back into the ring.'},
+ {id:'taunt',name:'Play to the crowd',hint:"Noise and momentum, but you're open",ok:(a,d)=>(a.pos==='standing'||a.pos==='top')&&d.pos!=='outside'&&a.tauntCd===0,run:runTaunt},
+ {id:'breath',name:'Catch your breath',hint:'Stamina back, control up for grabs',ok:a=>a.stamina<65&&a.pos!=='top',run:runBreath},
+ {id:'cheap',name:'Cheap shot',hint:"Behind the referee's back",ok:(a,d)=>a.align==='heel'&&a.pos==='standing'&&d.pos!=='outside'&&a.cheapCd===0,run:runCheap},
+ {id:'fire',name:'Fire up',hint:'Your comeback. Once per match',ok:a=>a.align==='face'&&!a.firedUp&&avgHP(a)<62&&a.momentum<60,run:runFire},
+ {id:'reset',name:'Back off and reset',hint:'Both back to neutral',ok:()=>true,run:k=>{log(`${N(k)} backs off to reset.`,'dim');neutral(null)}},
+];
+function runSetup(k,s){
+ if(k==='you')tab='moves';
+ tick();const a=S[k],d=S[other(k)];
+ if(s.run)return s.run(k);
+ const con=typeof s.contest==='function'?s.contest(a,d):s.contest;
+ if(!con)return resolveSetup(k,s,true);
+ const rc=revChance(a,d,{name:s.name,contest:con},'setup');
+ if(k==='you')runMeter({mode:'off',title:s.name,sub:'Stop it in the gold',width:clamp(46-rc*0.6,14,44),dur:2000},ok=>resolveSetup(k,s,ok));
+ else runMeter({mode:'def',title:s.name,sub:`Stop it in the gold to block ${S.them.name}`,width:clamp(rc*0.6,6,32),dur:1950},ok=>resolveSetup(k,s,!ok))}
+function resolveSetup(k,s,ok){const a=S[k],d=S[other(k)];a.stamina=clamp(a.stamina-3*costMult(a),0,100);
+ if(ok){s.apply(a,d);log(fill(s.line,k));return after(next,420)}
+ if(s.rev)s.rev(a,d);log(fill(s.revLine,k));d.momentum=clamp(d.momentum+5,0,100);checkSig(d);heat(3);S.stats.reversals++;landedBy(other(k));setCtrl(other(k));after(next,480)}
+function runTaunt(k){const a=S[k],d=S[other(k)];a.tauntCd=5;
+ const ic=clamp((d.pos==='standing'?28:14)+(a.pos==='top'?10:0)-(a.st.cha-60)*0.3,5,45);
+ if(rnd()*100<ic){log(`${N(k)} takes too long showing off and ${N(other(k))} makes them pay.`);heat(4);if(a.pos==='top')a.pos='grounded';landedBy(other(k));setCtrl(other(k));return after(next,500)}
+ heat(6+(a.st.cha-50)*0.25);a.momentum=clamp(a.momentum+12,0,100);a.stamina=clamp(a.stamina+3,0,100);checkSig(a);
+ log(a.align==='heel'?pick([`${N(k)} soaks up the boos.`,`${N(k)} tells the crowd exactly what they think of them.`,`${N(k)} shushes the whole building.`]):pick([`${N(k)} plays to the crowd, and they're right there with it.`,`${N(k)} soaks in the cheers.`,`${N(k)} gets the whole place clapping.`]));
+ after(next,450)}
+function runBreath(k){const a=S[k];a.stamina=clamp(a.stamina+18*(1.2-(100-avgHP(a))/250),0,100);S.stats.rest++;heat(-3);log(`${N(k)} backs off to catch a breath.`,'dim');after(()=>neutral(null),400)}
+function runCheap(k){const a=S[k],d=S[other(k)];hit(d,'head',3+rnd()*2);a.momentum=clamp(a.momentum+15,0,100);checkSig(a);heat(6);a.cheapCd=4;
+ log(pick([`${N(k)} rakes the eyes behind the referee's back.`,`${N(k)} goes low while the referee is looking elsewhere.`,`${N(k)} yanks a handful of hair. The referee somehow misses it.`]));
+ if(rnd()<0.35)chant(`${a.name.split(' ')[0].toUpperCase()} SUCKS!`);
+ flushMiles();landedBy(k);after(next,450)}
+function runFire(k){const a=S[k];a.firedUp=true;a.comeback=3;a.momentum=clamp(a.momentum+35,0,100);a.stamina=clamp(a.stamina+20,0,100);checkSig(a);heat(15);S.stats.fireUp=k;
+ flash('Fired up');log(`${N(k)} is FIRED UP! The crowd comes unglued.`,'hl');landedBy(k);after(next,600)}
+
+/* ---------- pins & submissions ---------- */
+function startPin(k,ctx){S.busy=true;renderHand();
+ const a=S[k],d=S[other(k)],mins=S.t/60,p=pinPressure(a,d,ctx);S.stats.pins++;
+ log(ctx.flash?`${N(k)} rolls ${N(other(k))} up out of nowhere!`:pick([`${N(k)} hooks the leg…`,`Cover by ${N(k)}…`,`${N(k)} goes for the cover…`]));
+ if(mins<5&&!ctx.finisher&&!ctx.flash){heat(-4);S.stats.earlyPins++;if(k==='you')log("The crowd knows that isn't ending it.",'dim')}
+ const done=cnt=>pinResult(k,ctx,cnt);
+ if(d.key==='you')runKickout(p,done);else runRefCount(p,done)}
+function pinResult(k,ctx,cnt){const d=S[other(k)],st=S.stats;
+ if(!cnt)return endMatch(k,'pin',ctx.move);
+ if(cnt===1){log(`${N(d.key)} kicks out at one.`,'dim');heat(1)}
+ else if(cnt===2){log(`Kickout at two by ${N(d.key)}!`);heat(8);st.nf++}
+ else{log(`<span class="gold">KICKOUT AT 2.9!</span> ${N(d.key)} survives!`,'hl');heat(14);st.nf++;flash('Kickout')}
+ if(cnt>=2){if(ctx.finisher){st.fk++;d.fkAbsorbed++;heat(20);chant('FIGHT FOREVER!','The whole building is on its feet.')}
+  else if(ctx.signature)heat(4);
+  if(!ctx.finisher&&cnt>2&&S.heat>70&&rnd()<0.6)chant('THIS IS AWESOME!','clap clap, clap-clap-clap')}
+ d.momentum=clamp(d.momentum+5,0,100);
+ after(()=>neutral(k),600)}
+function startSub(k,m){const a=S[k],d=S[other(k)],part=m.part,mins=S.t/60;
+ if(d.partHits[part]>=4)S.stats.limbPayoff=true;S.stats.subs++;
+ const A=20+a.st.tec*0.3+(100-d.hp[part])*0.55+a.momentum*0.15+(m.fin?25:0)+Math.min(20,mins)*0.8+(d.partHits[part]>=4?10:0);
+ const D=20+d.st.tec*0.25+d.stamina*0.3+d.hp[part]*0.25+(mins<5?30:mins<10?15:0)-d.fkAbsorbed*5;
+ const ratio=A/(A+D);
+ log(`${N(d.key)} is trapped in ${art(m.name)}!`);
+ runSub({role:k==='you'?'attack':'defend',rate:32*(k==='you'?1-ratio:ratio),name:m.name,part,def:d},r=>{
+  if(r.res==='tap')return endMatch(k,'sub',m);
+  if(r.peak>=80){S.stats.nf++;heat(8);log(`${N(d.key)} was a breath away from tapping.`,'dim')}
+  if(r.res==='escape'){log(pick([`${N(d.key)} fights free!`,`${N(d.key)} breaks the hold!`,`${N(d.key)} powers out of it!`]));heat(8);landedBy(d.key);setCtrl(d.key);return after(next,450)}
+  log(`${N(d.key)} gets a hand on the bottom rope. The hold is broken.`);heat(6);after(()=>neutral(k),450)})}
+
+/* ---------- player & AI turns ---------- */
+function playerMove(m){if(S.busy||S.ctrl!=='you')return;S.busy=true;renderHand();tick();
+ const a=S.you,d=S.them;if(m.fin){a.finStock--;S.stats.finAttemptsSeen=true}
+ const rc=revChance(a,d,m,'move');let w=clamp(46-rc*0.6,14,44);if(d.comeback>0){w*=0.75;d.comeback--}
+ runMeter({mode:'off',title:m.name,sub:'Stop it in the gold to land it',width:w,dur:meterDur(m)},ok=>resolveMove('you',m,ok))}
+function aiMove(m){tick();const a=S.them,d=S.you;if(m.fin){a.finStock--;S.stats.finAttemptsSeen=true;log(`${N('them')} is setting up for the ${m.name}…`,'dim')}
+ const rc=revChance(a,d,m,'move');let w=clamp(rc*0.6,6,32);if(d.comeback>0){w*=1.6;d.comeback--}
+ runMeter({mode:'def',title:m.name,sub:`Stop it in the gold to reverse ${S.them.name}`,width:w,dur:meterDur(m)},ok=>resolveMove('them',m,!ok))}
+function updateFocus(a,d){const adj=p=>d.hp[p]-(a.cls.includes('tech')&&(p==='arm'||p==='leg')?8:0)-(a.cls.includes('power')&&(p==='head'||p==='body')?6:0)-(a.cls.includes('striker')&&p==='head'?6:0);
+ const best=['head','body','arm','leg'].sort((x,y)=>adj(x)-adj(y))[0];if(!a.focus||adj(a.focus)-adj(best)>15)a.focus=best}
+function scoreMove(a,d,m){const mins=S.t/60;let s=40+m.imp*4;
+ if(m.cls&&m.cls.some(c=>a.cls.includes(c)))s+=10;
+ s+=(100-d.hp[m.part])*0.18;if(a.focus===m.part)s+=8;
+ if(a.lastMove===m.name)s-=30;s-=(a.used[m.name]||0)*7;
+ if(m.risk===2){s+=a.cls.includes('flyer')?8:-6;if(a.stamina<35)s-=25}
+ if(m.sub){s+=d.hp[m.part]<50?18:-12;if(a.cls.includes('tech'))s+=10;if(mins<5)s-=12}
+ if(m.rest)s+=a.stamina<45?25:-25;
+ if(m.flash)s+=mins>12?12:-35;
+ return s+rnd()*6}
+function scoreSetup(a,d,s){const run=a.setupRun||0;let sc;
+ switch(s.id){
+  case'pickup':sc=26;break;
+  case'whip':sc=24+(a.cls.includes('power')?8:0);break;
+  case'climb':{if(!a.moves.some(m=>m.self==='top'&&m.tgt===d.pos))return-99;sc=16+(a.cls.includes('flyer')?16:0)-(a.stamina<35?25:0)-(d.pos==='standing'?6:0);break}
+  case'down':sc=a.moves.some(m=>m.self==='top'&&m.tgt===d.pos)?-40:70;break;
+  case'floor':sc=10+(a.cls.some(c=>c==='flyer'||c==='hardcore')?12:0);break;
+  case'follow':sc=24+(a.cls.includes('hardcore')?16:0);break;
+  case'wait':sc=20;break;
+  case'rollin':sc=20+S.outsideBeats*18;break;
+  case'getin':sc=90;break;
+  case'taunt':sc=4+(a.st.cha-60)*0.4-(d.pos==='standing'?22:0);break;
+  case'breath':sc=a.stamina<25?60:a.stamina<40?22:-99;break;
+  case'cheap':sc=24;break;
+  case'fire':sc=80;break;
+  default:sc=-60}
+ if(!['getin','breath','fire','rollin','down'].includes(s.id))sc-=run*30;
+ return sc+rnd()*8}
+function plan(a,d,m){for(const s of SETUPS){if(s.run||!s.ok(a,d))continue;const A={...a},D={...d};s.apply(A,D);if(posOk(A,D,m))return s}return null}
+function aiChoose(){const a=S.them,d=S.you,c=[];updateFocus(a,d);
+ for(const m of[a.fin,a.sig]){if(!ready(a,m))continue;if(posOk(a,d,m))c.push({type:'move',m,score:m.fin?130:115});else{const s=plan(a,d,m);if(s)c.push({type:'setup',s,score:100})}}
+ for(const m of a.moves)if(posOk(a,d,m))c.push({type:'move',m,score:scoreMove(a,d,m)});
+ for(const s of SETUPS)if(s.ok(a,d)){const sc=scoreSetup(a,d,s);if(sc>-90)c.push({type:'setup',s,score:sc})}
+ if(pinOk(a,d)){const ctx=ctxFor('them',S.beat),p=pinPressure(a,d,ctx);c.push({type:'pin',score:p*0.9-30+(ctx.finisher?40:0)-(S.t<300?40:0)})}
+ if(!c.length)return null;
+ c.sort((x,y)=>y.score-x.score);const top=c.slice(0,4),lo=top[top.length-1].score;
+ const ws=top.map(o=>Math.max(1,o.score-lo+8));let r=rnd()*ws.reduce((x,y)=>x+y,0);
+ for(let i=0;i<top.length;i++){r-=ws[i];if(r<=0)return top[i]}return top[0]}
+function aiTurn(){if(S.over)return;const ch=aiChoose();if(!ch)return neutral(null);
+ if(ch.type==='move'){S.them.setupRun=0;aiMove(ch.m)}
+ else if(ch.type==='setup'){S.them.setupRun++;runSetup('them',ch.s)}
+ else{tick();startPin('them',ctxFor('them',S.beat-1))}}
+function next(){if(S.over)return;S.busy=false;render();
+ if(S.ctrl==='them'){S.busy=true;renderHand();after(aiTurn,700+rnd()*350)}}
+
+/* ---------- meters ---------- */
+function runMeter(o,cb){const el=$('#meter');el.className='sheet '+o.mode;el.hidden=false;
+ el.querySelector('.mt-kicker').textContent=o.mode==='off'?'Land it':'Reverse it';
+ el.querySelector('.mt-title').textContent=o.title;el.querySelector('.mt-sub').textContent=o.sub;
+ const dir=S.meterDir;S.meterDir*=-1;const w=o.width;
+ const left=clamp(dir>0?28+rnd()*(100-28-w):rnd()*(72-w),0,100-w);
+ const gold=el.querySelector('.gold'),mk=el.querySelector('.marker');gold.style.left=left+'%';gold.style.width=w+'%';
+ let pos=dir>0?0:100;mk.style.left=pos+'%';
+ const t0=performance.now();let done=false;const id=S.id;
+ const finish=ok=>{if(done)return;done=true;meterCtl=null;el.classList.add(ok?'hit':'miss');
+  setTimeout(()=>{el.hidden=true;el.classList.remove('hit','miss');if(S&&S.id===id)cb(ok)},360)};
+ const frame=now=>{if(done)return;const f=(now-t0)/o.dur;pos=dir>0?f*100:100-f*100;mk.style.left=clamp(pos,0,100)+'%';if(f>=1)return finish(false);requestAnimationFrame(frame)};
+ requestAnimationFrame(frame);
+ meterCtl={tap:()=>{if(performance.now()-t0<150)return;finish(pos>=left&&pos<=left+w)}}}
+function runKickout(p,cb){const el=$('#pinOv');el.dataset.mode='kick';el.hidden=false;el.classList.remove('hit','shake');
+ const cnt=el.querySelector('.pin-count'),sub=el.querySelector('.pin-sub'),gold=el.querySelector('.gold'),fl=el.querySelector('.fill');
+ const w=clamp(36-p*0.26,5,36),lo=clamp(46+rnd()*(92-46-w),40,95-w);
+ gold.style.left=lo+'%';gold.style.width=w+'%';fl.style.width='0%';cnt.textContent='ONE';
+ sub.textContent='Hold the button, then let go inside the gold. Miss and you can go again.';
+ let holding=false,locked=false,fv=0,last=performance.now(),done=false;const t0=last,id=S.id;
+ const end=c=>{if(done)return;done=true;pinCtl=null;setTimeout(()=>{el.hidden=true;el.classList.remove('hit','shake');if(S&&S.id===id)cb(c)},c?650:550)};
+ pinCtl={down:()=>{if(!locked&&!done)holding=true},up:()=>{if(locked){locked=false;return}if(!holding||done)return;holding=false;const e=(performance.now()-t0)/1000;
+  if(fv>=lo&&fv<=lo+w){cnt.textContent='KICKOUT';el.classList.add('hit');end(e<1?1:e<2?2:2.9)}
+  else{fv=0;fl.style.width='0%';el.classList.add('shake');setTimeout(()=>el.classList.remove('shake'),260)}}};
+ const frame=now=>{if(done)return;const dt=(now-last)/1000;last=now;const e=(now-t0)/1000;
+  cnt.textContent=e<1?'ONE':e<2?'TWO':'THR—';
+  if(holding){fv+=dt*100/0.95;if(fv>=100){fv=0;holding=false;locked=true}}fl.style.width=fv+'%';
+  if(e>=3){cnt.textContent='THREE';return end(0)}requestAnimationFrame(frame)};
+ requestAnimationFrame(frame)}
+function runRefCount(p,cb){const el=$('#pinOv');el.dataset.mode='ref';el.hidden=false;el.classList.remove('hit','shake');
+ const cnt=el.querySelector('.pin-count');el.querySelector('.pin-sub').textContent=`${S.them.name} is covered…`;
+ const surv=rnd()<clamp(1-(p/125)**2,0.03,0.98);const c=surv?(p<25?1:p<70?(rnd()<0.75?2:2.9):2.9):0;
+ const seq=['ONE','TWO'];let i=0;const id=S.id;
+ const out=v=>setTimeout(()=>{el.hidden=true;el.classList.remove('hit');if(S&&S.id===id)cb(v)},700);
+ const stepf=()=>{if(!S||S.id!==id)return;
+  if(surv&&((c===1&&i===1)||(c===2&&i===2))){cnt.textContent='KICKOUT';el.classList.add('hit');return out(c)}
+  if(i===2){if(surv){cnt.textContent='THR— NO!';el.classList.add('hit');return out(2.9)}cnt.textContent='THREE!';el.classList.add('hit');return out(0)}
+  cnt.textContent=seq[i];i++;setTimeout(stepf,640)};
+ stepf()}
+function runSub(o,cb){const el=$('#subOv');el.hidden=false;
+ $('#subTitle').textContent=o.name;
+ $('#subKick').textContent=o.role==='attack'?`You've got ${o.def.name} locked in`:`${S.them.name} has you locked in`;
+ $('#subSub').textContent=o.role==='attack'?'Mash to push the bar to TAP.':'Mash to push the bar to ESCAPE.';
+ const mk=el.querySelector('.marker');let pos=50,peak=50,taps=[],last=performance.now(),acc=0,done=false;const t0=last,id=S.id;
+ mk.style.left='50%';
+ const def=o.def;
+ const end=res=>{if(done)return;done=true;subCtl=null;flushMiles();setTimeout(()=>{el.hidden=true;if(S&&S.id===id)cb({res,peak})},450)};
+ subCtl={tap:()=>{if(done)return;const now=performance.now();taps=taps.filter(t=>now-t<1000);if(taps.length>=9)return;taps.push(now);pos+=(o.role==='attack'?1:-1)*2.6}};
+ const frame=now=>{if(done)return;const dt=(now-last)/1000;last=now;const e=(now-t0)/1000;
+  pos+=(o.role==='attack'?-1:1)*o.rate*dt*(0.85+rnd()*0.3);peak=Math.max(peak,pos);
+  acc+=dt;if(acc>=1){acc=0;hit(def,o.part,1+Math.max(0,pos-50)/50*1.5)}
+  mk.style.left=clamp(pos,0,100)+'%';
+  if(pos>=100)return end('tap');if(pos<=0)return end('escape');if(e>=8.5)return end('rope');
+  requestAnimationFrame(frame)};
+ requestAnimationFrame(frame)}
+
+/* ---------- inputs ---------- */
+$('#meter').addEventListener('pointerdown',e=>{e.preventDefault();meterCtl&&meterCtl.tap()});
+const hb=$('#holdBtn');
+hb.addEventListener('pointerdown',e=>{e.preventDefault();try{hb.setPointerCapture(e.pointerId)}catch(_){ }pinCtl&&pinCtl.down()});
+hb.addEventListener('pointerup',e=>{e.preventDefault();pinCtl&&pinCtl.up()});
+hb.addEventListener('pointercancel',()=>{pinCtl&&pinCtl.up()});
+hb.addEventListener('contextmenu',e=>e.preventDefault());
+$('#mashBtn').addEventListener('pointerdown',e=>{e.preventDefault();subCtl&&subCtl.tap()});
+document.addEventListener('keydown',e=>{if(e.code!=='Space')return;
+ if(meterCtl){e.preventDefault();if(!e.repeat)meterCtl.tap()}
+ else if(pinCtl){e.preventDefault();if(!e.repeat)pinCtl.down()}
+ else if(subCtl){e.preventDefault();if(!e.repeat)subCtl.tap()}});
+document.addEventListener('keyup',e=>{if(e.code==='Space'&&pinCtl){e.preventDefault();pinCtl.up()}});
+
+/* ---------- rendering ---------- */
+const FIG=`<svg class="fig" viewBox="0 0 40 72" aria-hidden="true"><circle data-p="head" cx="20" cy="9" r="7"/><rect data-p="body" x="12" y="18" width="16" height="22" rx="4"/><rect data-p="arm" x="4" y="19" width="6.5" height="20" rx="3"/><rect data-p="arm" x="29.5" y="19" width="6.5" height="20" rx="3"/><rect data-p="leg" x="12.5" y="42" width="6.5" height="27" rx="3"/><rect data-p="leg" x="21" y="42" width="6.5" height="27" rx="3"/></svg>`;
+function buildCard(k){$('#card-'+k).innerHTML=`<div class="cname"></div><div class="cmeta"></div><div class="cbody">${FIG}<div class="cstats">
+ <div class="bar"><span class="bl">STA</span><span class="bt"><i class="sta"></i></span></div>
+ <div class="bar"><span class="bl">MOM</span><span class="bt"><i class="mom"></i></span></div>
+ <div class="fin"><span class="bl">FIN</span><span class="pips"><b></b><b></b><b></b></span><span class="sig" hidden>SIG READY</span></div>
+ <div class="hpnums"></div></div></div><div class="cpos"></div>`}
+function renderCard(k){const w=S[k],el=$('#card-'+k);
+ el.querySelector('.cname').textContent=w.name;
+ el.querySelector('.cmeta').innerHTML=`<span>${w.cls.map(c=>CLS[c]).join(' · ')}</span><span class="al ${w.align}">${w.align}</span>`;
+ el.querySelectorAll('[data-p]').forEach(n=>n.style.fill=hpColor(w.hp[n.dataset.p]));
+ el.querySelector('.sta').style.width=w.stamina+'%';
+ const mo=el.querySelector('.mom');mo.style.width=w.momentum+'%';mo.classList.toggle('ready',w.sigReady);
+ el.querySelectorAll('.pips b').forEach((b,i)=>b.classList.toggle('on',i<w.finStock));
+ el.querySelector('.sig').hidden=!w.sigReady;
+ const r=Math.round;el.querySelector('.hpnums').textContent=`H ${r(w.hp.head)} · B ${r(w.hp.body)} · A ${r(w.hp.arm)} · L ${r(w.hp.leg)}`;
+ el.querySelector('.cpos').textContent=POS[w.pos];
+ el.classList.toggle('active',S.ctrl===k)}
+function phase(){const st=S.stats,mins=S.t/60;if(S.over)return'Full time';
+ if(mins>=16||st.finAttemptsSeen)return'Finishing stretch';
+ if(st.comeback)return'Comeback';
+ if(st.heatSeg)return`${S[st.heatSeg].name.split(' ')[0]} in control`;
+ if(mins<4)return'Feeling out';return'Back and forth'}
+function heatWord(h){return h<25?'Dead':h<45?'Polite':h<65?'Into it':h<80?'Rocking':h<92?'Unglued':'Off the charts'}
+function renderHud(){$('#evt').textContent=`${S.event} · ${S.venue}${S.title?' · '+S.titleName:''}`;$('#clock').textContent=fmt(S.t);$('#phase').textContent=phase();$('#heatLbl').textContent=`Crowd ${Math.round(S.heat)} · ${heatWord(S.heat)}`}
+function pts(imp){const n=clamp(Math.ceil(imp/2.6),1,5);return'●'.repeat(n)+'○'.repeat(5-n)}
+function needHint(a,d,m){if(m.self==='top'&&a.pos!=='top')return'Needs you up top';if(m.tgt==='grounded'&&d.pos!=='grounded')return'Needs them on the mat';if(m.tgt==='standing'&&d.pos!=='standing')return'Needs them on their feet';return'Wrong position'}
+function renderHand(){const hand=$('#hand'),pb=$('#pinBtn'),chip=$('#ctrlChip');
+ $('#tabMoves').classList.toggle('on',tab==='moves');$('#tabSetup').classList.toggle('on',tab==='setup');
+ if(S.over){chip.textContent='Match over';chip.className='chip';hand.innerHTML='';pb.disabled=true;return}
+ const mine=S.ctrl==='you'&&!S.busy;
+ chip.textContent=S.ctrl==='you'?'Your control':S.ctrl==='them'?`${S.them.name} in control`:'Lock up';
+ chip.className='chip '+(S.ctrl||'');
+ pb.disabled=!(mine&&pinOk(S.you,S.them));
+ if(!mine){hand.innerHTML=`<p class="wait">${S.ctrl==='them'?`${S.them.name} is on the attack. When the bar comes up, stop it in the gold to reverse.`:'Collar and elbow tie-up…'}</p>`;return}
+ const a=S.you,d=S.them;
+ if(tab==='moves'){
+  const sp=[a.sig,a.fin].map((m,i)=>{const key=i?'fin':'sig';const rd=ready(a,m),po=posOk(a,d,m);
+   const why=!rd?(m.sig?'Fill your momentum':'Land your signature to bank one'):!po?needHint(a,d,m):(m.sub?'Submission finisher':m.fin?'Finisher':'Signature');
+   return`<button class="mv special" data-sp="${key}" ${rd&&po?'':'disabled'}><span class="mn">${m.name}</span><span class="mi">${why}</span></button>`}).join('');
+  const list=a.moves.filter(m=>posOk(a,d,m));
+  const grid=list.length?list.map(m=>{const u=a.used[m.name]||0;return`<button class="mv" data-m="${a.moves.indexOf(m)}"><span class="mn">${m.name}</span><span class="mi"><span>${m.part} ${Math.round(d.hp[m.part])}</span><span class="pts">${pts(m.imp)}</span>${m.risk===2?'<span class="risk">high risk</span>':''}${m.sub?'<span class="sub">submission</span>':''}${m.flash?'<span class="flash">roll-up</span>':''}${m.rest?'<span>rest hold</span>':''}${u>=2?`<span class="warn">used ×${u}</span>`:''}</span></button>`}).join(''):'<p class="wait">Nothing lands from here. Check Setup.</p>';
+  hand.innerHTML=`<div class="specials">${sp}</div><div class="grid">${grid}</div>`}
+ else{const ss=SETUPS.filter(s=>s.ok(a,d));hand.innerHTML=`<div class="grid">${ss.map(s=>`<button class="mv setup" data-s="${s.id}"><span class="mn">${s.name}</span><span class="mi">${s.hint}</span></button>`).join('')}</div>`}}
+function render(){renderHud();renderCard('you');renderCard('them');renderHand()}
+
+$('#hand').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||b.disabled||!S||S.busy||S.ctrl!=='you')return;
+ if(b.dataset.m!==undefined)playerMove(S.you.moves[+b.dataset.m]);
+ else if(b.dataset.sp)playerMove(S.you[b.dataset.sp]);
+ else if(b.dataset.s){const s=SETUPS.find(x=>x.id===b.dataset.s);S.busy=true;renderHand();runSetup('you',s)}});
+document.querySelectorAll('.tabs button').forEach(b=>b.addEventListener('click',()=>{tab=b.dataset.tab;if(S)renderHand()}));
+$('#pinBtn').addEventListener('click',()=>{if(!S||S.busy||S.ctrl!=='you'||!pinOk(S.you,S.them))return;S.busy=true;tick();startPin('you',ctxFor('you',S.beat-1))});
+
+/* ---------- crowd waveform ---------- */
+const cv=$('#crowd'),cx=cv.getContext('2d');let CC=null;
+function crowdLoop(ts){if(S&&!$('#match').hidden){
+ if(!CC){const cs=getComputedStyle(document.documentElement);CC={crowd:cs.getPropertyValue('--crowd').trim(),gold:cs.getPropertyValue('--gold').trim(),line:cs.getPropertyValue('--line').trim()}}
+ const dpr=window.devicePixelRatio||1,W=cv.clientWidth,H=cv.clientHeight;
+ if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H*dpr)){cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr)}
+ cx.setTransform(dpr,0,0,dpr,0,0);cx.clearRect(0,0,W,H);
+ S.pulse=Math.max(0,S.pulse-0.012);
+ const amp=S.heat/100,t=reduce?0:ts*0.001,n=Math.max(24,Math.floor(W/6)),bw=W/n,boost=1+S.pulse*0.5;
+ for(let i=0;i<n;i++){const a=Math.sin(i*0.55+t*(2+amp*5))*0.5+0.5,b=Math.sin(i*1.7-t*(3+amp*4))*0.5+0.5;
+  const v=clamp((0.1+amp*0.9*(0.4+0.6*a*b+0.12*Math.sin(i*0.13+t)))*boost,0.06,1),h=v*H;
+  cx.fillStyle=i/n<amp?(amp>0.82?CC.gold:CC.crowd):CC.line;cx.fillRect(i*bw+1,(H-h)/2,Math.max(1,bw-2),h)}}
+ requestAnimationFrame(crowdLoop)}
+requestAnimationFrame(crowdLoop);
+
+/* ---------- match lifecycle ---------- */
+function eventFor(a,b){if(a.promo===b.promo){const p=PROMOS[a.promo];return{event:p.event,venue:pick(p.cities),titleName:p.title}}
+ const p=PROMOS[pick([a.promo,b.promo])];return{event:'The Indie Scene: Dream Match',venue:pick(p.cities),titleName:'World Independent Championship'}}
+function startMatch(){const yw=ROSTER.find(w=>w.id===pickYou),tw=ROSTER.find(w=>w.id===pickThem),ev=eventFor(yw,tw);
+ S={id:Math.random(),you:mkSide(yw,'you'),them:mkSide(tw,'them'),t:0,beat:0,ctrl:null,over:false,busy:true,heat:stakes==='title'?45:35,pulse:0,
+  stats:{heatSum:0,heatN:0,heatPeak:0,reversals:0,finRev:0,nf:0,fk:0,crashes:0,high:0,spots:0,rest:0,repeats:0,maxStreak:{you:0,them:0},heatSeg:null,comeback:null,fireUp:null,pins:0,earlyPins:0,subs:0,limbPayoff:false,finAttemptsSeen:false},
+  streak:{who:null,n:0},event:ev.event,venue:ev.venue,title:stakes==='title',titleName:ev.titleName,meterDir:1,lastLanded:null,outsideBeats:0,miles:[]};
+ meterCtl=pinCtl=subCtl=null;['#meter','#pinOv','#subOv'].forEach(s=>$(s).hidden=true);
+ logList.innerHTML='';tab='moves';
+ $('#setup').hidden=true;$('#result').hidden=true;$('#match').hidden=false;
+ buildCard('you');buildCard('them');
+ log(`${S.event}, ${S.venue}.${S.title?` The ${S.titleName} is on the line.`:''}`,'dim');
+ log(`${N('you')} versus ${N('them')}. The referee checks both wrestlers.`);
+ render();
+ after(()=>{log('<span class="gold">DING DING.</span> Here we go.');const f=rnd()<0.5?'you':'them';log(`${N(f)} wins the first lock-up.`);setCtrl(f);next()},1100)}
+function endMatch(wk,how,m){S.over=true;S.busy=true;const lk=other(wk);
+ S.result={winner:wk,loser:lk,how,move:m||null,t:S.t,byFin:!!(m&&m.fin),byFlash:!!(m&&m.flash),afterFk:S[lk].fkAbsorbed>0};
+ if(how==='pin'){log(`<span class="gold big">ONE, TWO, THREE!</span> ${N(wk)} wins${m?' with '+art(m.name):''}.`,'hl');flash('Three!')}
+ else{log(`<span class="gold big">${S[lk].name.toUpperCase()} TAPS!</span> ${N(wk)} wins with ${art(m.name)}.`,'hl');flash('Tap out')}
+ heat(15);render();after(showResult,2000)}
+
+/* ---------- rating ---------- */
+function topPart(w){let best='leg',n=0;for(const p of['head','body','arm','leg'])if(w.partHits[p]>n){n=w.partHits[p];best=p}return{part:best,n}}
+function rate(){const st=S.stats,R=S.result,mins=R.t/60,W=S[R.winner],L=S[R.loser];
+ const avg=st.heatSum/Math.max(1,st.heatN);
+ const crowd=avg/100*1.3+(st.heatPeak>=88?0.25:st.heatPeak>=75?0.1:0);
+ const limb=[topPart(S.you),topPart(S.them)].sort((a,b)=>b.n-a.n)[0];
+ const payoff=st.limbPayoff||(R.move&&R.move.part===topPart(L).part&&topPart(L).n>=4);
+ const structure=(st.heatSeg?0.3:0)+(st.comeback?0.5:0)+(st.fireUp&&st.comeback===st.fireUp?0.1:0);
+ const psych=(limb.n>=5?0.25:0)+(payoff?0.35:0)-Math.min(0.6,st.repeats*0.1)-Math.max(0,st.rest-3)*0.08;
+ const drama=Math.min(0.7,st.nf*0.15)+Math.min(0.7,st.fk*0.35)+Math.min(0.5,st.finRev*0.25)+Math.min(0.35,st.reversals*0.03);
+ let finish=0;if(R.byFin&&mins>=10)finish+=0.4;if(R.byFin&&R.afterFk)finish+=0.25;if(R.byFlash&&mins>=12)finish+=0.2;if(mins<6&&!R.byFin)finish-=0.5;if(R.how==='sub'&&payoff)finish+=0.1;
+ const spots=Math.min(0.3,st.high*0.06)+(st.spots>0?0.1:0);
+ const length=mins<6?-0.6:mins<10?-0.25:mins<=28?0.2:mins<=35?0:-0.2;
+ const raw=0.5+crowd+structure+psych+drama+finish+spots+length+(S.title?0.1:0);
+ const stars=clamp(Math.round(raw*4)/4,0.25,5);
+ const story=structure+psych;
+ const parts=[
+  {l:'Crowd',v:crowd/1.55,n:`Averaged ${Math.round(avg)}, peaked at ${Math.round(st.heatPeak)}.`},
+  {l:'Story',v:clamp(story/1.5,0,1),n:[st.heatSeg?`${S[st.heatSeg].name} had a proper heat segment`:'No one ever really took over',st.comeback?`${S[st.comeback].name} came back`:'no comeback',limb.n>=4?`worked the ${PL[limb.part]} ×${limb.n}${payoff?', and it paid off':', but it never paid off'}`:'no limb work',st.repeats?`${st.repeats} repeated move${st.repeats>1?'s':''}`:''].filter(Boolean).join(' · ')+'.'},
+  {l:'Drama',v:clamp(drama/1.6,0,1),n:`${st.nf} near-fall${st.nf===1?'':'s'} · ${st.reversals} reversal${st.reversals===1?'':'s'} · ${st.finRev} finisher${st.finRev===1?'':'s'} countered.`},
+  {l:'Action',v:clamp((spots+length+0.6)/1.2,0,1),n:`${st.high} high-risk spot${st.high===1?'':'s'}, ${st.spots} on the floor, ${Math.floor(mins)} minutes.`},
+  {l:'Finish',v:clamp((finish+0.5)/1.45,0,1),n:R.byFin&&R.afterFk?'They kicked out of one finisher and not the next. Textbook.':R.byFin&&mins>=10?'Earned. That finish meant something.':R.byFin?'A finisher, but the crowd felt it came too soon.':R.byFlash&&mins>=12?'Stolen with a roll-up late on. Cheeky, and it works.':mins<6?'Over far too early. The crowd wanted more.':R.how==='sub'?'Tapped out. Fair enough.':'A big move and a pin. It did the job.'},
+ ];
+ const label=raw>=5.5?'Off the scale':stars>=4.25?'Match of the night':stars>=3.25?'Strong showing':stars>=2.25?'Solid outing':stars>=1.5?'Needs work':'Go home early';
+ const verdict=raw>=5.5?"A man with a newsletter has just broken his own scale. People will argue about this one for years.":stars>=4.5?'People will be talking about this one for years.':stars>=4?'Match of the night, no contest.':stars>=3?"Good stuff. Nobody's leaving disappointed.":stars>=2?'It happened. The crowd will mostly remember the hot dogs.':"Someone's getting a talking-to in the back.";
+ const rec=[`${S.event}, ${S.venue}.${S.title?` The ${S.titleName} was on the line.`:''}`];
+ if(st.heatSeg){const dom=S[st.heatSeg],vic=S[other(st.heatSeg)],lp=topPart(vic);rec.push(`${dom.name} took over the middle of the match${lp.n>=4?`, going after ${vic.name}'s ${PL[lp.part]}`:''}.`)}
+ if(st.comeback)rec.push(`${S[st.comeback].name} fought from underneath and turned it around${st.fireUp===st.comeback?' with the whole building behind them':''}.`);
+ if(st.nf)rec.push(`${st.nf} near-fall${st.nf===1?'':'s'}${st.fk?`, ${st.fk} of them out of a finisher`:''}.`);
+ if(st.finRev)rec.push(`${st.finRev} finisher${st.finRev>1?'s':''} countered.`);
+ rec.push(`${W.name} won it at ${fmt(R.t)}${R.move?` with the ${R.move.name}`:' with a pinfall'}${R.how==='sub'?' by submission':''}.`);
+ return{raw,stars,parts,label,verdict,recap:rec.join(' ')}}
+function starHTML(x){const full=Math.floor(x),fr=x-full,fc=fr>=0.74?'¾':fr>=0.49?'½':fr>=0.24?'¼':'';return'★'.repeat(full)+(fc?`<span>${fc}</span>`:'')+`<span class="off">${'★'.repeat(5-full-(fc?1:0))}</span>`}
+function hitsHTML(title){const h=store.get('motn-hits',[]);if(!h.length)return'';
+ return`<h3>${title}</h3><ol>${h.map(x=>`<li><span class="hs">${x.stars.toFixed(2).replace(/\.00$/,'').replace(/0$/,'')}★</span><span class="hm">${x.you} vs ${x.them}<br><span class="hd">${x.how} · ${x.venue}</span></span></li>`).join('')}</ol>`}
+function showResult(){const r=rate(),R=S.result,W=S[R.winner],L=S[R.loser];
+ const hits=store.get('motn-hits',[]);
+ hits.push({stars:r.stars,you:S.you.name,them:S.them.name,how:`${W.name} won, ${fmt(R.t)}`,venue:`${S.venue}`});
+ hits.sort((a,b)=>b.stars-a.stars);store.set('motn-hits',hits.slice(0,6));
+ $('#rLabel').textContent=r.label;
+ $('#rStars').innerHTML=starHTML(r.stars);
+ $('#rNum').textContent=`${r.stars} out of 5${r.raw>=5.5?' (and change)':''}`;
+ $('#rLine').innerHTML=`${W.name} def. ${L.name}`;
+ $('#rVerdict').textContent=`${R.how==='sub'?'Submission':'Pinfall'}${R.move?`, ${R.move.name}`:''}, ${fmt(R.t)}. ${r.verdict}`;
+ $('#rBreak').innerHTML=r.parts.map(p=>`<div class="br"><span class="br-l">${p.l}</span><span class="br-t"><i style="width:${Math.round(clamp(p.v,0.03,1)*100)}%"></i></span><span class="br-n">${p.n}</span></div>`).join('');
+ $('#rRecap').textContent=r.recap;
+ $('#rHits').innerHTML=hitsHTML('Your greatest hits');
+ $('#match').hidden=true;$('#result').hidden=false;$('#result').scrollTop=0}
+
+/* ---------- setup screen ---------- */
+function renderSetup(){
+ $('#roster').innerHTML=ROSTER.map(w=>{const role=w.id===pickYou?'you':w.id===pickThem?'them':'';
+  return`<button class="rc ${role}" data-id="${w.id}" aria-pressed="${!!role}">${role?`<span class="badge ${role}">${role==='you'?'YOU':'OPP'}</span>`:''}
+  <span class="rc-top"><span class="al ${w.align}">${w.align}</span><span class="rc-promo">${w.promo} · ${w.from}</span></span>
+  <span class="rc-name">${w.name}</span><span class="rc-nick">${w.nick}</span>
+  <span class="rc-cls">${w.cls.map(c=>CLS[c]).join(' · ')}</span>
+  <span class="rc-bio">${w.bio}</span>
+  <span class="rc-fin"><span>Finisher</span>${w.fin.name}</span></button>`}).join('');
+ const y=ROSTER.find(w=>w.id===pickYou),t=ROSTER.find(w=>w.id===pickThem);
+ $('#pickYouName').textContent=y?y.name:'—';$('#pickThemName').textContent=t?t.name:'—';
+ $('#stepYou').classList.toggle('on',step==='you');$('#stepThem').classList.toggle('on',step==='them');
+ const same=y&&t&&y.promo===t.promo,ev=same?PROMOS[y.promo]:null;
+ $('#matchcard').innerHTML=`<p class="eyebrow">${y&&t?(same?`${ev.event} · ${stakes==='title'?ev.title:'Exhibition'}`:`Interpromotional dream match · ${stakes==='title'?'World Independent Championship':'Exhibition'}`):'Pick two wrestlers'}</p>
+  <div class="mc-vs"><span class="you">${y?y.name:'You'}</span><span class="vs">vs</span><span class="them">${t?t.name:'Opponent'}</span></div>
+  <div class="ropes"><i></i><i></i><i></i></div>
+  <div class="mc-row"><div class="seg" role="group" aria-label="Stakes"><button data-stake="exh" class="${stakes==='exh'?'on':''}">Exhibition</button><button data-stake="title" class="${stakes==='title'?'on':''}">Title match</button></div>
+  <button class="ghost" id="randOpp">Random opponent</button><button class="primary" id="bell" ${y&&t?'':'disabled'}>Ring the bell</button></div>`;
+ $('#hits').innerHTML=hitsHTML('Your greatest hits')}
+$('#setup').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+ if(b.dataset.id){const id=b.dataset.id;
+  if(step==='you'){if(id===pickThem)pickThem=pickYou;pickYou=id;step='them'}
+  else{if(id===pickYou)pickYou=pickThem;pickThem=id}
+  renderSetup();return}
+ if(b.dataset.step){step=b.dataset.step;renderSetup();return}
+ if(b.dataset.stake){stakes=b.dataset.stake;renderSetup();return}
+ if(b.id==='randOpp'){const pool=ROSTER.filter(w=>w.id!==pickYou&&w.id!==pickThem);pickThem=pick(pool).id;renderSetup();return}
+ if(b.id==='bell')startMatch()});
+$('#rematch').addEventListener('click',startMatch);
+$('#newmatch').addEventListener('click',()=>{S=null;$('#result').hidden=true;$('#setup').hidden=false;step='you';renderSetup();$('#setup').scrollTop=0});
+renderSetup();
+})();
+</script>
+
+</body></html>
