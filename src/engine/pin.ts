@@ -59,10 +59,10 @@ export function startPin(ctx: Ctx, k: SideKey, pctx: PinCtx): void {
   }
   if (dk === 'you') {
     const z = kickoutZone(ctx.rnd, p);
-    S.pending = { kind: 'kickout', kickout: { pinner: k, pressure: p, lo: z.lo, width: z.width, ctx: pctx } };
+    S.pending = { kind: 'kickout', kickout: { id: ++S.seq, pinner: k, pressure: p, lo: z.lo, width: z.width, ctx: pctx } };
   } else {
     const count = refCountOutcome(ctx.rnd, p);
-    S.pending = { kind: 'refCount', pinner: k, count, cont: { to: 'pinResult', k, ctx: pctx, count } };
+    S.pending = { kind: 'refCount', id: ++S.seq, pinner: k, count, cont: { to: 'pinResult', k, ctx: pctx, count } };
   }
 }
 

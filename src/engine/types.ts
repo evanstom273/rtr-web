@@ -177,6 +177,8 @@ export type MeterTarget =
   | { kind: 'setup'; setup: SetupId };
 
 export interface MeterSpec {
+  /** Unique per interaction. */
+  id: number;
   /** 'off' = the player is attacking (hit = lands). 'def' = the player is defending (hit = reversed). */
   mode: 'off' | 'def';
   /** The side performing the move or setup. */
@@ -193,6 +195,7 @@ export interface MeterSpec {
 }
 
 export interface KickoutSpec {
+  id: number;
   pinner: SideKey;
   pressure: number;
   /** Gold zone on the hold-fill track, % */
@@ -202,6 +205,7 @@ export interface KickoutSpec {
 }
 
 export interface SubSpec {
+  id: number;
   attacker: SideKey;
   defender: SideKey;
   /** From the player's point of view. */
@@ -221,7 +225,7 @@ export type Pending =
   | { kind: 'aiThinking' }
   | { kind: 'meter'; meter: MeterSpec }
   | { kind: 'kickout'; kickout: KickoutSpec }
-  | { kind: 'refCount'; pinner: SideKey; count: KickoutCount; cont: Cont }
+  | { kind: 'refCount'; id: number; pinner: SideKey; count: KickoutCount; cont: Cont }
   | { kind: 'sub'; sub: SubSpec }
   | { kind: 'over' };
 

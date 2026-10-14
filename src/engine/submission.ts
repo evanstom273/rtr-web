@@ -24,6 +24,7 @@ export function startSub(ctx: Ctx, k: SideKey, m: Move): void {
   S.pending = {
     kind: 'sub',
     sub: {
+      id: ++S.seq,
       attacker: k,
       defender: dk,
       role: k === 'you' ? 'attack' : 'defend',

@@ -50,7 +50,7 @@ export function openMeter(
   S.meterDir = dir > 0 ? -1 : 1;
   const w = o.width;
   const left = clamp(dir > 0 ? 28 + ctx.rnd() * (100 - 28 - w) : ctx.rnd() * (72 - w), 0, 100 - w);
-  const meter: MeterSpec = { ...o, left, dir, width: w };
+  const meter: MeterSpec = { ...o, id: ++S.seq, left, dir, width: w };
   S.pending = { kind: 'meter', meter };
 }
 

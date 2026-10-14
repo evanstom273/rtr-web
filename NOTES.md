@@ -76,5 +76,12 @@ exactly those points. The crowd waveform reads live heat, as it did originally. 
 ### Housekeeping in the original file
 
 12. **The original file had leftover wrapper markup.** It came with a `<title>` and
-    `claude:viewport-fit-sides` meta inside `<body>`, plus a light-mode reset stylesheet that the
-    game's own CSS overrode straight away. All of that is dropped in the port; the visual design is unchanged.
+    `claude:viewport-fit-sides` meta inside `<body>`, plus a light-mode reset stylesheet. Most of that
+    reset was overridden by the game's CSS. The exception was the safe-area padding on `:root`, which
+    was still in effect, so the port keeps it (top of `src/ui/styles.css`). Everything else is dropped.
+
+### Small timing difference in the port
+
+13. **Submission end lines arrive about 450ms later.** When a submission ends, the original printed
+    any queued limb-milestone lines immediately and handed back the result 450ms later. The port prints
+    them when the result arrives (`resolveSub`), so they appear about 450ms later. The order is unchanged.
