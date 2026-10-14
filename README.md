@@ -40,7 +40,8 @@ The site is an installable Progressive Web App and works offline after the first
 - **Android / Chrome:** open the site, then menu → **Install app** (or accept the install prompt).
 - **iPhone / iPad (Safari):** Share → **Add to Home Screen**.
 
-Updates download quietly in the background and apply the next time you open the app. A match in
+It follows the device orientation, so it works on foldables (cover and inner screen) and in
+landscape. Updates download quietly in the background and apply the next time you open the app. A match in
 progress is never interrupted. Icons are generated from `public/favicon.svg` with
 `node scripts/make-icons.mjs`.
 
