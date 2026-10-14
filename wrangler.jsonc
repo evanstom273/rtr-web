@@ -1,0 +1,14 @@
+// Cloudflare Workers deploy config: a static-assets-only Worker serving the Vite build.
+// `npx wrangler deploy` runs the build first, then uploads dist/.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "rtr-web",
+  "compatibility_date": "2026-10-01",
+  "build": {
+    "command": "npm run build"
+  },
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
+}

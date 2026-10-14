@@ -4,7 +4,7 @@ A wrestling match game for people who rate matches. Win the bout and steal the s
 gets a star rating out of five. It's built mobile-first and plays best on a phone.
 
 Vite + React + TypeScript (strict), with Vitest for tests. No backend: the build is a folder of
-static files.
+static files, served from Cloudflare.
 
 ## Local development
 
@@ -20,19 +20,18 @@ npm run preview    # serve dist/ locally
 npm run sim -- 500 # print match-length / finish / star distributions from 500 AI-vs-AI matches
 ```
 
-## Deploying to Cloudflare Pages
+## Deploying to Cloudflare
 
-1. Push the repo to GitHub.
-2. In the Cloudflare dashboard, go to **Workers & Pages → Create → Pages → Connect to Git** and pick the repo.
-3. Use these build settings:
-   - **Framework preset:** None (or Vite)
-   - **Build command:** `npm run build`
-   - **Build output directory:** `dist`
-   - **Node version:** picked up from `.node-version` (22). If your build image ignores it, add the
-     environment variable `NODE_VERSION=22`.
-4. Save and deploy. Every push to the production branch redeploys, and other branches get preview URLs.
+The site deploys as a static-assets-only **Cloudflare Worker**, configured in `wrangler.jsonc`.
+`npx wrangler deploy` runs `npm run build` itself, then uploads `dist/`.
 
-It's a single page with no client-side routes, so no redirects or `_routes.json` are needed.
+In the dashboard (**Workers & Pages → your project → Settings → Build**):
+
+- **Build command:** leave empty, because Wrangler runs the build.
+- **Deploy command:** `npx wrangler deploy`
+- **Node version:** 22, picked up from `.node-version`
+
+Every push to `main` redeploys. To deploy by hand from your machine, run `npx wrangler deploy`.
 
 ## Layout
 
