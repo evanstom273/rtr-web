@@ -5,12 +5,12 @@ import { say } from './commentary';
 import type { Ctx, EngineHooks } from './ctx';
 import { finalise, render, runNeutralRecovery, schedule, setControl } from './flow';
 import { aiWantsPush, applyPending, rollPending } from './contest';
-import { executeMove, moveIsValid, resolvePinChoice, validMoves } from './moves';
+import { executeMove, moveIsValid, resolvePinChoice, submissionAreaOk, validMoves } from './moves';
 import { canPin, completeKickout, pinOdds, pinThree, startPin, useResiliency } from './pin';
 import { mathRng, seededRng, type Rng } from './rng';
 import { executeSetup, validSetups } from './setups';
 import { moveMatchesSnapshots } from './setupRules';
-import { canUseMove } from './side';
+import { canUseMove, FINISHER_MOMENTUM, SIGNATURE_MOMENTUM } from './side';
 import { specialsFor, type SpecialInfo } from './specials';
 import { createState } from './state';
 import { aiGoesForTap, beginSubmission, resolveSubmission, startSubmission, submissionTick, workTheHold } from './submission';
@@ -95,8 +95,11 @@ export class MatchEngine {
   /** Why a positionally valid move can't be used, or null if it can. */
   lockedReason(move: Move): string | null {
     const S = this.state;
-    if ((move.submission || move.type === 'SUBMISSION') && (S.you.state.area !== 'IN_RING' || S.them.state.area !== 'IN_RING')) return 'Submissions need both of you in the ring';
-    if (!canUseMove(S.you, move)) return move.finisher || S.you.finishers.includes(move) ? 'Land a signature to bank a finisher' : 'Fill your momentum first';
+    if (!submissionAreaOk(S, 'you', move)) return 'Submissions need both of you in the ring';
+    if (!canUseMove(S.you, move)) {
+      if (move.finisher || S.you.finishers.includes(move)) return `Bank a finisher first (${FINISHER_MOMENTUM} momentum)`;
+      return S.you.signatureArmed ? `Bank your signature first (${SIGNATURE_MOMENTUM} momentum)` : 'Signature used';
+    }
     return null;
   }
   /** Signatures and finishers for either side: readiness, positions and the route there. */

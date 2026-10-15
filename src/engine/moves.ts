@@ -28,10 +28,24 @@ export const REVERSAL_MOMENTUM = 5;
 
 const isInRing = (s: Side) => s.state.area === 'IN_RING';
 
-/** _move_is_valid (standard rules: submissions only with both wrestlers inside). */
+const isSubmission = (m: Move) => m.submission || m.type === 'SUBMISSION';
+
+/** The move's own requirements put someone somewhere other than the ring (ropes, corner, apron). */
+const namesItsSpot = (m: Move) => [m.req.a, m.req.t].some((r) => r.areaMode === 'SPECIFIC' && r.area !== 'IN_RING');
+
+/**
+ * Standard rules: submissions only with both wrestlers inside. Web-version exception: holds that
+ * are defined by where they happen (Tarantula, rope-hung armbars, corner foot chokes) were never
+ * usable under the blanket rule, because their own requirements put someone on the ropes or apron.
+ */
+export function submissionAreaOk(S: MatchState, k: SideKey, move: Move): boolean {
+  return !isSubmission(move) || namesItsSpot(move) || (isInRing(S[k]) && isInRing(S[other(k)]));
+}
+
+/** _move_is_valid */
 export function moveIsValid(S: MatchState, k: SideKey, move: Move): boolean {
   const a = S[k], d = S[other(k)];
-  if ((move.submission || move.type === 'SUBMISSION') && !(isInRing(a) && isInRing(d))) return false;
+  if (!submissionAreaOk(S, k, move)) return false;
   if (!canUseMove(a, move)) return false;
   return moveMatchesSnapshots(move, a.state, d.state);
 }
