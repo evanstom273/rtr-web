@@ -168,9 +168,37 @@ because limb work feeds the story score.
   submissions ring the pair. On phones it's a thumbnail in the HUD that pops open for two seconds
   whenever anyone changes position (tap to pin it open). At 700px and wider (the Fold's inner
   screen) it's a permanent panel.
+- **Android back** (edge swipe or button) works inside the installed app instead of closing it. Each
+  layer pushes a history entry (`ui/backStack.ts`), so back steps out of them in order:
+  - a move list goes back to the wheel
+  - an open sheet closes
+  - mid-match, back asks "Leave the match?" (back again to stay)
+  - the result screen goes to the roster
+  - only from the roster does back close the app
+
+  Pull-to-refresh is off (`overscroll-behavior: none`).
 - **Names** are `(c) Name (f)` / `(h)`, coloured by disposition, gold for champions. No one holds a
   title yet (see above).
-- **Roster:** search plus promotion, division, disposition and class filters, 36 at a time.
+- **Match builder** (replaces the old roster screen), modelled on Godot's Exhibition Match Builder:
+  - **Rules:** count-outs on/off with the count limit, and the clock step. DQs aren't in the web
+    engine, so there's no DQ toggle.
+  - **Event:** Auto (their promotion, or a dream match), Independent, or any promotion. The title
+    list is that promotion's titles, with their holders.
+  - **Roster:** Godot's search, filters (country, class, gender, promotion, face/heel, title status
+    / a specific title) and all 15 sorts (A–Z, Z–A, the six attributes, global and regional
+    popularity). The current sort's value shows on each row. Names sort ignoring nickname quotes.
+  - **Tap** a wrestler for the profile: identity, attributes, popularity by region, signatures,
+    finishers and the full moveset, plus Add to Team A / B.
+  - **Hold** (380ms) and drag into Team A (you) or Team B (AI), reorder within a team, or drag back
+    to the roster to remove. A finger that moves before the hold completes is treated as a scroll.
+    Mouse drags start after a 5px move. Lists auto-scroll near their edges.
+  - **Lock** a team to keep it through Random match / Random A / Random B. Random draws from the
+    current filtered list.
+  - **Teams hold up to four** for future tag matches. The engine is one-on-one, so Start needs
+    exactly one wrestler a side.
+  - **Layout:** on phones the teams are a sticky drop dock at the bottom; at 900px and wider it's
+    Godot's two columns.
+  - **Data:** popularity is now imported as global plus the six regions (it used to be averaged).
 
 ### Headless simulation
 

@@ -42,6 +42,7 @@ export class MatchEngine {
   constructor(cfg: MatchConfig) {
     const rnd = cfg.rng ?? (cfg.seed !== undefined ? seededRng(cfg.seed) : mathRng);
     const rules = { ...DEFAULT_RULES, ...cfg.rules };
+    if (rules.titleId) rules.title = true;
     const S = createState(rnd, getWrestler(cfg.you), getWrestler(cfg.them), rules);
     this.state = S;
     const ctx: Ctx = { S, rnd, hooks: cfg.hooks ?? {}, ai: undefined as unknown as Ctx['ai'] };

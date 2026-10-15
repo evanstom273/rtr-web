@@ -29,8 +29,18 @@ export function titleNameFor(a: Wrestler, b: Wrestler): string {
   return titleFor(a.promotion === b.promotion ? a.promotion : 'TIS', a.gender);
 }
 
-export function eventFor(rnd: Rng, a: Wrestler, b: Wrestler, title: boolean): { event: string; venue: string; titleName: string } {
+export function eventFor(rnd: Rng, a: Wrestler, b: Wrestler, title: boolean, rules?: Pick<MatchRulesConfig, 'eventPromotion' | 'titleId'>): { event: string; venue: string; titleName: string } {
   const pa = getPromotion(a.promotion), pb = getPromotion(b.promotion);
+  if (rules?.eventPromotion !== undefined) {
+    // Chosen in the match builder.
+    const host = rules.eventPromotion ? getPromotion(rules.eventPromotion) : undefined;
+    const region = host?.region ?? pick(rnd, [a.region, b.region]);
+    return {
+      event: host ? host.name : 'Independent Show',
+      venue: pick(rnd, VENUES[region] ?? VENUES.NONE!),
+      titleName: rules.titleId ? TITLES.find((t) => t.id === rules.titleId)?.name ?? '' : '',
+    };
+  }
   if (pa && pb && pa.initials === pb.initials) {
     return { event: pa.name, venue: pick(rnd, VENUES[pa.region] ?? VENUES.NONE!), titleName: title ? titleFor(pa.initials, a.gender) : '' };
   }
@@ -53,7 +63,7 @@ function emptyCrowd(): CrowdStats {
 let nextId = 1;
 
 export function createState(rnd: Rng, you: Wrestler, them: Wrestler, rules: MatchRulesConfig): MatchState {
-  const ev = eventFor(rnd, you, them, rules.title);
+  const ev = eventFor(rnd, you, them, rules.title, rules);
   const S: MatchState = {
     id: nextId++,
     rules,

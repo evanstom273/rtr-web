@@ -4,6 +4,7 @@ import {
   isFinisherMove, isSignatureMove, partLabel, targetHp, type BodyPart, type MatchEngine, type Move, type MoveType, type Part,
 } from '../../engine';
 import { Mannequin } from '../common/Mannequin';
+import { useBackLayer } from '../backStack';
 import { buzz, pts } from '../format';
 
 /** Small line icons, drawn in a 20×20 box centred on 0,0. */
@@ -52,6 +53,8 @@ export function MoveWheel({ engine, onClose }: { engine: MatchEngine; onClose: (
   const S = engine.state, me = S.you, op = S.them;
   const [cat, setCat] = useState<MoveType | null>(null);
   const [, bump] = useState(0);
+  // Android back from a move list returns to the wheel.
+  useBackLayer(cat !== null, () => setCat(null));
 
   const cats: CatInfo[] = useMemo(() => CATEGORIES.map((c) => {
     const mine = me.all.filter((m) => m.type === c.type && engine.movePositionsFit(m));

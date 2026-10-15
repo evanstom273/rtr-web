@@ -19,6 +19,7 @@ import { SubmissionTug } from '../overlays/SubmissionTug';
 import { PinChoice } from '../overlays/PinChoice';
 import { useEngine } from '../useEngine';
 import { useMedia } from '../useMedia';
+import { useBackLayer } from '../backStack';
 
 const POP_MS = 1900;
 const THUMB_W = 112;
@@ -88,6 +89,8 @@ export function Match({ engine, onOver }: { engine: MatchEngine; onOver: () => v
   }, [p, onOver]);
 
   const close = useCallback(() => setSheet('none'), []);
+  // Android back closes whichever sheet is open.
+  useBackLayer(sheet !== 'none', close);
   const joltCls = jolt.n ? ` ${jolt.big ? 'jolt-big' : 'jolt'}${jolt.n % 2}` : '';
   const ringBusy = p.kind === 'contest' || p.kind === 'contestRoll' || p.kind === 'pinChoice' || p.kind === 'subChoice' || p.kind === 'kickout' || p.kind === 'refCount' || p.kind === 'sub';
 

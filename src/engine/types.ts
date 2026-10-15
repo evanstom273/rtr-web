@@ -336,6 +336,13 @@ export interface MatchRulesConfig {
   countOuts: boolean;
   countOutLimit: number;
   title: boolean;
+  /**
+   * The presenting promotion's initials, '' for an independent show, or undefined to pick
+   * automatically from the wrestlers (their shared promotion, else a dream match).
+   */
+  eventPromotion?: string;
+  /** A specific title on the line (implies title: true). */
+  titleId?: string;
 }
 
 export interface MatchState {
