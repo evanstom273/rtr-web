@@ -1,7 +1,12 @@
-# Match of the Night
+# Rise to Relevance (web)
 
-A wrestling match game for people who rate matches. Win the bout and steal the show: every match
-gets a star rating out of five. It's built mobile-first and plays best on a phone.
+The web port of the Godot wrestling game Rise to Relevance, being brought over a piece at a time.
+Right now it's the exhibition match: the full RtR roster (400 wrestlers, 11 promotions), the RtR
+match engine (positions, setups, six-part bodies, stamina and exhaustion, the AI), a top-down
+ring view, and the Match of the Night crowd and star rating on top. Built mobile-first; plays best
+on a phone, and on a foldable's inner screen the ring view stays on screen.
+
+The design source of truth is `RISE_TO_RELEVANCE_GDD_TAD.md` and the Godot project.
 
 Vite + React + TypeScript (strict), with Vitest for tests. No backend: the build is a folder of
 static files, served from Cloudflare.
@@ -17,7 +22,10 @@ npm test           # unit tests + headless simulation
 npm run typecheck  # tsc, strict
 npm run build      # static build into dist/
 npm run preview    # serve dist/ locally
-npm run sim -- 500 # print match-length / finish / star distributions from 500 AI-vs-AI matches
+npm run sim        # match-length / finish / star distributions from AI-vs-AI matches
+
+# regenerate src/data/rtr/*.json from the Godot project's .tres files
+node scripts/import-godot.mjs /path/to/rtr-final-version
 ```
 
 ## Deploying to Cloudflare
@@ -50,14 +58,15 @@ progress is never interrupted. Icons are generated from `public/favicon.svg` wit
 ```
 src/
   engine/   all match rules, pure TypeScript: no DOM, React or timers
-  data/     roster, moves, promotions, commentary and rating copy (typed data)
-  ui/       React components; timing bars, kickout and submission overlays
-  storage/  localStorage wrapper (greatest hits)
-legacy/     the original single-file game, kept untouched as the reference
+  data/rtr/ moves, wrestlers, promotions, titles — generated from the Godot project
+  data/     commentary, labels and rating copy
+  ui/       React: ring view, move wheel, cards, timing overlays (ring, bar, kickout, tug)
+  storage/  localStorage wrapper (greatest hits, last picks)
+legacy/     the original Match of the Night single-file game, kept as a reference
 ```
 
-The engine exposes state and actions. When it needs something from the player (a timing bar, a
-kickout, a submission struggle, or just a pause for pacing), it sets `state.pending` and waits.
+The engine exposes state and actions. When it needs something from the player (a reversal ring, a
+setup bar, a kickout, a submission struggle, or just a pause for pacing), it sets `state.pending` and waits.
 The UI renders that, runs the interaction and hands the result back. All randomness goes through
 an injectable seeded RNG, so any match can be replayed exactly.
 

@@ -1,68 +1,99 @@
-import { MOVES } from '../data/moves';
-import { DREAM_MATCH, PROMOS } from '../data/promotions';
 import { HEAT_WORDS, PHASES } from '../data/commentary';
+import { TITLES, getPromotion, type Wrestler } from '../data/rtr';
 import { format } from './commentary';
+import { exhaustionBand } from './exhaustion';
 import { pick, type Rng } from './rng';
-import type { MatchState, MatchStats, MatchView, Side, SideKey, SideView, Stakes, Wrestler } from './types';
+import { createSide } from './side';
+import type { CrowdStats, MatchRulesConfig, MatchState, MatchView, Side, SideView } from './types';
 
-export function mkSide(w: Wrestler, key: SideKey): Side {
+/** Host cities by promotion region (RtR's exhibition data has no show/venue list yet). */
+const VENUES: Record<string, string[]> = {
+  NORTH_AMERICA: ['New York', 'Chicago', 'Los Angeles', 'Toronto', 'Mexico City'],
+  SOUTH_AMERICA: ['Buenos Aires', 'São Paulo', 'Santiago'],
+  EUROPE: ['London', 'Berlin', 'Glasgow', 'Leeds', 'Hamburg'],
+  ASIA: ['Tokyo', 'Osaka', 'Shanghai', 'Seoul'],
+  AFRICA: ['Cairo', 'Lagos', 'Johannesburg'],
+  OCEANIA: ['Apia', 'Auckland', 'Sydney'],
+  NONE: ['Philadelphia'],
+};
+
+function titleFor(initials: string, gender: Wrestler['gender']): string {
+  const promo = getPromotion(initials);
+  if (!promo) return '';
+  const titles = promo.titles.map((id) => TITLES.find((t) => t.id === id)).filter((t): t is NonNullable<typeof t> => !!t);
+  return (titles.find((t) => t.gender === (gender === 'FEMALE' ? 'FEMALE' : 'MALE')) ?? titles[0])?.name ?? '';
+}
+
+/** The title that would be on the line for this pairing (same promotion: theirs; otherwise The Indie Scene's). */
+export function titleNameFor(a: Wrestler, b: Wrestler): string {
+  return titleFor(a.promotion === b.promotion ? a.promotion : 'TIS', a.gender);
+}
+
+export function eventFor(rnd: Rng, a: Wrestler, b: Wrestler, title: boolean): { event: string; venue: string; titleName: string } {
+  const pa = getPromotion(a.promotion), pb = getPromotion(b.promotion);
+  if (pa && pb && pa.initials === pb.initials) {
+    return { event: pa.name, venue: pick(rnd, VENUES[pa.region] ?? VENUES.NONE!), titleName: title ? titleFor(pa.initials, a.gender) : '' };
+  }
+  const hosts = [pa, pb].filter((p): p is NonNullable<typeof pa> => !!p);
+  const host = hosts.length ? pick(rnd, hosts) : undefined;
   return {
-    key, w, name: w.name, cls: w.cls, st: w.st, align: w.align, sig: w.sig, fin: w.fin,
-    hp: { head: 100, body: 100, arm: 100, leg: 100 }, stamina: 100, momentum: 0, sigReady: false, finStock: 0, pos: 'standing',
-    used: {}, lastMove: null, recentParts: [], partHits: { head: 0, body: 0, arm: 0, leg: 0 }, fkAbsorbed: 0, firedUp: false, comeback: 0,
-    cheapCd: 0, tauntCd: 0, setupRun: 0, landed: 0, focus: null,
-    moves: MOVES.filter((m) => !m.cls || m.cls.some((c) => w.cls.includes(c))),
+    event: 'The Indie Scene: Dream Match',
+    venue: pick(rnd, VENUES[host?.region ?? 'NONE'] ?? VENUES.NONE!),
+    titleName: title ? titleFor('TIS', a.gender) : '',
   };
 }
 
-export function eventFor(rnd: Rng, a: Wrestler, b: Wrestler): { event: string; venue: string; titleName: string } {
-  if (a.promo === b.promo) {
-    const p = PROMOS[a.promo];
-    return { event: p.event, venue: pick(rnd, p.cities), titleName: p.title };
-  }
-  const p = PROMOS[pick(rnd, [a.promo, b.promo])];
-  return { event: DREAM_MATCH.event, venue: pick(rnd, p.cities), titleName: DREAM_MATCH.title };
-}
-
-function emptyStats(): MatchStats {
+function emptyCrowd(): CrowdStats {
   return {
-    heatSum: 0, heatN: 0, heatPeak: 0, reversals: 0, finRev: 0, nf: 0, fk: 0, crashes: 0, high: 0, spots: 0, rest: 0, repeats: 0,
-    maxStreak: { you: 0, them: 0 }, heatSeg: null, comeback: null, fireUp: null, pins: 0, earlyPins: 0, subs: 0, limbPayoff: false, finAttemptsSeen: false,
+    heatSum: 0, heatN: 0, heatPeak: 0, reversals: 0, finRev: 0, nf: 0, fk: 0, crashes: 0, high: 0, spots: 0, rest: 0,
+    repeats: 0, heatSeg: null, comeback: null, limbPayoff: false, finAttemptsSeen: false, fkAbsorbed: { you: 0, them: 0 },
   };
 }
 
 let nextId = 1;
 
-export function createState(rnd: Rng, you: Wrestler, them: Wrestler, stakes: Stakes): MatchState {
-  const ev = eventFor(rnd, you, them);
+export function createState(rnd: Rng, you: Wrestler, them: Wrestler, rules: MatchRulesConfig): MatchState {
+  const ev = eventFor(rnd, you, them, rules.title);
   const S: MatchState = {
     id: nextId++,
-    you: mkSide(you, 'you'),
-    them: mkSide(them, 'them'),
-    t: 0, beat: 0, ctrl: null, over: false,
-    heat: stakes === 'title' ? 45 : 35,
-    stats: emptyStats(),
+    rules,
+    you: createSide(you, 'you'),
+    them: createSide(them, 'them'),
+    t: 0,
+    control: null,
+    over: false,
+    neutralFavoured: null,
+    recentReversalSide: null,
+    referee: { active: false, value: 0, elapsed: 0, pendingResolution: false, outside: { you: false, them: false } },
+    phase: { name: 'opening', drama: 0, controlSwings: 0, actionsSinceChange: 0 },
+    heat: rules.title ? 45 : 35,
+    crowd: emptyCrowd(),
     streak: { who: null, n: 0 },
-    event: ev.event, venue: ev.venue, title: stakes === 'title', titleName: ev.titleName,
-    meterDir: 1, lastLanded: null, outsideBeats: 0, miles: [],
-    result: null, rating: null,
+    event: ev.event,
+    venue: ev.venue,
+    titleName: ev.titleName,
+    pinContext: null,
+    txn: null,
+    result: null,
+    rating: null,
     pending: { kind: 'idle' },
-    log: [], events: [],
+    log: [],
+    events: [],
     view: undefined as unknown as MatchView,
     seq: 0,
   };
-  S.view = snapshot(S);
+  S.view = snapshotView(S);
   return S;
 }
 
 /* ---------- view ---------- */
 
-export function phase(S: MatchState): string {
-  const st = S.stats, mins = S.t / 60;
+export function phaseLabel(S: MatchState): string {
+  const c = S.crowd, mins = S.t / 60;
   if (S.over) return PHASES.over;
-  if (mins >= 16 || st.finAttemptsSeen) return PHASES.finishing;
-  if (st.comeback) return PHASES.comeback;
-  if (st.heatSeg) return format(PHASES.control, { x: S[st.heatSeg].name.split(' ')[0] ?? '' });
+  if (mins >= 16 || c.finAttemptsSeen) return PHASES.finishing;
+  if (c.comeback) return PHASES.comeback;
+  if (c.heatSeg) return format(PHASES.control, { x: S[c.heatSeg].w.name.split(' ').pop() ?? '' });
   if (mins < 4) return PHASES.feelingOut;
   return PHASES.backAndForth;
 }
@@ -72,13 +103,18 @@ export function heatWord(h: number): string {
   return HEAT_WORDS[HEAT_WORDS.length - 1]?.[1] ?? '';
 }
 
-function sideView(w: Side): SideView {
+function sideView(s: Side): SideView {
   return {
-    key: w.key, name: w.name, cls: w.cls, align: w.align, hp: { ...w.hp }, stamina: w.stamina, momentum: w.momentum,
-    sigReady: w.sigReady, finStock: w.finStock, pos: w.pos,
+    key: s.key, hp: { ...s.hp }, stamina: s.stamina, maxStamina: s.maxStamina, fatigue: s.fatigue, momentum: s.momentum,
+    signatureReady: s.signatureReady, finisherStock: s.finisherStock, state: { ...s.state }, exhaustion: exhaustionBand(s),
+    targetFocus: s.targetFocus, resiliencyAvailable: s.resiliencyAvailable,
   };
 }
 
-export function snapshot(S: MatchState): MatchView {
-  return { t: S.t, heat: S.heat, ctrl: S.ctrl, over: S.over, phase: phase(S), sides: { you: sideView(S.you), them: sideView(S.them) } };
+export function snapshotView(S: MatchState): MatchView {
+  return {
+    t: S.t, heat: S.heat, control: S.control, over: S.over, phase: phaseLabel(S),
+    count: S.referee.active ? S.referee.value : null,
+    sides: { you: sideView(S.you), them: sideView(S.them) },
+  };
 }

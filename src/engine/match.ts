@@ -1,35 +1,35 @@
-import { wrestlerById } from '../data/roster';
 import { LINES } from '../data/commentary';
-import { aiTurn } from './ai';
+import { getMove, getWrestler, type Part } from '../data/rtr';
+import { AiBrain, aiTurn } from './ai';
 import { say } from './commentary';
 import type { Ctx, EngineHooks } from './ctx';
-import { tick } from './crowd';
-import { neutral, next, render, schedule, setCtrl } from './flow';
-import { playerMove, resolveMove } from './moves';
-import { ctxFor, pinResult, startPin } from './pin';
-import { pinOk, posOk, ready } from './positions';
-import { rate } from './rating';
+import { finalise, render, runNeutralRecovery, schedule, setControl } from './flow';
+import { executeMove, finishMove, moveIsValid, validMoves } from './moves';
+import { canPin, completeKickout, pinThree, startPin, useResiliency } from './pin';
 import { mathRng, seededRng, type Rng } from './rng';
-import { availableSetups, resolveSetup, runSetup, setupById } from './setups';
+import { executeSetup, finishContestedSetup, validSetups } from './setups';
+import { moveMatchesSnapshots } from './setupRules';
+import { canUseMove } from './side';
 import { createState } from './state';
-import { resolveSub, startSub, subTick } from './submission';
-import type { Cont, KickoutCount, MatchState, Move, SetupId, Stakes, SubOutcome } from './types';
+import { resolveSubmission, startSubmission, submissionTick } from './submission';
+import { resolveTarget } from './targeting';
+import { endMatch } from './flow';
+import type { Cont, KickoutCount, MatchRulesConfig, MatchState, Move, SetupId, SubOutcome, TargetResolution } from './types';
 
 export interface MatchConfig {
   you: string;
   them: string;
-  stakes: Stakes;
-  /** Seed for a reproducible match. Ignored if `rng` is given. */
+  rules?: Partial<MatchRulesConfig>;
   seed?: number;
   rng?: Rng;
   hooks?: EngineHooks;
 }
 
-export type MoveRef = { special: 'sig' | 'fin' } | { index: number };
+export const DEFAULT_RULES: MatchRulesConfig = { actionClock: 20, countOuts: true, countOutLimit: 10, title: false };
 
 /**
- * A single match. Holds state, exposes actions. The UI renders `state` and calls actions;
- * whenever `state.pending` asks for something (a delay, a timing bar, a kickout…), the UI supplies it.
+ * One match. Holds state and exposes actions. The UI renders `state` and calls actions; whenever
+ * `state.pending` asks for something (a pause, a reversal ring, a kickout…) the UI supplies it.
  */
 export class MatchEngine {
   readonly state: MatchState;
@@ -39,174 +39,217 @@ export class MatchEngine {
 
   constructor(cfg: MatchConfig) {
     const rnd = cfg.rng ?? (cfg.seed !== undefined ? seededRng(cfg.seed) : mathRng);
-    const you = wrestlerById(cfg.you), them = wrestlerById(cfg.them);
-    if (!you || !them) throw new Error(`Unknown wrestler: ${!you ? cfg.you : cfg.them}`);
-    const S = createState(rnd, you, them, cfg.stakes);
+    const rules = { ...DEFAULT_RULES, ...cfg.rules };
+    const S = createState(rnd, getWrestler(cfg.you), getWrestler(cfg.them), rules);
     this.state = S;
-    this.ctx = { S, rnd, hooks: cfg.hooks ?? {} };
-    say(this.ctx, LINES.matchIntro + (S.title ? LINES.titleOnLine : ''), { vars: { event: S.event, venue: S.venue, title: S.titleName } }, 'dim');
-    say(this.ctx, LINES.versus, { a: 'you', d: 'them' });
-    render(this.ctx);
-    schedule(this.ctx, { to: 'bell' }, 1100);
+    const ctx: Ctx = { S, rnd, hooks: cfg.hooks ?? {}, ai: undefined as unknown as Ctx['ai'] };
+    ctx.ai = { you: new AiBrain(ctx, 'you'), them: new AiBrain(ctx, 'them') };
+    this.ctx = ctx;
+    say(ctx, LINES.intro + (rules.title && S.titleName ? LINES.titleOnLine : ''), { vars: { event: S.event, venue: S.venue, title: S.titleName } }, 'dim');
+    render(ctx);
+    schedule(ctx, { to: 'bell' }, 900);
   }
 
-  /* ---------- subscription (for React's useSyncExternalStore) ---------- */
+  /* ---------- subscription (useSyncExternalStore) ---------- */
 
   subscribe = (fn: () => void): (() => void) => {
     this.listeners.add(fn);
     return () => this.listeners.delete(fn);
   };
-
   getVersion = (): number => this.version;
-
   private changed(): void {
     this.version++;
     for (const fn of this.listeners) fn();
   }
-
   private act(fn: () => void): true {
     fn();
     this.changed();
     return true;
   }
 
-  /* ---------- queries ---------- */
-
   get pending() {
     return this.state.pending;
   }
 
-  /** Moves the player can pick right now (excluding signature/finisher). */
-  playableMoves(): Move[] {
-    const a = this.state.you, d = this.state.them;
-    return a.moves.filter((m) => posOk(a, d, m));
-  }
+  /* ---------- queries for the player's UI ---------- */
 
-  canUseSpecial(which: 'sig' | 'fin'): boolean {
-    const a = this.state.you, d = this.state.them, m = a[which];
-    return ready(a, m) && posOk(a, d, m);
+  private get playerTurn(): boolean {
+    return this.state.pending.kind === 'awaitPlayer' && this.state.control === 'you';
   }
-
-  setups() {
-    return availableSetups(this.state.you, this.state.them);
+  playerMoves(): Move[] {
+    return validMoves(this.state, 'you');
   }
-
+  moveAvailable(move: Move): boolean {
+    return moveIsValid(this.state, 'you', move);
+  }
+  playerSetups(): SetupId[] {
+    return validSetups(this.state, 'you');
+  }
+  /** The move's positions fit right now (it may still be locked, e.g. a finisher with no stock). */
+  movePositionsFit(move: Move): boolean {
+    return moveMatchesSnapshots(move, this.state.you.state, this.state.them.state);
+  }
+  /** Why a positionally valid move can't be used, or null if it can. */
+  lockedReason(move: Move): string | null {
+    const S = this.state;
+    if ((move.submission || move.type === 'SUBMISSION') && (S.you.state.area !== 'IN_RING' || S.them.state.area !== 'IN_RING')) return 'Submissions need both of you in the ring';
+    if (!canUseMove(S.you, move)) return move.finisher || S.you.finishers.includes(move) ? 'Land a signature to bank a finisher' : 'Fill your momentum first';
+    return null;
+  }
   canPin(): boolean {
-    return this.state.pending.kind === 'awaitPlayer' && pinOk(this.state.you, this.state.them);
+    return this.playerTurn && canPin(this.state, 'you');
+  }
+  /** How a move would resolve against the opponent with the current focus. */
+  previewTarget(move: Move): TargetResolution {
+    return resolveTarget(move, this.state.you.targetFocus, this.state.them.hp);
+  }
+  /** Player's body-part focus. Selecting the current focus again returns to Auto. */
+  setFocus(part: Part): void {
+    this.act(() => {
+      const s = this.state.you;
+      s.targetFocus = s.targetFocus === part ? 'NONE' : part;
+      render(this.ctx);
+    });
   }
 
   /* ---------- flow ---------- */
 
-  /** Resume after a `continue` delay, an `aiThinking` pause, or a finished `refCount` animation. */
+  /** Resume after a pause, the AI's thinking time, or a finished referee count. */
   advance(): boolean {
     const p = this.state.pending;
-    if (p.kind === 'continue' || p.kind === 'refCount') {
-      return this.act(() => {
-        this.state.pending = { kind: 'idle' };
-        this.run(p.cont);
-      });
-    }
-    if (p.kind === 'aiThinking') {
-      return this.act(() => {
-        this.state.pending = { kind: 'idle' };
-        aiTurn(this.ctx, 'them');
-      });
-    }
+    if (p.kind === 'continue') return this.act(() => {
+      this.state.pending = { kind: 'idle' };
+      this.run(p.cont);
+    });
+    if (p.kind === 'aiThinking') return this.act(() => {
+      this.state.pending = { kind: 'idle' };
+      aiTurn(this.ctx, 'them');
+    });
+    if (p.kind === 'refCount') return this.act(() => {
+      this.state.pending = { kind: 'idle' };
+      if (p.kickoutAt === null) pinThree(this.ctx, p.pinner);
+      else completeKickout(this.ctx, p.pinner, p.kickoutAt);
+    });
     return false;
   }
 
   private run(c: Cont): void {
-    const ctx = this.ctx, S = this.state;
+    const ctx = this.ctx;
     switch (c.to) {
       case 'bell': {
-        say(ctx, LINES.bell);
-        const f = ctx.rnd() < 0.5 ? 'you' : 'them';
-        say(ctx, LINES.firstLockUp, { a: f });
-        setCtrl(ctx, f);
-        return next(ctx);
-      }
-      case 'next': return next(ctx);
-      case 'neutral': return neutral(ctx, c.lastK);
-      case 'startSub': return startSub(ctx, c.k, c.move);
-      case 'startPin': return startPin(ctx, c.k, c.ctx);
-      case 'pinResult': return pinResult(ctx, c.k, c.ctx, c.count);
-      case 'final':
-        S.rating = rate(S);
-        S.pending = { kind: 'over' };
+        say(ctx, LINES.bell, { a: 'you', d: 'them' });
+        setControl(ctx, ctx.rnd() < 0.5 ? 'you' : 'them');
         return;
+      }
+      case 'next': return;
+      case 'neutralRecovery': return runNeutralRecovery(ctx);
+      case 'startSub': return startSubmission(ctx, c.k, getMove(c.moveId), c.target);
+      case 'startPin': {
+        startPin(ctx, c.k, c.embedded);
+        return;
+      }
+      case 'pinNeutral': return setControl(ctx, 'neutral');
+      case 'final': return finalise(ctx);
     }
   }
 
   /* ---------- player actions ---------- */
 
-  private get playerTurn(): boolean {
-    return this.state.pending.kind === 'awaitPlayer' && this.state.ctrl === 'you';
-  }
-
-  chooseMove(ref: MoveRef): boolean {
+  chooseMove(moveId: string): boolean {
     if (!this.playerTurn) return false;
-    const a = this.state.you, d = this.state.them;
-    const m = 'special' in ref ? a[ref.special] : a.moves[ref.index];
-    if (!m || !ready(a, m) || !posOk(a, d, m)) return false;
+    const move = this.state.you.all.find((m) => m.id === moveId);
+    if (!move || !moveIsValid(this.state, 'you', move)) return false;
     return this.act(() => {
       this.state.pending = { kind: 'idle' };
-      playerMove(this.ctx, m);
+      executeMove(this.ctx, 'you', move);
     });
   }
 
   chooseSetup(id: SetupId): boolean {
-    if (!this.playerTurn) return false;
-    const s = setupById(id);
-    if (!s.ok(this.state.you, this.state.them)) return false;
+    if (!this.playerTurn || !validSetups(this.state, 'you').includes(id)) return false;
     return this.act(() => {
       this.state.pending = { kind: 'idle' };
-      runSetup(this.ctx, 'you', s);
+      executeSetup(this.ctx, 'you', id);
     });
   }
 
   pin(): boolean {
-    if (!this.playerTurn || !pinOk(this.state.you, this.state.them)) return false;
+    if (!this.canPin()) return false;
     return this.act(() => {
       this.state.pending = { kind: 'idle' };
-      tick(this.ctx);
-      startPin(this.ctx, 'you', ctxFor(this.ctx, 'you', this.state.beat - 1));
+      startPin(this.ctx, 'you', false);
     });
   }
 
-  /* ---------- timing results from the UI ---------- */
+  /* ---------- results from the UI's timing interactions ---------- */
 
-  /** Did the player stop the bar in the gold? */
-  resolveMeter(hitGold: boolean): boolean {
-    const p = this.state.pending;
-    if (p.kind !== 'meter') return false;
-    const { mode, attacker, target } = p.meter;
-    const ok = mode === 'off' ? hitGold : !hitGold;
+  /** Reversal ring: did the player tap inside the band? */
+  resolveReversal(hit: boolean): boolean {
+    const p = this.state.pending, txn = this.state.txn;
+    if (p.kind !== 'reversal' || !txn || txn.kind !== 'move') return false;
+    const reversed = p.spec.role === 'defend' ? hit : !hit;
     return this.act(() => {
       this.state.pending = { kind: 'idle' };
-      if (target.kind === 'move') resolveMove(this.ctx, attacker, target.move, ok);
-      else resolveSetup(this.ctx, attacker, setupById(target.setup), ok);
+      this.state.txn = null;
+      finishMove(this.ctx, txn.k, txn.move, reversed, txn.target);
     });
   }
 
-  /** The player was pinned: 0 = pinned, otherwise the count they kicked out at. */
-  resolveKickout(count: KickoutCount): boolean {
+  /** Setup bar: did the player stop the marker in the gold? */
+  resolveSetupMeter(hit: boolean): boolean {
+    const p = this.state.pending, txn = this.state.txn;
+    if (p.kind !== 'setupMeter' || !txn || txn.kind !== 'setup') return false;
+    const reversed = p.spec.role === 'defend' ? hit : !hit;
+    return this.act(() => {
+      this.state.pending = { kind: 'idle' };
+      this.state.txn = null;
+      finishContestedSetup(this.ctx, txn.k, txn.action, reversed);
+    });
+  }
+
+  /** Player was pinned. success = released in the gold before three; count = count shown at release. */
+  resolveKickout(success: boolean, count: KickoutCount): boolean {
     const p = this.state.pending;
     if (p.kind !== 'kickout') return false;
     return this.act(() => {
       this.state.pending = { kind: 'idle' };
-      pinResult(this.ctx, p.kickout.pinner, p.kickout.ctx, count);
+      if (success) completeKickout(this.ctx, p.spec.pinner, Math.min(2, count) as KickoutCount);
+      else pinThree(this.ctx, p.spec.pinner);
     });
   }
 
-  /** One second of a submission hold has passed with the bar at `pos`. */
-  subSecond(pos: number): boolean {
+  /** One second of the submission struggle has passed. */
+  subSecond(marker: number): boolean {
     if (this.state.pending.kind !== 'sub') return false;
-    return this.act(() => subTick(this.ctx, pos));
+    return this.act(() => submissionTick(this.ctx, marker));
   }
 
-  resolveSub(res: SubOutcome, peak: number): boolean {
+  resolveSub(outcome: SubOutcome): boolean {
     if (this.state.pending.kind !== 'sub') return false;
-    return this.act(() => resolveSub(this.ctx, res, peak));
+    return this.act(() => {
+      this.state.pending = { kind: 'idle' };
+      resolveSubmission(this.ctx, outcome);
+    });
+  }
+
+  /** Answer the "use Resiliency?" prompt. */
+  resolveResiliency(use: boolean): boolean {
+    const p = this.state.pending;
+    if (p.kind !== 'resiliency') return false;
+    return this.act(() => {
+      this.state.pending = { kind: 'idle' };
+      const S = this.state;
+      if (use) return useResiliency(this.ctx, 'you', p.threat);
+      if (p.threat === 'pinfall') {
+        const move = S.pinContext?.lastMove ?? null;
+        S.pinContext = null;
+        endMatch(this.ctx, 'them', 'PINFALL', move);
+      } else {
+        const txn = S.txn;
+        S.txn = null;
+        endMatch(this.ctx, 'them', 'SUBMISSION', txn && txn.kind === 'sub' ? txn.move : null);
+      }
+    });
   }
 
   /* ---------- headless ---------- */

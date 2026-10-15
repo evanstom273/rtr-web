@@ -1,7 +1,7 @@
 /** A source of uniform numbers in [0, 1). Same contract as Math.random. */
 export type Rng = () => number;
 
-/** mulberry32: small, fast, good enough for a game, fully reproducible from a 32-bit seed. */
+/** mulberry32: small, fast, reproducible from a 32-bit seed. */
 export function seededRng(seed: number): Rng {
   let a = seed >>> 0;
   return () => {
@@ -16,8 +16,13 @@ export function seededRng(seed: number): Rng {
 export const mathRng: Rng = Math.random;
 
 export const clamp = (v: number, a: number, b: number): number => Math.max(a, Math.min(b, v));
+export const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
+export const inverseLerp = (a: number, b: number, v: number): number => (a === b ? 0 : (v - a) / (b - a));
 
 export function pick<T>(rnd: Rng, arr: readonly T[]): T {
   if (!arr.length) throw new Error('pick() from empty array');
   return arr[Math.floor(rnd() * arr.length)] as T;
 }
+
+/** Godot randf_range. */
+export const randRange = (rnd: Rng, a: number, b: number): number => a + rnd() * (b - a);

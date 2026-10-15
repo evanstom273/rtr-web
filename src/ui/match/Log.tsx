@@ -1,10 +1,10 @@
 import { useLayoutEffect, useRef } from 'react';
-import { fmtClock, type LogEntry, type Seg } from '../../engine';
+import { fmtClock, type LogEntry, type Seg, type SideKey } from '../../engine';
 
-function Segment({ s }: { s: Seg }) {
+function Segment({ s, tones }: { s: Seg; tones: Record<SideKey, string> }) {
   switch (s.k) {
     case 'text': return <>{s.v}</>;
-    case 'name': return <b className={`nm ${s.side}`}>{s.v}</b>;
+    case 'name': return <b className={`nm ${tones[s.side]}`}>{s.v}</b>;
     case 'move': return <em>{s.v}</em>;
     case 'gold': return <span className={s.big ? 'gold big' : 'gold'}>{s.v}</span>;
     case 'chant': return <span className="ch">{s.v}</span>;
@@ -13,7 +13,7 @@ function Segment({ s }: { s: Seg }) {
 
 const lineClass = (c: LogEntry['cls']) => (c === 'crowd' ? 'crowdln' : c);
 
-export function Log({ entries }: { entries: readonly LogEntry[] }) {
+export function Log({ entries, tones }: { entries: readonly LogEntry[]; tones: Record<SideKey, string> }) {
   const box = useRef<HTMLDivElement>(null);
   const n = entries.length;
   useLayoutEffect(() => {
@@ -30,7 +30,7 @@ export function Log({ entries }: { entries: readonly LogEntry[] }) {
             <span className="ts">{fmtClock(l.t)}</span>
             <span className="tx">
               {l.segs.map((s, i) => (
-                <Segment key={i} s={s} />
+                <Segment key={i} s={s} tones={tones} />
               ))}
             </span>
           </div>

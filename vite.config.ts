@@ -13,9 +13,9 @@ export default defineConfig({
       injectRegister: 'script',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Match of the Night',
-        short_name: 'Match Night',
-        description: 'A wrestling game for people who rate matches.',
+        name: 'Rise to Relevance',
+        short_name: 'RtR',
+        description: 'A wrestling game: 400 wrestlers, every match rated out of five.',
         start_url: '/',
         scope: '/',
         display: 'standalone',

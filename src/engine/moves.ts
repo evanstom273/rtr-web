@@ -1,186 +1,275 @@
-import { CHANTS, FLASH, LINES, T } from '../data/commentary';
+// Moves: validity, execution, result application. Port of execute_move, apply_move_result,
+// apply_damage, apply_stamina_fatigue_momentum, apply_positions and the body-story commentary.
+import { LINES, PART_LABEL } from '../data/commentary';
+import type { BodyPart } from '../data/rtr/types';
+import { moveAttributeProfile } from './attributes';
+import { advanceClock, observePhase, settleRefereeCount } from './clock';
 import type { Ctx } from './ctx';
-import { chantOf, fill, flash, log, other, say } from './commentary';
-import { heat, landedBy, tick } from './crowd';
-import { applyDamage, checkSig, flushMiles, hit, targetNote } from './damage';
-import { schedule, setCtrl } from './flow';
-import { costMult } from './positions';
-import { clamp, pick } from './rng';
-import type { MeterSpec, MeterTarget, Move, Side, SideKey } from './types';
+import { flash, other, ring, say } from './commentary';
+import { crowdObserve, isOutsideSpot } from './crowd';
+import { exhaustionBand, moveDemand, staminaCostMultiplier, staminaPercent } from './exhaustion';
+import { afterAction, render, resolveControlAfterAction, schedule } from './flow';
+import {
+  breakthroughRingWindow, defendRingWindow, isHighRisk, reversalChance, reversalTimeLimit,
+} from './interaction';
+import { resolvedAttackerArea, resolvedTargetArea } from './areaRules';
+import { moveMatchesSnapshots } from './setupRules';
+import {
+  addFatigue, addMomentum, canUseMove, convertLandedSignature, damagePart, grantFinisherStock, isFinisherMove, isSignatureMove,
+  markCrossedThresholds, markRepeatedTargetMilestone, recordMoveUsed, recordTargetResolution, spendFinisher, spendStamina, totalHp,
+} from './side';
+import { resolveTarget } from './targeting';
+import type { ActionResult, MatchState, Move, Side, SideKey, TargetResolution } from './types';
 
-export type RevInput = { kind: 'move'; m: Move } | { kind: 'setup'; contest: number };
+export const SUCCESSFUL_MOVE_MOMENTUM = 10;
+export const REVERSAL_MOMENTUM = 5;
 
-/** Chance (%) that the defender reverses. Drives the width of the gold zone. */
-export function revChance(a: Side, d: Side, input: RevInput): number {
-  const m = input.kind === 'move' ? input.m : null;
-  let c = input.kind === 'setup' ? input.contest || 25 : m!.fin ? 14 : m!.risk === 2 ? 28 : m!.risk === 1 ? 19 : 22;
-  if (d.stamina > 70) c += 6;
-  if (d.stamina < 30) c -= 10;
-  if (d.momentum > 70) c += 8;
-  if (a.momentum > 70) c -= 6;
-  if (a.stamina < 25) c += 10;
-  if (m) {
-    const u = a.used[m.name] || 0;
-    if (a.lastMove === m.name) c += 12;
-    else if (u >= 2) c += 6;
-    if (m.part && d.hp[m.part] < 40) c -= 6;
-    if (m.part) {
-      const r = a.recentParts.slice(-5).filter((p) => p === m.part).length;
-      if (r >= 4) c += 6;
-    }
-  }
-  if (d.st.tec > 85) c += 4;
-  return clamp(c, 5, 60);
+const isInRing = (s: Side) => s.state.area === 'IN_RING';
+
+/** _move_is_valid (standard rules: submissions only with both wrestlers inside). */
+export function moveIsValid(S: MatchState, k: SideKey, move: Move): boolean {
+  const a = S[k], d = S[other(k)];
+  if ((move.submission || move.type === 'SUBMISSION') && !(isInRing(a) && isInRing(d))) return false;
+  if (!canUseMove(a, move)) return false;
+  return moveMatchesSnapshots(move, a.state, d.state);
 }
 
-export const meterDur = (m: Move): number => (m.fin ? 1550 : m.risk === 2 ? 1700 : m.risk === 1 ? 1780 : 1900);
-
-/** Gold width when the player is attacking (bigger = easier to land). */
-export const offWidth = (rc: number): number => clamp(46 - rc * 0.6, 14, 44);
-/** Gold width when the player is defending (bigger = easier to reverse). */
-export const defWidth = (rc: number): number => clamp(rc * 0.6, 6, 32);
-
-/** Ask the UI to run a timing bar. Placement alternates direction each time, as in the original. */
-export function openMeter(
-  ctx: Ctx,
-  o: { mode: 'off' | 'def'; attacker: SideKey; title: string; width: number; dur: number; target: MeterTarget },
-): void {
-  const S = ctx.S;
-  const dir = S.meterDir;
-  S.meterDir = dir > 0 ? -1 : 1;
-  const w = o.width;
-  const left = clamp(dir > 0 ? 28 + ctx.rnd() * (100 - 28 - w) : ctx.rnd() * (72 - w), 0, 100 - w);
-  const meter: MeterSpec = { ...o, id: ++S.seq, left, dir, width: w };
-  S.pending = { kind: 'meter', meter };
+export function validMoves(S: MatchState, k: SideKey): Move[] {
+  return S[k].all.filter((m) => moveIsValid(S, k, m));
 }
 
-export function resolveMove(ctx: Ctx, k: SideKey, m: Move, landed: boolean): void {
-  const S = ctx.S, a = S[k], dk = other(k), d = S[dk], st = S.stats;
-  a.stamina = clamp(a.stamina - (2 + m.imp * 0.7 + (m.risk === 2 ? 4 : 0)) * costMult(a), 0, 100);
-  const uses = (a.used[m.name] = (a.used[m.name] || 0) + 1);
-  if (uses >= 3 && !m.sig && !m.fin) {
-    st.repeats++;
-    heat(ctx, -3 * (uses - 2));
-    if (uses === 4) say(ctx, LINES.crowdGroans, { vars: { x: m.name.toLowerCase() } }, 'dim');
-  }
-  a.lastMove = m.name;
-  a.setupRun = 0;
+export function staminaCost(move: Move): number {
+  let cost = 4;
+  if (move.impact >= 9) cost = 14;
+  else if (move.impact >= 7) cost = 10;
+  else if (move.impact >= 4) cost = 7;
+  if (move.strike) cost -= 1;
+  if (move.submission) cost += 2;
+  if (move.finisher) cost += 4;
+  if (isHighRisk(move)) cost += 4;
+  return Math.max(0, cost);
+}
 
-  if (!landed) {
-    if (m.risk === 2) {
-      hit(ctx, a, 'body', m.imp * 0.55);
-      a.pos = m.tgt === 'outside' ? 'outside' : 'grounded';
-      say(ctx, pick(ctx.rnd, T.crash), { a: k, d: dk, am: m.name });
-      st.crashes++;
-      heat(ctx, 6);
-    } else {
-      say(ctx, pick(ctx.rnd, T.rev), { a: k, d: dk, am: m.name });
-      heat(ctx, 5);
-    }
-    st.reversals++;
-    d.momentum = clamp(d.momentum + 8, 0, 100);
-    a.momentum = clamp(a.momentum - 5, 0, 100);
-    checkSig(ctx, d);
-    if (m.fin) {
-      d.finStock = Math.min(3, d.finStock + 1);
-      st.finRev++;
-      heat(ctx, 12);
-      flash(ctx, FLASH.reversed);
-      say(ctx, LINES.finCountered, { a: k, d: dk }, 'hl');
-    }
-    flushMiles(ctx);
-    landedBy(ctx, dk);
-    setCtrl(ctx, dk);
-    return schedule(ctx, { to: 'next' }, 550);
-  }
+export function majorKind(s: Side, move: Move): 'SIGNATURE' | 'FINISHER' | null {
+  if (isFinisherMove(s, move)) return 'FINISHER';
+  if (isSignatureMove(s, move)) return 'SIGNATURE';
+  return null;
+}
 
-  applyDamage(ctx, a, d, m);
-  a.landed++;
-  d.pos = m.res;
-  if (m.selfRes) a.pos = m.selfRes;
-  else if (m.self === 'top') a.pos = 'standing';
-  if (!m.sig) {
-    a.momentum = clamp(a.momentum + 8 + m.imp * 0.5, 0, 100);
-    checkSig(ctx, a);
+/** Start a move. The UI then runs the reversal ring and calls back with the result. */
+export function executeMove(ctx: Ctx, k: SideKey, move: Move, target?: TargetResolution): boolean {
+  const S = ctx.S, A = S[k], dk = other(k), D = S[dk];
+  if (!moveIsValid(S, k, move)) return false;
+  const tgt = target ?? resolveTarget(move, A.targetFocus, D.hp);
+  if (isFinisherMove(A, move) && !spendFinisher(A)) return false;
+  crowdObserve(ctx, { type: 'move_attempt', k, move, signatureOrFinisher: isSignatureMove(A, move) || isFinisherMove(A, move), uses: (A.moveUseCounts[move.id] ?? 0) + 1 });
+  advanceClock(ctx);
+  ring(ctx, 'move_started', k, move.name);
+  const major = majorKind(A, move);
+  if (major) flash(ctx, move.name, major === 'FINISHER');
+  const chance = reversalChance(A, D, move, null, tgt);
+  const role = dk === 'you' ? 'defend' : 'breakthrough';
+  S.txn = { kind: 'move', k, move, target: tgt, chance };
+  S.pending = {
+    kind: 'reversal',
+    spec: {
+      id: ++S.seq,
+      role,
+      attacker: k,
+      title: role === 'defend' ? `REVERSE: ${move.name}` : `BEAT THE REVERSAL: ${move.name}`,
+      moveName: move.name,
+      window: role === 'defend' ? defendRingWindow(chance) : breakthroughRingWindow(chance),
+      timeLimit: reversalTimeLimit(move),
+      target: 0.28,
+      major,
+      chance,
+    },
+  };
+  return true;
+}
+
+/** The defender's response is in: apply the move and decide what happens next. */
+export function finishMove(ctx: Ctx, k: SideKey, move: Move, reversed: boolean, target: TargetResolution): void {
+  const S = ctx.S, A = S[k], dk = other(k);
+  const startedAtZero = A.stamina <= 0;
+  const result: ActionResult = reversed ? (isHighRisk(move) ? 'HIGH_RISK_CRASH' : 'REVERSAL') : 'CLEAN_SUCCESS';
+  applyMoveResult(ctx, k, dk, move, result, target);
+  const embedded = shouldStartEmbeddedPin(S, k, dk, move, result);
+  settleRefereeCount(ctx);
+  if (S.over) return;
+  if (startedAtZero && result === 'CLEAN_SUCCESS' && !A.announcedHeroic) {
+    A.announcedHeroic = true;
+    say(ctx, LINES.heroic, { a: k }, 'good');
   }
-  landedBy(ctx, k);
-  S.lastLanded = { key: k, m, beat: S.beat };
-  let h = m.imp * 0.6;
-  if (m.risk === 2) {
-    h += 6;
-    st.high++;
+  exhaustionCommentary(ctx, k);
+  render(ctx);
+  if (move.submission && result === 'CLEAN_SUCCESS') return schedule(ctx, { to: 'startSub', k, moveId: move.id, target }, 450);
+  if (embedded) return schedule(ctx, { to: 'startPin', k, embedded: true }, 450);
+  resolveControlAfterAction(ctx, k, dk, move, result);
+  afterAction(ctx);
+}
+
+export function shouldStartEmbeddedPin(S: MatchState, k: SideKey, dk: SideKey, move: Move, result: ActionResult): boolean {
+  if (move.submission || result !== 'CLEAN_SUCCESS') return false;
+  if (!isInRing(S[k]) || !isInRing(S[dk])) return false;
+  if (move.flashPin || move.pinningCombo) return true;
+  if (!move.finisher) return false;
+  return S[k].state.position === 'GROUNDED' && S[dk].state.position === 'GROUNDED';
+}
+
+function applyMoveResult(ctx: Ctx, k: SideKey, dk: SideKey, move: Move, result: ActionResult, target: TargetResolution): void {
+  const S = ctx.S, A = S[k], D = S[dk];
+  A.lastActionResult = result;
+  D.lastActionResult = result;
+  const landed = result === 'CLEAN_SUCCESS';
+  const outside = isOutsideSpot(A.state.area) || isOutsideSpot(D.state.area);
+  recordMoveUsed(A, move, landed);
+  const reversalLanded = result === 'REVERSAL' || result === 'HIGH_RISK_CRASH';
+  if (reversalLanded) S.recentReversalSide = dk;
+  else if (k === S.recentReversalSide) {
+    if (!landed || !move.flashPin) S.recentReversalSide = null;
+  } else S.recentReversalSide = null;
+  let stockReward = 0;
+  if (reversalLanded) {
+    D.reversals++;
+    if (isFinisherMove(A, move)) stockReward = grantFinisherStock(D);
+    ctx.ai[dk].noteReversalControl();
+    observePhase(ctx, result === 'HIGH_RISK_CRASH' ? 'high_risk_crash' : 'reversal');
   }
-  if (m.spot) {
-    h += 4;
-    st.spots++;
-  }
-  if (m.rest) {
-    h = -5;
-    st.rest++;
-  }
-  heat(ctx, h);
-  if (m.fin) {
-    say(ctx, LINES.finHit, { a: k, vars: { x: m.name.toUpperCase() } }, 'hl');
-    flash(ctx, m.name);
-    heat(ctx, 18);
-  } else if (m.sig) {
-    a.sigReady = false;
-    a.momentum = 0;
-    a.finStock = Math.min(3, a.finStock + 1);
-    say(ctx, LINES.sigHit, { a: k, vars: { x: m.name.toUpperCase() } }, 'hl');
-    heat(ctx, 12);
+  if (!landed) A.lastMoveWasFinisher = false;
+  applyDamage(ctx, k, dk, move, result, target);
+  applyStaminaFatigueMomentum(ctx, k, dk, move, result);
+  applyPositions(A, D, move, result);
+  const signatureConverted = landed && isSignatureMove(A, move) && convertLandedSignature(A);
+  ctx.ai[k].noteMoveResult(move, landed, D, A, target);
+  if (result === 'HIGH_RISK_CRASH') ctx.ai[dk].notePlayerHighRiskCrash();
+
+  if (landed) {
+    const major = majorKind(A, move);
+    if (major === 'FINISHER') say(ctx, LINES.finisherHit, { a: k, vars: { x: move.name.toUpperCase() } }, 'hl');
+    else if (major === 'SIGNATURE') say(ctx, LINES.signatureHit, { a: k, vars: { x: move.name.toUpperCase() } }, 'hl');
+    else if (!move.submission) {
+      const limb = target.storyPart !== 'HEAD' && target.storyPart !== 'BODY';
+      say(ctx, limb ? LINES.cleanLimb : LINES.clean, { a: k, d: dk, m: move.name, vars: { part: PART_LABEL[target.storyPart] } });
+    }
+    ring(ctx, 'move_landed', k, move.name);
+    crowdObserve(ctx, { type: 'move_landed', k, move, highRisk: isHighRisk(move), signature: major === 'SIGNATURE', finisher: major === 'FINISHER', outside });
+    if (major === 'SIGNATURE') observePhase(ctx, 'signature_landed');
+    if (major === 'FINISHER') observePhase(ctx, 'finisher_landed');
+  } else if (result === 'REVERSAL') {
+    say(ctx, LINES.reversal, { a: k, d: dk, m: move.name });
+    ring(ctx, 'reversal', dk, move.name);
+    crowdObserve(ctx, { type: 'reversal', k: dk, finisher: isFinisherMove(A, move), crash: false });
   } else {
-    const segs = fill(S, pick(ctx.rnd, T[m.cat]), { a: k, d: dk, am: m.name });
-    log(ctx, [...segs, ...targetNote(ctx, d, m)]);
+    say(ctx, LINES.crash, { a: k, d: dk, m: move.name });
+    ring(ctx, 'crash', k, move.name);
+    crowdObserve(ctx, { type: 'reversal', k: dk, finisher: isFinisherMove(A, move), crash: true });
   }
-  flushMiles(ctx);
-  if (m.rest) a.stamina = clamp(a.stamina + 8, 0, 100);
-  if (m.risk === 2 && S.heat > 68 && ctx.rnd() < 0.45) chantOf(ctx, CHANTS.holyShit);
-  if (m.sub) return schedule(ctx, { to: 'startSub', k, move: m }, 550);
-  if (m.flash) return schedule(ctx, { to: 'startPin', k, ctx: { imp: m.imp, flash: true, move: m } }, 350);
-  if (m.fin && d.pos === 'grounded' && a.pos === 'standing') {
-    return schedule(ctx, { to: 'startPin', k, ctx: { imp: m.imp, finisher: true, move: m } }, 700);
+  if (stockReward > 0) {
+    say(ctx, LINES.finisherStock, { a: dk, vars: { n: D.finisherStock } }, 'hl');
+    flash(ctx, 'Reversed', true);
   }
-  const n = S.streak.who === k ? S.streak.n : 0;
-  let p = 0.9 - 0.07 * n - (a.stamina < 30 ? 0.2 : 0) - (m.risk === 2 ? 0.12 : 0);
-  if (m.sig) p = 1;
-  if (ctx.rnd() < p) return schedule(ctx, { to: 'next' }, 450);
-  schedule(ctx, { to: 'neutral', lastK: k }, 550);
+  if (signatureConverted) say(ctx, LINES.signatureConverted, { a: k, vars: { n: A.finisherStock } }, 'hl');
 }
 
-/** The player (you) attempts a move: the bar is in "land it" mode. */
-export function playerMove(ctx: Ctx, m: Move): void {
-  const S = ctx.S;
-  tick(ctx);
-  const a = S.you, d = S.them;
-  if (m.fin) {
-    a.finStock--;
-    S.stats.finAttemptsSeen = true;
+function applyDamage(ctx: Ctx, k: SideKey, dk: SideKey, move: Move, result: ActionResult, target: TargetResolution): void {
+  const A = ctx.S[k], D = ctx.S[dk];
+  const aBefore = totalHp(A), dBefore = totalHp(D);
+  const before: Partial<Record<BodyPart, number>> = {};
+  for (const p of target.parts) before[p] = D.hp[p];
+  if (result === 'HIGH_RISK_CRASH') damagePart(A, 'BODY', move.impact * 0.75);
+  else if (result === 'CLEAN_SUCCESS') {
+    const mult = moveAttributeProfile(A, move).damageMultiplier;
+    for (const p of target.parts) {
+      const dmg = move.impact + (100 - D.hp[p]) * 0.08;
+      damagePart(D, p, dmg * (target.weights[p] ?? 1) * mult);
+    }
   }
-  const rc = revChance(a, d, { kind: 'move', m });
-  let w = offWidth(rc);
-  if (d.comeback > 0) {
-    w *= 0.75;
-    d.comeback--;
-  }
-  openMeter(ctx, { mode: 'off', attacker: 'you', title: m.name, width: w, dur: meterDur(m), target: { kind: 'move', move: m } });
+  const aDmg = Math.max(0, aBefore - totalHp(A)), dDmg = Math.max(0, dBefore - totalHp(D));
+  A.damageTaken += aDmg;
+  D.damageTaken += dDmg;
+  A.damageDealt += dDmg;
+  const landed = result === 'CLEAN_SUCCESS';
+  for (const p of target.parts) recordTargetResolution(A, p, Math.max(0, (before[p] ?? D.hp[p]) - D.hp[p]), landed);
+  if (landed) bodyStory(ctx, k, dk, move, target, before);
 }
 
-/** The AI (them) attempts a move: the bar is in "reverse it" mode for the player. */
-export function aiMove(ctx: Ctx, m: Move): void {
-  const S = ctx.S;
-  tick(ctx);
-  const a = S.them, d = S.you;
-  if (m.fin) {
-    a.finStock--;
-    S.stats.finAttemptsSeen = true;
-    say(ctx, LINES.aiFinSetup, { a: 'them', vars: { x: m.name } }, 'dim');
+/** _record_body_target_story: at most one body line per move, prioritised. */
+function bodyStory(ctx: Ctx, k: SideKey, dk: SideKey, move: Move, target: TargetResolution, before: Partial<Record<BodyPart, number>>): void {
+  const S = ctx.S, A = S[k], D = S[dk];
+  let critical = '', threshold = '';
+  let criticalPart: BodyPart = target.storyPart, thresholdPart: BodyPart = target.storyPart;
+  for (const p of target.parts) {
+    const crossed = markCrossedThresholds(D, p, before[p] ?? D.hp[p], D.hp[p]);
+    for (const th of [0, 20, 40, 60, 80]) {
+      if (!crossed.includes(th)) continue;
+      crowdObserve(ctx, { type: 'threshold', critical: th <= 20 });
+      if (th <= 20 && !critical) {
+        critical = LINES.critical;
+        criticalPart = p;
+      } else if (!threshold) {
+        threshold = LINES.threshold;
+        thresholdPart = p;
+      }
+    }
   }
-  const rc = revChance(a, d, { kind: 'move', m });
-  let w = defWidth(rc);
-  if (d.comeback > 0) {
-    w *= 1.6;
-    d.comeback--;
+  const story = target.storyPart;
+  const repeated = markRepeatedTargetMilestone(A, story, A.targetAttackCounts[story] ?? 0) ? LINES.repeated : '';
+  const subDanger = move.submission && D.hp[story] < 40 ? LINES.subDanger : '';
+  let line = critical, part = criticalPart, cls: '' | 'bad' | 'dim' = 'bad';
+  if (!line) [line, part, cls] = [subDanger, story, 'dim'];
+  if (!line) [line, part, cls] = [threshold, thresholdPart, 'dim'];
+  if (!line) [line, part, cls] = [repeated, story, 'dim'];
+  if (!line) return;
+  const isCritical = line === critical && !!critical;
+  if (!isCritical && S.t - D.lastBodyCommentaryTime < 60) return;
+  D.lastBodyCommentaryTime = S.t;
+  say(ctx, line, { a: k, d: dk, vars: { part: PART_LABEL[part] } }, cls);
+}
+
+function applyStaminaFatigueMomentum(ctx: Ctx, k: SideKey, dk: SideKey, move: Move, result: ActionResult): void {
+  const A = ctx.S[k], D = ctx.S[dk];
+  const demand = moveDemand(move, isSignatureMove(A, move));
+  const cost = staminaCost(move) * staminaCostMultiplier(A, demand);
+  const fatigue = 2 + (isHighRisk(move) ? 4 : 0) + (move.finisher ? 4 : 0);
+  spendStamina(A, cost);
+  addFatigue(A, fatigue);
+  if (result === 'CLEAN_SUCCESS') {
+    addFatigue(D, 2 + (move.finisher ? 4 : 0));
+    if (addMomentum(A, SUCCESSFUL_MOVE_MOMENTUM)) signatureReady(ctx, k);
+  } else {
+    addMomentum(A, -REVERSAL_MOMENTUM);
+    if (addMomentum(D, REVERSAL_MOMENTUM)) signatureReady(ctx, dk);
   }
-  openMeter(ctx, { mode: 'def', attacker: 'them', title: m.name, width: w, dur: meterDur(m), target: { kind: 'move', move: m } });
+}
+
+export function signatureReady(ctx: Ctx, k: SideKey): void {
+  say(ctx, LINES.signatureReady, { a: k }, 'dim');
+}
+
+function applyPositions(A: Side, D: Side, move: Move, result: ActionResult): void {
+  if (result === 'CLEAN_SUCCESS') {
+    A.state = { position: move.res.a.position, orientation: move.res.a.orientation, area: resolvedAttackerArea(move, A.state.area), motion: move.res.a.motion };
+    D.state = { position: move.res.t.position, orientation: move.res.t.orientation, area: resolvedTargetArea(move, D.state.area), motion: move.res.t.motion };
+  } else if (result === 'HIGH_RISK_CRASH') {
+    A.state = { position: 'GROUNDED', orientation: 'FACE_DOWN', area: resolvedAttackerArea(move, A.state.area), motion: 'STATIONARY' };
+  }
+}
+
+export function exhaustionCommentary(ctx: Ctx, k: SideKey): void {
+  for (const key of [k, other(k)] as SideKey[]) {
+    const s = ctx.S[key];
+    if (staminaPercent(s) < 50 && !s.announcedLowStamina) {
+      s.announcedLowStamina = true;
+      say(ctx, LINES.lowStamina, { a: key }, 'warn');
+    }
+    if (s.fatigue > 75 && !s.announcedHighFatigue) {
+      s.announcedHighFatigue = true;
+      say(ctx, LINES.highFatigue, { a: key }, 'warn');
+    }
+    if (exhaustionBand(s) === 'Spent' && !s.announcedSpent) {
+      s.announcedSpent = true;
+      say(ctx, LINES.spent, { a: key }, 'bad');
+    }
+  }
 }

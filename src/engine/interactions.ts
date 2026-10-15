@@ -1,48 +1,63 @@
 /*
- * Pure physics for the three timing interactions. No timers: the caller supplies elapsed time.
- * The UI drives these from requestAnimationFrame; the headless sim drives them in fixed steps.
- * Every constant here is copied from the original runMeter / runKickout / runSub.
+ * Pure physics for the timing interactions, ported from the Godot widgets. No timers: callers
+ * supply elapsed time. The UI drives these from requestAnimationFrame; the sim steps them.
  */
-import { clamp } from './rng';
-import type { KickoutCount, SubOutcome } from './types';
+import { clamp, lerp } from './rng';
 
-/* ---------- reversal / land-it bar ---------- */
+/* ---------- reversal ring (timing_circle_interaction.gd) ---------- */
 
-/** Taps in the first 150ms after the bar appears are ignored. */
-export const METER_GRACE_MS = 150;
+/** Remaining ring size, 1 → 0 over the time limit. */
+export const ringProgress = (elapsed: number, timeLimit: number): number => Math.max(0, 1 - elapsed / timeLimit);
 
-/** Marker position (%) at fraction f (0–1) of the bar's duration. */
-export const meterPos = (dir: 1 | -1, f: number): number => (dir > 0 ? f * 100 : 100 - f * 100);
+/** Did a tap at this progress land in the band? window is % of the shrink range. */
+export const ringHit = (progress: number, target: number, window: number): boolean => Math.abs(progress - target) <= window / 200;
 
-export const inGold = (pos: number, left: number, width: number): boolean => pos >= left && pos <= left + width;
+/** Seconds into the shrink when the ring passes the target's centre. */
+export const ringTargetTime = (target: number, timeLimit: number): number => (1 - target) * timeLimit;
 
-/* ---------- kickout hold ---------- */
+/* ---------- setup bar (control_meter_interaction.gd, one-way) ---------- */
 
-/** Fill rises at 100% per 0.95s while held. Reaching 100% locks it until released. */
-export const KICKOUT_FILL_PER_SEC = 100 / 0.95;
-export const PIN_SECONDS = 3;
+export const barPos = (dir: 1 | -1, elapsed: number, crossSeconds: number): number => {
+  const f = clamp(elapsed / crossSeconds, 0, 1) * 100;
+  return dir > 0 ? f : 100 - f;
+};
 
-/** Releasing in the gold at `e` seconds kicks out at this count. */
-export const kickoutCountAt = (e: number): KickoutCount => (e < 1 ? 1 : e < 2 ? 2 : 2.9);
+export const barHit = (pos: number, center: number, width: number): boolean => Math.abs(pos - center) <= width / 2;
 
-/* ---------- submission mash ---------- */
+/* ---------- kickout hold (hold_release_interaction.gd) ---------- */
 
-export const SUB_TAP_STEP = 2.6;
-export const SUB_MAX_TAPS_PER_SEC = 9;
-export const SUB_ROPE_SECONDS = 8.5;
+/** The count shown at `elapsed` seconds into the cover: 0 until ONE. */
+export const pinCountAt = (elapsed: number): 0 | 1 | 2 | 3 => Math.min(3, Math.floor(elapsed)) as 0 | 1 | 2 | 3;
 
-/** Bar drift for dt seconds. `jitter` is a uniform [0,1) draw. 100 = tap, 0 = escape. */
-export function subDrift(role: 'attack' | 'defend', rate: number, dt: number, jitter: number): number {
-  return (role === 'attack' ? -1 : 1) * rate * dt * (0.85 + jitter * 0.3);
+export function kickoutReleaseHit(fill01: number, center: number, widthPct: number, forgivenessPct: number): boolean {
+  return Math.abs(fill01 - center) <= widthPct / 200 + forgivenessPct / 100;
 }
 
-export const subTapDelta = (role: 'attack' | 'defend'): number => (role === 'attack' ? 1 : -1) * SUB_TAP_STEP;
+/* ---------- submission tug (submission_tug_interaction.gd) ---------- */
 
-export function subOutcome(pos: number, elapsed: number): SubOutcome | null {
-  if (pos >= 100) return 'tap';
-  if (pos <= 0) return 'escape';
-  if (elapsed >= SUB_ROPE_SECONDS) return 'rope';
+export const TUG_MAX_TAPS_PER_SECOND = 8;
+export const TUG_MIN_IMPULSE = 0.65;
+export const TUG_MAX_IMPULSE = 1.15;
+export const TUG_AI_PULSE_SECONDS = 0.2;
+const AI_FORCE_RATE_NORMALIZER = TUG_MAX_TAPS_PER_SECOND * TUG_AI_PULSE_SECONDS;
+export const TUG_STALL_FAILSAFE_SECONDS = 30;
+export const TUG_STALL_WINDOW_SECONDS = 10;
+export const TUG_STALL_MOVEMENT = 3;
+
+/** Marker movement from one accepted player tap. */
+export const tugTapImpulse = (playerScore: number, speed: number): number => lerp(TUG_MIN_IMPULSE, TUG_MAX_IMPULSE, playerScore / 100) * speed;
+
+/** Marker movement (signed, in the AI's direction) from one AI pulse. */
+export function tugAiPulse(playerDirection: 1 | -1, aiScore: number, playerScore: number, speed: number): number {
+  const advantage = aiScore - playerScore;
+  let impulse = lerp(TUG_MIN_IMPULSE, TUG_MAX_IMPULSE, aiScore / 100);
+  if (advantage > 5) impulse = clamp(impulse + advantage * 0.012, TUG_MIN_IMPULSE, 1.8);
+  else if (advantage < -5) impulse = clamp(impulse - Math.abs(advantage) * 0.012, 0.15, 1.2);
+  return -playerDirection * impulse * AI_FORCE_RATE_NORMALIZER * speed;
+}
+
+export function tugOutcome(marker: number, tap: number, escape: number): 'TAP_OUT' | 'SUBMISSION_ESCAPE' | null {
+  if (marker >= tap) return 'TAP_OUT';
+  if (marker <= escape) return 'SUBMISSION_ESCAPE';
   return null;
 }
-
-export const subMarker = (pos: number): number => clamp(pos, 0, 100);

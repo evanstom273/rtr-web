@@ -1,139 +1,239 @@
-import { CHANTS, FLASH, LINES, SETUP_TEXT } from '../data/commentary';
+// Setup / showboat actions. Port of get_valid_setup_actions, execute_setup_action,
+// _execute_contested_setup_action, _apply_reversed_setup_positions, taunts and Catch Breath.
+import { LINES, SETUP_TEXT, setupLogLine, tauntTitle } from '../data/commentary';
+import { tauntProfile } from './attributes';
+import { advanceClock, sideIsOutside } from './clock';
 import type { Ctx } from './ctx';
-import { chantOf, flash, other, say } from './commentary';
-import { heat, landedBy, tick } from './crowd';
-import { checkSig, flushMiles, hit } from './damage';
-import { neutral, schedule, setCtrl } from './flow';
-import { defWidth, offWidth, openMeter, revChance } from './moves';
-import { avgHP, costMult } from './positions';
-import { clamp, pick } from './rng';
-import type { Position, Side, SetupId, SideKey } from './types';
+import { other, ring, say } from './commentary';
+import { crowdObserve } from './crowd';
+import {
+  CATCH_BREATH_COOLDOWN_SECONDS, CATCH_BREATH_STAMINA_THRESHOLD, catchBreathRecovery, recoveryDelayChance,
+  staminaCostMultiplier, staminaPercent, staminaRecoveryMultiplier,
+} from './exhaustion';
+import { afterAction, render, setControl, setResolvedControl } from './flow';
+import {
+  BREAKTHROUGH_BAR_CROSS, DEFEND_BAR_CROSS, breakthroughBarWidth, defendBarWidth, reversalChance,
+} from './interaction';
+import { exhaustionCommentary, signatureReady, SUCCESSFUL_MOVE_MOMENTUM, REVERSAL_MOMENTUM, validMoves } from './moves';
+import { pick, randRange } from './rng';
+import { candidateActions, findFollowupPaths, isContested, isRecovery, projectAction } from './setupRules';
+import { addFatigue, addMomentum, canUseMove, noteSetupAction, recoverStamina, spendStamina } from './side';
+import type { MatchState, SetupId, Side, SideKey } from './types';
 
-type P = Pick<Side, 'pos'>;
+export const TAUNT_COOLDOWN_SECONDS = 120;
 
-export interface SetupRule {
-  id: SetupId;
-  ok: (a: Side, d: Side) => boolean;
-  /** Reversal contest. 0 = uncontested. */
-  contest?: number | ((a: P, d: P) => number);
-  apply?: (a: { pos: Position }, d: { pos: Position }) => void;
-  rev?: (a: { pos: Position }, d: { pos: Position }) => void;
-  run?: (ctx: Ctx, k: SideKey) => void;
-}
-
-/** Order matters: the AI's plan() walks this list in order. */
-export const SETUPS: readonly SetupRule[] = [
-  { id: 'pickup', ok: (a, d) => a.pos === 'standing' && d.pos === 'grounded', contest: 28, apply: (_a, d) => { d.pos = 'standing'; }, rev: (a) => { a.pos = 'grounded'; } },
-  { id: 'whip', ok: (a, d) => a.pos === 'standing' && d.pos === 'standing', contest: 27, apply: (_a, d) => { d.pos = 'corner'; }, rev: (a) => { a.pos = 'corner'; } },
-  { id: 'climb', ok: (a, d) => a.pos === 'standing' && (d.pos === 'grounded' || d.pos === 'standing'), contest: (_a, d) => (d.pos === 'standing' ? 32 : 0), apply: (a) => { a.pos = 'top'; }, rev: (a) => { a.pos = 'grounded'; } },
-  { id: 'down', ok: (a) => a.pos === 'top', contest: 0, apply: (a) => { a.pos = 'standing'; } },
-  { id: 'floor', ok: (a, d) => a.pos === 'standing' && (d.pos === 'standing' || d.pos === 'grounded'), contest: 25, apply: (_a, d) => { d.pos = 'outside'; } },
-  { id: 'follow', ok: (a, d) => a.pos === 'standing' && d.pos === 'outside', contest: 0, apply: (a) => { a.pos = 'outside'; } },
-  { id: 'wait', ok: (a, d) => a.pos === 'standing' && d.pos === 'outside', contest: 0, apply: (_a, d) => { d.pos = 'standing'; } },
-  { id: 'rollin', ok: (a, d) => a.pos === 'outside' && d.pos === 'outside', contest: 0, apply: (a, d) => { a.pos = 'standing'; d.pos = 'grounded'; } },
-  { id: 'getin', ok: (a, d) => a.pos === 'outside' && d.pos !== 'outside', contest: 0, apply: (a) => { a.pos = 'standing'; } },
-  { id: 'taunt', ok: (a, d) => (a.pos === 'standing' || a.pos === 'top') && d.pos !== 'outside' && a.tauntCd === 0, run: runTaunt },
-  { id: 'breath', ok: (a) => a.stamina < 65 && a.pos !== 'top', run: runBreath },
-  { id: 'cheap', ok: (a, d) => a.align === 'heel' && a.pos === 'standing' && d.pos !== 'outside' && a.cheapCd === 0, run: runCheap },
-  { id: 'fire', ok: (a) => a.align === 'face' && !a.firedUp && avgHP(a) < 62 && a.momentum < 60, run: runFire },
-  { id: 'reset', ok: () => true, run: (ctx, k) => { say(ctx, LINES.reset, { a: k }, 'dim'); neutral(ctx, null); } },
-];
-
-export function setupById(id: SetupId): SetupRule {
-  const s = SETUPS.find((x) => x.id === id);
-  if (!s) throw new Error(`Unknown setup ${id}`);
-  return s;
-}
-
-export function availableSetups(a: Side, d: Side): SetupRule[] {
-  return SETUPS.filter((s) => s.ok(a, d));
-}
-
-export function runSetup(ctx: Ctx, k: SideKey, s: SetupRule): void {
-  tick(ctx);
-  const S = ctx.S, a = S[k], d = S[other(k)];
-  if (s.run) return s.run(ctx, k);
-  const con = typeof s.contest === 'function' ? s.contest(a, d) : (s.contest ?? 0);
-  if (!con) return resolveSetup(ctx, k, s, true);
-  const rc = revChance(a, d, { kind: 'setup', contest: con });
-  const title = SETUP_TEXT[s.id].name, target = { kind: 'setup', setup: s.id } as const;
-  if (k === 'you') openMeter(ctx, { mode: 'off', attacker: k, title, width: offWidth(rc), dur: 2000, target });
-  else openMeter(ctx, { mode: 'def', attacker: k, title, width: defWidth(rc), dur: 1950, target });
-}
-
-export function resolveSetup(ctx: Ctx, k: SideKey, s: SetupRule, ok: boolean): void {
-  const S = ctx.S, a = S[k], dk = other(k), d = S[dk], txt = SETUP_TEXT[s.id];
-  a.stamina = clamp(a.stamina - 3 * costMult(a), 0, 100);
-  if (ok) {
-    s.apply?.(a, d);
-    say(ctx, txt.line ?? '', { a: k, d: dk });
-    return schedule(ctx, { to: 'next' }, 420);
+/** get_valid_setup_actions: recoveries, taunt/breath when eligible, and first steps toward a real follow-up. */
+export function validSetups(S: MatchState, k: SideKey): SetupId[] {
+  const A = S[k], D = S[other(k)];
+  const actions = candidateActions(A.state, D.state);
+  const firstSteps = new Set<SetupId>();
+  for (const path of findFollowupPaths(A.all, A.state, D.state, 2)) {
+    if (path.actions.length && canUseMove(A, path.move)) firstSteps.add(path.actions[0]!);
   }
-  s.rev?.(a, d);
-  say(ctx, txt.revLine ?? '', { a: k, d: dk });
-  d.momentum = clamp(d.momentum + 5, 0, 100);
-  checkSig(ctx, d);
-  heat(ctx, 3);
-  S.stats.reversals++;
-  landedBy(ctx, dk);
-  setCtrl(ctx, dk);
-  schedule(ctx, { to: 'next' }, 480);
-}
-
-function runTaunt(ctx: Ctx, k: SideKey): void {
-  const S = ctx.S, a = S[k], dk = other(k), d = S[dk];
-  a.tauntCd = 5;
-  const ic = clamp((d.pos === 'standing' ? 28 : 14) + (a.pos === 'top' ? 10 : 0) - (a.st.cha - 60) * 0.3, 5, 45);
-  if (ctx.rnd() * 100 < ic) {
-    say(ctx, LINES.tauntPunished, { a: k, d: dk });
-    heat(ctx, 4);
-    if (a.pos === 'top') a.pos = 'grounded';
-    landedBy(ctx, dk);
-    setCtrl(ctx, dk);
-    return schedule(ctx, { to: 'next' }, 500);
+  const out: SetupId[] = [];
+  for (const id of actions) {
+    // The AI may only leave the ring alone as part of a weapon plan; there are no weapons yet.
+    if (k === 'them' && id === 'exit_ring') continue;
+    if (id === 'taunt' && S.t < A.tauntCooldownUntil) continue;
+    if (id === 'catch_breath' && (staminaPercent(A) >= CATCH_BREATH_STAMINA_THRESHOLD || S.t < A.catchBreathCooldownUntil)) continue;
+    if (isRecovery(id) || id === 'taunt' || id === 'catch_breath' || (k === 'you' && id === 'exit_ring') || firstSteps.has(id)) out.push(id);
   }
-  heat(ctx, 6 + (a.st.cha - 50) * 0.25);
-  a.momentum = clamp(a.momentum + 12, 0, 100);
-  a.stamina = clamp(a.stamina + 3, 0, 100);
-  checkSig(ctx, a);
-  say(ctx, pick(ctx.rnd, a.align === 'heel' ? LINES.tauntHeel : LINES.tauntFace), { a: k });
-  schedule(ctx, { to: 'next' }, 450);
+  if (S.rules.countOuts && !sideIsOutside(S, k) && sideIsOutside(S, other(k)) && !out.includes('wait_for_count')) {
+    out.push('wait_for_count');
+  }
+  if (!out.length) out.push('reset_stance');
+  return out;
 }
 
-function runBreath(ctx: Ctx, k: SideKey): void {
-  const a = ctx.S[k];
-  a.stamina = clamp(a.stamina + 18 * (1.2 - (100 - avgHP(a)) / 250), 0, 100);
-  ctx.S.stats.rest++;
-  heat(ctx, -3);
-  say(ctx, LINES.breath, { a: k }, 'dim');
-  schedule(ctx, { to: 'neutral', lastK: null }, 400);
+export function setupTitle(s: Side, id: SetupId): string {
+  return id === 'taunt' ? tauntTitle(s.state.area) : SETUP_TEXT[id].title;
 }
 
-function runCheap(ctx: Ctx, k: SideKey): void {
-  const a = ctx.S[k], d = ctx.S[other(k)];
-  hit(ctx, d, 'head', 3 + ctx.rnd() * 2);
-  a.momentum = clamp(a.momentum + 15, 0, 100);
-  checkSig(ctx, a);
-  heat(ctx, 6);
-  a.cheapCd = 4;
-  say(ctx, pick(ctx.rnd, LINES.cheap), { a: k });
-  if (ctx.rnd() < 0.35) chantOf(ctx, CHANTS.sucks, { x: (a.name.split(' ')[0] ?? '').toUpperCase() });
-  flushMiles(ctx);
-  landedBy(ctx, k);
-  schedule(ctx, { to: 'next' }, 450);
+const DELAYABLE: ReadonlySet<SetupId> = new Set<SetupId>(['stand_up', 'stop_running', 'regain_footing', 'regain_composure']);
+
+export function executeSetup(ctx: Ctx, k: SideKey, id: SetupId): boolean {
+  const S = ctx.S, A = S[k], dk = other(k), D = S[dk];
+  if (!validSetups(S, k).includes(id)) return false;
+  if (id === 'wait_for_count') {
+    advanceClock(ctx);
+    spendStamina(A, staminaCostMultiplier(A, 'BASIC'));
+    say(ctx, LINES.waitForCount, { a: k }, 'warn');
+    ring(ctx, 'setup', k, 'Wait');
+    // A pass: the wrestler on the floor gets the next turn.
+    setControl(ctx, dk);
+    afterAction(ctx);
+    return true;
+  }
+  if (!projectAction(id, A.state, D.state).valid) return false;
+  S.recentReversalSide = null;
+  advanceClock(ctx);
+  if (S.over) return true;
+  // Exhaustion can keep a wrestler down for an extra beat.
+  if (DELAYABLE.has(id)) {
+    if (A.recoveryDelayProtected) A.recoveryDelayProtected = false;
+    else if (ctx.rnd() * 100 < recoveryDelayChance(A, A.lastActionResult === 'HIGH_RISK_CRASH')) {
+      A.recoveryDelayProtected = true;
+      spendStamina(A, staminaCostMultiplier(A, 'BASIC'));
+      addFatigue(A, 0.5);
+      say(ctx, LINES.recoveryDelayed, { a: k }, 'warn');
+      setResolvedControl(ctx, 'neutral', k, dk);
+      afterAction(ctx);
+      return true;
+    }
+  }
+  if (id === 'catch_breath') {
+    A.catchBreathCooldownUntil = S.t + CATCH_BREATH_COOLDOWN_SECONDS;
+    const recovered = recoverStamina(A, catchBreathRecovery(A));
+    say(ctx, LINES.catchBreath, { a: k, vars: { n: recovered.toFixed(1) } }, 'good');
+    crowdObserve(ctx, { type: 'catch_breath' });
+    ctx.ai[k].noteSetupExecuted('catch_breath', A);
+    A.lastActionResult = 'SETUP_SUCCESS';
+    // Surrender initiative: the opponent gets the favoured neutral roll.
+    S.neutralFavoured = dk;
+    setResolvedControl(ctx, 'neutral', k, dk);
+    S.neutralFavoured = dk;
+    afterAction(ctx);
+    return true;
+  }
+  if (id === 'taunt') A.tauntCooldownUntil = S.t + TAUNT_COOLDOWN_SECONDS;
+  if (isContested(id)) {
+    const chance = reversalChance(A, D, null, id, null);
+    const role = dk === 'you' ? 'defend' : 'breakthrough';
+    const width = role === 'defend' ? defendBarWidth(chance) : breakthroughBarWidth(chance);
+    const dir: 1 | -1 = ctx.rnd() < 0.5 ? 1 : -1;
+    // Keep the gold at least 24% of the track away from where the marker starts.
+    const half = width / 2;
+    const lo = dir > 0 ? 24 + half : half + 6, hi = dir > 0 ? 94 - half : 76 - half;
+    S.txn = { kind: 'setup', k, action: id, chance };
+    S.pending = {
+      kind: 'setupMeter',
+      spec: {
+        id: ++S.seq, role, attacker: k,
+        title: role === 'defend' ? `REVERSE: ${setupTitle(A, id)}` : `BEAT THE REVERSAL: ${setupTitle(A, id)}`,
+        width, center: randRange(ctx.rnd, lo, hi), dir,
+        crossSeconds: role === 'defend' ? DEFEND_BAR_CROSS : BREAKTHROUGH_BAR_CROSS,
+        chance,
+      },
+    };
+    return true;
+  }
+  // Uncontested: apply directly.
+  const p = projectAction(id, A.state, D.state);
+  A.state = p.attacker;
+  D.state = p.target;
+  const recovery = isRecovery(id);
+  spendStamina(A, (recovery ? 1 : 3) * staminaCostMultiplier(A, recovery ? 'BASIC' : 'STANDARD'));
+  addFatigue(A, recovery ? 0.5 : 1);
+  exhaustionCommentary(ctx, k);
+  ctx.ai[k].noteSetupExecuted(id, A);
+  A.lastActionResult = 'SETUP_SUCCESS';
+  say(ctx, setupLogLine(id), { a: k, d: dk }, 'dim');
+  ring(ctx, 'setup', k, setupTitle(A, id));
+  setControl(ctx, k);
+  afterAction(ctx);
+  return true;
 }
 
-function runFire(ctx: Ctx, k: SideKey): void {
-  const a = ctx.S[k];
-  a.firedUp = true;
-  a.comeback = 3;
-  a.momentum = clamp(a.momentum + 35, 0, 100);
-  a.stamina = clamp(a.stamina + 20, 0, 100);
-  checkSig(ctx, a);
-  heat(ctx, 15);
-  ctx.S.stats.fireUp = k;
-  flash(ctx, FLASH.firedUp);
-  say(ctx, LINES.fireUp, { a: k }, 'hl');
-  landedBy(ctx, k);
-  schedule(ctx, { to: 'next' }, 600);
+/** The contested setup's bar has resolved. */
+export function finishContestedSetup(ctx: Ctx, k: SideKey, id: SetupId, reversed: boolean): void {
+  const S = ctx.S, A = S[k], dk = other(k), D = S[dk];
+  const isTaunt = id === 'taunt';
+  const originalArea = A.state.area;
+  if (reversed) {
+    ctx.ai[k].noteSetupExecuted(null, A);
+    applyReversedSetupPositions(id, A, D);
+    spendStamina(A, 3 * staminaCostMultiplier(A, 'STANDARD'));
+    addFatigue(A, 2);
+    if (addMomentum(D, REVERSAL_MOMENTUM)) signatureReady(ctx, dk);
+    D.reversals++;
+    S.recentReversalSide = dk;
+    A.lastActionResult = 'REVERSAL';
+    if (isTaunt) {
+      const line = originalArea === 'TOP_ROPE' ? LINES.tauntInterruptedTop : originalArea === 'APRON' ? LINES.tauntInterruptedApron : pick(ctx.rnd, LINES.tauntInterrupted);
+      say(ctx, line, { a: k, d: dk });
+      crowdObserve(ctx, { type: 'taunt_interrupted', k: dk });
+    } else {
+      say(ctx, reversedSetupLine(id), { a: k, d: dk });
+      crowdObserve(ctx, { type: 'setup_reversed', k: dk });
+    }
+    ring(ctx, 'reversal', dk, setupTitle(A, id));
+  } else {
+    const p = projectAction(id, A.state, D.state);
+    A.state = p.attacker;
+    D.state = p.target;
+    if (isTaunt) {
+      applySuccessfulTaunt(ctx, A);
+      say(ctx, tauntLine(ctx, A, D), { a: k }, 'good');
+      crowdObserve(ctx, { type: 'taunt', k, charisma: A.w.stats.charisma });
+    } else {
+      noteSetupAction(A, id);
+      spendStamina(A, 3 * staminaCostMultiplier(A, 'STANDARD'));
+      addFatigue(A, 1);
+      say(ctx, setupLogLine(id), { a: k, d: dk }, 'dim');
+    }
+    A.lastActionResult = 'SETUP_SUCCESS';
+    ctx.ai[k].noteSetupExecuted(id, A);
+    ring(ctx, 'setup', k, setupTitle(A, id));
+  }
+  exhaustionCommentary(ctx, k);
+  render(ctx);
+  let control: SideKey = reversed ? dk : k;
+  // Sending the opponent outside with nothing to follow it up hands them the next turn.
+  if (!reversed && id === 'send_opponent_outside' && !hasImmediateOutsideFollowup(S, k)) control = dk;
+  setResolvedControl(ctx, control, k, dk);
+  afterAction(ctx);
+}
+
+function hasImmediateOutsideFollowup(S: MatchState, k: SideKey): boolean {
+  if (validMoves(S, k).length) return true;
+  const A = S[k], D = S[other(k)];
+  return findFollowupPaths(A.all, A.state, D.state, 1).some((p) => canUseMove(A, p.move));
+}
+
+function applyReversedSetupPositions(id: SetupId, A: Side, D: Side): void {
+  switch (id) {
+    case 'irish_whip': {
+      D.state.motion = 'STATIONARY';
+      const area = ['IN_RING', 'OUTSIDE', 'RAMP', 'CROWD', 'BACKSTAGE'].includes(A.state.area) ? A.state.area : 'IN_RING';
+      A.state = { position: 'STANDING', orientation: 'FRONT', area, motion: 'ROPE_REBOUND' };
+      break;
+    }
+    case 'throw_into_corner':
+      D.state = { position: 'STANDING', orientation: 'FRONT', area: 'IN_RING', motion: 'STATIONARY' };
+      A.state = { position: 'STANDING', orientation: 'FRONT', area: 'CORNER', motion: 'STATIONARY' };
+      break;
+    case 'pick_opponent_up':
+      A.state = { position: 'GROUNDED', orientation: 'FACE_UP', area: A.state.area, motion: 'STATIONARY' };
+      D.state.motion = 'STATIONARY';
+      break;
+    case 'taunt':
+      if (A.state.area === 'TOP_ROPE') A.state = { position: 'GROUNDED', orientation: 'FACE_UP', area: 'IN_RING', motion: 'STATIONARY' };
+      else if (A.state.area === 'APRON') A.state = { position: 'STANDING', orientation: 'FRONT', area: 'IN_RING', motion: 'STATIONARY' };
+      else A.state.motion = 'STATIONARY';
+      break;
+  }
+}
+
+function applySuccessfulTaunt(ctx: Ctx, A: Side): void {
+  const profile = tauntProfile(A);
+  let reward = A.state.area === 'APRON' ? 3 : A.state.area === 'TOP_ROPE' ? 2 : 4;
+  reward *= staminaRecoveryMultiplier(A) * profile.staminaMultiplier;
+  recoverStamina(A, reward);
+  if (addMomentum(A, Math.max(1, SUCCESSFUL_MOVE_MOMENTUM + profile.momentumBonus))) signatureReady(ctx, A.key);
+}
+
+function tauntLine(ctx: Ctx, A: Side, D: Side): string {
+  if (A.state.area === 'TOP_ROPE') return pick(ctx.rnd, LINES.tauntTop);
+  if (A.state.area === 'APRON') return pick(ctx.rnd, LINES.tauntApron);
+  if (staminaPercent(A) < 30 || A.fatigue >= 70) return LINES.tauntTired;
+  if (D.state.position === 'GROUNDED') return LINES.tauntStalk;
+  if (A.momentum >= 75) return LINES.tauntFired;
+  return pick(ctx.rnd, LINES.tauntStanding);
+}
+
+function reversedSetupLine(id: SetupId): string {
+  if (id === 'irish_whip') return LINES.setupReversedWhip;
+  if (id === 'throw_into_corner') return LINES.setupReversedCorner;
+  if (id === 'pick_opponent_up') return LINES.setupReversedPickup;
+  return LINES.setupReversed;
 }

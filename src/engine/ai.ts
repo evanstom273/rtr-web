@@ -1,151 +1,827 @@
+// Port of MatchAIDecisionEngine. Godot's optional psychology framework (MatchDecisionFramework) and
+// wrestling-identity modifiers are not ported yet; with no framework, Godot itself falls back to the
+// weighted top-five choice used here.
+import type { BodyPart } from '../data/rtr/types';
+import { attributeDelta, moveAttributeProfile, setupScoringModifier, tauntProfile } from './attributes';
+import { advanceClock, sideIsOutside } from './clock';
 import type { Ctx } from './ctx';
-import { other } from './commentary';
-import { tick } from './crowd';
-import { neutral } from './flow';
-import { aiMove, playerMove } from './moves';
-import { ctxFor, pinPressure, startPin } from './pin';
-import { pinOk, posOk, ready } from './positions';
-import { runSetup, SETUPS, setupById, type SetupRule } from './setups';
-import type { BodyPart, Choice, MatchState, Move, Side, SideKey } from './types';
-import { PARTS } from './types';
+import { other, say } from './commentary';
+import { LINES } from '../data/commentary';
+import {
+  combinedExhaustion, executionPenalty, exhaustionBand, moveDemand, staminaCostMultiplier, staminaPercent, staminaRecoveryMultiplier,
+} from './exhaustion';
+import { afterAction, setControl } from './flow';
+import { executionChance, isHighRisk, reversalChance } from './interaction';
+import { executeMove, moveIsValid, validMoves } from './moves';
+import { canPin, isFlashPinMove, startPin } from './pin';
+import { executeSetup, validSetups } from './setups';
+import { findFollowupPaths, isContested, isRecovery, moveMatchesSnapshots, projectAction } from './setupRules';
+import {
+  canUseMove, isFinisherMove, isSignatureMove, lastAttemptedMoveMatches, lowestTargetHp, MAX_FINISHER_STOCK, mostTargetedPart,
+  recentMoveCount, recentTargetPartCount, totalHp, weakestPart,
+} from './side';
+import { focusAppliesToMove, isLimbFocus, resolveTarget, targetHp } from './targeting';
+import type { Choice, MatchState, Move, SetupId, Side, SideKey, Snapshot, TargetResolution } from './types';
+import { BODY_PARTS } from './types';
 
-/** Pick a body part to work over, weighted by class. Sticky unless a much better target appears. */
-export function updateFocus(a: Side, d: Side): void {
-  const adj = (p: BodyPart) =>
-    d.hp[p] -
-    (a.cls.includes('tech') && (p === 'arm' || p === 'leg') ? 8 : 0) -
-    (a.cls.includes('power') && (p === 'head' || p === 'body') ? 6 : 0) -
-    (a.cls.includes('striker') && p === 'head' ? 6 : 0);
-  const best = [...PARTS].sort((x, y) => adj(x) - adj(y))[0] as BodyPart;
-  if (!a.focus || adj(a.focus) - adj(best) > 15) a.focus = best;
-}
+const MOVE_BLOCK_WINDOW = 3;
 
-export function scoreMove(ctx: Ctx, a: Side, d: Side, m: Move): number {
-  const mins = ctx.S.t / 60;
-  let s = 40 + m.imp * 4;
-  if (m.cls && m.cls.some((c) => a.cls.includes(c))) s += 10;
-  s += (100 - d.hp[m.part]) * 0.18;
-  if (a.focus === m.part) s += 8;
-  if (a.lastMove === m.name) s -= 30;
-  s -= (a.used[m.name] || 0) * 7;
-  if (m.risk === 2) {
-    s += a.cls.includes('flyer') ? 8 : -6;
-    if (a.stamina < 35) s -= 25;
+type Candidate = Choice & { readySpecial?: boolean; forcedFallback?: boolean; fallbackLog?: 'commit' | 'reset' };
+
+export class AiBrain {
+  lastSetupIntent: SetupId | null = null;
+  targetFocus: BodyPart | null = null;
+  lastSuccessfulMoveImpact = 0;
+  lastSuccessfulMove: Move | null = null;
+  lastLandedFinisher = false;
+  playerCrashOpportunity = false;
+  reversalPinOpportunity = false;
+  bigMoveFollowupOpportunity = false;
+  setupIntentDecisionsRemaining = 0;
+  setupIntentPendingAttempt = false;
+  plannedSetupActions: SetupId[] = [];
+  plannedFollowupMoveId = '';
+  setupCooldownTurns = 0;
+  recentSetupActions: (SetupId | '')[] = [];
+  targetFocusUnavailableTurns = 0;
+  recentAiMoveIds: string[] = [];
+  lastPinAttemptLandedCount = -1;
+  lastPinAttemptMoveId = '';
+
+  constructor(private readonly ctx: Ctx, private readonly k: SideKey) {}
+
+  private get S(): MatchState {
+    return this.ctx.S;
   }
-  if (m.sub) {
-    s += d.hp[m.part] < 50 ? 18 : -12;
-    if (a.cls.includes('tech')) s += 10;
-    if (mins < 5) s -= 12;
+  private get phase(): 'opening' | 'middle' | 'closing' {
+    return this.S.phase.name;
   }
-  if (m.rest) s += a.stamina < 45 ? 25 : -25;
-  if (m.flash) s += mins > 12 ? 12 : -35;
-  return s + ctx.rnd() * 6;
-}
+  private phaseFinishBonus(): number {
+    return this.phase === 'closing' ? 20 : this.phase === 'middle' ? 8 : 0;
+  }
 
-export function scoreSetup(ctx: Ctx, a: Side, d: Side, s: SetupRule): number {
-  const run = a.setupRun || 0;
-  let sc: number;
-  switch (s.id) {
-    case 'pickup': sc = 26; break;
-    case 'whip': sc = 24 + (a.cls.includes('power') ? 8 : 0); break;
-    case 'climb': {
-      if (!a.moves.some((m) => m.self === 'top' && m.tgt === d.pos)) return -99;
-      sc = 16 + (a.cls.includes('flyer') ? 16 : 0) - (a.stamina < 35 ? 25 : 0) - (d.pos === 'standing' ? 6 : 0);
-      break;
+  /* ---------- notes from the match ---------- */
+
+  notePinAttempt(ai: Side, cover: Move | null): void {
+    this.lastPinAttemptLandedCount = ai.movesLanded;
+    this.lastPinAttemptMoveId = cover?.id ?? '';
+  }
+  noteReversalControl(): void {
+    this.reversalPinOpportunity = true;
+  }
+  notePlayerHighRiskCrash(): void {
+    this.playerCrashOpportunity = true;
+  }
+  noteSetupExecuted(id: SetupId | null, ai: Side): void {
+    if (!id) return this.clearSetupIntent();
+    if (isRecovery(id) || id === 'taunt') return this.clearSetupIntent();
+    if (this.lastSetupIntent && this.lastSetupIntent !== id && !this.plannedFollowupMoveId) this.clearSetupIntent();
+    this.lastSetupIntent = id;
+    this.setupIntentDecisionsRemaining = Math.max(2, this.plannedSetupActions.length + 1);
+    this.setupIntentPendingAttempt = false;
+    void ai;
+  }
+  noteMoveResult(move: Move, landed: boolean, target: Side, ai: Side, res: TargetResolution): void {
+    if (landed) {
+      this.lastSuccessfulMoveImpact = move.impact;
+      this.lastSuccessfulMove = move;
+      this.lastLandedFinisher = move.finisher;
+      this.bigMoveFollowupOpportunity = move.impact >= 8;
+      if (this.targetFocus === null) {
+        this.targetFocus = res.storyPart;
+        ai.targetFocus = res.storyPart;
+      }
+    } else {
+      this.lastSuccessfulMove = null;
+      this.lastLandedFinisher = false;
     }
-    case 'down': sc = a.moves.some((m) => m.self === 'top' && m.tgt === d.pos) ? -40 : 70; break;
-    case 'floor': sc = 10 + (a.cls.some((c) => c === 'flyer' || c === 'hardcore') ? 12 : 0); break;
-    case 'follow': sc = 24 + (a.cls.includes('hardcore') ? 16 : 0); break;
-    case 'wait': sc = 20; break;
-    case 'rollin': sc = 20 + ctx.S.outsideBeats * 18; break;
-    case 'getin': sc = 90; break;
-    case 'taunt': sc = 4 + (a.st.cha - 60) * 0.4 - (d.pos === 'standing' ? 22 : 0); break;
-    case 'breath': sc = a.stamina < 25 ? 60 : a.stamina < 40 ? 22 : -99; break;
-    case 'cheap': sc = 24; break;
-    case 'fire': sc = 80; break;
-    default: sc = -60;
+    void target;
+    this.clearSetupIntent();
   }
-  if (!['getin', 'breath', 'fire', 'rollin', 'down'].includes(s.id)) sc -= run * 30;
-  return sc + ctx.rnd() * 8;
+  noteForcedFallback(ai: Side): void {
+    this.setupCooldownTurns = 2;
+    ai.consecutiveSetupActions = 0;
+    this.clearSetupIntent();
+  }
+  noteMandatoryRecovery(ai: Side): void {
+    ai.consecutiveSetupActions = 0;
+    this.clearSetupIntent();
+  }
+  private clearSetupIntent(): void {
+    this.lastSetupIntent = null;
+    this.setupIntentDecisionsRemaining = 0;
+    this.setupIntentPendingAttempt = false;
+    this.plannedSetupActions = [];
+    this.plannedFollowupMoveId = '';
+  }
+
+  /* ---------- choose ---------- */
+
+  choose(ai: Side, target: Side, moves: Move[], setups: SetupId[]): Candidate | null {
+    if (this.setupCooldownTurns > 0) this.setupCooldownTurns--;
+    let candidates: Candidate[] = [];
+    this.updateTargetFocus(ai, target, moves);
+    const focus = this.targetFocus ?? 'NONE';
+    for (const move of moves) {
+      const res = resolveTarget(move, focus, target.hp);
+      const readySpecial = (ai.finisherStock > 0 && isFinisherMove(ai, move)) || (ai.signatureReady && isSignatureMove(ai, move));
+      candidates.push({ kind: 'move', move, target: res, score: this.scoreMove(ai, target, move, res), readySpecial });
+    }
+    candidates = this.applyTemporaryMoveBlock(candidates);
+    let bestMoveScore = -Infinity;
+    for (const c of candidates) bestMoveScore = Math.max(bestMoveScore, c.score);
+    for (const action of setups) {
+      if (moves.length && isRecovery(action)) continue;
+      if (action === 'taunt' && this.rejectTaunt(ai, target, moves, bestMoveScore)) continue;
+      const plan = this.bestSetupPlan(ai, target, action);
+      candidates.push({ kind: 'setup', action, score: this.scoreSetup(ai, target, action, moves, plan), path: plan?.actions ?? [], plannedMove: plan?.move ?? null });
+    }
+    const pinScore = this.scorePin(ai, target, bestMoveScore);
+    if (pinScore > -Infinity && canPin(this.S, this.k)) candidates.push({ kind: 'pin', score: pinScore });
+    if (!candidates.length) {
+      this.clearSetupIntent();
+      return null;
+    }
+    const intentMoves = moves.filter((m) => this.intentMatchesMove(this.lastSetupIntent, m));
+    if (this.lastSetupIntent && !intentMoves.length) {
+      this.setupIntentDecisionsRemaining--;
+      if (this.setupIntentDecisionsRemaining <= 0) this.clearSetupIntent();
+    }
+    let selected: Candidate | null = null;
+    const readyMove = this.bestReadySpecialMove(candidates, ai);
+    // Deviations from Godot (see NOTES.md): stop forcing the ready-special setup path once the
+    // setup-loop breaker has tripped, or when a credible pin is on the table. Otherwise a reversed
+    // first step (e.g. pick-up) can repeat indefinitely and the AI never covers a beaten opponent.
+    const crediblePin = canPin(this.S, this.k) && (
+      totalHp(target) <= 390 || staminaPercent(target) < 30 || target.fatigue >= 70 || this.phase === 'closing' || ai.lastMoveWasFinisher
+    );
+    const skipSpecialPath = ai.consecutiveSetupActions >= 3 || crediblePin;
+    const readySetup = readyMove || skipSpecialPath ? null : this.bestReadySpecialSetup(candidates, ai);
+    if (readyMove) selected = readyMove;
+    else if (readySetup) {
+      this.clearSetupIntent();
+      selected = readySetup;
+    } else if (this.plannedSetupActions.length && !skipSpecialPath) {
+      selected = this.candidateForSetup(candidates, this.plannedSetupActions[0]!);
+      if (!selected) this.clearSetupIntent();
+    } else if (intentMoves.length) selected = this.bestIntentMove(candidates, this.lastSetupIntent);
+    else if (ai.consecutiveSetupActions >= 3) {
+      if (moves.length) selected = { ...this.bestOfKind(candidates, 'move')!, forcedFallback: true, fallbackLog: 'commit' };
+      else {
+        selected = { ...this.bestRecovery(candidates), forcedFallback: true, fallbackLog: 'reset' };
+        this.setupCooldownTurns = 2;
+      }
+      this.clearSetupIntent();
+    }
+    if (!selected) selected = this.weightedTop(candidates);
+    if (!selected) return null;
+    if (selected.kind === 'setup') {
+      const path = selected.path ?? [];
+      if (this.plannedSetupActions.length && this.plannedSetupActions[0] === selected.action) this.plannedSetupActions.shift();
+      else if (!this.plannedSetupActions.length && path.length) {
+        this.plannedSetupActions = path.slice(1);
+        this.plannedFollowupMoveId = selected.plannedMove?.id ?? '';
+      }
+    }
+    if (intentMoves.length) {
+      if (selected.kind === 'move' && this.intentMatchesMove(this.lastSetupIntent, selected.move)) this.setupIntentPendingAttempt = true;
+      else this.clearSetupIntent();
+    }
+    this.recordChoice(selected, ai);
+    this.playerCrashOpportunity = false;
+    this.reversalPinOpportunity = false;
+    this.bigMoveFollowupOpportunity = false;
+    return selected;
+  }
+
+  private recordChoice(c: Candidate, ai: Side): void {
+    if (c.kind === 'move') {
+      this.recentAiMoveIds.push(c.move.id);
+      while (this.recentAiMoveIds.length > MOVE_BLOCK_WINDOW) this.recentAiMoveIds.shift();
+      this.recentSetupActions.push('');
+      ai.consecutiveSetupActions = 0;
+    } else if (c.kind === 'setup') {
+      if (c.action === 'catch_breath') {
+        this.recentSetupActions.push('');
+        ai.consecutiveSetupActions = 0;
+      } else {
+        this.recentSetupActions.push(c.action);
+        ai.consecutiveSetupActions++;
+      }
+    } else {
+      this.lastLandedFinisher = false;
+      this.recentSetupActions.push('');
+      ai.consecutiveSetupActions = 0;
+    }
+    while (this.recentSetupActions.length > 3) this.recentSetupActions.shift();
+  }
+
+  private weightedTop(candidates: Candidate[]): Candidate | null {
+    const sorted = [...candidates].sort((a, b) => b.score - a.score);
+    const top = sorted.slice(0, 5);
+    if (!top.length) return null;
+    const lowest = top[top.length - 1]!.score;
+    const weights = top.map((c) => Math.max(1, c.score - lowest + 10));
+    let roll = this.ctx.rnd() * weights.reduce((a, b) => a + b, 0);
+    for (let i = 0; i < top.length; i++) {
+      roll -= weights[i]!;
+      if (roll <= 0) return top[i]!;
+    }
+    return top[0]!;
+  }
+
+  private applyTemporaryMoveBlock(candidates: Candidate[]): Candidate[] {
+    if (candidates.length <= 1 || !this.recentAiMoveIds.length) return candidates;
+    const available: Candidate[] = [], blocked: Candidate[] = [];
+    for (const c of candidates) {
+      if (c.kind === 'move' && !c.readySpecial && this.recentAiMoveIds.includes(c.move.id)) blocked.push(c);
+      else available.push(c);
+    }
+    if (available.length) return available;
+    for (const old of this.recentAiMoveIds) {
+      const released = blocked.filter((c) => c.kind === 'move' && c.move.id === old);
+      if (released.length) return released;
+    }
+    return candidates;
+  }
+
+  private readyRank(ai: Side, m: Move | null | undefined): number {
+    if (!m) return 0;
+    if (ai.finisherStock > 0 && isFinisherMove(ai, m)) return 2;
+    if (ai.signatureReady && isSignatureMove(ai, m)) return 1;
+    return 0;
+  }
+  private bestReadySpecialMove(cs: Candidate[], ai: Side): Candidate | null {
+    let best: Candidate | null = null, bestRank = 0;
+    for (const c of cs) {
+      if (c.kind !== 'move') continue;
+      const r = this.readyRank(ai, c.move);
+      if (r <= 0) continue;
+      if (!best || r > bestRank || (r === bestRank && c.score > best.score)) {
+        best = c;
+        bestRank = r;
+      }
+    }
+    return best;
+  }
+  private bestReadySpecialSetup(cs: Candidate[], ai: Side): Candidate | null {
+    let best: Candidate | null = null, bestRank = 0, bestSteps = 999;
+    for (const c of cs) {
+      if (c.kind !== 'setup') continue;
+      const r = this.readyRank(ai, c.plannedMove);
+      if (r <= 0) continue;
+      const steps = c.path?.length ?? 0;
+      if (!best || r > bestRank || (r === bestRank && steps < bestSteps) || (r === bestRank && steps === bestSteps && c.score > best.score)) {
+        best = c;
+        bestRank = r;
+        bestSteps = steps;
+      }
+    }
+    return best;
+  }
+  private candidateForSetup(cs: Candidate[], id: SetupId): Candidate | null {
+    let best: Candidate | null = null;
+    for (const c of cs) if (c.kind === 'setup' && c.action === id && (!best || c.score > best.score)) best = c;
+    return best;
+  }
+  private bestIntentMove(cs: Candidate[], intent: SetupId | null): Candidate | null {
+    let best: Candidate | null = null;
+    for (const c of cs) if (c.kind === 'move' && this.intentMatchesMove(intent, c.move) && (!best || c.score > best.score)) best = c;
+    return best;
+  }
+  private bestOfKind(cs: Candidate[], kind: Candidate['kind']): Candidate | null {
+    let best: Candidate | null = null;
+    for (const c of cs) if (c.kind === kind && (!best || c.score > best.score)) best = c;
+    return best;
+  }
+  private bestRecovery(cs: Candidate[]): Candidate {
+    const priority: SetupId[] = [
+      'stand_up', 'regain_composure', 'press_advantage', 'regain_footing', 'leave_corner', 'leave_ropes', 'return_to_ring',
+      'return_from_ramp', 'pull_opponent_from_corner', 'pull_opponent_from_ropes', 'bring_opponent_into_ring',
+      'catch_opponent_running', 'bring_match_back_to_ring', 'climb_down', 'stop_running', 'reset_stance',
+    ];
+    for (const id of priority) {
+      const c = cs.find((x) => x.kind === 'setup' && x.action === id);
+      if (c) return c;
+    }
+    return this.bestOfKind(cs, 'setup') ?? cs[0]!;
+  }
+
+  intentMatchesMove(intent: SetupId | null, m: Move): boolean {
+    if (!intent) return false;
+    if (this.plannedFollowupMoveId) return m.id === this.plannedFollowupMoveId;
+    switch (intent) {
+      case 'irish_whip': return m.req.t.motion === 'ROPE_REBOUND' || (m.req.t.areaMode === 'SPECIFIC' && m.req.t.area === 'ROPES');
+      case 'throw_into_corner': return m.req.t.areaMode === 'SPECIFIC' && m.req.t.area === 'CORNER';
+      case 'start_running': return m.type === 'RUNNING';
+      case 'climb_top_rope': return m.type === 'AERIAL' || (m.req.a.areaMode === 'SPECIFIC' && m.req.a.area === 'TOP_ROPE');
+      case 'wake_opponent': return m.type === 'AERIAL' && m.req.t.position === 'STANDING';
+      case 'prepare_springboard': return m.type === 'SPRINGBOARD';
+      case 'pick_opponent_up': case 'grapple_opponent': return m.type === 'GRAPPLE' || m.type === 'SUBMISSION';
+    }
+    return !isRecovery(intent) && intent !== 'taunt';
+  }
+
+  /* ---------- scoring ---------- */
+
+  private updateTargetFocus(ai: Side, target: Side, moves: Move[]): void {
+    const available: BodyPart[] = [];
+    for (const m of moves) for (const p of BODY_PARTS) if (focusAppliesToMove(m, p) && !available.includes(p)) available.push(p);
+    if (!available.length) {
+      this.targetFocusUnavailableTurns++;
+      if (this.targetFocusUnavailableTurns >= 2) {
+        this.targetFocus = null;
+        ai.targetFocus = 'NONE';
+      }
+      return;
+    }
+    const currentAvailable = this.targetFocus !== null && available.includes(this.targetFocus);
+    if (currentAvailable) this.targetFocusUnavailableTurns = 0;
+    else this.targetFocusUnavailableTurns++;
+    let preferred = available[0]!, preferredScore = Infinity;
+    const cls = ai.w.classes;
+    for (const p of available) {
+      let s = target.hp[p];
+      if (cls.includes('POWERHOUSE') && (p === 'HEAD' || p === 'BODY')) s -= 6;
+      if (cls.includes('TECHNICIAN') && isLimbFocus(p)) s -= 6;
+      if (cls.includes('STRIKER')) {
+        if (p === 'HEAD') s -= 6;
+        else if (isLimbFocus(p)) s -= 3;
+      }
+      if (cls.includes('HIGH_FLYER')) s += 3;
+      if (s < preferredScore) {
+        preferredScore = s;
+        preferred = p;
+      }
+    }
+    let shouldSwitch = !currentAvailable && this.targetFocusUnavailableTurns >= 2;
+    if (this.targetFocus === null) shouldSwitch = true;
+    else if (currentAvailable) shouldSwitch = target.hp[preferred] <= target.hp[this.targetFocus] - 15;
+    if (shouldSwitch) {
+      this.targetFocus = preferred;
+      this.targetFocusUnavailableTurns = 0;
+      ai.targetFocus = preferred;
+    }
+  }
+
+  private isSquashFinish(ai: Side, target: Side): boolean {
+    if (this.lastLandedFinisher) return true;
+    const dominant = ai.momentum >= 80 && target.momentum <= 20;
+    const little = target.movesLanded <= 1 && target.damageDealt < 20;
+    const established = ai.movesLanded >= 3;
+    const worn = target.fatigue >= 55 || target.fatigue >= ai.fatigue + 20 || staminaPercent(target) <= 30;
+    return dominant && little && established && worn && this.lastSuccessfulMoveImpact >= 8;
+  }
+
+  private pinSpacingModifier(ai: Side, moveId: string): number {
+    if (this.lastPinAttemptLandedCount < 0) return 0;
+    const since = Math.max(0, ai.movesLanded - this.lastPinAttemptLandedCount);
+    let mod = since === 0 ? -58 : since === 1 ? -36 : since === 2 ? -18 : 0;
+    mod -= Math.min(18, Math.max(0, ai.pinAttempts - 1) * 4);
+    if (moveId && moveId === this.lastPinAttemptMoveId) mod -= 20;
+    return mod;
+  }
+
+  private embeddedPinModifier(ai: Side, target: Side, m: Move): number {
+    let mod = this.pinSpacingModifier(ai, m.id);
+    const flash = m.flashPin || isFlashPinMove(m);
+    const protectedEarly = !flash && !this.isSquashFinish(ai, target);
+    if (this.phase === 'opening') mod -= 18;
+    else if (this.phase === 'middle') mod -= 6;
+    if (protectedEarly && target.hp.HEAD > 75 && target.hp.BODY > 75 && target.fatigue < 30) mod -= 24;
+    if (flash) mod += 8;
+    if (target.hp.HEAD < 50 || target.hp.BODY < 50) mod += 10;
+    if (target.fatigue >= 60 || staminaPercent(target) < 40) mod += 10;
+    return mod;
+  }
+
+  scoreMove(ai: Side, target: Side, m: Move, res: TargetResolution): number {
+    let score = 50;
+    const high = isHighRisk(m);
+    const leg = Math.min(ai.hp.LEFT_LEG, ai.hp.RIGHT_LEG);
+    if (high) {
+      if (leg < 40) score -= 15;
+      else if (leg < 60) score -= 8;
+      if (target.momentum >= ai.momentum + 20) score -= 6;
+    }
+    score -= reversalChance(ai, target, m, null, res) * 0.08;
+    const demand = moveDemand(m, isSignatureMove(ai, m));
+    score += (executionChance(ai, m) - 70) * 0.22;
+    const attr = moveAttributeProfile(ai, m);
+    score += (attr.damageMultiplier - 1) * 80;
+    score += attr.controlModifier * 0.65;
+    score -= executionPenalty(ai, demand) * 0.65;
+    score -= (staminaCostMultiplier(ai, demand) - 1) * 24;
+    const x = combinedExhaustion(ai);
+    if (demand === 'BASIC') score += x * 12;
+    else if (demand === 'EXPLOSIVE') score -= x * 30;
+    if (m.impact >= 9) score += 20;
+    else if (m.impact >= 7) score += 14;
+    else if (m.impact >= 4) score += 8;
+    const hp = targetHp(target.hp, res);
+    if (m.flashPin || m.pinningCombo) score += this.embeddedPinModifier(ai, target, m);
+    score += hp < 25 ? 24 : hp < 45 ? 15 : hp < 70 ? 8 : 0;
+    const weakest = weakestPart(target);
+    if (res.parts.includes(weakest)) {
+      const w = target.hp[weakest];
+      score += w < 25 ? 40 : w < 50 ? 25 : 15;
+    }
+    if (this.targetFocus !== null && res.parts.includes(this.targetFocus)) score += m.submission ? 25 : 8;
+    if (target.fatigue >= 80) {
+      if (m.impact >= 7) score += 15;
+      if (m.submission) score += 15;
+    } else if (target.fatigue >= 60) {
+      if (m.impact >= 7) score += 10;
+      if (m.submission) score += 8;
+    }
+    const tp = staminaPercent(target);
+    if (tp < 20) {
+      if (m.submission || m.finisher) score += 18;
+    } else if (tp < 40 && (m.submission || m.finisher)) score += 10;
+    if (ai.momentum >= 70) {
+      if (m.finisher) score += 35;
+      if (m.impact >= 7) score += 12;
+    } else if (ai.momentum >= 40) {
+      if (m.impact >= 7) score += 8;
+      if (m.submission) score += 6;
+    } else if (ai.momentum < 20) score += high ? -10 : 8;
+    if (lastAttemptedMoveMatches(ai, m)) score -= 20;
+    if (recentMoveCount(ai, m, 8) >= 3) score -= 25;
+    else if (recentMoveCount(ai, m, 5) >= 2) score -= 12;
+    if (high) {
+      score -= ai.w.classes.includes('HIGH_FLYER') ? 2 : 8;
+      if (target.fatigue >= 70 || target.hp.HEAD < 40 || target.hp.BODY < 40) score += 10;
+      if (ai.momentum >= 70) score += 8;
+      if (m.finisher) score += 15;
+      if (target.momentum > 80) score -= 20;
+    }
+    if (m.finisher) score += this.finisherBonus(ai, target, m, res);
+    else if (isSignatureMove(ai, m)) score += ai.finisherStock < MAX_FINISHER_STOCK ? 45 : 8;
+    if (m.submission) {
+      score += attributeDelta(ai.w.stats.skill) * 8 * 0.6;
+      score += this.submissionBonus(ai, target, m, res);
+    }
+    if (ai.consecutiveSetupActions >= 2) score += 80;
+    if (this.lastSetupIntent && this.intentMatchesMove(this.lastSetupIntent, m)) {
+      score += 60;
+      if (m.finisher) score += 30;
+      score += hp < 25 ? 25 : hp < 45 ? 18 : hp < 70 ? 10 : 0;
+    }
+    if (this.playerCrashOpportunity) {
+      if (m.req.t.position === 'GROUNDED') score += 20;
+      if (m.submission) score += 15;
+      score += 10;
+    }
+    if (this.reversalPinOpportunity) score += m.impact >= 6 ? 14 : 8;
+    if (this.bigMoveFollowupOpportunity) {
+      if (m.submission) score += 14;
+      else if (m.impact >= 6) score += 10;
+    }
+    if (m.finisher || m.submission || (exhaustionBand(ai) === 'Spent' && moveDemand(m) === 'BASIC')) score += this.phaseFinishBonus();
+    return score;
+  }
+
+  private finisherBonus(ai: Side, target: Side, m: Move, res: TargetResolution): number {
+    let b = 70;
+    if (target.fatigue >= 60) b += 20;
+    if (staminaPercent(target) < 40) b += 20;
+    if (target.hp.BODY < 50 || target.hp.HEAD < 50) b += 20;
+    if (this.phase === 'closing') b += 25;
+    else if (this.phase === 'middle') b += 15;
+    if (targetHp(target.hp, res) < 70) b += 20;
+    if (recentMoveCount(ai, m, 3) > 0) b -= 20;
+    return b;
+  }
+
+  private submissionBonus(ai: Side, target: Side, m: Move, res: TargetResolution): number {
+    const hp = targetHp(target.hp, res);
+    let b = 0;
+    const context = hp < 70 || staminaPercent(target) < 40 || target.fatigue > 60 || ai.momentum > 50 || m.finisher || this.phase !== 'opening';
+    if (!context) b -= 35;
+    if (hp >= 80) b -= 30;
+    else if (hp >= 60) b -= 15;
+    if (hp < 25) b += 35;
+    else if (hp < 45) b += 20;
+    else if (hp < 70) b += 10;
+    if (res.parts.includes(weakestPart(target))) b += 35;
+    if (m.finisher) {
+      b += 45;
+      if (hp < 60) b += 20;
+      if (staminaPercent(target) < 40) b += 20;
+      if (target.fatigue > 60) b += 20;
+    }
+    const fresh = staminaPercent(target) >= 80 && target.fatigue <= 20;
+    if (fresh) b -= m.finisher ? 12 : 30;
+    if (!m.finisher && hp > 25) {
+      if (this.phase === 'opening') b -= 55;
+      else if (this.phase === 'middle') b -= 25;
+    } else if (this.phase === 'closing') b += 15;
+    return b;
+  }
+
+  private movesForStates(ai: Side, a: Snapshot, t: Snapshot): Move[] {
+    return ai.all.filter((m) => moveMatchesSnapshots(m, a, t) && canUseMove(ai, m));
+  }
+
+  private bestSetupPlan(ai: Side, target: Side, action: SetupId): { actions: SetupId[]; move: Move } | null {
+    let best: { actions: SetupId[]; move: Move } | null = null, bestScore = -Infinity;
+    for (const p of findFollowupPaths(ai.all, ai.state, target.state, 2)) {
+      if (!p.actions.length || p.actions[0] !== action) continue;
+      if (!canUseMove(ai, p.move)) continue;
+      if (this.recentAiMoveIds.includes(p.move.id) && this.readyRank(ai, p.move) <= 0) continue;
+      let s = p.move.impact * 10 - (p.actions.length - 1) * 12;
+      if (ai.finisherStock > 0 && isFinisherMove(ai, p.move)) s += 160;
+      else if (ai.signatureReady && isSignatureMove(ai, p.move)) s += 140;
+      else if (p.move.finisher) s += 35;
+      if (p.move.submission) s += 8;
+      if (s > bestScore) {
+        bestScore = s;
+        best = { actions: p.actions, move: p.move };
+      }
+    }
+    return best;
+  }
+
+  private isMandatoryRecovery(id: SetupId, moves: Move[]): boolean {
+    if (id === 'stand_up' || id === 'regain_footing' || id === 'regain_composure' || id === 'press_advantage' || id === 'reset_stance') return true;
+    return isRecovery(id) ? !moves.length : false;
+  }
+
+  private hasHighValueFollowup(moves: Move[], target: Side): boolean {
+    return moves.some((m) => m.finisher || (m.impact >= 6 && lowestTargetHp(target, m.parts.filter((p) => p !== 'NONE') as BodyPart[]) < 45));
+  }
+
+  private incomingTargetingContext(ai: Side, opponent: Side): { part: BodyPart; hp: number } | null {
+    const part = mostTargetedPart(opponent);
+    if (!part) return null;
+    const total = opponent.targetAttackCounts[part] ?? 0, recent = recentTargetPartCount(opponent, part, 5), hp = ai.hp[part];
+    if (total < 3 || recent < 2 || hp > 60) return null;
+    return { part, hp };
+  }
+
+  scoreSetup(ai: Side, target: Side, id: SetupId, moves: Move[], plan: { actions: SetupId[]; move: Move } | null): number {
+    let score = 40;
+    if (isContested(id)) score -= reversalChance(ai, target, null, id, null) * 0.08;
+    score += setupScoringModifier(ai, id);
+    const projected = projectAction(id, ai.state, target.state);
+    const future = this.movesForStates(ai, projected.attacker, projected.target);
+    if (!future.length && plan) future.push(plan.move);
+    const futureFinishers = future.filter((m) => m.finisher).length;
+    const mandatory = this.isMandatoryRecovery(id, moves);
+    if (!future.length && !mandatory && id !== 'taunt' && id !== 'catch_breath') score -= 70;
+    const impact6 = future.some((m) => m.impact >= 6);
+    const cls = ai.w.classes;
+    switch (id) {
+      case 'stand_up': score += target.state.position === 'STANDING' ? 100 : 70; break;
+      case 'pick_opponent_up':
+        score += 45;
+        if (future.length >= 4) score += 20;
+        if (futureFinishers) score += 20;
+        if (staminaPercent(target) < 40) score += 15;
+        if (target.fatigue > 60) score += 15;
+        if (this.scorePin(ai, target, 0) >= 80) score -= 15;
+        if (moves.length >= 3) score -= 10;
+        if (this.playerCrashOpportunity) score += 15;
+        break;
+      case 'irish_whip':
+        score += 45;
+        if (future.length) score += 25;
+        if (impact6) score += 15;
+        if (cls.includes('POWERHOUSE') || cls.includes('STRIKER')) score += 10;
+        break;
+      case 'throw_into_corner':
+        score += 45;
+        if (future.length) score += 25;
+        if (futureFinishers) score += 20;
+        if (target.fatigue > 60) score += 10;
+        break;
+      case 'start_running':
+        score += 35;
+        if (future.length) score += 25;
+        if (futureFinishers) score += 15;
+        break;
+      case 'climb_top_rope':
+        score += 35;
+        if (future.length) score += 30;
+        if (futureFinishers) score += 25;
+        if (target.momentum > 70) score -= 15;
+        break;
+      case 'prepare_springboard':
+        score += 35;
+        if (future.length) score += 30;
+        if (futureFinishers) score += 20;
+        break;
+      case 'wake_opponent':
+        score += 50;
+        if (future.length) score += 35;
+        if (futureFinishers) score += 45;
+        if (moves.length) score -= 25;
+        break;
+      case 'return_to_ring': case 'climb_down':
+        score += 20;
+        if (!moves.length) score += 60;
+        if (combinedExhaustion(ai) >= 0.7) score += 40;
+        if (moves.length) score -= 30;
+        break;
+      case 'stop_running': case 'leave_corner': case 'regain_footing':
+        score += moves.length ? 20 : 80;
+        break;
+      case 'grapple_opponent':
+        if (future.length >= 4) score += 10;
+        if (cls.includes('TECHNICIAN')) score += 10;
+        break;
+      case 'taunt': {
+        score -= 35;
+        score += target.state.position === 'GROUNDED' ? 30 : -20;
+        const sp = staminaPercent(ai);
+        if (sp < 35) score += 15;
+        else if (sp < 60) score += 8;
+        else if (sp > 80) score -= 10;
+        if (ai.momentum < 30) score += 8;
+        else if (ai.momentum <= 70) score += 4;
+        else if (ai.momentum > 85) score -= 10;
+        if (ai.state.area === 'APRON') score += 5;
+        else if (ai.state.area === 'TOP_ROPE') score += 8;
+        score += tauntProfile(ai).aiScoreModifier;
+        if (ai.w.disposition === 'HEEL') score += 5;
+        if ((ai.state.area === 'APRON' || ai.state.area === 'TOP_ROPE') && cls.includes('HIGH_FLYER')) score += 5;
+        break;
+      }
+      case 'catch_breath': {
+        score -= 20;
+        const sp = staminaPercent(ai);
+        score += sp < 20 ? 65 : sp < 40 ? 42 : 12;
+        score += (1 - staminaRecoveryMultiplier(ai)) * -10;
+        if (target.state.position === 'GROUNDED') score += 12;
+        if (futureFinishers > 0 || this.scorePin(ai, target, 0) >= 70) score -= 90;
+        break;
+      }
+    }
+    const movement = ['start_running', 'climb_top_rope', 'prepare_springboard', 'step_to_ropes', 'send_opponent_outside', 'call_opponent_outside', 'take_fight_outside', 'fight_up_ramp'].includes(id);
+    const highValue = this.hasHighValueFollowup(future, target);
+    const x = combinedExhaustion(ai);
+    if (movement && x >= 0.7) {
+      let penalty = -45 * x;
+      if (x >= 0.9) penalty = -80;
+      if (highValue) penalty *= 0.25;
+      score += penalty;
+    } else if (mandatory && x >= 0.8) score += 15;
+    else if (mandatory && x >= 0.6) score += 10;
+    if (x >= 0.7 && mandatory) score += 8;
+    if (ai.momentum < 20) score += 8;
+    if (id !== 'catch_breath' && ai.consecutiveSetupActions >= 1) score -= 40;
+    if (id !== 'catch_breath' && this.recentSetupActions.includes(id)) score -= 60;
+    if (id !== 'catch_breath' && ai.consecutiveSetupActions >= 2 && !mandatory) score -= 75;
+    if (id !== 'catch_breath' && this.setupCooldownTurns > 0 && !mandatory) score -= 100;
+    if (movement && !mandatory) score -= this.phase === 'closing' ? 10 : this.phase === 'middle' ? 4 : 0;
+    if (cls.includes('POWERHOUSE') && (id === 'irish_whip' || id === 'throw_into_corner')) score += 10;
+    const threat = this.incomingTargetingContext(ai, target);
+    if (threat) {
+      if (id === 'irish_whip' || id === 'throw_into_corner' || id === 'grapple_opponent') score += 8;
+      if (['stop_running', 'leave_corner', 'regain_footing', 'return_to_ring', 'climb_down', 'reset_stance'].includes(id)) score += 10;
+      if (movement && (threat.part === 'LEFT_LEG' || threat.part === 'RIGHT_LEG')) score -= threat.hp < 40 ? 18 : 10;
+    }
+    return score;
+  }
+
+  scorePin(ai: Side, target: Side, bestMoveScore: number): number {
+    if (ai.state.position !== 'STANDING' || target.state.position !== 'GROUNDED') return -Infinity;
+    const flashPin = this.reversalPinOpportunity || isFlashPinMove(this.lastSuccessfulMove);
+    const squash = this.isSquashFinish(ai, target);
+    const protectedEarly = !flashPin && !squash && !this.lastLandedFinisher;
+    const untouched = ai.damageDealt <= 0 && target.hp.HEAD > 90 && target.hp.BODY > 90 && target.fatigue < 25 && this.phase === 'opening' && protectedEarly;
+    let s = 0;
+    if (untouched) s -= 40;
+    if (this.lastSuccessfulMoveImpact >= 6) s += 25;
+    if (this.lastLandedFinisher) s += 45;
+    if (flashPin) s += 65;
+    if (squash) s += 65;
+    if (target.hp.BODY < 50) s += 20;
+    if (target.hp.HEAD < 50) s += 20;
+    if (target.fatigue >= 80) s += 25;
+    else if (target.fatigue >= 60) s += 15;
+    const tp = staminaPercent(target);
+    if (tp < 20) s += 25;
+    else if (tp < 40) s += 15;
+    if (this.phase === 'closing') s += 20;
+    else if (this.phase === 'opening') s -= 20;
+    else s -= 10;
+    if (ai.damageDealt < 10 && protectedEarly) s -= 50;
+    if (this.phase === 'opening' && protectedEarly) s -= 90;
+    else if (this.phase === 'middle' && protectedEarly) s -= 25;
+    if (protectedEarly && target.fatigue < 30 && target.hp.BODY > 75 && target.hp.HEAD > 75) s -= 25;
+    if (ai.momentum < 30) s -= 20;
+    if (bestMoveScore > 75) s -= 15;
+    if (this.playerCrashOpportunity) s += 20;
+    if (this.reversalPinOpportunity) s += 45;
+    if (this.bigMoveFollowupOpportunity) s += 25;
+    if (combinedExhaustion(ai) >= 0.7 && (target.hp.BODY < 70 || target.hp.HEAD < 70)) s += 10;
+    s += this.pinSpacingModifier(ai, '');
+    s += this.phaseFinishBonus();
+    return s;
+  }
+
+  private rejectTaunt(ai: Side, target: Side, moves: Move[], bestMoveScore: number): boolean {
+    if (this.S.t < ai.tauntCooldownUntil) return true;
+    if (!moves.length) return true;
+    if (moves.some((m) => m.finisher)) return true;
+    if (this.scorePin(ai, target, bestMoveScore) >= 45) return true;
+    return target.state.position === 'STANDING' && reversalChance(ai, target, null, 'taunt', null) >= 45;
+  }
+
+  hasReadySpecialContinuation(ai: Side, target: Side, moves: Move[], setups: SetupId[]): boolean {
+    if (moves.some((m) => this.readyRank(ai, m) > 0)) return true;
+    if (!setups.length) return false;
+    return findFollowupPaths(ai.all, ai.state, target.state, 2).some(
+      (p) => p.actions.length > 0 && canUseMove(ai, p.move) && this.readyRank(ai, p.move) > 0 && setups.includes(p.actions[0]!),
+    );
+  }
+
+  hasReachableOffensiveSetup(ai: Side, target: Side, setups: SetupId[]): boolean {
+    if (!setups.length) return false;
+    return findFollowupPaths(ai.all, ai.state, target.state, 2).some((p) => {
+      const first = p.actions[0];
+      return !!first && canUseMove(ai, p.move) && setups.includes(first) && !isRecovery(first) && first !== 'taunt' && first !== 'catch_breath';
+    });
+  }
 }
 
-/** One setup that would put both wrestlers in position for `m`, if any. */
-export function plan(a: Side, d: Side, m: Move): SetupRule | null {
-  for (const s of SETUPS) {
-    if (s.run || !s.ok(a, d)) continue;
-    const A = { ...a }, D = { ...d };
-    s.apply?.(A, D);
-    if (posOk(A, D, m)) return s;
+/* ---------- the AI's turn (_perform_ai_decision) ---------- */
+
+function specialStateRecovery(S: MatchState, k: SideKey, moves: Move[], setups: SetupId[]): SetupId | null {
+  const A = S[k], D = S[other(k)], r = S.referee;
+  if (S.rules.countOuts && r.active) {
+    const remaining = S.rules.countOutLimit - r.value;
+    if (sideIsOutside(S, k) && remaining <= 3 && setups.includes('return_to_ring')) return 'return_to_ring';
+    if (!sideIsOutside(S, k) && sideIsOutside(S, other(k)) && remaining <= Math.max(3, Math.floor(S.rules.countOutLimit / 2)) && setups.includes('wait_for_count')) return 'wait_for_count';
   }
+  if (moves.length) return null;
+  const has = (id: SetupId) => setups.includes(id);
+  const ap = A.state, dp = D.state;
+  if ((ap.position === 'GROUNDED' || ap.position === 'SEATED' || ap.position === 'KNEELING') && has('stand_up')) return 'stand_up';
+  if (ap.motion === 'RUNNING' && has('stop_running')) return 'stop_running';
+  if (ap.motion === 'ROPE_REBOUND' && has('regain_footing')) return 'regain_footing';
+  if (ap.motion === 'RISING' && has('regain_composure')) return 'regain_composure';
+  if (dp.motion === 'RISING' && has('press_advantage')) return 'press_advantage';
+  if ((dp.motion === 'RUNNING' || dp.motion === 'ROPE_REBOUND') && has('catch_opponent_running')) return 'catch_opponent_running';
+  if (dp.area === 'CORNER' && has('pull_opponent_from_corner')) return 'pull_opponent_from_corner';
+  if (dp.area === 'ROPES' && has('pull_opponent_from_ropes')) return 'pull_opponent_from_ropes';
+  if ((dp.area === 'APRON' || dp.area === 'TOP_ROPE') && has('bring_opponent_into_ring')) return 'bring_opponent_into_ring';
+  if (ap.area === 'TOP_ROPE' && has('climb_down')) return 'climb_down';
+  if ((ap.area === 'APRON' || ap.area === 'ROPES' || ap.area === 'OUTSIDE' || ap.area === 'RAMP') && has('return_to_ring')) return 'return_to_ring';
+  if (ap.area === 'CORNER' && has('leave_corner')) return 'leave_corner';
+  for (const id of setups) if (isRecovery(id)) return id;
   return null;
 }
 
-/** Score every legal option and pick from the top four, weighted by score. */
-export function aiChoose(ctx: Ctx, k: SideKey): Choice | null {
-  const S = ctx.S, a = S[k], d = S[other(k)], c: Choice[] = [];
-  updateFocus(a, d);
-  for (const m of [a.fin, a.sig]) {
-    if (!ready(a, m)) continue;
-    if (posOk(a, d, m)) c.push({ type: 'move', m, score: m.fin ? 130 : 115 });
-    else {
-      const s = plan(a, d, m);
-      if (s) c.push({ type: 'setup', s: s.id, score: 100 });
-    }
-  }
-  for (const m of a.moves) if (posOk(a, d, m)) c.push({ type: 'move', m, score: scoreMove(ctx, a, d, m) });
-  for (const s of SETUPS) {
-    if (s.ok(a, d)) {
-      const sc = scoreSetup(ctx, a, d, s);
-      if (sc > -90) c.push({ type: 'setup', s: s.id, score: sc });
-    }
-  }
-  if (pinOk(a, d)) {
-    const pctx = ctxFor(ctx, k, S.beat), p = pinPressure(S.t, d, pctx);
-    c.push({ type: 'pin', score: p * 0.9 - 30 + (pctx.finisher ? 40 : 0) - (S.t < 300 ? 40 : 0) });
-  }
-  if (!c.length) return null;
-  c.sort((x, y) => y.score - x.score);
-  const top = c.slice(0, 4), lo = (top[top.length - 1] as Choice).score;
-  const ws = top.map((o) => Math.max(1, o.score - lo + 8));
-  let r = ctx.rnd() * ws.reduce((x, y) => x + y, 0);
-  for (let i = 0; i < top.length; i++) {
-    r -= ws[i] as number;
-    if (r <= 0) return top[i] as Choice;
-  }
-  return top[0] as Choice;
+function urgentCountOut(S: MatchState, k: SideKey, id: SetupId | null): boolean {
+  if (!id || !S.rules.countOuts || !S.referee.active) return false;
+  const remaining = S.rules.countOutLimit - S.referee.value;
+  if (id === 'return_to_ring' && sideIsOutside(S, k) && remaining <= 3) return true;
+  return id === 'wait_for_count' && !sideIsOutside(S, k) && sideIsOutside(S, other(k)) && remaining <= Math.max(3, Math.floor(S.rules.countOutLimit / 2));
 }
 
-/** Is this a legal choice for side k right now? */
-export function isValidChoice(S: MatchState, k: SideKey, ch: Choice): boolean {
-  const a = S[k], d = S[other(k)];
-  if (ch.type === 'move') {
-    const owned = ch.m === a.sig || ch.m === a.fin || a.moves.includes(ch.m);
-    return owned && ready(a, ch.m) && posOk(a, d, ch.m);
-  }
-  if (ch.type === 'setup') return setupById(ch.s).ok(a, d);
-  return pinOk(a, d);
+export function isValidChoice(S: MatchState, k: SideKey, c: Choice): boolean {
+  if (c.kind === 'move') return moveIsValid(S, k, c.move);
+  if (c.kind === 'setup') return validSetups(S, k).includes(c.action);
+  return canPin(S, k);
 }
 
-/**
- * The AI takes a turn for side k. For 'them' this is the original aiTurn().
- * For 'you' (headless sims only) the same decision is routed through the player's paths.
- */
+/** One AI decision for side k, executed. */
 export function aiTurn(ctx: Ctx, k: SideKey): void {
-  const S = ctx.S;
-  if (S.over) return;
-  const ch = aiChoose(ctx, k);
-  ctx.hooks.onAiChoice?.(k, ch, ch ? isValidChoice(S, k, ch) : true);
-  if (!ch) return neutral(ctx, null);
-  const a = S[k];
-  if (ch.type === 'move') {
-    a.setupRun = 0;
-    if (k === 'them') aiMove(ctx, ch.m);
-    else playerMove(ctx, ch.m);
-  } else if (ch.type === 'setup') {
-    a.setupRun++;
-    runSetup(ctx, k, setupById(ch.s));
-  } else {
-    tick(ctx);
-    startPin(ctx, k, ctxFor(ctx, k, S.beat - 1));
+  const S = ctx.S, A = S[k], D = S[other(k)], brain = ctx.ai[k];
+  const moves = validMoves(S, k);
+  const setups = validSetups(S, k);
+  const ready = A.signatureReady || A.finisherStock > 0;
+  const forced = specialStateRecovery(S, k, moves, setups);
+  let specialContinuation = false, offensiveContinuation = false;
+  if (forced) {
+    if (ready) specialContinuation = brain.hasReadySpecialContinuation(A, D, moves, setups);
+    if (!specialContinuation) offensiveContinuation = brain.hasReachableOffensiveSetup(A, D, setups);
   }
+  if (forced && (urgentCountOut(S, k, forced) || (!specialContinuation && !offensiveContinuation))) {
+    brain.noteMandatoryRecovery(A);
+    ctx.hooks.onAiChoice?.(k, { kind: 'setup', action: forced, score: 0 }, true);
+    executeSetup(ctx, k, forced);
+    return;
+  }
+  const choice = brain.choose(A, D, moves, setups);
+  ctx.hooks.onAiChoice?.(k, choice, choice ? isValidChoice(S, k, choice) : true);
+  if (choice?.fallbackLog === 'commit') say(ctx, LINES.aiCommit, { a: k }, 'dim');
+  if (choice?.fallbackLog === 'reset') say(ctx, LINES.aiReset, { a: k }, 'dim');
+  if (choice?.kind === 'move' && executeMove(ctx, k, choice.move, choice.target)) return;
+  if (choice?.kind === 'setup' && executeSetup(ctx, k, choice.action)) return;
+  if (choice?.kind === 'pin' && startPin(ctx, k, false)) return;
+  aiFallback(ctx, k);
+}
+
+function aiFallback(ctx: Ctx, k: SideKey): void {
+  const S = ctx.S, A = S[k];
+  ctx.ai[k].noteForcedFallback(A);
+  advanceClock(ctx);
+  if (S.over) return;
+  say(ctx, LINES.aiCircles, { a: k }, 'dim');
+  A.state = { position: 'STANDING', orientation: 'FRONT', area: 'IN_RING', motion: 'STATIONARY' };
+  setControl(ctx, 'neutral');
+  afterAction(ctx);
 }
