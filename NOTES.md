@@ -25,6 +25,19 @@ chants) and the star rating are kept, fed by RtR events.
 - **Early finish protection removed** (Lyra's call: "it's a game after all"). Godot makes early pins
   near-impossible (+120/+55 resistance, a forced "kicks out at one" line) and gives submissions
   +35/+18 resistance with 96/93 tap thresholds under 5:00/10:00. All gone. Late-match escalation stays.
+- **Pin resistance comes from damage instead of the clock.** With the early protection gone,
+  Godot's pin maths only looks at momentum, so a pin combo on a completely fresh wrestler stayed
+  down ~80% of the time (Lyra won with a Falcon Arrow at 2:20). The defender now adds
+  `(condition − 40) × 2` to their resistance, where condition (0–100) is 35% average body-part
+  HP, 20% the worse of head/body, 30% stamina and 15% freshness (100 − fatigue). Against a pin
+  combo at mid momentum that's roughly: fresh 7% pinned, worked over ~50%, wrecked ~87%; a
+  finisher is ~40% on a fresh wrestler and ~85% once they've been worked over. It feeds the
+  player's kickout window too (wider when fresh). A player who pins at every chance went from a
+  2.7-minute median match (170/200 under five minutes) to 11 minutes (44/200).
+- **Pin combos need a second press (Lyra's idea).** When the player lands a pin combo or flash
+  pin, a quick cover ring follows (no 3-2-1, 1.15s, band 12–26% shrinking with exhaustion). Hit
+  it and the pin goes ahead; miss and there's no cover, but the player keeps the upper hand. The
+  AI's pin combos still cover automatically.
 - **Two AI loop fixes.** In Godot the AI can keep picking a "ready special" setup (e.g. pick the
   opponent up to hit a signature) forever because the opponent reverses or falls back down. Headless
   matches ran to 351 minutes. The AI now skips that setup path after three setup actions in a row,
@@ -79,89 +92,90 @@ nothing gets stuck and the AI makes no invalid choices.
 
 Things worth knowing:
 
-- **The player side wins 75–95%.** That's structural, as in Godot: the AI has no timing input, so
+- Median match is ~17–18 minutes for the skill models; 3–4% finish under five minutes.
+- **The player side wins 73–95%.** That's structural, as in Godot: the AI has no timing input, so
   any half-decent player beats the reversal windows more often than the AI's percentage rolls do.
   Something to balance once the UI is real and Lyra has played it.
-- A tail of long matches remains (2–5% over 40 minutes for the skill models). They're mostly
+- A tail of long matches remains (3–5% over 40 minutes for the skill models). They're mostly
   evenly matched pairs trading reversals. The fixed 60% model is a stress test and runs longer.
 - Count-outs are rare (the AI urgently returns to the ring).
 
-
 #### Fixed hit rate 60% — 300/300 matches finished
 
-Length (min): p10 4.3, median 18.0, p90 43.7, max 113.3
+Length (min): p10 8.3, median 22.0, p90 45.7, max 103.3
 
 | Length | Matches |
 |---|---|
-| < 5 min | 11.0% |
-| 5–8 min | 9.0% |
-| 8–25 min | 50.3% |
-| 25–40 min | 17.0% |
-| > 40 min | 12.7% |
+| < 5 min | 3.0% |
+| 5–8 min | 5.7% |
+| 8–25 min | 51.7% |
+| 25–40 min | 25.3% |
+| > 40 min | 14.3% |
 
 | Finish | Matches |
 |---|---|
-| Submission (hold) | 32.7% |
-| Pin (cold cover) | 29.3% |
-| Pin after other move | 21.7% |
-| Flash pin | 10.0% |
-| Pin after finisher | 4.7% |
-| Submission (finisher) | 1.7% |
+| Submission (hold) | 41.7% |
+| Pin (cold cover) | 22.7% |
+| Pin after other move | 19.0% |
+| Pin after finisher | 9.0% |
+| Flash pin | 6.0% |
+| Submission (finisher) | 1.3% |
+| Count-out | 0.3% |
 
-Winner: player side 75.3%, AI side 24.7%
-Stars: mean 2.11, median 2, p10 0.25, p90 3.5
-Engine steps per match: median 93, max 518. Stuck: 0. Invalid AI choices: 0
+Winner: player side 73.0%, AI side 27.0%
+Stars: mean 2.45, median 2.25, p10 1.25, p90 3.75
+Engine steps per match: median 111, max 482. Stuck: 0. Invalid AI choices: 0
 
 #### Skill-based (timing σ = 70ms) — 300/300 matches finished
 
-Length (min): p10 4.3, median 12.3, p90 28.7, max 68.3
+Length (min): p10 8.3, median 17.3, p90 31.0, max 66.7
 
 | Length | Matches |
 |---|---|
-| < 5 min | 12.0% |
-| 5–8 min | 15.0% |
-| 8–25 min | 59.3% |
-| 25–40 min | 11.3% |
-| > 40 min | 2.3% |
+| < 5 min | 3.0% |
+| 5–8 min | 4.7% |
+| 8–25 min | 71.3% |
+| 25–40 min | 18.3% |
+| > 40 min | 2.7% |
 
 | Finish | Matches |
 |---|---|
-| Pin (cold cover) | 26.7% |
-| Submission (hold) | 24.0% |
-| Pin after other move | 16.3% |
-| Flash pin | 15.7% |
-| Pin after finisher | 13.0% |
-| Submission (finisher) | 4.3% |
+| Submission (hold) | 31.3% |
+| Pin after finisher | 18.3% |
+| Pin (cold cover) | 18.3% |
+| Pin after other move | 15.0% |
+| Flash pin | 10.3% |
+| Submission (finisher) | 6.7% |
 
-Winner: player side 95.0%, AI side 5.0%
-Stars: mean 1.99, median 2.25, p10 0.25, p90 3.5
-Engine steps per match: median 65, max 322. Stuck: 0. Invalid AI choices: 0
+Winner: player side 94.7%, AI side 5.3%
+Stars: mean 2.49, median 2.75, p10 1.25, p90 3.5
+Engine steps per match: median 89, max 316. Stuck: 0. Invalid AI choices: 0
 
 #### Skill-based (timing σ = 120ms, casual) — 300/300 matches finished
 
-Length (min): p10 3.7, median 13.7, p90 32.0, max 82.3
+Length (min): p10 7.7, median 17.7, p90 33.7, max 82.3
 
 | Length | Matches |
 |---|---|
-| < 5 min | 14.7% |
-| 5–8 min | 13.3% |
-| 8–25 min | 53.7% |
-| 25–40 min | 13.3% |
-| > 40 min | 5.0% |
+| < 5 min | 4.3% |
+| 5–8 min | 6.3% |
+| 8–25 min | 61.0% |
+| 25–40 min | 23.7% |
+| > 40 min | 4.7% |
 
 | Finish | Matches |
 |---|---|
-| Submission (hold) | 33.3% |
-| Pin (cold cover) | 22.3% |
-| Pin after other move | 19.3% |
-| Flash pin | 15.3% |
-| Pin after finisher | 7.0% |
-| Submission (finisher) | 2.3% |
+| Submission (hold) | 43.3% |
+| Pin after other move | 16.7% |
+| Pin (cold cover) | 16.0% |
+| Pin after finisher | 10.7% |
+| Flash pin | 8.7% |
+| Submission (finisher) | 4.3% |
 | Count-out | 0.3% |
 
-Winner: player side 75.7%, AI side 24.3%
-Stars: mean 2.00, median 2, p10 0.25, p90 3.5
-Engine steps per match: median 69, max 390. Stuck: 0. Invalid AI choices: 0
+Winner: player side 73.3%, AI side 26.7%
+Stars: mean 2.48, median 2.5, p10 1.25, p90 3.75
+Engine steps per match: median 90, max 390. Stuck: 0. Invalid AI choices: 0
 
 ## Legacy: Match of the Night port
 

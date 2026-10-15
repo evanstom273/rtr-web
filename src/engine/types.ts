@@ -186,6 +186,17 @@ export interface KickoutSpec {
   forgiveness: number;
 }
 
+/** Player landed a pin combo / flash pin: tap again to make the cover stick (web addition). */
+export interface CoverSpec {
+  id: number;
+  moveId: string;
+  moveName: string;
+  /** Success band as % of the shrink range (same ring as reversals, centred at `target`). */
+  window: number;
+  timeLimit: number;
+  target: number;
+}
+
 /** Submission tug-of-war. 100 = tap. */
 export interface SubSpec {
   id: number;
@@ -229,6 +240,7 @@ export type Pending =
   | { kind: 'refCount'; id: number; pinner: SideKey; kickoutAt: 1 | 2 | 3 | null }
   | { kind: 'sub'; spec: SubSpec }
   | { kind: 'resiliency'; id: number; threat: 'pinfall' | 'submission' }
+  | { kind: 'cover'; spec: CoverSpec }
   | { kind: 'over' };
 
 /* ---------- result & rating ---------- */

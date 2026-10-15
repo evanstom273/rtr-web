@@ -4,7 +4,7 @@ import { AiBrain, aiTurn } from './ai';
 import { say } from './commentary';
 import type { Ctx, EngineHooks } from './ctx';
 import { finalise, render, runNeutralRecovery, schedule, setControl } from './flow';
-import { executeMove, finishMove, moveIsValid, validMoves } from './moves';
+import { executeMove, finishMove, moveIsValid, resolveCover, validMoves } from './moves';
 import { canPin, completeKickout, pinThree, startPin, useResiliency } from './pin';
 import { mathRng, seededRng, type Rng } from './rng';
 import { executeSetup, finishContestedSetup, validSetups } from './setups';
@@ -229,6 +229,16 @@ export class MatchEngine {
     return this.act(() => {
       this.state.pending = { kind: 'idle' };
       resolveSubmission(this.ctx, outcome);
+    });
+  }
+
+  /** Pin-combo cover press: did the player hit the ring? */
+  resolveCover(hit: boolean): boolean {
+    const p = this.state.pending;
+    if (p.kind !== 'cover') return false;
+    return this.act(() => {
+      this.state.pending = { kind: 'idle' };
+      resolveCover(this.ctx, getMove(p.spec.moveId), hit);
     });
   }
 
