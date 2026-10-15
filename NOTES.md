@@ -150,6 +150,11 @@ because limb work feeds the story score.
   Stretch, Rope-Hung Armbar, Rope-Hung Triangle Choke), because their own requirements put someone
   on the ropes, corner or apron. Holds that name their spot are now allowed there. They can't win:
   the referee forces the break, so they always land as damage and the attacker keeps control.
+- **Star rating: hot crowds and reversals count for more** (Lyra's call). Crowd scores the average
+  heat from 25 (dead) to 60 (rocking) instead of 0–100, since every match opens cold, and a peak of
+  95+ is worth 0.35 (was 0.25 at 88+). Reversals are worth 0.05 each in Drama, capped at 0.6 (was
+  0.03, capped at 0.35). A typical match rates about the same; hot, back-and-forth ones up to half a
+  star higher, and dead crowds a bit lower. Median 3 → 3.25 stars, p90 3.75 → 4.25.
 - **No hidden rolls.** Every contest is on screen, modifiers and all.
 - The phase tracker is a simplified version of Godot's MatchDecisionFramework.
 

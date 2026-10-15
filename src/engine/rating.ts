@@ -28,14 +28,17 @@ export function rate(S: MatchState): Rating {
   const mins = R.t / 60;
   const W = R.winner ? S[R.winner] : null, L = R.loser ? S[R.loser] : null;
   const avg = c.heatSum / Math.max(1, c.heatN);
-  const crowd = (avg / 100) * 1.3 + (c.heatPeak >= 88 ? 0.25 : c.heatPeak >= 75 ? 0.1 : 0);
+  // Every match opens cold, so an average in the 50s is a hot crowd: score the average from 25
+  // (dead) to 60 (rocking), and reward the peak properly. Same as before for a typical crowd (~45
+  // average, ~80 peak); up to ~0.3 more for a hot one.
+  const crowd = clamp((avg - 25) / 35, 0, 1.2) + (c.heatPeak >= 95 ? 0.35 : c.heatPeak >= 85 ? 0.25 : c.heatPeak >= 75 ? 0.1 : 0);
   const limb = [topPart(S.you), topPart(S.them)].sort((a, b) => b.n - a.n)[0]!;
   const finishPart = R.move ? (R.move.parts.find((p) => p !== 'NONE') as BodyPart | undefined) : undefined;
   const lossWork = L ? workedOn(S, L) : { part: 'BODY' as BodyPart, n: 0 };
   const payoff = c.limbPayoff || (!!finishPart && finishPart === lossWork.part && lossWork.n >= 4);
   const structure = (c.heatSeg ? 0.3 : 0) + (c.comeback ? 0.5 : 0);
   const psych = (limb.n >= 5 ? 0.25 : 0) + (payoff ? 0.35 : 0) - Math.min(0.6, c.repeats * 0.1) - Math.max(0, c.rest - 3) * 0.08;
-  const drama = Math.min(0.7, c.nf * 0.15) + Math.min(0.7, c.fk * 0.35) + Math.min(0.5, c.finRev * 0.25) + Math.min(0.35, c.reversals * 0.03);
+  const drama = Math.min(0.7, c.nf * 0.15) + Math.min(0.7, c.fk * 0.35) + Math.min(0.5, c.finRev * 0.25) + Math.min(0.6, c.reversals * 0.05);
   const how = R.finish === 'SUBMISSION' ? 'sub' : R.finish === 'PINFALL' ? 'pin' : 'countout';
   let finish = 0;
   if (R.byFin && mins >= 10) finish += 0.4;
