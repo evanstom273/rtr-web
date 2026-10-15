@@ -167,7 +167,7 @@ AI makes no invalid choices.
 Things worth knowing:
 
 - **Median match is ~20 minutes**, and about 1 in 10 is under 10 minutes.
-- **The player side wins ~50%** when it plays exactly like the AI. That's the point of the dice:
+- **The player side wins ~50–60%** when it plays exactly like the AI (the remaining edge is the hands-on kickout). That's the point of the dice:
   the edge is in your choices now, not your thumb.
 - **Submissions end about half of these matches.** Partly that's the roster: 58% are Technicians,
   and they mostly win by submission (see above). Partly it's the AI being too cautious to pin: it
