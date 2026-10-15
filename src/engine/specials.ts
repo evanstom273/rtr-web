@@ -4,7 +4,7 @@ import type { StateRequirement } from '../data/rtr/types';
 import { other } from './commentary';
 import { moveIsValid } from './moves';
 import { candidateActions, findFollowupPaths, isRecovery, moveMatchesSnapshots, projectAction } from './setupRules';
-import { canUseMove } from './side';
+import { canUseMove, FINISHER_MOMENTUM, REARM_MARGIN, SIGNATURE_MOMENTUM } from './side';
 import type { MatchState, Move, SetupId, Side, SideKey, Snapshot } from './types';
 
 export interface SpecialInfo {
@@ -40,7 +40,10 @@ function describe(r: StateRequirement, mode: 'attacker' | 'target'): string[] {
 
 function needsFor(s: Side, m: Move, kind: SpecialInfo['kind']): string | null {
   if (canUseMove(s, m)) return null;
-  return kind === 'FINISHER' ? 'Needs a banked finisher (land the signature)' : `Needs full momentum (${Math.round(s.momentum)}/100)`;
+  if (kind === 'FINISHER') return `Needs a banked finisher (${FINISHER_MOMENTUM} momentum)`;
+  return s.signatureArmed
+    ? `Needs ${SIGNATURE_MOMENTUM} momentum (${Math.round(s.momentum)}/${SIGNATURE_MOMENTUM})`
+    : `Used. Momentum has to drop under ${SIGNATURE_MOMENTUM - REARM_MARGIN} to earn it again`;
 }
 
 const shortest = (paths: { actions: SetupId[] }[]): SetupId[] | null =>

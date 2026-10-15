@@ -141,8 +141,11 @@ export function observePhase(ctx: Ctx, e: PhaseEvent): void {
       ph.actionsSinceChange++;
       break;
   }
+  // The weights used to top out at 0.85, so 'closing' (0.68) was all but unreachable. Time is in
+  // there now too: a match that's gone 20 minutes is heading for the finish whatever else is true.
   const pressure = clamp(
-    finishPressure(ctx) * 0.28 + conditionPressure(ctx) * 0.24 + ph.drama * 0.18 + clamp(ph.controlSwings / 8, 0, 1) * 0.15,
+    finishPressure(ctx) * 0.25 + conditionPressure(ctx) * 0.3 + ph.drama * 0.15 + clamp(ph.controlSwings / 8, 0, 1) * 0.1
+      + clamp(ctx.S.t / (20 * 60), 0, 1) * 0.2,
     0, 1,
   );
   const desired = pressure >= 0.68 ? 'closing' : pressure >= 0.3 ? 'middle' : 'opening';

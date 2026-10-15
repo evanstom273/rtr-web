@@ -16,7 +16,7 @@ chants) and the star rating are kept, fed by RtR events.
   setup actions, projections and the two-step follow-up path search (`setupRules.ts`, `areaRules.ts`).
 - Six-part health, the move target resolver (fixed / choose arm or leg / both) and damage per part.
 - Stamina pool (2.5× the attribute), fatigue, exhaustion bands and every penalty that hangs off them.
-- Momentum, signature → finisher stock (max 3), one-use resiliency.
+- Momentum, signatures, finisher stock (max 3), one-use resiliency (the progression is changed, see below).
 - Kickout hold, the submission tug, count-outs, the action clock, late-match escalation.
   (Godot's reversal chance, timing ring and setup bar were ported, then replaced by dice.)
 - The AI decision engine (`ai.ts`): move/setup/pin scoring, weighted top-5 choice, loop prevention,
@@ -105,7 +105,8 @@ because limb work feeds the story score.
   combo at mid momentum that's roughly: fresh 7% pinned, worked over ~50%, wrecked ~87%; a
   finisher is ~40% on a fresh wrestler and ~85% once they've been worked over. It feeds the
   player's kickout window too (wider when fresh). A player who pins at every chance went from a
-  2.7-minute median match (170/200 under five minutes) to 11 minutes (44/200).
+  2.7-minute median match (170/200 under five minutes) to 11 minutes (44/200). (Since retuned:
+  see the steeper condition curve below.)
 - **Pin combos are a choice (Lyra's idea).** When the player lands a pin combo or flash pin, a
   card asks: hook the leg, or keep the upper hand? It shows the exact chance of the three (the same
   maths the cover uses, before any Resiliency), how the opponent looks, and whether they still have
@@ -116,11 +117,34 @@ because limb work feeds the story score.
   attacker to "fail to maintain control" (up to 40%), sending the match neutral so the defender
   could take over. Removed: land it and you keep it. When both wrestlers end up on the mat, the
   one who landed the move gets up first 90% of the time (Godot: 80%).
-- **Two AI loop fixes.** In Godot the AI can keep picking a "ready special" setup (e.g. pick the
+- **AI loop fixes.** In Godot the AI can keep picking a "ready special" setup (e.g. pick the
   opponent up to hit a signature) forever because the opponent reverses or falls back down. Headless
   matches ran to 351 minutes. The AI now skips that setup path after three setup actions in a row,
   and when it has a credible pin (opponent ≤ 390 total HP, < 30% stamina, ≥ 70 fatigue, closing
   phase, or straight after a finisher).
+- **Momentum is progression for specials, not a resource** (Lyra's design). 50 momentum banks one
+  signature, which stays banked until it lands even if momentum drops. 100 banks a finisher
+  (and earns Resiliency, once). Using either costs no momentum; only pushes spend it. Godot readied
+  the signature at 100, landing it reset momentum to 0, and a finisher came from landing the
+  signature. To earn the same unlock again, momentum has to fall below 25 (signature) or 75
+  (finisher) first, so sitting at the top of the bar can't farm specials. Reversing a finisher
+  still banks one, as before.
+- **Momentum counts ×0.6 in pin pressure.** It no longer resets when a signature lands, so it runs
+  higher late in matches, and at full weight that turned mid-match covers into wins.
+- **Steeper pin condition curve:** `(condition − 35) × 3.2` (was `(condition − 40) × 2`), and the AI's
+  kickout bases are 32/22/12 (Godot 28/18/9). Healthy wrestlers kick out much more reliably, a
+  wrecked one about as before, so covers mid-match are near-falls.
+- **The AI covers after big moves.** Godot's weighted move scoring left the AI covering ~1.6 times
+  a match. After landing an impact-7+ move, a signature or a finisher (not a submission), it covers
+  with a chance that rises as the opponent wears down (10–80%, +10% for impact 9+), +35% after a
+  signature, 95% after a finisher, and much less if it covered last time.
+- **The closing phase is reachable.** Godot-derived phase pressure topped out at 0.85 against a
+  0.68 threshold for 'closing' (where the AI's finishing urgency lives), so it almost never
+  happened. Match time now counts too (up to 0.2 at 20 minutes).
+- **A third AI loop fix.** With a signature banked, the special's setup path could bounce off a
+  forced recovery forever (step onto the apron for a springboard that doesn't fit, forced back in,
+  repeat), because forced recoveries reset the setup-loop breaker. The AI now drops the special path
+  after two forced recoveries without committing to a move.
 - **No hidden rolls.** Every contest is on screen, modifiers and all.
 - The phase tracker is a simplified version of Godot's MatchDecisionFramework.
 
@@ -214,67 +238,70 @@ AI makes no invalid choices.
 
 Things worth knowing:
 
-- **Median match is ~19 minutes**, and about 1 in 10 is under 10 minutes.
-- **The player side wins ~50–60%** when it plays exactly like the AI (the edge is probably the hands-on kickout; not confirmed). That's the point of the dice:
+- **Median match is ~20–21 minutes**, and about 1 in 10 is under 12 minutes.
+- **The player side wins ~45–52%** when it plays exactly like the AI (the edge is probably the hands-on kickout; not confirmed). That's the point of the dice:
   the edge is in your choices now, not your thumb.
-- **Submissions end about half of these matches.** Partly that's the roster: 58% are Technicians,
-  and they mostly win by submission (see above). Partly it's the AI being too cautious to pin: it
-  goes for very few pins a match, because its pin scoring is very conservative (from Godot). A
-  human pins far more. Making the AI go for more near-falls belongs in the smarter-AI work.
-- **Signatures and finishers are rare**, about one per three matches, because momentum builds
-  slowly (+10 a landed move). Worth revisiting.
+- **Submissions end about half of these matches.** That's the roster: 58% are Technicians, and they
+  mostly win by submission (see above).
+- **Pins and specials (after the progression change):** per match, ~3.1 covers and ~2.6 kickouts
+  (was 1.7 and 1.25); a signature is banked ~1.5 times and 99% of matches see one, the first at a
+  median 7 minutes (was 0.46, 41% of matches, 16 minutes); a finisher is earned ~0.43 times
+  (unchanged, so they stay the rarer prize).
+- **Roll-up (flash pin) wins dropped to ~2% of finishes** (was ~14%). The steeper condition curve
+  means a healthy wrestler kicks out of a roll-up, and the AI throws fewer of them because it now
+  covers more often (pin spacing). An open question whether surprise roll-ups deserve an exception.
 - A tail of long matches remains (about 3% over 40 minutes).
 - Count-outs are rare (the AI urgently returns to the ring).
 
-#### Steady hands (cover/kickout timing σ = 70ms) — 300/300 matches finished
+#### Steady hands (kickout timing σ = 70ms) — 400/400 matches finished
 
-Length (min): p10 10.0, median 19.7, p90 31.3, max 57.7
+Length (min): p10 12.7, median 21.0, p90 30.7, max 43.0
+
+| Length | Matches |
+|---|---|
+| < 5 min | 0.0% |
+| 5–8 min | 1.0% |
+| 8–25 min | 71.0% |
+| 25–40 min | 27.3% |
+| > 40 min | 0.8% |
+
+| Finish | Matches |
+|---|---|
+| Submission (hold) | 45.3% |
+| Pin after other move | 32.3% |
+| Pin (cold cover) | 7.2% |
+| Pin after finisher | 7.0% |
+| Submission (finisher) | 6.5% |
+| Flash pin | 1.8% |
+
+Winner: player side 51.7%, AI side 48.3%
+Stars: mean 3.05, median 3, p10 2.25, p90 3.75
+Engine steps per match: median 139, max 274. Stuck: 0. Invalid AI choices: 0
+
+#### Casual (kickout timing σ = 120ms) — 400/400 matches finished
+
+Length (min): p10 11.0, median 19.7, p90 29.7, max 43.0
 
 | Length | Matches |
 |---|---|
 | < 5 min | 1.3% |
-| 5–8 min | 3.7% |
-| 8–25 min | 69.0% |
-| 25–40 min | 24.0% |
-| > 40 min | 2.0% |
+| 5–8 min | 2.8% |
+| 8–25 min | 75.5% |
+| 25–40 min | 20.0% |
+| > 40 min | 0.5% |
 
 | Finish | Matches |
 |---|---|
-| Submission (hold) | 48.3% |
-| Pin after other move | 17.0% |
-| Flash pin | 14.7% |
-| Pin (cold cover) | 7.3% |
-| Submission (finisher) | 6.7% |
-| Pin after finisher | 6.0% |
+| Submission (hold) | 36.5% |
+| Pin after other move | 35.8% |
+| Pin (cold cover) | 10.8% |
+| Pin after finisher | 7.8% |
+| Submission (finisher) | 6.0% |
+| Flash pin | 3.3% |
 
-Winner: player side 56.3%, AI side 43.7%
+Winner: player side 45.5%, AI side 54.5%
 Stars: mean 2.91, median 3, p10 2, p90 3.75
-Engine steps per match: median 134, max 350. Stuck: 0. Invalid AI choices: 0
-
-#### Casual (cover/kickout timing σ = 120ms) — 300/300 matches finished
-
-Length (min): p10 9.3, median 18.7, p90 29.7, max 57.7
-
-| Length | Matches |
-|---|---|
-| < 5 min | 2.0% |
-| 5–8 min | 5.3% |
-| 8–25 min | 70.7% |
-| 25–40 min | 20.7% |
-| > 40 min | 1.3% |
-
-| Finish | Matches |
-|---|---|
-| Submission (hold) | 43.3% |
-| Pin after other move | 19.7% |
-| Flash pin | 16.3% |
-| Pin (cold cover) | 9.0% |
-| Submission (finisher) | 6.3% |
-| Pin after finisher | 5.3% |
-
-Winner: player side 51.0%, AI side 49.0%
-Stars: mean 2.83, median 3, p10 1.75, p90 3.75
-Engine steps per match: median 128, max 350. Stuck: 0. Invalid AI choices: 0
+Engine steps per match: median 131, max 274. Stuck: 0. Invalid AI choices: 0
 
 ## Legacy: Match of the Night port
 

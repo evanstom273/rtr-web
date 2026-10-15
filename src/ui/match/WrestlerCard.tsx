@@ -1,6 +1,6 @@
 import { AREA_LABEL, MOTION_LABEL, ORIENTATION_LABEL, POSITION_LABEL } from '../../data/commentary';
 import type { Wrestler } from '../../data/rtr';
-import { MAX_FINISHER_STOCK, type BodyPart, type Part, type SideView } from '../../engine';
+import { MAX_FINISHER_STOCK, SIGNATURE_MOMENTUM, type BodyPart, type Part, type SideView } from '../../engine';
 import { Mannequin } from '../common/Mannequin';
 import { Name } from '../common/Name';
 import { classNames } from '../format';
@@ -53,6 +53,7 @@ export function WrestlerCard({ w, v, active, focus, onPick, onSpecials }: Props)
             <span className="bl">MOM</span>
             <span className="bt">
               <i className={`mom${v.signatureReady ? ' ready' : ''}`} style={{ width: `${v.momentum}%` }} />
+              <i className="tick" style={{ left: `${SIGNATURE_MOMENTUM}%` }} aria-hidden />
             </span>
             <span className="bv">{r(v.momentum)}</span>
           </div>

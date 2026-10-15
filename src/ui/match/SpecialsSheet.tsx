@@ -71,7 +71,7 @@ export function SpecialsSheet({ engine, initial, onClose }: { engine: MatchEngin
         </div>
         <div className="sp-meter">
           <span>
-            Momentum <b>{Math.round(sv.momentum)}</b>/100{sv.signatureReady ? ' · signature ready' : ''}
+            Momentum <b>{Math.round(sv.momentum)}</b>/100{sv.signatureReady ? ' · signature banked' : ''}
           </span>
           <span>
             Finishers banked <b>{sv.finisherStock}</b>/3
@@ -83,8 +83,9 @@ export function SpecialsSheet({ engine, initial, onClose }: { engine: MatchEngin
           ))}
         </ul>
         <p className="sp-help">
-          Signatures unlock at 100 momentum. Landing one banks a finisher (up to three), and reversing the opponent’s finisher banks one
-          too.
+          50 momentum banks a signature: it stays banked until it lands, even if momentum drops. 100 momentum banks a finisher (up to
+          three), and reversing the opponent’s finisher banks one too. Neither costs momentum; to earn the same one again, momentum has
+          to drop well back first.
         </p>
       </div>
     </div>

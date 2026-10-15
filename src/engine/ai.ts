@@ -14,11 +14,12 @@ import { afterAction, setControl } from './flow';
 import { moveLandChance, setupLandChance } from './dice';
 import { executionChance, isHighRisk } from './interaction';
 import { executeMove, moveIsValid, validMoves } from './moves';
-import { canPin, isFlashPinMove, startPin } from './pin';
+import { canPin, isFlashPinMove, pinCondition, startPin } from './pin';
+import { clamp } from './rng';
 import { executeSetup, validSetups } from './setups';
 import { findFollowupPaths, isContested, isRecovery, moveMatchesSnapshots, projectAction } from './setupRules';
 import {
-  canUseMove, isFinisherMove, isSignatureMove, lastAttemptedMoveMatches, lowestTargetHp, MAX_FINISHER_STOCK, mostTargetedPart,
+  canUseMove, isFinisherMove, isSignatureMove, lastAttemptedMoveMatches, lowestTargetHp, mostTargetedPart,
   recentMoveCount, recentTargetPartCount, totalHp, weakestPart,
 } from './side';
 import { focusAppliesToMove, isLimbFocus, resolveTarget, targetHp } from './targeting';
@@ -33,6 +34,10 @@ export class AiBrain {
   lastSetupIntent: SetupId | null = null;
   targetFocus: BodyPart | null = null;
   lastSuccessfulMoveImpact = 0;
+  /** The move the AI landed on its last action, until its next decision. */
+  justLanded: Move | null = null;
+  /** Forced recoveries since the AI last committed to a move or a pin. */
+  forcedRecoveries = 0;
   lastSuccessfulMove: Move | null = null;
   lastLandedFinisher = false;
   playerCrashOpportunity = false;
@@ -88,6 +93,7 @@ export class AiBrain {
       this.lastSuccessfulMove = move;
       this.lastLandedFinisher = move.finisher;
       this.bigMoveFollowupOpportunity = move.impact >= 8;
+      this.justLanded = move;
       if (this.targetFocus === null) {
         this.targetFocus = res.storyPart;
         ai.targetFocus = res.storyPart;
@@ -105,6 +111,7 @@ export class AiBrain {
     this.clearSetupIntent();
   }
   noteMandatoryRecovery(ai: Side): void {
+    this.forcedRecoveries++;
     ai.consecutiveSetupActions = 0;
     this.clearSetupIntent();
   }
@@ -120,6 +127,14 @@ export class AiBrain {
 
   choose(ai: Side, target: Side, moves: Move[], setups: SetupId[]): Candidate | null {
     if (this.setupCooldownTurns > 0) this.setupCooldownTurns--;
+    const cover = this.coverAfterBigMove(ai, target);
+    this.justLanded = null;
+    if (cover) {
+      this.clearSetupIntent();
+      this.recordChoice(cover, ai);
+      this.playerCrashOpportunity = this.reversalPinOpportunity = this.bigMoveFollowupOpportunity = false;
+      return cover;
+    }
     let candidates: Candidate[] = [];
     this.updateTargetFocus(ai, target, moves);
     const focus = this.targetFocus ?? 'NONE';
@@ -156,7 +171,10 @@ export class AiBrain {
     const crediblePin = canPin(this.S, this.k) && (
       totalHp(target) <= 390 || staminaPercent(target) < 30 || target.fatigue >= 70 || this.phase === 'closing' || ai.lastMoveWasFinisher
     );
-    const skipSpecialPath = ai.consecutiveSetupActions >= 3 || crediblePin;
+    // Also once the special's setup path has bounced off a forced recovery twice without a move in
+    // between: the forced recovery resets the setup-loop breaker, so e.g. apron -> back in -> apron
+    // for a springboard that doesn't fit would otherwise go on forever.
+    const skipSpecialPath = ai.consecutiveSetupActions >= 3 || crediblePin || this.forcedRecoveries >= 2;
     const readySetup = readyMove || skipSpecialPath ? null : this.bestReadySpecialSetup(candidates, ai);
     if (readyMove) selected = readyMove;
     else if (readySetup) {
@@ -196,6 +214,7 @@ export class AiBrain {
   }
 
   private recordChoice(c: Candidate, ai: Side): void {
+    if (c.kind !== 'setup') this.forcedRecoveries = 0;
     if (c.kind === 'move') {
       this.recentAiMoveIds.push(c.move.id);
       while (this.recentAiMoveIds.length > MOVE_BLOCK_WINDOW) this.recentAiMoveIds.shift();
@@ -374,6 +393,25 @@ export class AiBrain {
     return dominant && little && established && worn && this.lastSuccessfulMoveImpact >= 8;
   }
 
+  /**
+   * Web-version addition: wrestlers cover after big moves. The weighted move scoring alone left the
+   * AI covering about twice a match. The chance rises as the opponent wears down; a signature makes
+   * it likely and a finisher all but certain. Covering twice in a row without landing anything in
+   * between is rare.
+   */
+  private coverAfterBigMove(ai: Side, target: Side): Candidate | null {
+    const m = this.justLanded;
+    if (!m || m.submission || !canPin(this.S, this.k)) return null;
+    const fin = isFinisherMove(ai, m), sig = isSignatureMove(ai, m);
+    if (!fin && !sig && m.impact < 7) return null;
+    let p = clamp((90 - pinCondition(target)) / 70, 0.1, 0.8);
+    if (m.impact >= 9) p += 0.1;
+    if (sig) p += 0.35;
+    if (fin) p = 0.95;
+    if (this.lastPinAttemptLandedCount >= 0 && ai.movesLanded - this.lastPinAttemptLandedCount <= 1) p *= 0.4;
+    return this.ctx.rnd() < p ? { kind: 'pin', score: 0 } : null;
+  }
+
   private pinSpacingModifier(ai: Side, moveId: string): number {
     if (this.lastPinAttemptLandedCount < 0) return 0;
     const since = Math.max(0, ai.movesLanded - this.lastPinAttemptLandedCount);
@@ -457,7 +495,8 @@ export class AiBrain {
       if (target.momentum > 80) score -= 20;
     }
     if (m.finisher) score += this.finisherBonus(ai, target, m, res);
-    else if (isSignatureMove(ai, m)) score += ai.finisherStock < MAX_FINISHER_STOCK ? 45 : 8;
+    // A landed signature no longer banks a finisher, but it's still the big move of the match.
+    else if (isSignatureMove(ai, m)) score += 45;
     if (m.submission) {
       score += attributeDelta(ai.w.stats.skill) * 8 * 0.6;
       score += this.submissionBonus(ai, target, m, res);

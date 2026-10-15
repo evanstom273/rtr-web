@@ -304,11 +304,12 @@ body.dragging,body.dragging *{user-select:none!important;-webkit-user-select:non
 .bar{display:flex;align-items:center;gap:5px}
 .bl{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;color:var(--mute);width:2.5em;flex:none}
 .bv{font-family:var(--mono);font-size:9.5px;color:var(--mute);font-variant-numeric:tabular-nums;flex:none;min-width:3.6em;text-align:right}
-.bt{flex:1;height:6px;background:var(--panel-2);border-radius:3px;overflow:hidden;min-width:0}
+.bt{position:relative;flex:1;height:6px;background:var(--panel-2);border-radius:3px;overflow:hidden;min-width:0}
 .bt i{display:block;height:100%;width:0;border-radius:3px;transition:width .45s var(--ease)}
 .bt i.sta{background:var(--fg);opacity:.75}
 .bt i.fat{background:var(--risk);opacity:.85}
 .bt i.mom{background:var(--crowd)}
+.bt i.tick{position:absolute;top:-1px;bottom:-1px;width:2px;margin-left:-1px;background:var(--fg,#fff);opacity:.45}
 .bt i.mom.ready{background:var(--gold);box-shadow:0 0 8px var(--gold);animation:pulse 1.2s ease-in-out infinite}
 .fin{display:flex;align-items:center;gap:5px;min-width:0;background:none;border:0;padding:2px 0;text-align:left;width:100%;border-radius:4px}
 .fin:hover .sig.more,.fin:focus-visible .sig.more{color:var(--fg)}
