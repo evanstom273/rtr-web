@@ -2,7 +2,7 @@
 import { AREA_LABEL, MOTION_LABEL, ORIENTATION_LABEL, POSITION_LABEL } from '../data/commentary';
 import type { StateRequirement } from '../data/rtr/types';
 import { other } from './commentary';
-import { moveIsValid } from './moves';
+import { moveIsValid, submissionAreaOk } from './moves';
 import { candidateActions, findFollowupPaths, isRecovery, moveMatchesSnapshots, projectAction } from './setupRules';
 import { canUseMove, FINISHER_MOMENTUM, REARM_MARGIN, SIGNATURE_MOMENTUM } from './side';
 import type { MatchState, Move, SetupId, Side, SideKey, Snapshot } from './types';
@@ -25,6 +25,8 @@ export interface SpecialInfo {
   route: SetupId[] | null;
   /** When there's no setup route: what has to happen instead, if we can tell. */
   hint: string | null;
+  /** Ready and the positions fit, but a match rule still stops it (e.g. submissions in the ring). */
+  blocked: string | null;
 }
 
 function describe(r: StateRequirement, mode: 'attacker' | 'target'): string[] {
@@ -86,9 +88,10 @@ export function specialsFor(S: MatchState, k: SideKey): SpecialInfo[] {
   return list.map(([move, kind]) => {
     const fits = moveMatchesSnapshots(move, A.state, D.state);
     const route: SetupId[] | null = fits ? [] : routeTo(move, A.state, D.state);
+    const ready = canUseMove(A, move);
     return {
       move, kind,
-      ready: canUseMove(A, move),
+      ready,
       needs: needsFor(A, move, kind),
       userNeeds: describe(move.req.a, 'attacker'),
       opponentNeeds: describe(move.req.t, 'target'),
@@ -96,6 +99,7 @@ export function specialsFor(S: MatchState, k: SideKey): SpecialInfo[] {
       usable: moveIsValid(S, k, move),
       route,
       hint: route ? null : hintFor(move, D),
+      blocked: fits && ready && !submissionAreaOk(S, k, move) ? 'Submissions need both of you in the ring' : null,
     };
   });
 }

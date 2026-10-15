@@ -21,7 +21,9 @@ function Special({ engine, s, side, canUse, onUsed }: { engine: MatchEngine; s: 
         <span>{s.opponentNeeds.join(' · ')}</span>
       </div>
       <div className="sp-route">
-        {s.fits ? (
+        {s.blocked ? (
+          <span className="none">{s.blocked}</span>
+        ) : s.fits ? (
           <span className="fit">✓ Positions fit right now</span>
         ) : s.route && s.route.length ? (
           <span>

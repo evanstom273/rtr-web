@@ -145,6 +145,11 @@ because limb work feeds the story score.
   forced recovery forever (step onto the apron for a springboard that doesn't fit, forced back in,
   repeat), because forced recoveries reset the setup-loop breaker. The AI now drops the special path
   after two forced recoveries without committing to a move.
+- **Rope, corner and apron submissions work.** Godot's "submissions only with both wrestlers in the
+  ring" rule made five holds unusable (Tarantula, Corner Foot Choke, Rope-Assisted Abdominal
+  Stretch, Rope-Hung Armbar, Rope-Hung Triangle Choke), because their own requirements put someone
+  on the ropes, corner or apron. Holds that name their spot are now allowed there. They can't win:
+  the referee forces the break, so they always land as damage and the attacker keeps control.
 - **No hidden rolls.** Every contest is on screen, modifiers and all.
 - The phase tracker is a simplified version of Godot's MatchDecisionFramework.
 

@@ -49,11 +49,9 @@ export function aiGoesForTap(S: MatchState, k: SideKey, move: Move, target: Targ
 /** A hold has landed. The player chooses; the AI decides on the spot. */
 export function beginSubmission(ctx: Ctx, k: SideKey, move: Move, target: TargetResolution): void {
   const S = ctx.S, A = S[k], D = S[other(k)];
-  if (A.state.area !== 'IN_RING' || D.state.area !== 'IN_RING') {
-    setControl(ctx, k);
-    afterAction(ctx);
-    return;
-  }
+  // Holds on the ropes, in the corner or from the apron (Tarantula, rope-hung armbars) can't win:
+  // the referee forces the break. They're all damage.
+  if (A.state.area !== 'IN_RING' || D.state.area !== 'IN_RING') return workTheHold(ctx, k, move, target, true);
   if (k === 'you') {
     const per = workHoldDamage(A, move);
     S.pending = {
@@ -73,7 +71,7 @@ export function beginSubmission(ctx: Ctx, k: SideKey, move: Move, target: Target
 }
 
 /** Wear the limb down without risking the escape: damage, then let go and keep control. */
-export function workTheHold(ctx: Ctx, k: SideKey, move: Move, target: TargetResolution): void {
+export function workTheHold(ctx: Ctx, k: SideKey, move: Move, target: TargetResolution, ropeBreak = false): void {
   const S = ctx.S, dk = other(k), A = S[k], D = S[dk];
   const per = workHoldDamage(A, move);
   const before = totalHp(D);
@@ -88,7 +86,7 @@ export function workTheHold(ctx: Ctx, k: SideKey, move: Move, target: TargetReso
   A.damageDealt += applied;
   spendStamina(D, 4);
   const tech = A.w.classes.includes('TECHNICIAN');
-  say(ctx, tech ? LINES.subWorkTech : LINES.subWork, { a: k, d: dk, m: move.name, vars: { part: PART_LABEL[target.storyPart] } });
+  say(ctx, ropeBreak ? LINES.subRopeBreak : tech ? LINES.subWorkTech : LINES.subWork, { a: k, d: dk, m: move.name, vars: { part: PART_LABEL[target.storyPart] } });
   ring(ctx, 'move_landed', k, move.name);
   setControl(ctx, k);
   afterAction(ctx);

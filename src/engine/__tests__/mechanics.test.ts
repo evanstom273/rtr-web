@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { moveIsValid, submissionAreaOk } from '../moves';
 import { WRESTLERS, getMove } from '../../data/rtr';
 import { exhaustionBand, moveDemand, staminaCostMultiplier } from '../exhaustion';
 import { canPush, edgeOf, judge, landChance, moveContest } from '../dice';
@@ -7,7 +8,7 @@ import { lateMatchProfile, pinProfile, submissionContext } from '../interaction'
 import * as ix from '../interactions';
 import { conditionResistance, pinCondition, pinOdds } from '../pin';
 import { MAX_FINISHER_STOCK, addMomentum, useSignature, createSide, damagePart, grantFinisherStock, spendFinisher, totalHp } from '../side';
-import { aiGoesForTap, workHoldDamage } from '../submission';
+import { aiGoesForTap, beginSubmission, workHoldDamage } from '../submission';
 import { resolveTarget } from '../targeting';
 import type { MatchState } from '../types';
 
@@ -256,5 +257,25 @@ describe('signatures and finishers sheet', () => {
     }
     e.state.you.signatureReady = true;
     expect(e.specials('you').filter((s) => s.kind === 'SIGNATURE').every((s) => s.ready && s.needs === null)).toBe(true);
+  });
+});
+
+describe('submissions outside the middle of the ring', () => {
+  it('holds defined by the ropes or apron are usable there; ordinary holds still need the ring', () => {
+    const e = new MatchEngine({ you: 'the_lock_jenny_west', them: WRESTLERS[1]!.id, seed: 5 });
+    const S = e.state, tarantula = S.you.all.find((m) => m.id === 'tarantula')!;
+    S.you.signatureReady = true;
+    S.you.state = { position: 'STANDING', orientation: 'FRONT', area: 'APRON', motion: 'STATIONARY' };
+    S.them.state = { position: 'STANDING', orientation: 'FRONT', area: 'ROPES', motion: 'STATIONARY' };
+    expect(moveIsValid(S, 'you', tarantula)).toBe(true);
+    expect(e.lockedReason(tarantula)).toBeNull();
+    // It can't win: the referee forces the break, so it lands as damage and you keep control.
+    const before = S.them.hp.BODY;
+    beginSubmission({ S, rnd: () => 0.5, hooks: {}, ai: (e as unknown as { ctx: { ai: never } }).ctx.ai }, 'you', tarantula, resolveTarget(tarantula, 'NONE', S.them.hp));
+    expect(S.them.hp.BODY).toBeLessThan(before);
+    expect(S.pending.kind).not.toBe('subChoice');
+    expect(S.pending.kind).not.toBe('sub');
+    const ordinary = S.you.all.find((m) => m.submission && m.req.a.areaMode !== 'SPECIFIC' && m.req.t.areaMode !== 'SPECIFIC');
+    if (ordinary) expect(submissionAreaOk(S, 'you', ordinary)).toBe(false);
   });
 });
