@@ -24,6 +24,11 @@ function titleFor(initials: string, gender: Wrestler['gender']): string {
   return (titles.find((t) => t.gender === (gender === 'FEMALE' ? 'FEMALE' : 'MALE')) ?? titles[0])?.name ?? '';
 }
 
+/** The title that would be on the line for this pairing (same promotion: theirs; otherwise The Indie Scene's). */
+export function titleNameFor(a: Wrestler, b: Wrestler): string {
+  return titleFor(a.promotion === b.promotion ? a.promotion : 'TIS', a.gender);
+}
+
 export function eventFor(rnd: Rng, a: Wrestler, b: Wrestler, title: boolean): { event: string; venue: string; titleName: string } {
   const pa = getPromotion(a.promotion), pb = getPromotion(b.promotion);
   if (pa && pb && pa.initials === pb.initials) {
@@ -102,7 +107,7 @@ function sideView(s: Side): SideView {
   return {
     key: s.key, hp: { ...s.hp }, stamina: s.stamina, maxStamina: s.maxStamina, fatigue: s.fatigue, momentum: s.momentum,
     signatureReady: s.signatureReady, finisherStock: s.finisherStock, state: { ...s.state }, exhaustion: exhaustionBand(s),
-    targetFocus: s.targetFocus,
+    targetFocus: s.targetFocus, resiliencyAvailable: s.resiliencyAvailable,
   };
 }
 

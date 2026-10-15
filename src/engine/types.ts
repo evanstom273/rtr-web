@@ -295,6 +295,7 @@ export interface SideView {
   state: Snapshot;
   exhaustion: string;
   targetFocus: Part;
+  resiliencyAvailable: boolean;
 }
 
 export interface MatchView {

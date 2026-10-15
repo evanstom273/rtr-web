@@ -8,6 +8,8 @@ import { executeMove, finishMove, moveIsValid, validMoves } from './moves';
 import { canPin, completeKickout, pinThree, startPin, useResiliency } from './pin';
 import { mathRng, seededRng, type Rng } from './rng';
 import { executeSetup, finishContestedSetup, validSetups } from './setups';
+import { moveMatchesSnapshots } from './setupRules';
+import { canUseMove } from './side';
 import { createState } from './state';
 import { resolveSubmission, startSubmission, submissionTick } from './submission';
 import { resolveTarget } from './targeting';
@@ -82,6 +84,17 @@ export class MatchEngine {
   }
   playerSetups(): SetupId[] {
     return validSetups(this.state, 'you');
+  }
+  /** The move's positions fit right now (it may still be locked, e.g. a finisher with no stock). */
+  movePositionsFit(move: Move): boolean {
+    return moveMatchesSnapshots(move, this.state.you.state, this.state.them.state);
+  }
+  /** Why a positionally valid move can't be used, or null if it can. */
+  lockedReason(move: Move): string | null {
+    const S = this.state;
+    if ((move.submission || move.type === 'SUBMISSION') && (S.you.state.area !== 'IN_RING' || S.them.state.area !== 'IN_RING')) return 'Submissions need both of you in the ring';
+    if (!canUseMove(S.you, move)) return move.finisher || S.you.finishers.includes(move) ? 'Land a signature to bank a finisher' : 'Fill your momentum first';
+    return null;
   }
   canPin(): boolean {
     return this.playerTurn && canPin(this.state, 'you');

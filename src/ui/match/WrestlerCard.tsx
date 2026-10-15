@@ -1,62 +1,76 @@
-import { POS } from '../../data/labels';
-import type { BodyPart, HP, SideView } from '../../engine';
-import { classNames, hpColor } from '../format';
+import { AREA_LABEL, MOTION_LABEL, ORIENTATION_LABEL, POSITION_LABEL } from '../../data/commentary';
+import type { Wrestler } from '../../data/rtr';
+import { MAX_FINISHER_STOCK, type BodyPart, type Part, type SideView } from '../../engine';
+import { Mannequin } from '../common/Mannequin';
+import { Name } from '../common/Name';
+import { classNames } from '../format';
 
-function Figure({ hp }: { hp: HP }) {
-  const f = (p: BodyPart) => ({ fill: hpColor(hp[p]) });
-  return (
-    <svg className="fig" viewBox="0 0 40 72" aria-hidden="true">
-      <circle cx="20" cy="9" r="7" style={f('head')} />
-      <rect x="12" y="18" width="16" height="22" rx="4" style={f('body')} />
-      <rect x="4" y="19" width="6.5" height="20" rx="3" style={f('arm')} />
-      <rect x="29.5" y="19" width="6.5" height="20" rx="3" style={f('arm')} />
-      <rect x="12.5" y="42" width="6.5" height="27" rx="3" style={f('leg')} />
-      <rect x="21" y="42" width="6.5" height="27" rx="3" style={f('leg')} />
-    </svg>
-  );
+interface Props {
+  w: Wrestler;
+  v: SideView;
+  active: boolean;
+  /** Player's focus on this wrestler (opponent card only). */
+  focus?: Part;
+  onPick?: (p: BodyPart) => void;
 }
 
-export function WrestlerCard({ w, active }: { w: SideView; active: boolean }) {
+export function WrestlerCard({ w, v, active, focus, onPick }: Props) {
   const r = Math.round;
+  const st = v.state;
+  const staPct = v.maxStamina ? (v.stamina / v.maxStamina) * 100 : 0;
   return (
-    <div className={`card${active ? ' active' : ''}`} id={`card-${w.key}`}>
-      <div className="cname">{w.name}</div>
+    <div className={`card ${v.key}${active ? ' active' : ''}`} id={`card-${v.key}`}>
+      <div className="cname">
+        <Name w={w} side={v.key} />
+      </div>
       <div className="cmeta">
-        <span>{classNames(w.cls)}</span>
-        <span className={`al ${w.align}`}>{w.align}</span>
+        <span>{classNames(w.classes)}</span>
+        <span className={`band b-${v.exhaustion.toLowerCase()}`}>{v.exhaustion}</span>
+        {v.resiliencyAvailable && <span className="resil" title="One-use Resiliency: survive a three or a tap">RES</span>}
       </div>
       <div className="cbody">
-        <Figure hp={w.hp} />
+        <Mannequin hp={v.hp} focus={focus} onPick={onPick} className="fig" />
         <div className="cstats">
           <div className="bar">
             <span className="bl">STA</span>
             <span className="bt">
-              <i className="sta" style={{ width: `${w.stamina}%` }} />
+              <i className="sta" style={{ width: `${staPct}%` }} />
             </span>
+            <span className="bv">
+              {r(v.stamina)}/{v.maxStamina}
+            </span>
+          </div>
+          <div className="bar">
+            <span className="bl">FAT</span>
+            <span className="bt">
+              <i className="fat" style={{ width: `${v.fatigue}%` }} />
+            </span>
+            <span className="bv">{r(v.fatigue)}</span>
           </div>
           <div className="bar">
             <span className="bl">MOM</span>
             <span className="bt">
-              <i className={`mom${w.sigReady ? ' ready' : ''}`} style={{ width: `${w.momentum}%` }} />
+              <i className={`mom${v.signatureReady ? ' ready' : ''}`} style={{ width: `${v.momentum}%` }} />
             </span>
+            <span className="bv">{r(v.momentum)}</span>
           </div>
           <div className="fin">
             <span className="bl">FIN</span>
             <span className="pips">
-              {[0, 1, 2].map((i) => (
-                <b key={i} className={i < w.finStock ? 'on' : ''} />
+              {Array.from({ length: MAX_FINISHER_STOCK }, (_, i) => (
+                <b key={i} className={i < v.finisherStock ? 'on' : ''} />
               ))}
             </span>
-            <span className="sig" hidden={!w.sigReady}>
-              SIG READY
-            </span>
-          </div>
-          <div className="hpnums">
-            H {r(w.hp.head)} · B {r(w.hp.body)} · A {r(w.hp.arm)} · L {r(w.hp.leg)}
+            {v.signatureReady && <span className="sig">SIG READY</span>}
           </div>
         </div>
       </div>
-      <div className="cpos">{POS[w.pos]}</div>
+      <div className="cpos">
+        <span>{POSITION_LABEL[st.position]}</span>
+        {st.orientation !== 'NONE' && <span>{ORIENTATION_LABEL[st.orientation]}</span>}
+        <span>{AREA_LABEL[st.area]}</span>
+        {st.motion !== 'STATIONARY' && <span className="mo">{MOTION_LABEL[st.motion]}</span>}
+      </div>
     </div>
   );
 }

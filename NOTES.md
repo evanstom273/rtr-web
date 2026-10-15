@@ -42,9 +42,34 @@ chants) and the star rating are kept, fed by RtR events.
 - The broadcast director / camera logic.
 - Champions: every imported title is vacant (holderId 0), so no one shows as `(c)` yet.
 
-Note on the minigames: current Godot uses a shrinking timing circle with a 3-2-1 countdown for move
-reversals and a one-way bar for contested setups. The engine produces specs for both; the UI for
-them is the next stage.
+### Match UI
+
+- **Minigames at the Godot values.** Every interaction gets Godot's lead-in and 3-2-1 countdown
+  (0.3s per beat) before going live.
+  - Moves: the shrinking timing circle. Gold band at 28% of the radius, ±window/2 (defend 8–26%,
+    breakthrough 10–24%), 1.6–2.0s to shrink. Timing out is a miss. "So close" is shown for
+    near-misses (within 9%) but counts as a miss, as in Godot's binary path.
+  - Contested setups: the one-way bar (1/8 gold scale, 1.6s / 1.25s crossing, random direction — Godot alternates).
+  - Kickout: hold-and-release, 2.7s fill, 3s to three, retry on a miss, overfilling wastes the
+    attempt.
+  - Submissions: the tug, 8 taps/s cap, AI pulses every 0.2s, 30s stall failsafe.
+- **Move wheel.** Radial categories as in Godot, each showing how many moves are ready from the
+  current positions. Weapons, Environment and Reversals are left off the wheel until those systems
+  exist. The move grid shows (F)/SIG markers, the target tag and that part's HP with the current
+  focus applied, and greys out locked signatures and finishers with the reason.
+- **Target focus.** Chips in the move grid, or tap a body part on the opponent's card.
+- **Ring view.** SVG, top-down: ring, apron, barrier, ramp and crowd. Positions come from the
+  four-part state, resolved for the pair together, so an attacker stands next to someone in the
+  corner or on the apron. The player is a circle and the AI a diamond, coloured face blue / heel
+  red / champion gold. Grounded wrestlers flatten (a dot for face up, a bar for face down), with
+  speed lines for running, chevrons for rising and a wobble for staggering. Moves draw a cue line
+  with the move name; landings, crashes, reversals and kickouts get bursts and a shake. Pins and
+  submissions ring the pair. On phones it's a thumbnail in the HUD that pops open for two seconds
+  whenever anyone changes position (tap to pin it open). At 700px and wider (the Fold's inner
+  screen) it's a permanent panel.
+- **Names** are `(c) Name (f)` / `(h)`, coloured by disposition, gold for champions. No one holds a
+  title yet (see above).
+- **Roster:** search plus promotion, division, disposition and class filters, 36 at a time.
 
 ### Headless simulation
 

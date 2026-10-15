@@ -1,5 +1,6 @@
 import { clamp, fmtClock, type MatchState, type Rating } from '../../engine';
 import type { Hit } from '../../storage/greatestHits';
+import { Name } from '../common/Name';
 import { GreatestHits } from '../GreatestHits';
 import { Ropes } from '../Ropes';
 
@@ -10,10 +11,12 @@ function Stars({ x }: { x: number }) {
     <>
       {'★'.repeat(full)}
       {fc && <span>{fc}</span>}
-      <span className="off">{'★'.repeat(5 - full - (fc ? 1 : 0))}</span>
+      <span className="off">{'★'.repeat(Math.max(0, 5 - full - (fc ? 1 : 0)))}</span>
     </>
   );
 }
+
+const FINISH: Record<string, string> = { PINFALL: 'Pinfall', SUBMISSION: 'Submission', COUNT_OUT: 'Count-out', DOUBLE_COUNT_OUT: 'Double count-out' };
 
 interface Props {
   S: MatchState;
@@ -26,7 +29,6 @@ interface Props {
 export function Result({ S, rating: r, hits, onRematch, onNewMatch }: Props) {
   const R = S.result;
   if (!R) return null;
-  const W = S[R.winner], L = S[R.loser];
   return (
     <section id="result">
       <div className="wrap">
@@ -38,10 +40,18 @@ export function Result({ S, rating: r, hits, onRematch, onNewMatch }: Props) {
           {r.stars} out of 5{r.raw >= 5.5 ? ' (and change)' : ''}
         </p>
         <h2 id="rLine">
-          {W.name} def. {L.name}
+          {R.winner && R.loser ? (
+            <>
+              <Name w={S[R.winner].w} side={R.winner} /> def. <Name w={S[R.loser].w} side={R.loser} />
+            </>
+          ) : (
+            <>
+              <Name w={S.you.w} side="you" /> and <Name w={S.them.w} side="them" /> — no contest
+            </>
+          )}
         </h2>
         <p className="verdict">
-          {R.how === 'sub' ? 'Submission' : 'Pinfall'}
+          {FINISH[R.finish]}
           {R.move ? `, ${R.move.name}` : ''}, {fmtClock(R.t)}. {r.verdict}
         </p>
         <Ropes />

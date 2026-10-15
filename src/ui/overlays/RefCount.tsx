@@ -1,45 +1,49 @@
 import { useEffect, useState } from 'react';
-import type { KickoutCount, MatchEngine } from '../../engine';
+import type { MatchEngine } from '../../engine';
+import { buzz } from '../format';
+import { Countdown } from './Countdown';
+import { useLeadIn } from './useLeadIn';
 
-const STEP_MS = 640;
-const OUT_MS = 700;
+const STEP_MS = 760;
 
-/** The AI is pinned. The engine has already decided the count; this just counts it out. Port of runRefCount(). */
-export function RefCount({ engine, count }: { engine: MatchEngine; count: KickoutCount }) {
-  const [text, setText] = useState('ONE');
-  const [hit, setHit] = useState(false);
+/** The AI is covered. The engine has already rolled the kickout; this counts it out. */
+export function RefCount({ engine, kickoutAt }: { engine: MatchEngine; kickoutAt: 1 | 2 | 3 | null }) {
+  const cd = useLeadIn();
+  const live = cd === null;
+  const [text, setText] = useState('');
+  const [hit, setHit] = useState<'' | 'kick' | 'three'>('');
+  const S = engine.state;
 
   useEffect(() => {
-    const surv = count !== 0;
-    const seq = ['ONE', 'TWO'];
-    let i = 0;
+    if (!live) return;
     const timers: number[] = [];
-    const out = () => timers.push(window.setTimeout(() => engine.advance(), OUT_MS));
+    const words = ['ONE', 'TWO', 'THREE'];
+    let i = 0;
+    const done = (t: string, h: 'kick' | 'three') => {
+      setText(t);
+      setHit(h);
+      buzz(h === 'three' ? [40, 60, 120] : [12, 40, 12]);
+      timers.push(window.setTimeout(() => engine.advance(), 800));
+    };
     const step = () => {
-      if (surv && ((count === 1 && i === 1) || (count === 2 && i === 2))) {
-        setText('KICKOUT');
-        setHit(true);
-        return out();
-      }
-      if (i === 2) {
-        setText(surv ? 'THR— NO!' : 'THREE!');
-        setHit(true);
-        return out();
-      }
-      setText(seq[i] ?? '');
+      if (kickoutAt !== null && i === kickoutAt) return done('KICKOUT!', 'kick');
+      if (i === 2) return kickoutAt === 3 ? done('THR— NO!', 'kick') : done('THREE!', 'three');
+      setText(words[i]!);
+      buzz(8);
       i++;
       timers.push(window.setTimeout(step, STEP_MS));
     };
-    setHit(false);
-    step();
+    timers.push(window.setTimeout(step, 250));
     return () => timers.forEach((t) => window.clearTimeout(t));
-  }, [engine, count]);
+  }, [live, engine, kickoutAt]);
 
   return (
-    <div id="pinOv" className={`ov${hit ? ' hit' : ''}`} data-mode="ref">
+    <div className={`ov pin ref ${hit}`}>
       <div className="inner">
-        <div className="pin-count">{text}</div>
-        <div className="pin-sub">{engine.state.them.name} is covered…</div>
+        <div className="mt-kicker off">You cover {S.them.w.name}</div>
+        <div className="pin-count">{text || '…'}</div>
+        <div className="pin-sub">The referee counts…</div>
+        {!live && cd !== null && <Countdown label={cd} />}
       </div>
     </div>
   );
