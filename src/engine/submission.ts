@@ -1,66 +1,124 @@
-import { LINES } from '../data/commentary';
+// Submissions. Port of start_submission_sequence, the damage ticks and resolution.
+import { LINES, PART_LABEL } from '../data/commentary';
+import { observePhase } from './clock';
 import type { Ctx } from './ctx';
-import { other, say } from './commentary';
-import { heat, landedBy } from './crowd';
-import { flushMiles, hit } from './damage';
-import { endMatch, schedule, setCtrl } from './flow';
-import { pick } from './rng';
-import type { Move, Side, SideKey, SubOutcome } from './types';
+import { other, ring, say } from './commentary';
+import { crowdObserve } from './crowd';
+import { afterAction, endMatch, render, setControl } from './flow';
+import { submissionContext } from './interaction';
+import { aiShouldUseResiliency, useResiliency } from './pin';
+import { damagePart, markCrossedThresholds, totalHp } from './side';
+import { targetHp } from './targeting';
+import type { Move, SideKey, SubOutcome, TargetResolution } from './types';
 
-/** Attacker's share of the submission struggle, 0–1. Higher = closer to a tap. */
-export function subRatio(t: number, a: Side, d: Side, m: Move): number {
-  const part = m.part, mins = t / 60;
-  const A = 20 + a.st.tec * 0.3 + (100 - d.hp[part]) * 0.55 + a.momentum * 0.15 + (m.fin ? 25 : 0) + Math.min(20, mins) * 0.8 + (d.partHits[part] >= 4 ? 10 : 0);
-  const D = 20 + d.st.tec * 0.25 + d.stamina * 0.3 + d.hp[part] * 0.25 + (mins < 5 ? 30 : mins < 10 ? 15 : 0) - d.fkAbsorbed * 5;
-  return A / (A + D);
+/** Both resolution forces are scaled by this (Godot submission_resolution_speed_multiplier). */
+export const SUBMISSION_SPEED_MULTIPLIER = 1.5;
+
+function isTrueSquashContext(ctx: Ctx, k: SideKey): boolean {
+  const A = ctx.S[k], D = ctx.S[other(k)];
+  const dominant = A.momentum >= 80 && D.momentum <= 20;
+  const littleDefence = D.movesLanded <= 1 && D.damageDealt < 20;
+  const sustained = A.movesLanded >= 3;
+  const meaningful = D.damageTaken >= 30 || totalHp(D) <= 450;
+  return dominant && littleDefence && sustained && meaningful;
 }
 
-export function startSub(ctx: Ctx, k: SideKey, m: Move): void {
-  const S = ctx.S, a = S[k], dk = other(k), d = S[dk];
-  if (d.partHits[m.part] >= 4) S.stats.limbPayoff = true;
-  S.stats.subs++;
-  const ratio = subRatio(S.t, a, d, m);
-  say(ctx, LINES.trapped, { a: k, d: dk, am: m.name });
+export function startSubmission(ctx: Ctx, k: SideKey, move: Move, target: TargetResolution): void {
+  const S = ctx.S, dk = other(k), A = S[k], D = S[dk];
+  if (A.state.area !== 'IN_RING' || D.state.area !== 'IN_RING') {
+    setControl(ctx, k);
+    afterAction(ctx);
+    return;
+  }
+  const part = target.storyPart;
+  say(ctx, LINES.subTrapped, { a: k, d: dk, m: move.name, vars: { part: PART_LABEL[part] } }, move.finisher ? 'hl' : '');
+  crowdObserve(ctx, { type: 'submission_started', limbPayoff: (A.targetAttackCounts[part] ?? 0) >= 4 });
+  ring(ctx, 'submission', k, move.name);
+  const sc = submissionContext(A, D, move, S.t, target, isTrueSquashContext(ctx, k));
+  const playerAttacking = k === 'you';
+  S.txn = { kind: 'sub', k, move, target, nearTapSaid: false, nearEscapeSaid: false, lastMarker: 50 };
   S.pending = {
     kind: 'sub',
-    sub: {
-      id: ++S.seq,
-      attacker: k,
-      defender: dk,
-      role: k === 'you' ? 'attack' : 'defend',
-      rate: 32 * (k === 'you' ? 1 - ratio : ratio),
-      move: m,
-      part: m.part,
+    spec: {
+      id: ++S.seq, attacker: k, defender: dk,
+      playerDirection: playerAttacking ? 1 : -1,
+      playerScore: playerAttacking ? sc.attackerScore : sc.defenderScore,
+      aiScore: playerAttacking ? sc.defenderScore : sc.attackerScore,
+      tapThreshold: sc.tapThreshold,
+      escapeThreshold: sc.escapeThreshold,
+      speedMultiplier: SUBMISSION_SPEED_MULTIPLIER,
+      moveName: move.name,
+      partLabel: PART_LABEL[part],
+      finisher: move.finisher,
     },
   };
+  render(ctx);
 }
 
-/** Once per second of hold time: the defender's limb takes damage scaled by how close they are to tapping. */
-export function subTick(ctx: Ctx, pos: number): void {
-  const p = ctx.S.pending;
-  if (p.kind !== 'sub') return;
-  hit(ctx, ctx.S[p.sub.defender], p.sub.part, 1 + Math.max(0, pos - 50) / 50 * 1.5);
+/** One second of the struggle has passed with the marker at `marker` (0–100, 100 = tap). */
+export function submissionTick(ctx: Ctx, marker: number): void {
+  const S = ctx.S, txn = S.txn, p = S.pending;
+  if (!txn || txn.kind !== 'sub' || p.kind !== 'sub') return;
+  const k = txn.k, dk = other(k), A = S[k], D = S[dk];
+  const dmg = 0.5 + (Math.max(0, marker - 50) / 50) * 0.75;
+  const before = totalHp(D);
+  let giving = '';
+  for (const part of txn.target.parts) {
+    const hpBefore = D.hp[part];
+    damagePart(D, part, dmg * (txn.target.weights[part] ?? 1));
+    A.targetDamageDealt[part] = (A.targetDamageDealt[part] ?? 0) + Math.max(0, hpBefore - D.hp[part]);
+    const crossed = markCrossedThresholds(D, part, hpBefore, D.hp[part]);
+    if (!giving && (crossed.includes(20) || crossed.includes(0))) giving = PART_LABEL[part];
+  }
+  const applied = Math.max(0, before - totalHp(D));
+  D.damageTaken += applied;
+  A.damageDealt += applied;
+  if (giving && S.t - D.lastBodyCommentaryTime >= 60) {
+    D.lastBodyCommentaryTime = S.t;
+    say(ctx, LINES.subGiving, { d: dk, vars: { part: giving } }, 'warn');
+  }
+  const spec = p.spec;
+  if (marker >= spec.tapThreshold - 12 && !txn.nearTapSaid) {
+    txn.nearTapSaid = true;
+    say(ctx, LINES.subNearTap, { d: dk }, 'warn');
+    crowdObserve(ctx, { type: 'near_tap' });
+  } else if (marker <= spec.escapeThreshold + 12 && !txn.nearEscapeSaid) {
+    txn.nearEscapeSaid = true;
+    say(ctx, LINES.subNearEscape, { d: dk }, 'dim');
+  } else if (marker - txn.lastMarker >= 6) say(ctx, LINES.subGaining, { a: k }, 'dim');
+  else if (txn.lastMarker - marker >= 6) say(ctx, LINES.subFighting, { d: dk }, 'dim');
+  txn.lastMarker = marker;
+  render(ctx);
 }
 
-export function resolveSub(ctx: Ctx, res: SubOutcome, peak: number): void {
-  const p = ctx.S.pending;
-  if (p.kind !== 'sub') return;
-  const { attacker: k, defender: dk, move: m } = p.sub;
-  flushMiles(ctx);
-  if (res === 'tap') return endMatch(ctx, k, 'sub', m);
-  if (peak >= 80) {
-    ctx.S.stats.nf++;
-    heat(ctx, 8);
-    say(ctx, LINES.nearTap, { a: k, d: dk }, 'dim');
+export function resolveSubmission(ctx: Ctx, outcome: SubOutcome): void {
+  const S = ctx.S, txn = S.txn;
+  if (!txn || txn.kind !== 'sub') return;
+  const k = txn.k, dk = other(k), D = S[dk];
+  S.txn = null;
+  if (outcome === 'TAP_OUT') {
+    if (D.resiliencyAvailable && !D.resiliencyUsed) {
+      if (dk === 'you') {
+        S.txn = txn;
+        S.pending = { kind: 'resiliency', id: ++S.seq, threat: 'submission' };
+        return;
+      }
+      if (aiShouldUseResiliency(S, dk, txn.move)) return useResiliency(ctx, dk, 'submission');
+    }
+    return endMatch(ctx, k, 'SUBMISSION', txn.move);
   }
-  if (res === 'escape') {
-    say(ctx, pick(ctx.rnd, LINES.escape), { a: k, d: dk });
-    heat(ctx, 8);
-    landedBy(ctx, dk);
-    setCtrl(ctx, dk);
-    return schedule(ctx, { to: 'next' }, 450);
+  if (outcome === 'SUBMISSION_ESCAPE') {
+    D.lastActionResult = 'SUBMISSION_ESCAPE';
+    say(ctx, LINES.subEscape, { d: dk });
+    crowdObserve(ctx, { type: 'submission_escape', k: dk });
+    observePhase(ctx, 'submission_escape');
+    ring(ctx, 'escape', dk);
+    setControl(ctx, dk);
+  } else {
+    say(ctx, LINES.subScramble, {}, 'dim');
+    setControl(ctx, 'neutral');
   }
-  say(ctx, LINES.rope, { a: k, d: dk });
-  heat(ctx, 6);
-  schedule(ctx, { to: 'neutral', lastK: k }, 450);
+  afterAction(ctx);
 }
+
+export { targetHp };

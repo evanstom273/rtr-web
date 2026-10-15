@@ -1,10 +1,154 @@
 # Port notes
 
+## Rise to Relevance match engine
+
+`src/engine/` is now a port of the Godot RtR match rules (`evanstom273/rtr-final-version`,
+`Scripts/Match/*`). The data in `src/data/rtr/*.json` is generated from the Godot `.tres` files by
+`node scripts/import-godot.mjs <path-to-godot-repo>`: 656 moves, 400 wrestlers, 11 promotions and
+33 titles. The Match of the Night roster and moves are gone. The MotN crowd layer (heat, streaks,
+chants) and the star rating are kept, fed by RtR events.
+
+### What's ported
+
+- The four-part positional state (position / orientation / area / motion), area requirement modes,
+  setup actions, projections and the two-step follow-up path search (`setupRules.ts`, `areaRules.ts`).
+- Six-part health, the move target resolver (fixed / choose arm or leg / both) and damage per part.
+- Stamina pool (2.5× the attribute), fatigue, exhaustion bands and every penalty that hangs off them.
+- Momentum, signature → finisher stock (max 3), one-use resiliency.
+- Reversal chance (5–65%), the defend/breakthrough ring and setup bar sizes, kickout hold, the
+  submission tug, count-outs, the action clock, late-match escalation.
+- The AI decision engine (`ai.ts`): move/setup/pin scoring, weighted top-5 choice, loop prevention,
+  target focus memory, setup-path planning.
+
+### Deliberate deviations from Godot
+
+- **Early finish protection removed** (Lyra's call: "it's a game after all"). Godot makes early pins
+  near-impossible (+120/+55 resistance, a forced "kicks out at one" line) and gives submissions
+  +35/+18 resistance with 96/93 tap thresholds under 5:00/10:00. All gone. Late-match escalation stays.
+- **Two AI loop fixes.** In Godot the AI can keep picking a "ready special" setup (e.g. pick the
+  opponent up to hit a signature) forever because the opponent reverses or falls back down. Headless
+  matches ran to 351 minutes. The AI now skips that setup path after three setup actions in a row,
+  and when it has a credible pin (opponent ≤ 390 total HP, < 30% stamina, ≥ 70 fatigue, closing
+  phase, or straight after a finisher).
+- **No hidden AI reversal roll.** Every reversal and contested setup is a visible interaction for
+  the player: defend when the AI attacks, breakthrough when the player does.
+- The phase tracker is a simplified version of Godot's MatchDecisionFramework.
+
+### Not ported yet
+
+- The AI psychology / identity framework (personality modifiers, wrestler identity weighting).
+- Weapons and environment, stipulations, DQs and dirty tactics, bleeding.
+- Godot's own rating calculator and crowd state (the MotN ones are used instead).
+- The broadcast director / camera logic.
+- Champions: every imported title is vacant (holderId 0), so no one shows as `(c)` yet.
+
+Note on the minigames: current Godot uses a shrinking timing circle with a 3-2-1 countdown for move
+reversals and a one-way bar for contested setups. The engine produces specs for both; the UI for
+them is the next stage.
+
+### Headless simulation
+
+`npm run sim` (`scripts/sim-report.ts`) plays 300 random roster pairings per model. Both sides are
+chosen by the AI; the player side's timing interactions use a hit model. Every match finishes,
+nothing gets stuck and the AI makes no invalid choices.
+
+Things worth knowing:
+
+- **The player side wins 75–95%.** That's structural, as in Godot: the AI has no timing input, so
+  any half-decent player beats the reversal windows more often than the AI's percentage rolls do.
+  Something to balance once the UI is real and Lyra has played it.
+- A tail of long matches remains (2–5% over 40 minutes for the skill models). They're mostly
+  evenly matched pairs trading reversals. The fixed 60% model is a stress test and runs longer.
+- Count-outs are rare (the AI urgently returns to the ring).
+
+
+#### Fixed hit rate 60% — 300/300 matches finished
+
+Length (min): p10 4.3, median 18.0, p90 43.7, max 113.3
+
+| Length | Matches |
+|---|---|
+| < 5 min | 11.0% |
+| 5–8 min | 9.0% |
+| 8–25 min | 50.3% |
+| 25–40 min | 17.0% |
+| > 40 min | 12.7% |
+
+| Finish | Matches |
+|---|---|
+| Submission (hold) | 32.7% |
+| Pin (cold cover) | 29.3% |
+| Pin after other move | 21.7% |
+| Flash pin | 10.0% |
+| Pin after finisher | 4.7% |
+| Submission (finisher) | 1.7% |
+
+Winner: player side 75.3%, AI side 24.7%
+Stars: mean 2.11, median 2, p10 0.25, p90 3.5
+Engine steps per match: median 93, max 518. Stuck: 0. Invalid AI choices: 0
+
+#### Skill-based (timing σ = 70ms) — 300/300 matches finished
+
+Length (min): p10 4.3, median 12.3, p90 28.7, max 68.3
+
+| Length | Matches |
+|---|---|
+| < 5 min | 12.0% |
+| 5–8 min | 15.0% |
+| 8–25 min | 59.3% |
+| 25–40 min | 11.3% |
+| > 40 min | 2.3% |
+
+| Finish | Matches |
+|---|---|
+| Pin (cold cover) | 26.7% |
+| Submission (hold) | 24.0% |
+| Pin after other move | 16.3% |
+| Flash pin | 15.7% |
+| Pin after finisher | 13.0% |
+| Submission (finisher) | 4.3% |
+
+Winner: player side 95.0%, AI side 5.0%
+Stars: mean 1.99, median 2.25, p10 0.25, p90 3.5
+Engine steps per match: median 65, max 322. Stuck: 0. Invalid AI choices: 0
+
+#### Skill-based (timing σ = 120ms, casual) — 300/300 matches finished
+
+Length (min): p10 3.7, median 13.7, p90 32.0, max 82.3
+
+| Length | Matches |
+|---|---|
+| < 5 min | 14.7% |
+| 5–8 min | 13.3% |
+| 8–25 min | 53.7% |
+| 25–40 min | 13.3% |
+| > 40 min | 5.0% |
+
+| Finish | Matches |
+|---|---|
+| Submission (hold) | 33.3% |
+| Pin (cold cover) | 22.3% |
+| Pin after other move | 19.3% |
+| Flash pin | 15.3% |
+| Pin after finisher | 7.0% |
+| Submission (finisher) | 2.3% |
+| Count-out | 0.3% |
+
+Winner: player side 75.7%, AI side 24.3%
+Stars: mean 2.00, median 2, p10 0.25, p90 3.5
+Engine steps per match: median 69, max 390. Stuck: 0. Invalid AI choices: 0
+
+## Legacy: Match of the Night port
+
+Notes from the original MotN port (`legacy/match-of-the-night.html`). The MotN engine has since been
+replaced, so these are kept for history.
+
+
 Working notes from porting `legacy/match-of-the-night.html` to Vite + React + TypeScript.
 Rule one was to port faithfully, so **nothing below has been changed**. Each item is
 something to decide on afterwards.
 
-## How the port is structured
+### How the port is structured
 
 - `src/engine/` holds every rule. It has no DOM, React or timers. The original drove itself
   with `setTimeout` chains (`after(next, 550)`). In the port, each of those becomes a
@@ -16,7 +160,7 @@ something to decide on afterwards.
   The physics constants live in `engine/interactions.ts`, so the UI and the headless sim share them.
 - All randomness goes through an injectable RNG (`seededRng(seed)` for tests, `Math.random` in the app).
 
-### Things that moved between layers
+#### Things that moved between layers
 
 These lived in the UI code in the original. They count as game logic, so they now sit in the engine:
 
@@ -30,16 +174,16 @@ These lived in the UI code in the original. They count as game logic, so they no
 The one piece of randomness I've left in the UI is the AI's "thinking" pause (`700 + rnd()*350` ms).
 It's purely pacing and doesn't affect any outcome.
 
-### Render points
+#### Render points
 
 In the original, the HUD and wrestler cards only repainted when `render()` was called (in `next()`,
 `endMatch()` and at the start of the match). As a result, the clock and stamina bars visibly lag a
 beat while a timing bar is on screen. The engine keeps that behaviour with a `view` snapshot taken at
 exactly those points. The crowd waveform reads live heat, as it did originally. Log lines also appear immediately, as before.
 
-## Things that look off (left alone)
+### Things that look off (left alone)
 
-### Balance / design
+#### Balance / design
 
 1. **A clean first kickout attempt is always a kickout at one.** When *you* are pinned, the fill
    crosses the whole track in 0.95s and the count is read from time since the cover started (`e < 1 → 1`).
@@ -62,7 +206,7 @@ exactly those points. The crowd waveform reads live heat, as it did originally. 
 7. **Setup reversals and crashes count as reversals.** `stats.reversals` includes reversed setups and
    botched high-risk moves as well as true reversals, and all of it feeds the Drama score.
 
-### Dead code / unused values
+#### Dead code / unused values
 
 8. **`revChance` falls back to 25 for setups when `contest` is 0.** That can never happen: uncontested
    setups (`contest` = 0) skip the meter entirely before `revChance` is called.
@@ -73,20 +217,20 @@ exactly those points. The crowd waveform reads live heat, as it did originally. 
 11. **There's a "Lock up" chip state that never shows.** It needs `S.ctrl === null`, which only happens
     before the bell, and the dock isn't interactive then.
 
-### Housekeeping in the original file
+#### Housekeeping in the original file
 
 12. **The original file had leftover wrapper markup.** It came with a `<title>` and
     `claude:viewport-fit-sides` meta inside `<body>`, plus a light-mode reset stylesheet. Most of that
     reset was overridden by the game's CSS. The exception was the safe-area padding on `:root`, which
     was still in effect, so the port keeps it (top of `src/ui/styles.css`). Everything else is dropped.
 
-### Small timing difference in the port
+#### Small timing difference in the port
 
 13. **Submission end lines arrive about 450ms later.** When a submission ends, the original printed
     any queued limb-milestone lines immediately and handed back the result 450ms later. The port prints
     them when the result arrives (`resolveSub`), so they appear about 450ms later. The order is unchanged.
 
-## Headless simulation
+### Headless simulation
 
 `src/engine/sim/simulation.test.ts` runs 300 full matches per hit model, rotating through all 56
 ordered matchups and alternating exhibition and title stakes. Both sides are picked by the AI (the
@@ -96,7 +240,7 @@ for either side, and that the same seed gives the same result. All of them pass.
 
 You can rerun the distributions below with `npm run sim -- 500`.
 
-### The two hit models
+#### The two hit models
 
 The original has no AI timing at all, so the sim has to stand in for the player on every bar:
 
@@ -110,7 +254,7 @@ In both models, kickouts are repeated holds aimed at the gold, with a 0.15s gap 
 the player succeeds or the count reaches three. Submissions run the same physics as the UI at 60Hz,
 with the player mashing 6 times a second.
 
-### Fixed hit rate 60% — 500 matches
+#### Fixed hit rate 60% — 500 matches
 
 Match length (minutes): min 5.3, p10 9.7, median 16.3, p90 27.0, max 42.7
 
@@ -153,7 +297,7 @@ Winner: "you" side 90.6%, "them" side 9.4%
 Mean 3.68★, median 3.75★. Off the scale (raw ≥ 5.5): 0.0%
 Engine steps per match: median 154, max 397
 
-### Skill-based (σ = 6% of track) — 500 matches
+#### Skill-based (σ = 6% of track) — 500 matches
 
 Match length (minutes): min 4.0, p10 4.7, median 10.0, p90 15.0, max 20.7
 
@@ -196,7 +340,7 @@ Winner: "you" side 99.8%, "them" side 0.2%
 Mean 2.59★, median 2.5★. Off the scale (raw ≥ 5.5): 0.0%
 Engine steps per match: median 96, max 188
 
-### What stands out (nothing changed)
+#### What stands out (nothing changed)
 
 14. **The "you" side wins 90–99%.** The AI has no timing input, so every exchange in *both* directions
     comes down to the player's bar. If the player hits the bar, their moves land, and if they hit it on

@@ -1,7 +1,10 @@
-export { MatchEngine, type MatchConfig, type MoveRef } from './match';
+export { MatchEngine, DEFAULT_RULES, type MatchConfig } from './match';
 export * from './types';
 export { seededRng, mathRng, clamp, type Rng } from './rng';
 export { fmtClock } from './commentary';
 export { heatWord } from './state';
+export { isHighRisk } from './interaction';
+export { resolveTarget, partLabel, targetHp } from './targeting';
+export { isFinisherMove, isSignatureMove, canUseMove } from './side';
+export { setupTitle } from './setups';
 export * as interactions from './interactions';
-export { posOk, ready, pinOk } from './positions';

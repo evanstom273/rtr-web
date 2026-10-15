@@ -1,14 +1,15 @@
+import type { AiBrain } from './ai';
 import type { Rng } from './rng';
 import type { Choice, MatchState, SideKey } from './types';
 
 export interface EngineHooks {
-  /** Called whenever the AI makes a choice for a side (for tests). */
+  /** Called whenever an AI (or the auto-player) makes a choice, with whether it was legal. */
   onAiChoice?: (k: SideKey, choice: Choice | null, valid: boolean) => void;
 }
 
-/** Everything the engine's internal functions need. */
 export interface Ctx {
   S: MatchState;
   rnd: Rng;
+  ai: Record<SideKey, AiBrain>;
   hooks: EngineHooks;
 }

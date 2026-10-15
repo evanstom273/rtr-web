@@ -1,96 +1,191 @@
-import { CHANTS, FLASH, LINES } from '../data/commentary';
+// Pinfalls. Port of start_pin_sequence, _build_pin_context, _pin_pressure_and_resistance,
+// resolve_pin_count, the player's hold-release kickout and Resiliency.
+import { COUNT_PHRASE, LINES } from '../data/commentary';
+import { observePhase, advanceClock } from './clock';
 import type { Ctx } from './ctx';
-import { chantOf, flash, other, say } from './commentary';
-import { heat } from './crowd';
-import { endMatch, schedule } from './flow';
-import { avgHP } from './positions';
-import { clamp, pick, type Rng } from './rng';
-import type { KickoutCount, PinCtx, Side, SideKey } from './types';
+import { flash, other, ring, say } from './commentary';
+import { crowdObserve } from './crowd';
+import { endMatch, render, setControl, afterAction } from './flow';
+import { lateMatchProfile, pinProfile } from './interaction';
+import { randRange } from './rng';
+import { isFinisherMove, isSignatureMove, totalHp } from './side';
+import { staminaPercent } from './exhaustion';
+import type { KickoutCount, MatchState, Move, PinContext, Side, SideKey } from './types';
 
-/** How hard a cover is to kick out of, 0–135. `t` is match time in seconds. */
-export function pinPressure(t: number, d: Side, ctx: PinCtx): number {
-  const mins = t / 60;
-  let p = (ctx.imp || 2) * 2.5;
-  if (ctx.finisher) p += 32;
-  else if (ctx.signature) p += 16;
-  p += (100 - avgHP(d)) * 0.55 + (100 - d.stamina) * 0.2 + Math.min(20, mins) + d.fkAbsorbed * 12;
-  if (mins < 5) p -= ctx.finisher ? 20 : ctx.flash ? 35 : 55;
-  else if (mins < 10) p -= ctx.finisher ? 5 : ctx.flash ? 10 : 20;
-  if (d.hp.head < 35) p += 8;
-  if (d.hp.body < 35) p += 8;
-  if (ctx.flash) p += 35;
-  p -= (d.momentum - 50) * 0.1;
-  return clamp(p, 0, 135);
+const inRing = (s: Side) => s.state.area === 'IN_RING';
+
+export function canPin(S: MatchState, k: SideKey): boolean {
+  const A = S[k], D = S[other(k)];
+  return A.state.position === 'STANDING' && D.state.position === 'GROUNDED' && inRing(A) && inRing(D) && A.state.motion === 'STATIONARY';
 }
 
-/** A pin straight after landing something gets that move's weight. Otherwise it's a plain cover. */
-export function ctxFor(ctx: Ctx, k: SideKey, beat: number): PinCtx {
-  const L = ctx.S.lastLanded;
-  if (L && L.key === k && L.beat === beat) return { imp: L.m.imp, signature: !!L.m.sig, finisher: !!L.m.fin, move: L.m };
-  return { imp: 2, move: null };
+const FLASH_TERMS = ['roll-up', 'roll up', 'schoolboy', 'backslide', "o'connor", 'oconnor', 'small package', 'cradle', 'victory roll', 'sunset flip', 'rolling crucifix', 'surprise pin'];
+
+export function isFlashPinMove(m: Move | null): boolean {
+  if (!m) return false;
+  if (m.flashPin) return true;
+  const name = m.name.toLowerCase().replace('’', "'");
+  if (name.includes('bomb') || name.includes('piledriver')) return false;
+  return FLASH_TERMS.some((t) => name.includes(t));
 }
 
-/** Kickout gold zone on the hold-fill track for when the player is pinned. */
-export function kickoutZone(rnd: Rng, p: number): { lo: number; width: number } {
-  const width = clamp(36 - p * 0.26, 5, 36);
-  const lo = clamp(46 + rnd() * (92 - 46 - width), 40, 95 - width);
-  return { lo, width };
+export function flashFinishChance(t: number): number {
+  if (t >= 900) return 20;
+  if (t >= 600) return 15;
+  if (t >= 300) return 10;
+  return 5;
 }
 
-/** Chance the AI survives a cover. */
-export const refSurviveChance = (p: number): number => clamp(1 - (p / 125) ** 2, 0.03, 0.98);
-
-/** When the AI is pinned the referee's count is decided here, then animated by the UI. */
-export function refCountOutcome(rnd: Rng, p: number): KickoutCount {
-  const surv = rnd() < refSurviveChance(p);
-  return surv ? (p < 25 ? 1 : p < 70 ? (rnd() < 0.75 ? 2 : 2.9) : 2.9) : 0;
+export function isSquashFinish(A: Side, D: Side, last: Move | null): boolean {
+  if (!last) return false;
+  if (last.finisher) return true;
+  const dominant = A.momentum >= 80 && D.momentum <= 20;
+  const littleDefence = D.movesLanded <= 1 && D.damageDealt < 20;
+  const sustained = A.movesLanded >= 3;
+  const worn = D.fatigue >= 55 || D.fatigue - A.fatigue >= 20 || staminaPercent(D) <= 30;
+  return dominant && littleDefence && sustained && worn && last.impact >= 8;
 }
 
-export function startPin(ctx: Ctx, k: SideKey, pctx: PinCtx): void {
-  const S = ctx.S, dk = other(k), d = S[dk], mins = S.t / 60;
-  const p = pinPressure(S.t, d, pctx);
-  S.stats.pins++;
-  if (pctx.flash) say(ctx, LINES.rollUp, { a: k, d: dk });
-  else say(ctx, pick(ctx.rnd, LINES.cover), { a: k });
-  if (mins < 5 && !pctx.finisher && !pctx.flash) {
-    heat(ctx, -4);
-    S.stats.earlyPins++;
-    if (k === 'you') say(ctx, LINES.earlyPin, {}, 'dim');
+function buildPinContext(ctx: Ctx, k: SideKey, embedded: boolean): PinContext {
+  const S = ctx.S, A = S[k], D = S[other(k)];
+  const last = A.lastActionResult === 'CLEAN_SUCCESS' ? A.lastMoveLanded : null;
+  const impact = last?.impact ?? 0;
+  const lastFin = !!last?.finisher;
+  const flashQualified = (!!last && isFlashPinMove(last)) || S.recentReversalSide === k || (!!last && impact <= 4 && D.momentum >= 75);
+  const flashSuccess = flashQualified && ctx.rnd() * 100 < flashFinishChance(S.t);
+  const squash = isSquashFinish(A, D, last);
+  // Godot's under-5 / under-10 minute pin protection is deliberately removed in the web version.
+  return { embedded, lastMove: last, lastMoveWasFinisher: lastFin, flashQualified, flashSuccess, squashQualified: squash };
+}
+
+export function pinPressureAndResistance(S: MatchState, k: SideKey, pc: PinContext, count: number): { pressure: number; resistance: number } {
+  const A = S[k], D = S[other(k)];
+  const impact = pc.lastMove?.impact ?? 1;
+  let pressure = A.momentum + impact * 4 + lateMatchProfile(S.t).finishPressure;
+  if (pc.lastMoveWasFinisher) pressure += 35;
+  if (pc.flashSuccess) pressure += 65;
+  if (pc.squashQualified) pressure += 45;
+  if (D.hp.HEAD < 40) pressure += 10;
+  if (D.hp.BODY < 40) pressure += 10;
+  let resistance = D.momentum - lateMatchProfile(S.t).recoveryPenalty;
+  if (pc.flashSuccess) resistance -= 35;
+  if (pc.squashQualified) resistance -= 25;
+  if (count === 1) resistance += 30;
+  else if (count === 2) resistance += 5;
+  else if (count === 3) resistance -= 20;
+  return { pressure, resistance };
+}
+
+export function startPin(ctx: Ctx, k: SideKey, embedded: boolean): boolean {
+  const S = ctx.S, dk = other(k), A = S[k];
+  if (embedded) {
+    if (!inRing(A) || !inRing(S[dk])) {
+      setControl(ctx, k);
+      afterAction(ctx);
+      return false;
+    }
+  } else {
+    if (!canPin(S, k)) return false;
+    advanceClock(ctx);
+    if (S.over) return true;
   }
+  A.pinAttempts++;
+  const pc = buildPinContext(ctx, k, embedded);
+  S.pinContext = pc;
+  S.recentReversalSide = null;
+  ctx.ai[k].notePinAttempt(A, pc.lastMove);
+  say(ctx, LINES.pinHook, { a: k }, 'warn');
+  if (pc.flashQualified) say(ctx, LINES.pinSurprise, { a: k, d: dk }, 'warn');
+  ring(ctx, 'pin', k);
+  render(ctx);
   if (dk === 'you') {
-    const z = kickoutZone(ctx.rnd, p);
-    S.pending = { kind: 'kickout', kickout: { id: ++S.seq, pinner: k, pressure: p, lo: z.lo, width: z.width, ctx: pctx } };
+    const { pressure, resistance } = pinPressureAndResistance(S, k, pc, 2);
+    const profile = pinProfile(18, pressure, resistance, 2, S[dk]);
+    const half = profile.window / 200;
+    S.pending = {
+      kind: 'kickout',
+      spec: {
+        id: ++S.seq, pinner: k, width: profile.window,
+        center: randRange(ctx.rnd, 0.06 + half, 0.94 - half),
+        fillDuration: 2.7, timeLimit: 3, forgiveness: 1,
+      },
+    };
   } else {
-    const count = refCountOutcome(ctx.rnd, p);
-    S.pending = { kind: 'refCount', id: ++S.seq, pinner: k, count, cont: { to: 'pinResult', k, ctx: pctx, count } };
+    let kickoutAt: 1 | 2 | 3 | null = null;
+    const bases = [28, 18, 9];
+    for (let count = 1; count <= 3; count++) {
+      const { pressure, resistance } = pinPressureAndResistance(S, k, pc, count);
+      const profile = pinProfile(bases[count - 1]!, pressure, resistance, count, S[dk]);
+      if (ctx.rnd() * 100 < profile.aiChance) {
+        kickoutAt = count as 1 | 2 | 3;
+        break;
+      }
+    }
+    S.pending = { kind: 'refCount', id: ++S.seq, pinner: k, kickoutAt };
   }
+  return true;
 }
 
-export function pinResult(ctx: Ctx, k: SideKey, pctx: PinCtx, cnt: KickoutCount): void {
-  const S = ctx.S, dk = other(k), d = S[dk], st = S.stats;
-  if (!cnt) return endMatch(ctx, k, 'pin', pctx.move);
-  if (cnt === 1) {
-    say(ctx, LINES.kickoutOne, { a: k, d: dk }, 'dim');
-    heat(ctx, 1);
-  } else if (cnt === 2) {
-    say(ctx, LINES.kickoutTwo, { a: k, d: dk });
-    heat(ctx, 8);
-    st.nf++;
-  } else {
-    say(ctx, LINES.kickoutNear, { a: k, d: dk }, 'hl');
-    heat(ctx, 14);
-    st.nf++;
-    flash(ctx, FLASH.kickout);
+/** Both kickout paths end here. count: 0 (before one), 1, 2 or 3 (THREE—NO!). */
+export function completeKickout(ctx: Ctx, k: SideKey, count: KickoutCount): void {
+  const S = ctx.S, dk = other(k), D = S[dk], pc = S.pinContext;
+  D.kickouts++;
+  D.lastActionResult = 'KICKOUT';
+  if (count >= 3) {
+    say(ctx, LINES.kickoutLate, { a: k, d: dk }, 'hl');
+    flash(ctx, 'Kickout', true);
+    observePhase(ctx, 'late_kickout');
+  } else if (count <= 0) say(ctx, LINES.kickoutBeforeOne, { d: dk });
+  else {
+    say(ctx, LINES.kickoutAt, { d: dk, vars: { x: COUNT_PHRASE[count] ?? 'two' } });
+    if (count === 2) say(ctx, LINES.nearlyHadIt, { a: k }, 'dim');
+    observePhase(ctx, 'kickout');
   }
-  if (cnt >= 2) {
-    if (pctx.finisher) {
-      st.fk++;
-      d.fkAbsorbed++;
-      heat(ctx, 20);
-      chantOf(ctx, CHANTS.fightForever);
-    } else if (pctx.signature) heat(ctx, 4);
-    if (!pctx.finisher && cnt > 2 && S.heat > 70 && ctx.rnd() < 0.6) chantOf(ctx, CHANTS.awesome);
+  crowdObserve(ctx, {
+    type: 'kickout', k: dk, count,
+    afterFinisher: !!pc?.lastMoveWasFinisher,
+    afterSignature: !!pc?.lastMove && isSignatureMove(S[k], pc.lastMove),
+  });
+  ring(ctx, 'kickout', dk);
+  S.pinContext = null;
+  setControl(ctx, 'neutral');
+  afterAction(ctx);
+}
+
+/** The cover has reached three: Resiliency may still save the defender. */
+export function pinThree(ctx: Ctx, k: SideKey): void {
+  const S = ctx.S, dk = other(k), D = S[dk];
+  if (D.resiliencyAvailable && !D.resiliencyUsed) {
+    if (dk === 'you') {
+      S.pending = { kind: 'resiliency', id: ++S.seq, threat: 'pinfall' };
+      return;
+    }
+    if (aiShouldUseResiliency(S, dk, S.pinContext?.lastMove ?? null)) return useResiliency(ctx, dk, 'pinfall');
   }
-  d.momentum = clamp(d.momentum + 5, 0, 100);
-  schedule(ctx, { to: 'neutral', lastK: k }, 600);
+  const move = S.pinContext?.lastMove ?? null;
+  S.pinContext = null;
+  endMatch(ctx, k, 'PINFALL', move);
+}
+
+export function aiShouldUseResiliency(S: MatchState, dk: SideKey, move: Move | null): boolean {
+  const D = S[dk], A = S[other(dk)];
+  if (move && isFinisherMove(A, move)) return true;
+  const avg = totalHp(D) / 6;
+  if (S.t >= 900) return true;
+  if (S.t >= 600 && (avg <= 75 || D.fatigue >= 45)) return true;
+  return S.t >= 300 && avg <= 50;
+}
+
+export function useResiliency(ctx: Ctx, dk: SideKey, threat: 'pinfall' | 'submission'): void {
+  const S = ctx.S, D = S[dk];
+  D.resiliencyAvailable = false;
+  D.resiliencyUsed = true;
+  D.kickouts++;
+  say(ctx, LINES.resiliency, { d: dk, vars: { x: threat === 'submission' ? 'hold' : 'three-count' } }, 'good');
+  flash(ctx, 'Resiliency!', true);
+  crowdObserve(ctx, { type: 'kickout', k: dk, count: 3, afterFinisher: !!S.pinContext?.lastMoveWasFinisher, afterSignature: false });
+  S.pinContext = null;
+  S.txn = null;
+  setControl(ctx, 'neutral');
+  afterAction(ctx);
 }

@@ -1,30 +1,35 @@
 /*
- * Headless AI-vs-AI matches. Both sides are picked by the AI; the player's timing interactions
- * are auto-resolved by a simple model of a human. No timers: delays are skipped.
+ * Headless matches. The opponent is the normal AI; the player's side is chosen by the same AI and
+ * its timing interactions are resolved by a simple model of a human player.
  */
-import { ROSTER } from '../../data/roster';
+import { WRESTLERS } from '../../data/rtr';
+import { MatchEngine, type MatchConfig } from '../match';
 import * as ix from '../interactions';
-import { MatchEngine } from '../match';
 import { seededRng, type Rng } from '../rng';
-import type { KickoutCount, KickoutSpec, MatchResult, Rating, SideKey, SubOutcome, SubSpec } from '../types';
+import type { KickoutCount, MatchResult, Rating, SideKey, SubOutcome, SubSpec } from '../types';
 
 /**
  * How the simulated player's timing is decided.
- * - fixed: every bar / kickout attempt hits with the same probability, ignoring gold size.
- * - skill: the player aims for the middle of the gold with Gaussian error (σ, in % of the track),
- *   so a wider gold zone is easier to hit, as it is for a real player.
+ * - fixed: every timing interaction succeeds with the same probability.
+ * - skill: the player aims for the middle of the target with Gaussian timing error (σ in seconds),
+ *   so narrower/faster targets are genuinely harder.
  */
-export type HitModel = { kind: 'fixed'; rate: number } | { kind: 'skill'; sigma: number };
+export type HitModel = { kind: 'fixed'; rate: number } | { kind: 'skill'; sigmaSeconds: number };
+
+function erf(x: number): number {
+  const s = Math.sign(x), a = Math.abs(x), t = 1 / (1 + 0.3275911 * a);
+  return s * (1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-a * a));
+}
+/** Probability that a timing error ~N(0, σ) lands within ±halfWindow seconds. */
+const withinWindow = (halfWindowSeconds: number, sigma: number) => erf(halfWindowSeconds / (sigma * Math.SQRT2));
 
 export interface SimOptions {
   seed: number;
   you: string;
   them: string;
-  stakes: 'exh' | 'title';
   model: HitModel;
-  /** Mash taps per second in submissions (capped at the game's 9/s). */
+  /** Player mash rate in submissions (taps/s, capped at 8 by the game). */
   mashRate?: number;
-  /** Safety valve: give up after this many engine steps. */
   maxSteps?: number;
 }
 
@@ -33,131 +38,124 @@ export interface SimResult {
   steps: number;
   result: MatchResult | null;
   rating: Rating | null;
-  invalidChoices: { side: SideKey; detail: string }[];
+  invalid: { side: SideKey; detail: string }[];
   stuck: string | null;
+  engine: MatchEngine;
 }
 
-/** Abramowitz & Stegun 7.1.26. */
-function erf(x: number): number {
-  const s = Math.sign(x), a = Math.abs(x), t = 1 / (1 + 0.3275911 * a);
-  const y = 1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-a * a);
-  return s * y;
-}
-
-export function hitChance(model: HitModel, width: number): number {
-  if (model.kind === 'fixed') return model.rate;
-  return erf(width / 2 / (model.sigma * Math.SQRT2));
-}
-
-/** Simulated kickout: repeated hold attempts, each aimed at the middle of the gold, until success or three. */
-function simKickout(spec: KickoutSpec, model: HitModel, rnd: Rng): KickoutCount {
-  const p = hitChance(model, spec.width);
-  const reaction = 0.15; // seconds between a missed release and the next press
-  let t = 0;
-  for (;;) {
-    t += (spec.lo + spec.width / 2) / ix.KICKOUT_FILL_PER_SEC;
-    if (t >= ix.PIN_SECONDS) return 0;
-    if (rnd() < p) return ix.kickoutCountAt(t);
-    t += reaction;
-  }
-}
-
-/** Simulated submission: the same physics as the UI, stepped at 60Hz. */
-function simSub(e: MatchEngine, spec: SubSpec, mashRate: number, rnd: Rng): { res: SubOutcome; peak: number } {
-  const dt = 1 / 60, tapEvery = 1 / Math.min(mashRate, ix.SUB_MAX_TAPS_PER_SEC);
-  let pos = 50, peak = 50, t = 0, acc = 0, nextTap = tapEvery;
+function simSub(e: MatchEngine, spec: SubSpec, rnd: Rng, mashRate: number): SubOutcome {
+  const dt = 1 / 60, tapEvery = 1 / Math.min(mashRate, ix.TUG_MAX_TAPS_PER_SECOND);
+  let marker = 50, t = 0, pulse = 0, second = 0, nextTap = tapEvery * (0.5 + rnd() * 0.5);
+  let windowMin = marker, windowMax = marker, windowStart = 0;
   for (;;) {
     t += dt;
     while (t >= nextTap) {
-      pos += ix.subTapDelta(spec.role);
+      marker += spec.playerDirection * ix.tugTapImpulse(spec.playerScore, spec.speedMultiplier);
       nextTap += tapEvery;
     }
-    pos += ix.subDrift(spec.role, spec.rate, dt, rnd());
-    peak = Math.max(peak, pos);
-    acc += dt;
-    if (acc >= 1) {
-      acc = 0;
-      e.subSecond(pos);
+    pulse += dt;
+    while (pulse >= ix.TUG_AI_PULSE_SECONDS) {
+      pulse -= ix.TUG_AI_PULSE_SECONDS;
+      marker += ix.tugAiPulse(spec.playerDirection, spec.aiScore, spec.playerScore, spec.speedMultiplier);
     }
-    const res = ix.subOutcome(pos, t);
-    if (res) return { res, peak };
+    marker = Math.max(0, Math.min(100, marker));
+    second += dt;
+    if (second >= 1) {
+      second -= 1;
+      e.subSecond(marker);
+    }
+    const out = ix.tugOutcome(marker, spec.tapThreshold, spec.escapeThreshold);
+    if (out) return out;
+    windowMin = Math.min(windowMin, marker);
+    windowMax = Math.max(windowMax, marker);
+    if (t - windowStart >= ix.TUG_STALL_WINDOW_SECONDS) {
+      if (t >= ix.TUG_STALL_FAILSAFE_SECONDS && windowMax - windowMin < ix.TUG_STALL_MOVEMENT && mashRate <= 0) return 'BOTCH_OR_SCRAMBLE';
+      windowStart = t;
+      windowMin = windowMax = marker;
+    }
+    if (t > 600) return 'BOTCH_OR_SCRAMBLE';
   }
 }
 
 export function runHeadless(o: SimOptions): SimResult {
-  const invalidChoices: SimResult['invalidChoices'] = [];
-  const e = new MatchEngine({
-    you: o.you,
-    them: o.them,
-    stakes: o.stakes,
-    seed: o.seed,
-    hooks: {
-      onAiChoice: (side, ch, valid) => {
-        if (!valid) invalidChoices.push({ side, detail: JSON.stringify(ch && (ch.type === 'move' ? ch.m.name : ch.type === 'setup' ? ch.s : 'pin')) });
-      },
-    },
-  });
-  const rnd = seededRng(o.seed ^ 0x9e3779b9); // the simulated player's own dice
+  const invalid: SimResult['invalid'] = [];
+  const cfg: MatchConfig = {
+    you: o.you, them: o.them, seed: o.seed,
+    hooks: { onAiChoice: (side, c, valid) => { if (!valid) invalid.push({ side, detail: JSON.stringify(c && (c.kind === 'move' ? c.move.name : c.kind === 'setup' ? c.action : 'pin')) }); } },
+  };
+  const e = new MatchEngine(cfg);
+  const rnd = seededRng(o.seed ^ 0x9e3779b9);
+  const hit = (halfWindowSeconds: number) => (o.model.kind === 'fixed' ? rnd() < o.model.rate : rnd() < withinWindow(halfWindowSeconds, o.model.sigmaSeconds));
   const maxSteps = o.maxSteps ?? 20000;
   let steps = 0, stuck: string | null = null;
   while (e.pending.kind !== 'over' && steps < maxSteps) {
     steps++;
     const p = e.pending;
-    let ok: boolean;
+    let ok = false;
     switch (p.kind) {
-      case 'continue':
-      case 'aiThinking':
-      case 'refCount':
+      case 'continue': case 'aiThinking': case 'refCount':
         ok = e.advance();
         break;
       case 'awaitPlayer':
         ok = e.autoPlayer();
         break;
-      case 'meter':
-        ok = e.resolveMeter(rnd() < hitChance(o.model, p.meter.width));
-        break;
-      case 'kickout':
-        ok = e.resolveKickout(simKickout(p.kickout, o.model, rnd));
-        break;
-      case 'sub': {
-        const r = simSub(e, p.sub, o.mashRate ?? 6, rnd);
-        ok = e.resolveSub(r.res, r.peak);
+      case 'reversal': {
+        // Band half-width in seconds: window% of the shrink range over the time limit.
+        ok = e.resolveReversal(hit((p.spec.window / 200) * p.spec.timeLimit));
         break;
       }
-      case 'idle':
-        ok = false;
+      case 'setupMeter':
+        ok = e.resolveSetupMeter(hit((p.spec.width / 200) * p.spec.crossSeconds));
         break;
+      case 'kickout': {
+        // Repeated holds aimed at the gold centre until success or three.
+        const s = p.spec;
+        let t = 0, success = false, count: KickoutCount = 0;
+        for (;;) {
+          t += s.center * s.fillDuration;
+          if (t >= s.timeLimit) break;
+          if (hit((s.width / 200 + s.forgiveness / 100) * s.fillDuration)) {
+            success = true;
+            count = ix.pinCountAt(t) as KickoutCount;
+            break;
+          }
+          t += 0.15;
+        }
+        ok = e.resolveKickout(success, count);
+        break;
+      }
+      case 'sub':
+        ok = e.resolveSub(simSub(e, p.spec, rnd, o.mashRate ?? 6));
+        break;
+      case 'resiliency':
+        ok = e.resolveResiliency(true);
+        break;
+      default:
+        ok = false;
     }
     if (!ok) {
-      stuck = `no progress from pending '${p.kind}' at step ${steps}`;
+      stuck = `no progress from '${p.kind}' at step ${steps}`;
       break;
     }
   }
   const ended = e.pending.kind === 'over';
   if (!ended && !stuck) stuck = `hit ${maxSteps} steps`;
-  return { ended, steps, result: e.state.result, rating: e.state.rating, invalidChoices, stuck };
+  return { ended, steps, result: e.state.result, rating: e.state.rating, invalid, stuck, engine: e };
 }
 
-/** All ordered pairs of different wrestlers. */
-export function matchups(): [string, string][] {
+/** Deterministic pairings across the roster. */
+export function pairings(n: number, seed: number): [string, string][] {
+  const rnd = seededRng(seed);
   const out: [string, string][] = [];
-  for (const a of ROSTER) for (const b of ROSTER) if (a.id !== b.id) out.push([a.id, b.id]);
-  return out;
-}
-
-export interface BatchOptions {
-  n: number;
-  seed: number;
-  model: HitModel;
-}
-
-export function runBatch({ n, seed, model }: BatchOptions): (SimResult & { you: string; them: string; stakes: 'exh' | 'title' })[] {
-  const mu = matchups();
-  const out = [];
   for (let i = 0; i < n; i++) {
-    const [you, them] = mu[i % mu.length] as [string, string];
-    const stakes = i % 2 ? 'title' : 'exh';
-    out.push({ you, them, stakes, ...runHeadless({ seed: seed + i, you, them, stakes, model }) } as const);
+    const a = WRESTLERS[Math.floor(rnd() * WRESTLERS.length)]!;
+    let b = WRESTLERS[Math.floor(rnd() * WRESTLERS.length)]!;
+    while (b.id === a.id) b = WRESTLERS[Math.floor(rnd() * WRESTLERS.length)]!;
+    out.push([a.id, b.id]);
   }
   return out;
+}
+
+export function runBatch(n: number, seed: number, model: HitModel) {
+  return pairings(n, seed).map(([you, them], i) => ({ you, them, ...runHeadless({ seed: seed + i, you, them, model }) }));
 }

@@ -1,143 +1,115 @@
-// Core engine types. No DOM, no React.
+// Engine types. No DOM, no React.
+import type {
+  Area, BodyPart, Motion, Move, MoveType, Orientation, Part, Position, Wrestler,
+} from '../data/rtr/types';
+
+export type { Area, BodyPart, Motion, Move, MoveType, Orientation, Part, Position, Wrestler };
 
 export type SideKey = 'you' | 'them';
-export type Position = 'standing' | 'grounded' | 'corner' | 'top' | 'outside';
-export type BodyPart = 'head' | 'body' | 'arm' | 'leg';
-export type MoveCat = 'strike' | 'grapple' | 'air' | 'brawl' | 'hold';
-export type WrestlerClass = 'flyer' | 'power' | 'tech' | 'striker' | 'hardcore';
-export type Alignment = 'face' | 'heel';
-export type Stakes = 'exh' | 'title';
-export type PromoId = 'VWF' | 'ENDEAVOUR' | 'SLN' | 'TCG' | 'NWGP' | 'IVW';
-
-export const PARTS: readonly BodyPart[] = ['head', 'body', 'arm', 'leg'];
 export const SIDES: readonly SideKey[] = ['you', 'them'];
+export const BODY_PARTS: readonly BodyPart[] = ['HEAD', 'BODY', 'LEFT_ARM', 'RIGHT_ARM', 'LEFT_LEG', 'RIGHT_LEG'];
 
-export interface Move {
-  name: string;
-  cat: MoveCat;
-  /** Where the attacker must be. */
-  self: Position;
-  /** Where the defender must be. */
-  tgt: Position;
-  part: BodyPart;
-  /** Impact. */
-  imp: number;
-  risk: 0 | 1 | 2;
-  /** Defender's position after the move lands. */
-  res: Position;
-  /** Classes that get this move. null = everyone. */
-  cls: WrestlerClass[] | null;
-  /** Attacker's position after the move lands. */
-  selfRes?: Position;
-  flash?: boolean;
-  rest?: boolean;
-  sub?: boolean;
-  spot?: boolean;
-  sig?: boolean;
-  fin?: boolean;
+/** The four-part match state of one wrestler. */
+export interface Snapshot {
+  position: Position;
+  orientation: Orientation;
+  area: Area;
+  motion: Motion;
 }
 
-export interface Stats {
-  str: number;
-  spd: number;
-  tec: number;
-  strk: number;
-  cha: number;
-  sta: number;
-}
+export type SetupId =
+  | 'stand_up' | 'prepare_springboard' | 'start_running' | 'climb_top_rope' | 'pick_opponent_up'
+  | 'irish_whip' | 'grapple_opponent' | 'throw_into_corner' | 'wake_opponent' | 'stop_running'
+  | 'leave_corner' | 'regain_footing' | 'climb_down' | 'return_to_ring' | 'reset_stance' | 'taunt'
+  | 'catch_breath' | 'step_to_ropes' | 'leave_ropes' | 'get_behind_opponent' | 'turn_opponent_face_up'
+  | 'turn_opponent_face_down' | 'sit_opponent_up_front' | 'sit_opponent_up_back'
+  | 'pull_opponent_to_knees_front' | 'pull_opponent_to_knees_back' | 'turn_opponent_in_corner'
+  | 'seat_opponent_in_corner' | 'lean_opponent_on_ropes_front' | 'lean_opponent_on_ropes_back'
+  | 'drape_opponent_on_ropes_front' | 'drape_opponent_on_ropes_back' | 'place_opponent_on_apron_front'
+  | 'place_opponent_on_apron_back' | 'set_opponent_on_top_rope_front' | 'set_opponent_on_top_rope_back'
+  | 'send_opponent_outside' | 'call_opponent_outside' | 'exit_ring' | 'take_fight_outside' | 'fight_up_ramp'
+  | 'return_from_ramp' | 'bring_match_back_to_ring' | 'pull_opponent_from_corner' | 'pull_opponent_from_ropes'
+  | 'bring_opponent_into_ring' | 'catch_opponent_running' | 'call_opponent_running' | 'regain_composure'
+  | 'press_advantage' | 'wait_for_count';
 
-export interface Wrestler {
-  id: string;
-  name: string;
-  nick: string;
-  promo: PromoId;
-  from: string;
-  align: Alignment;
-  cls: WrestlerClass[];
-  st: Stats;
-  sig: Move;
-  fin: Move;
-  bio: string;
-}
+export type ActionResult = 'CLEAN_SUCCESS' | 'REVERSAL' | 'HIGH_RISK_CRASH' | 'SETUP_SUCCESS' | 'KICKOUT' | 'SUBMISSION_ESCAPE' | 'TAP_OUT' | 'BOTCH_OR_SCRAMBLE' | 'NONE';
 
-export interface Promotion {
-  event: string;
-  cities: string[];
-  title: string;
+export type Control = SideKey | 'neutral';
+
+export type FinishType = 'PINFALL' | 'SUBMISSION' | 'COUNT_OUT' | 'DOUBLE_COUNT_OUT';
+
+/** Body-target resolution, as produced by MoveTargetResolver. */
+export interface TargetResolution {
+  parts: BodyPart[];
+  storyPart: BodyPart;
+  weights: Partial<Record<BodyPart, number>>;
+  pressureParts: BodyPart[];
+  pressureUsesAverage: boolean;
+  isBilateral: boolean;
+  focusApplied: boolean;
+  fullTag: string;
+  compactTag: string;
 }
 
 export type HP = Record<BodyPart, number>;
 
+/** Mutable per-side match state (MatchSideState). */
 export interface Side {
   key: SideKey;
   w: Wrestler;
-  name: string;
-  cls: WrestlerClass[];
-  st: Stats;
-  align: Alignment;
-  sig: Move;
-  fin: Move;
+  regular: Move[];
+  signatures: Move[];
+  finishers: Move[];
+  /** Regular + signatures + finishers, de-duplicated. */
+  all: Move[];
+  state: Snapshot;
   hp: HP;
   stamina: number;
+  maxStamina: number;
+  fatigue: number;
   momentum: number;
-  sigReady: boolean;
-  finStock: number;
-  pos: Position;
-  used: Record<string, number>;
-  lastMove: string | null;
-  recentParts: BodyPart[];
-  partHits: Record<BodyPart, number>;
-  fkAbsorbed: number;
-  firedUp: boolean;
-  comeback: number;
-  cheapCd: number;
-  tauntCd: number;
-  setupRun: number;
-  landed: number;
-  focus: BodyPart | null;
-  moves: Move[];
-}
+  signatureReady: boolean;
+  finisherStock: number;
+  resiliencyEarned: boolean;
+  resiliencyAvailable: boolean;
+  resiliencyUsed: boolean;
+  /** Body part the player/AI is focusing; NONE = auto. */
+  targetFocus: Part;
 
-export interface MatchStats {
-  heatSum: number;
-  heatN: number;
-  heatPeak: number;
+  recentMoves: string[];
+  recentMoveTypes: MoveType[];
+  recentSetupPatterns: string[];
+  pendingSetupAction: SetupId | null;
+  recentTargetParts: BodyPart[];
+  targetAttackCounts: Partial<Record<BodyPart, number>>;
+  targetDamageDealt: Partial<Record<BodyPart, number>>;
+  thresholdsCrossed: Partial<Record<BodyPart, number[]>>;
+  repeatedMilestones: Partial<Record<BodyPart, number[]>>;
+  lastBodyCommentaryTime: number;
+  moveUseCounts: Record<string, number>;
+
+  lastActionResult: ActionResult;
+  lastMoveLanded: Move | null;
+  lastMoveWasFinisher: boolean;
+  tauntCooldownUntil: number;
+  catchBreathCooldownUntil: number;
+  consecutiveNeutralResets: number;
+  consecutiveSetupActions: number;
+  recoveryDelayProtected: boolean;
+  announcedLowStamina: boolean;
+  announcedHighFatigue: boolean;
+  announcedSpent: boolean;
+  announcedHeroic: boolean;
+
+  movesLanded: number;
+  damageDealt: number;
+  damageTaken: number;
   reversals: number;
-  finRev: number;
-  nf: number;
-  fk: number;
-  crashes: number;
-  high: number;
-  spots: number;
-  rest: number;
-  repeats: number;
-  maxStreak: Record<SideKey, number>;
-  heatSeg: SideKey | null;
-  comeback: SideKey | null;
-  fireUp: SideKey | null;
-  pins: number;
-  earlyPins: number;
-  subs: number;
-  limbPayoff: boolean;
-  finAttemptsSeen: boolean;
+  kickouts: number;
+  pinAttempts: number;
 }
 
-export interface PinCtx {
-  imp?: number;
-  signature?: boolean;
-  finisher?: boolean;
-  flash?: boolean;
-  move: Move | null;
-}
-
-/** 0 = pinned. 1, 2, 2.9 = kicked out at that count. */
-export type KickoutCount = 0 | 1 | 2 | 2.9;
-
-export type SetupId =
-  | 'pickup' | 'whip' | 'climb' | 'down' | 'floor' | 'follow' | 'wait'
-  | 'rollin' | 'getin' | 'taunt' | 'breath' | 'cheap' | 'fire' | 'reset';
-
-/* ---------- log ---------- */
+/* ---------- log & events ---------- */
 
 export type Seg =
   | { k: 'text'; v: string }
@@ -146,7 +118,7 @@ export type Seg =
   | { k: 'gold'; v: string; big: boolean }
   | { k: 'chant'; v: string };
 
-export type LogCls = '' | 'dim' | 'hl' | 'crowd';
+export type LogCls = '' | 'dim' | 'hl' | 'crowd' | 'warn' | 'bad' | 'good';
 
 export interface LogEntry {
   id: number;
@@ -155,86 +127,116 @@ export interface LogEntry {
   segs: Seg[];
 }
 
+/** Presentation events: flashes, crowd pulses and ring-view beats. */
 export type EngineEvent =
-  | { id: number; type: 'flash'; text: string }
-  /** Heat jumped by >= 8 in one go. The UI uses this to pulse the crowd waveform. */
-  | { id: number; type: 'heatSpike'; amount: number };
+  | { id: number; type: 'flash'; text: string; strong?: boolean }
+  | { id: number; type: 'heatSpike'; amount: number }
+  | { id: number; type: 'ring'; beat: RingBeat; actor: SideKey | null; label?: string };
 
-/* ---------- continuations ---------- */
+export type RingBeat = 'move_started' | 'move_landed' | 'reversal' | 'crash' | 'setup' | 'pin' | 'kickout' | 'submission' | 'escape' | 'count' | 'control';
 
-/** Deferred work. The original used setTimeout(fn, ms); here the UI waits `delay` then calls advance(). */
-export type Cont =
-  | { to: 'bell' }
-  | { to: 'next' }
-  | { to: 'neutral'; lastK: SideKey | null }
-  | { to: 'startSub'; k: SideKey; move: Move }
-  | { to: 'startPin'; k: SideKey; ctx: PinCtx }
-  | { to: 'pinResult'; k: SideKey; ctx: PinCtx; count: KickoutCount }
-  | { to: 'final' };
+/* ---------- interactions the engine asks the UI for ---------- */
 
-export type MeterTarget =
-  | { kind: 'move'; move: Move }
-  | { kind: 'setup'; setup: SetupId };
-
-export interface MeterSpec {
-  /** Unique per interaction. */
+/** Shrinking-ring timing circle used for move reversals (Godot timing_circle_interaction). */
+export interface ReversalSpec {
   id: number;
-  /** 'off' = the player is attacking (hit = lands). 'def' = the player is defending (hit = reversed). */
-  mode: 'off' | 'def';
-  /** The side performing the move or setup. */
+  /** defend: the player is defending (hit = reversal). breakthrough: the player is attacking (hit = lands). */
+  role: 'defend' | 'breakthrough';
   attacker: SideKey;
   title: string;
-  /** Gold zone, as % of the track. */
-  left: number;
-  width: number;
-  /** 1 = marker runs left→right, -1 = right→left. */
-  dir: 1 | -1;
-  /** Milliseconds for the marker to cross the track. */
-  dur: number;
-  target: MeterTarget;
+  moveName: string;
+  /** Size of the success band as % of the shrink range. */
+  window: number;
+  /** Seconds for the ring to shrink fully. */
+  timeLimit: number;
+  /** Where the target sits, as remaining progress (Godot: 0.28). */
+  target: number;
+  major: 'SIGNATURE' | 'FINISHER' | null;
+  /** The defender's reversal chance (%), shown for transparency in debug. */
+  chance: number;
 }
 
+/** Horizontal one-way bar used for contested setups (Godot control_meter_interaction). */
+export interface SetupMeterSpec {
+  id: number;
+  role: 'defend' | 'breakthrough';
+  attacker: SideKey;
+  title: string;
+  /** Gold zone width as % of the track (already scaled by the 1/8 visual factor). */
+  width: number;
+  /** Gold centre as % of the track. */
+  center: number;
+  dir: 1 | -1;
+  /** Seconds for the marker to cross the track. */
+  crossSeconds: number;
+  chance: number;
+}
+
+/** The player is pinned: hold, release in the gold before three. */
 export interface KickoutSpec {
   id: number;
   pinner: SideKey;
-  pressure: number;
-  /** Gold zone on the hold-fill track, % */
-  lo: number;
+  /** Gold zone width as % of the fill track. */
   width: number;
-  ctx: PinCtx;
+  /** Gold centre, 0–1. */
+  center: number;
+  fillDuration: number;
+  timeLimit: number;
+  /** Forgiveness either side of the zone, in % of the track (Godot: 4px touch on a ~400px track). */
+  forgiveness: number;
 }
 
+/** Submission tug-of-war. 100 = tap. */
 export interface SubSpec {
   id: number;
   attacker: SideKey;
   defender: SideKey;
-  /** From the player's point of view. */
-  role: 'attack' | 'defend';
-  /** Bar drift per second. */
-  rate: number;
-  move: Move;
-  part: BodyPart;
+  /** Player's direction: +1 attacking (push right), -1 defending (push left). */
+  playerDirection: 1 | -1;
+  playerScore: number;
+  aiScore: number;
+  tapThreshold: number;
+  escapeThreshold: number;
+  speedMultiplier: number;
+  moveName: string;
+  partLabel: string;
+  finisher: boolean;
 }
 
-export type SubOutcome = 'tap' | 'escape' | 'rope';
+export type SubOutcome = 'TAP_OUT' | 'SUBMISSION_ESCAPE' | 'BOTCH_OR_SCRAMBLE';
+
+/** Count at which the player released successfully: 0 = before one, 1, 2. 3 never (that's a pin). */
+export type KickoutCount = 0 | 1 | 2 | 3;
+
+export type Cont =
+  | { to: 'next' }
+  | { to: 'bell' }
+  | { to: 'neutralRecovery' }
+  | { to: 'startSub'; k: SideKey; moveId: string; target: TargetResolution }
+  | { to: 'startPin'; k: SideKey; embedded: boolean }
+  | { to: 'pinNeutral' }
+  | { to: 'final' };
 
 export type Pending =
   | { kind: 'idle' }
   | { kind: 'continue'; delay: number; cont: Cont }
   | { kind: 'awaitPlayer' }
   | { kind: 'aiThinking' }
-  | { kind: 'meter'; meter: MeterSpec }
-  | { kind: 'kickout'; kickout: KickoutSpec }
-  | { kind: 'refCount'; id: number; pinner: SideKey; count: KickoutCount; cont: Cont }
-  | { kind: 'sub'; sub: SubSpec }
+  | { kind: 'reversal'; spec: ReversalSpec }
+  | { kind: 'setupMeter'; spec: SetupMeterSpec }
+  | { kind: 'kickout'; spec: KickoutSpec }
+  /** AI pinned: the count is pre-rolled; the UI counts it out. kickoutAt null = pinned. */
+  | { kind: 'refCount'; id: number; pinner: SideKey; kickoutAt: 1 | 2 | 3 | null }
+  | { kind: 'sub'; spec: SubSpec }
+  | { kind: 'resiliency'; id: number; threat: 'pinfall' | 'submission' }
   | { kind: 'over' };
 
 /* ---------- result & rating ---------- */
 
 export interface MatchResult {
-  winner: SideKey;
-  loser: SideKey;
-  how: 'pin' | 'sub';
+  winner: SideKey | null;
+  loser: SideKey | null;
+  finish: FinishType;
   move: Move | null;
   t: number;
   byFin: boolean;
@@ -257,55 +259,89 @@ export interface Rating {
   recap: string;
 }
 
-/* ---------- view snapshot ---------- */
+/** Crowd/rating bookkeeping from Match of the Night, layered on the RtR engine. */
+export interface CrowdStats {
+  heatSum: number;
+  heatN: number;
+  heatPeak: number;
+  reversals: number;
+  finRev: number;
+  nf: number;
+  fk: number;
+  crashes: number;
+  high: number;
+  spots: number;
+  rest: number;
+  repeats: number;
+  heatSeg: SideKey | null;
+  comeback: SideKey | null;
+  limbPayoff: boolean;
+  finAttemptsSeen: boolean;
+  /** Finishers each side has kicked out of. */
+  fkAbsorbed: Record<SideKey, number>;
+}
+
+/* ---------- view ---------- */
 
 export interface SideView {
   key: SideKey;
-  name: string;
-  cls: WrestlerClass[];
-  align: Alignment;
   hp: HP;
   stamina: number;
+  maxStamina: number;
+  fatigue: number;
   momentum: number;
-  sigReady: boolean;
-  finStock: number;
-  pos: Position;
+  signatureReady: boolean;
+  finisherStock: number;
+  state: Snapshot;
+  exhaustion: string;
+  targetFocus: Part;
 }
 
-/**
- * What the HUD and wrestler cards show. The original only repainted these at specific
- * moments (render()), so the engine takes a snapshot at exactly those points.
- */
 export interface MatchView {
   t: number;
   heat: number;
-  ctrl: SideKey | null;
+  control: Control | null;
   over: boolean;
   phase: string;
+  count: number | null;
   sides: Record<SideKey, SideView>;
 }
 
-/* ---------- match state ---------- */
+export interface MatchRulesConfig {
+  /** Seconds the clock advances per action: 10, 15, 20, 25 or 30. */
+  actionClock: number;
+  countOuts: boolean;
+  countOutLimit: number;
+  title: boolean;
+}
 
 export interface MatchState {
   id: number;
+  rules: MatchRulesConfig;
   you: Side;
   them: Side;
   t: number;
-  beat: number;
-  ctrl: SideKey | null;
+  control: Control | null;
   over: boolean;
+  /** Favoured side for the next neutral recovery (80/20), if any. */
+  neutralFavoured: SideKey | null;
+  /** Side that just reversed: its next landed pin counts as a flash catch. */
+  recentReversalSide: SideKey | null;
+
+  referee: { active: boolean; value: number; elapsed: number; pendingResolution: boolean; outside: Record<SideKey, boolean> };
+  phase: { name: 'opening' | 'middle' | 'closing'; drama: number; controlSwings: number; actionsSinceChange: number };
+
   heat: number;
-  stats: MatchStats;
+  crowd: CrowdStats;
   streak: { who: SideKey | null; n: number };
+
   event: string;
   venue: string;
-  title: boolean;
   titleName: string;
-  meterDir: 1 | -1;
-  lastLanded: { key: SideKey; m: Move; beat: number } | null;
-  outsideBeats: number;
-  miles: Seg[][];
+
+  pinContext: PinContext | null;
+  /** The move or setup currently waiting on a timing interaction. */
+  txn: Txn | null;
   result: MatchResult | null;
   rating: Rating | null;
   pending: Pending;
@@ -315,9 +351,22 @@ export interface MatchState {
   seq: number;
 }
 
-/* ---------- AI ---------- */
+export type Txn =
+  | { kind: 'move'; k: SideKey; move: Move; target: TargetResolution; chance: number }
+  | { kind: 'setup'; k: SideKey; action: SetupId; chance: number }
+  | { kind: 'sub'; k: SideKey; move: Move; target: TargetResolution; nearTapSaid: boolean; nearEscapeSaid: boolean; lastMarker: number };
 
+export interface PinContext {
+  embedded: boolean;
+  lastMove: Move | null;
+  lastMoveWasFinisher: boolean;
+  flashQualified: boolean;
+  flashSuccess: boolean;
+  squashQualified: boolean;
+}
+
+/** An AI (or auto-player) decision. */
 export type Choice =
-  | { type: 'move'; m: Move; score: number }
-  | { type: 'setup'; s: SetupId; score: number }
-  | { type: 'pin'; score: number };
+  | { kind: 'move'; move: Move; score: number; target: TargetResolution }
+  | { kind: 'setup'; action: SetupId; score: number; path?: SetupId[]; plannedMove?: Move | null }
+  | { kind: 'pin'; score: number };

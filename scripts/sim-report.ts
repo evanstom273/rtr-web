@@ -1,42 +1,41 @@
-/* Prints match-length, finish-type and star-rating distributions from headless AI-vs-AI runs. */
+/* Prints match-length, finish-type and star distributions from headless matches. */
 import { runBatch, type HitModel } from '../src/engine/sim/runHeadless';
 
-const N = Number(process.argv[2] ?? 500);
+const N = Number(process.argv[2] ?? 300);
 const models: [string, HitModel][] = [
   ['Fixed hit rate 60%', { kind: 'fixed', rate: 0.6 }],
-  ['Skill-based (σ = 6% of track)', { kind: 'skill', sigma: 6 }],
+  ['Skill-based (timing σ = 70ms)', { kind: 'skill', sigmaSeconds: 0.07 }],
+  ['Skill-based (timing σ = 120ms, casual)', { kind: 'skill', sigmaSeconds: 0.12 }],
 ];
-
 const pct = (n: number, d: number) => `${((n / d) * 100).toFixed(1)}%`;
 const q = (xs: number[], p: number) => {
   const s = [...xs].sort((a, b) => a - b);
   return s[Math.min(s.length - 1, Math.floor(p * s.length))] ?? 0;
 };
-
 for (const [name, model] of models) {
-  const rs = runBatch({ n: N, seed: 1000, model }).filter((r) => r.result && r.rating);
+  const all = runBatch(N, 1000, model);
+  const rs = all.filter((r) => r.result && r.rating);
   const mins = rs.map((r) => r.result!.t / 60);
   const stars = rs.map((r) => r.rating!.stars);
-  console.log(`\n### ${name} — ${rs.length} matches\n`);
-  console.log(`Match length (minutes): min ${Math.min(...mins).toFixed(1)}, p10 ${q(mins, 0.1).toFixed(1)}, median ${q(mins, 0.5).toFixed(1)}, p90 ${q(mins, 0.9).toFixed(1)}, max ${Math.max(...mins).toFixed(1)}\n`);
-  const lenB: [string, (m: number) => boolean][] = [['< 6', (m) => m < 6], ['6–10', (m) => m >= 6 && m < 10], ['10–20', (m) => m >= 10 && m < 20], ['20–28', (m) => m >= 20 && m <= 28], ['> 28', (m) => m > 28]];
+  console.log(`\n### ${name} — ${rs.length}/${all.length} matches finished\n`);
+  console.log(`Length (min): p10 ${q(mins, 0.1).toFixed(1)}, median ${q(mins, 0.5).toFixed(1)}, p90 ${q(mins, 0.9).toFixed(1)}, max ${Math.max(...mins).toFixed(1)}\n`);
   console.log('| Length | Matches |\n|---|---|');
-  for (const [l, f] of lenB) console.log(`| ${l} min | ${pct(mins.filter(f).length, rs.length)} |`);
+  for (const [l, f] of [['< 5', (m: number) => m < 5], ['5–8', (m: number) => m >= 5 && m < 8], ['8–25', (m: number) => m >= 8 && m <= 25], ['25–40', (m: number) => m > 25 && m <= 40], ['> 40', (m: number) => m > 40]] as const) {
+    console.log(`| ${l} min | ${pct(mins.filter(f).length, rs.length)} |`);
+  }
   const finish: Record<string, number> = {};
   for (const r of rs) {
     const R = r.result!;
-    const k = R.how === 'sub' ? (R.move?.fin ? 'Submission (finisher)' : 'Submission (regular hold)') : R.byFin ? 'Pin after finisher' : R.byFlash ? 'Roll-up pin' : R.move?.sig ? 'Pin after signature' : R.move ? 'Pin after other move' : 'Pin (cold cover)';
+    const k = R.finish === 'SUBMISSION' ? (R.byFin ? 'Submission (finisher)' : 'Submission (hold)')
+      : R.finish === 'PINFALL' ? (R.byFin ? 'Pin after finisher' : R.byFlash ? 'Flash pin' : R.move ? 'Pin after other move' : 'Pin (cold cover)')
+      : R.finish === 'COUNT_OUT' ? 'Count-out' : 'Double count-out';
     finish[k] = (finish[k] ?? 0) + 1;
   }
   console.log('\n| Finish | Matches |\n|---|---|');
   for (const [k, v] of Object.entries(finish).sort((a, b) => b[1] - a[1])) console.log(`| ${k} | ${pct(v, rs.length)} |`);
   const youWin = rs.filter((r) => r.result!.winner === 'you').length;
-  console.log(`\nWinner: "you" side ${pct(youWin, rs.length)}, "them" side ${pct(rs.length - youWin, rs.length)}`);
-  console.log('\n| Stars | Matches |\n|---|---|');
-  const buckets = new Map<number, number>();
-  for (const s of stars) buckets.set(s, (buckets.get(s) ?? 0) + 1);
-  for (const [s, v] of [...buckets].sort((a, b) => a[0] - b[0])) console.log(`| ${s} | ${pct(v, rs.length)} |`);
-  console.log(`\nMean ${(stars.reduce((a, b) => a + b, 0) / stars.length).toFixed(2)}★, median ${q(stars, 0.5)}★. Off the scale (raw ≥ 5.5): ${pct(rs.filter((r) => r.rating!.raw >= 5.5).length, rs.length)}`);
-  const steps = rs.map((r) => r.steps);
-  console.log(`Engine steps per match: median ${q(steps, 0.5)}, max ${Math.max(...steps)}`);
+  console.log(`\nWinner: player side ${pct(youWin, rs.length)}, AI side ${pct(rs.filter((r) => r.result!.winner === 'them').length, rs.length)}`);
+  console.log(`Stars: mean ${(stars.reduce((a, b) => a + b, 0) / stars.length).toFixed(2)}, median ${q(stars, 0.5)}, p10 ${q(stars, 0.1)}, p90 ${q(stars, 0.9)}`);
+  const steps = all.map((r) => r.steps);
+  console.log(`Engine steps per match: median ${q(steps, 0.5)}, max ${Math.max(...steps)}. Stuck: ${all.filter((r) => r.stuck).length}. Invalid AI choices: ${all.reduce((t, r) => t + r.invalid.length, 0)}`);
 }

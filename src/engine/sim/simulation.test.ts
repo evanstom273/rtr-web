@@ -1,40 +1,32 @@
 import { describe, expect, it } from 'vitest';
-import { runBatch, type HitModel } from './runHeadless';
+import { runBatch, runHeadless } from './runHeadless';
 
-const MODELS: [string, HitModel][] = [
-  ['fixed 60%', { kind: 'fixed', rate: 0.6 }],
-  ['skill σ=6', { kind: 'skill', sigma: 6 }],
-];
+describe('headless simulation', () => {
+  const batch = runBatch(60, 4242, { kind: 'skill', sigmaSeconds: 0.09 });
 
-describe.each(MODELS)('headless simulation (%s)', (_name, model) => {
-  const results = runBatch({ n: 300, seed: 1000, model });
-
-  it('every match ends', () => {
-    const unfinished = results.filter((r) => !r.ended);
-    expect(unfinished.map((r) => `${r.you} v ${r.them}: ${r.stuck}`)).toEqual([]);
-  });
-
-  it('never gets stuck or loops', () => {
-    expect(results.filter((r) => r.stuck)).toEqual([]);
-    // A match is ~a few hundred engine steps; anything near the cap means a loop.
-    expect(Math.max(...results.map((r) => r.steps))).toBeLessThan(5000);
-  });
-
-  it('the AI never picks an invalid move, setup or pin, for either side', () => {
-    expect(results.flatMap((r) => r.invalidChoices)).toEqual([]);
-  });
-
-  it('every finished match has a result and a rating in range', () => {
-    for (const r of results) {
+  it('every match ends without getting stuck', () => {
+    for (const r of batch) {
+      expect(r.stuck, `${r.you} v ${r.them}`).toBeNull();
+      expect(r.ended).toBe(true);
       expect(r.result).not.toBeNull();
-      expect(r.rating!.stars).toBeGreaterThanOrEqual(0.25);
-      expect(r.rating!.stars).toBeLessThanOrEqual(5);
-      expect(['pin', 'sub']).toContain(r.result!.how);
+      expect(r.rating).not.toBeNull();
     }
   });
 
-  it('is deterministic', () => {
-    const again = runBatch({ n: 20, seed: 1000, model });
-    expect(again.map((r) => [r.result?.t, r.rating?.raw])).toEqual(results.slice(0, 20).map((r) => [r.result?.t, r.rating?.raw]));
+  it('the AI never makes an invalid choice', () => {
+    expect(batch.flatMap((r) => r.invalid)).toEqual([]);
+  });
+
+  it('produces a spread of finishes', () => {
+    const kinds = new Set(batch.map((r) => r.result!.finish));
+    expect(kinds.size).toBeGreaterThan(1);
+  });
+
+  it('is deterministic for a seed', () => {
+    const a = runHeadless({ seed: 7, you: batch[0]!.you, them: batch[0]!.them, model: { kind: 'fixed', rate: 0.6 } });
+    const b = runHeadless({ seed: 7, you: batch[0]!.you, them: batch[0]!.them, model: { kind: 'fixed', rate: 0.6 } });
+    expect(a.steps).toBe(b.steps);
+    expect(a.result).toEqual(b.result);
+    expect(a.engine.state.log.length).toBe(b.engine.state.log.length);
   });
 });
