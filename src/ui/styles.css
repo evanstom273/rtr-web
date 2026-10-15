@@ -33,7 +33,7 @@ html{scroll-padding-top:env(safe-area-inset-top,0px)}
 }
 html{height:100%;box-sizing:border-box}
 *,*::before,*::after{box-sizing:border-box}
-body{height:100%;margin:0;background:var(--ink);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.4;
+body{height:100%;margin:0;overscroll-behavior:none;background:var(--ink);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.4;
   padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));padding-block:0;overflow:hidden;
   -webkit-tap-highlight-color:transparent}
 button{font:inherit;color:inherit;cursor:pointer}

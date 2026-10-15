@@ -168,6 +168,15 @@ because limb work feeds the story score.
   submissions ring the pair. On phones it's a thumbnail in the HUD that pops open for two seconds
   whenever anyone changes position (tap to pin it open). At 700px and wider (the Fold's inner
   screen) it's a permanent panel.
+- **Android back** (edge swipe or button) works inside the installed app instead of closing it. Each
+  layer pushes a history entry (`ui/backStack.ts`), so back steps out of them in order:
+  - a move list goes back to the wheel
+  - an open sheet closes
+  - mid-match, back asks "Leave the match?" (back again to stay)
+  - the result screen goes to the roster
+  - only from the roster does back close the app
+
+  Pull-to-refresh is off (`overscroll-behavior: none`).
 - **Names** are `(c) Name (f)` / `(h)`, coloured by disposition, gold for champions. No one holds a
   title yet (see above).
 - **Roster:** search plus promotion, division, disposition and class filters, 36 at a time.

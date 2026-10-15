@@ -3,6 +3,8 @@ import { findWrestler } from '../data/rtr';
 import { fmtClock, MatchEngine } from '../engine';
 import { addHit, loadHits, type Hit } from '../storage/greatestHits';
 import { store } from '../storage/storage';
+import { useBackLayer } from './backStack';
+import { LeavePrompt } from './overlays/LeavePrompt';
 import { Match } from './screens/Match';
 import { Result } from './screens/Result';
 import { Setup, type Picks } from './screens/Setup';
@@ -38,6 +40,21 @@ export function App() {
 
   const engine = screen.name === 'setup' ? null : screen.engine;
 
+  // Android back: mid-match it asks before leaving; on the result screen it goes to the roster.
+  const [leaving, setLeaving] = useState(false);
+  const toRoster = useCallback(() => {
+    setLeaving(false);
+    setPicks((p) => ({ ...p, step: 'you' }));
+    setScreen({ name: 'setup' });
+  }, []);
+  useBackLayer(screen.name !== 'setup', () => {
+    if (screen.name === 'match' && !screen.engine.state.over) {
+      setLeaving((x) => !x);
+      return true;
+    }
+    toRoster();
+  });
+
   const onOver = useCallback(() => {
     if (!engine) return;
     const S = engine.state, R = S.result, r = S.rating;
@@ -51,10 +68,17 @@ export function App() {
   }, [engine]);
 
   if (screen.name === 'setup') return <Setup picks={picks} hits={hits} onPicks={setPicks} onBell={startMatch} />;
-  if (screen.name === 'match') return <Match key={screen.engine.state.id} engine={screen.engine} onOver={onOver} />;
+  if (screen.name === 'match') {
+    return (
+      <>
+        <Match key={screen.engine.state.id} engine={screen.engine} onOver={onOver} />
+        {leaving && <LeavePrompt onStay={() => setLeaving(false)} onLeave={toRoster} />}
+      </>
+    );
+  }
   const S = screen.engine.state;
   return S.rating ? (
     <Result S={S} rating={S.rating} hits={hits} onRematch={startMatch}
-      onNewMatch={() => { setPicks((p) => ({ ...p, step: 'you' })); setScreen({ name: 'setup' }); }} />
+      onNewMatch={toRoster} />
   ) : null;
 }

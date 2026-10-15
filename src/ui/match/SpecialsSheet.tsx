@@ -3,7 +3,7 @@ import { setupTitle, type MatchEngine, type SideKey, type SpecialInfo } from '..
 import { Name } from '../common/Name';
 import { buzz } from '../format';
 
-function Special({ engine, s, side, canUse }: { engine: MatchEngine; s: SpecialInfo; side: SideKey; canUse: boolean }) {
+function Special({ engine, s, side, canUse, onUsed }: { engine: MatchEngine; s: SpecialInfo; side: SideKey; canUse: boolean; onUsed: () => void }) {
   const S = engine.state, me = S[side];
   const you = side === 'you';
   const status = s.usable ? 'Ready now' : s.ready ? (s.fits ? 'Ready — not from here' : 'Ready — get in position') : s.needs ?? '';
@@ -32,7 +32,7 @@ function Special({ engine, s, side, canUse }: { engine: MatchEngine; s: SpecialI
         )}
       </div>
       {canUse && s.usable && (
-        <button className="primary sp-go" onClick={() => { buzz([10, 20, 10]); engine.chooseMove(s.move.id); }}>
+        <button className="primary sp-go" onClick={() => { buzz([10, 20, 10]); onUsed(); engine.chooseMove(s.move.id); }}>
           Hit the {s.move.name}
         </button>
       )}
@@ -79,7 +79,7 @@ export function SpecialsSheet({ engine, initial, onClose }: { engine: MatchEngin
         </div>
         <ul className="sp-list">
           {list.map((s) => (
-            <Special key={s.move.id} engine={engine} s={s} side={side} canUse={side === 'you' && myTurn} />
+            <Special key={s.move.id} engine={engine} s={s} side={side} canUse={side === 'you' && myTurn} onUsed={onClose} />
           ))}
         </ul>
         <p className="sp-help">
