@@ -4,14 +4,15 @@ import { AiBrain, aiTurn } from './ai';
 import { say } from './commentary';
 import type { Ctx, EngineHooks } from './ctx';
 import { finalise, render, runNeutralRecovery, schedule, setControl } from './flow';
-import { executeMove, finishMove, moveIsValid, resolveCover, validMoves } from './moves';
+import { aiWantsPush, applyPending, rollPending } from './contest';
+import { executeMove, moveIsValid, resolveCover, validMoves } from './moves';
 import { canPin, completeKickout, pinThree, startPin, useResiliency } from './pin';
 import { mathRng, seededRng, type Rng } from './rng';
-import { executeSetup, finishContestedSetup, validSetups } from './setups';
+import { executeSetup, validSetups } from './setups';
 import { moveMatchesSnapshots } from './setupRules';
 import { canUseMove } from './side';
 import { createState } from './state';
-import { resolveSubmission, startSubmission, submissionTick } from './submission';
+import { aiGoesForTap, beginSubmission, resolveSubmission, startSubmission, submissionTick, workTheHold } from './submission';
 import { resolveTarget } from './targeting';
 import { endMatch } from './flow';
 import type { Cont, KickoutCount, MatchRulesConfig, MatchState, Move, SetupId, SubOutcome, TargetResolution } from './types';
@@ -143,7 +144,7 @@ export class MatchEngine {
       }
       case 'next': return;
       case 'neutralRecovery': return runNeutralRecovery(ctx);
-      case 'startSub': return startSubmission(ctx, c.k, getMove(c.moveId), c.target);
+      case 'startSub': return beginSubmission(ctx, c.k, getMove(c.moveId), c.target);
       case 'startPin': {
         startPin(ctx, c.k, c.embedded);
         return;
@@ -183,28 +184,22 @@ export class MatchEngine {
 
   /* ---------- results from the UI's timing interactions ---------- */
 
-  /** Reversal ring: did the player tap inside the band? */
-  resolveReversal(hit: boolean): boolean {
-    const p = this.state.pending, txn = this.state.txn;
-    if (p.kind !== 'reversal' || !txn || txn.kind !== 'move') return false;
-    const reversed = p.spec.role === 'defend' ? hit : !hit;
-    return this.act(() => {
-      this.state.pending = { kind: 'idle' };
-      this.state.txn = null;
-      finishMove(this.ctx, txn.k, txn.move, reversed, txn.target);
-    });
+  /** Roll the pending contest. push: spend momentum for advantage (if allowed). */
+  rollContest(push = false): boolean {
+    if (this.state.pending.kind !== 'contest') return false;
+    return this.act(() => rollPending(this.ctx, push));
   }
 
-  /** Setup bar: did the player stop the marker in the gold? */
-  resolveSetupMeter(hit: boolean): boolean {
-    const p = this.state.pending, txn = this.state.txn;
-    if (p.kind !== 'setupMeter' || !txn || txn.kind !== 'setup') return false;
-    const reversed = p.spec.role === 'defend' ? hit : !hit;
-    return this.act(() => {
-      this.state.pending = { kind: 'idle' };
-      this.state.txn = null;
-      finishContestedSetup(this.ctx, txn.k, txn.action, reversed);
-    });
+  /** What the AI would do in the player's shoes (headless play). */
+  autoPush(): boolean {
+    const p = this.state.pending;
+    return p.kind === 'contest' && aiWantsPush(this.state, 'you', p.spec);
+  }
+
+  /** The dice have finished animating: play out the result. */
+  applyContest(): boolean {
+    if (this.state.pending.kind !== 'contestRoll') return false;
+    return this.act(() => applyPending(this.ctx));
   }
 
   /** Player was pinned. success = released in the gold before three; count = count shown at release. */
@@ -240,6 +235,24 @@ export class MatchEngine {
       this.state.pending = { kind: 'idle' };
       resolveCover(this.ctx, getMove(p.spec.moveId), hit);
     });
+  }
+
+  /** A hold has landed: go for the tap, or work the hold and keep control. */
+  resolveSubChoice(goForTap: boolean): boolean {
+    const p = this.state.pending;
+    if (p.kind !== 'subChoice') return false;
+    return this.act(() => {
+      this.state.pending = { kind: 'idle' };
+      const move = getMove(p.spec.moveId);
+      if (goForTap) startSubmission(this.ctx, 'you', move, p.spec.target);
+      else workTheHold(this.ctx, 'you', move, p.spec.target);
+    });
+  }
+
+  /** What the AI would choose in the player's shoes (headless play). */
+  autoSubChoice(): boolean {
+    const p = this.state.pending;
+    return p.kind === 'subChoice' && aiGoesForTap(this.state, 'you', getMove(p.spec.moveId), p.spec.target);
   }
 
   /** Answer the "use Resiliency?" prompt. */

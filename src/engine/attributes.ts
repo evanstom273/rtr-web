@@ -53,18 +53,6 @@ export function moveAttributeProfile(attacker: Side, move: Move | null): MoveAtt
   };
 }
 
-export function reversalModifier(attacker: Side, defender: Side, move: Move | null, setup: SetupId | null): number {
-  let mod = attributeDelta(defender.w.stats.skill) * 6;
-  const a = attacker.w.stats;
-  if (setup === 'taunt') mod += -attributeDelta(a.charisma) * 6;
-  else if (move) {
-    if (move.strike || move.type === 'STRIKE') mod += -attributeDelta(a.striking) * 6;
-    else if (isSpeedMove(move)) mod += -attributeDelta(a.speed) * 4;
-    else if (move.type === 'GRAPPLE' || move.type === 'WEAPON' || move.type === 'ENVIRONMENTAL') mod += -attributeDelta(a.strength) * 3;
-  }
-  return clamp(mod, -10, 10);
-}
-
 export function submissionModifiers(attacker: Side, defender: Side): { attack: number; defence: number } {
   return { attack: attributeDelta(attacker.w.stats.skill) * 8, defence: attributeDelta(defender.w.stats.skill) * 8 };
 }

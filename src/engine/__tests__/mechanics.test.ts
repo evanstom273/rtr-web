@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { WRESTLERS, getMove } from '../../data/rtr';
 import { exhaustionBand, moveDemand, staminaCostMultiplier } from '../exhaustion';
-import {
-  breakthroughBarWidth, breakthroughRingWindow, defendBarWidth, defendRingWindow, lateMatchProfile, pinProfile, reversalChance, submissionContext,
-} from '../interaction';
+import { canPush, edgeOf, judge, landChance, moveContest } from '../dice';
+import { lateMatchProfile, pinProfile, submissionContext } from '../interaction';
 import * as ix from '../interactions';
 import { conditionResistance, pinCondition } from '../pin';
 import { MAX_FINISHER_STOCK, addMomentum, convertLandedSignature, createSide, damagePart, grantFinisherStock, spendFinisher, totalHp } from '../side';
+import { aiGoesForTap, workHoldDamage } from '../submission';
 import { resolveTarget } from '../targeting';
+import type { MatchState } from '../types';
 
 const side = (k: 'you' | 'them' = 'you', i = 0) => createSide(WRESTLERS[i]!, k);
 
@@ -60,37 +61,65 @@ describe('exhaustion', () => {
   });
 });
 
-describe('reversals', () => {
-  it('stays within 5–65%', () => {
+describe('contested rolls', () => {
+  const contestFor = (pick?: (a: ReturnType<typeof side>, d: ReturnType<typeof side>) => void) => {
     const a = side('you', 0), d = side('them', 1);
-    for (const id of a.w.moves) {
-      const c = reversalChance(a, d, getMove(id), null, null);
-      expect(c).toBeGreaterThanOrEqual(5);
-      expect(c).toBeLessThanOrEqual(65);
-    }
-  });
-
-  it('momentum makes a move harder to reverse', () => {
-    const a = side('you', 0), d = side('them', 1);
+    pick?.(a, d);
     const m = getMove(a.w.moves[0]!);
-    const before = reversalChance(a, d, m, null, null);
-    a.momentum = 90;
-    expect(reversalChance(a, d, m, null, null)).toBeLessThan(before);
+    return { a, d, m, ...moveContest(a, d, m, resolveTarget(m, 'NONE', d.hp)) };
+  };
+
+  it('a straight roll with equal bonuses favours the attacker slightly (ties go to the attacker; naturals decide the rest)', () => {
+    const { attack, defend } = contestFor();
+    attack.bonus = defend.bonus = 0;
+    attack.edges = defend.edges = [];
+    expect(landChance(attack, defend)).toBeCloseTo(52, 6);
   });
 
-  it('sizes the windows from the Godot values', () => {
-    expect(defendRingWindow(5)).toBe(8);
-    expect(defendRingWindow(65)).toBe(26);
-    expect(breakthroughRingWindow(5)).toBe(23.75);
-    expect(defendBarWidth(10)).toBe(3);
-    expect(breakthroughBarWidth(5)).toBe(4);
+  it('naturals beat totals', () => {
+    expect(judge(1, 2, 50, 0)).toEqual({ landed: false, crit: 'attacker1' });
+    expect(judge(19, 20, 50, 0)).toEqual({ landed: false, crit: 'defender20' });
+    expect(judge(20, 19, -50, 0)).toEqual({ landed: true, crit: 'attacker20' });
+    expect(judge(5, 1, -50, 0)).toEqual({ landed: true, crit: 'defender1' });
+    expect(judge(10, 12, 3, 1)).toEqual({ landed: true, crit: null });
   });
 
-  it('ring and bar hit tests', () => {
+  it('advantage helps and pushing grants it', () => {
+    const { attack, defend } = contestFor();
+    const base = landChance(attack, defend);
+    attack.pushed = true;
+    expect(edgeOf(attack)).toBe(1);
+    expect(landChance(attack, defend)).toBeGreaterThan(base + 5);
+  });
+
+  it('momentum and a worn-down target make moves land more often', () => {
+    const fresh = contestFor();
+    const worn = contestFor((a, d) => {
+      a.momentum = 80;
+      for (const p of Object.keys(d.hp) as (keyof typeof d.hp)[]) d.hp[p] = 30;
+    });
+    expect(landChance(worn.attack, worn.defend)).toBeGreaterThan(landChance(fresh.attack, fresh.defend) + 10);
+  });
+
+  it('repeating the same move hands the defender advantage', () => {
+    const { a, d, m } = contestFor();
+    a.recentMoves.push(m.id);
+    const again = moveContest(a, d, m, resolveTarget(m, 'NONE', d.hp));
+    expect(edgeOf(again.defend)).toBe(1);
+  });
+
+  it('cannot push while a signature is banked', () => {
+    const a = side();
+    a.momentum = 100;
+    a.signatureReady = true;
+    expect(canPush(a)).toBe(false);
+    a.signatureReady = false;
+    expect(canPush(a)).toBe(true);
+  });
+
+  it('the cover ring still hit-tests', () => {
     expect(ix.ringHit(ix.ringProgress(ix.ringTargetTime(0.28, 2), 2), 0.28, 10)).toBe(true);
     expect(ix.ringHit(0.6, 0.28, 10)).toBe(false);
-    expect(ix.barHit(50, 50, 3)).toBe(true);
-    expect(ix.barHit(55, 50, 3)).toBe(false);
   });
 });
 
@@ -143,5 +172,30 @@ describe('pin resistance comes from damage, not the clock', () => {
     expect(pinCondition(worn)).toBeLessThan(40);
     expect(conditionResistance(fresh)).toBeGreaterThan(100);
     expect(conditionResistance(worn)).toBeLessThan(0);
+  });
+});
+
+describe('holds: go for the tap or work the hold', () => {
+  const S = (a: ReturnType<typeof side>, d: ReturnType<typeof side>, t = 300) => ({ you: d, them: a, t }) as unknown as MatchState;
+  const armbar = () => getMove('americana');
+
+  it('the AI works the hold on a fresh opponent and goes for the tap once the limb is gone', () => {
+    const a = side('them', 2), d = side('you', 1);
+    a.w = { ...a.w, classes: ['STRIKER'] };
+    const t = resolveTarget(armbar(), 'LEFT_ARM', d.hp);
+    expect(aiGoesForTap(S(a, d), 'them', armbar(), t)).toBe(false);
+    d.hp.LEFT_ARM = 30;
+    expect(aiGoesForTap(S(a, d), 'them', armbar(), resolveTarget(armbar(), 'LEFT_ARM', d.hp))).toBe(true);
+  });
+
+  it('technicians trust their holds sooner', () => {
+    const a = side('them', 2), d = side('you', 1);
+    d.hp.LEFT_ARM = 45;
+    const t = resolveTarget(armbar(), 'LEFT_ARM', d.hp);
+    a.w = { ...a.w, classes: ['STRIKER'] };
+    expect(aiGoesForTap(S(a, d), 'them', armbar(), t)).toBe(false);
+    a.w = { ...a.w, classes: ['TECHNICIAN'] };
+    expect(aiGoesForTap(S(a, d), 'them', armbar(), t)).toBe(true);
+    expect(workHoldDamage(a, armbar())).toBeGreaterThan(workHoldDamage({ ...a, w: { ...a.w, classes: ['STRIKER'] } }, armbar()));
   });
 });

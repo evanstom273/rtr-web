@@ -6,13 +6,21 @@ import { other, ring, say } from './commentary';
 import { crowdObserve } from './crowd';
 import { afterAction, endMatch, render, setControl } from './flow';
 import { submissionContext } from './interaction';
-import { aiShouldUseResiliency, useResiliency } from './pin';
-import { damagePart, markCrossedThresholds, totalHp } from './side';
+import { aiShouldUseResiliency, pinCondition, useResiliency } from './pin';
+import { clamp } from './rng';
+import { damagePart, markCrossedThresholds, spendStamina, totalHp } from './side';
 import { targetHp } from './targeting';
-import type { Move, SideKey, SubOutcome, TargetResolution } from './types';
+import type { MatchState, Move, Side, SideKey, SubOutcome, TargetResolution } from './types';
 
 /** Both resolution forces are scaled by this (Godot submission_resolution_speed_multiplier). */
 export const SUBMISSION_SPEED_MULTIPLIER = 1.5;
+
+/**
+ * Web addition, same idea as pin resistance: the struggle starts where the defender's condition
+ * puts it. Fresh (~100) starts at 25, near the escape; worked over (~63) ≈ 44; wrecked (~23) ≈ 64.
+ * (Godot's submission scores cap out for any healthy wrestler, so they can't carry this.)
+ */
+export const submissionStart = (D: Side): number => clamp(50 - (pinCondition(D) - 50) * 0.5, 25, 75);
 
 function isTrueSquashContext(ctx: Ctx, k: SideKey): boolean {
   const A = ctx.S[k], D = ctx.S[other(k)];
@@ -21,6 +29,75 @@ function isTrueSquashContext(ctx: Ctx, k: SideKey): boolean {
   const sustained = A.movesLanded >= 3;
   const meaningful = D.damageTaken >= 30 || totalHp(D) <= 450;
   return dominant && littleDefence && sustained && meaningful;
+}
+
+/** One word for how much fight is left (for the hold choice). */
+export function conditionWord(D: Side): string {
+  const c = pinCondition(D);
+  return c >= 85 ? 'fresh' : c >= 65 ? 'holding up' : c >= 45 ? 'worn' : 'wrecked';
+}
+
+/** Damage per part from working a hold: a few seconds of cranking, more in a technician's hands. */
+export const workHoldDamage = (A: Side, move: Move): number => (4 + move.impact * 0.5) * (A.w.classes.includes('TECHNICIAN') ? 1.5 : 1);
+
+/**
+ * AI: go for the tap only when it's credible: a finisher, a properly worn target, a worn-down
+ * opponent, or late on. Technicians trust their holds sooner.
+ */
+export function aiGoesForTap(S: MatchState, k: SideKey, move: Move, target: TargetResolution): boolean {
+  if (move.finisher || S[k].finishers.includes(move)) return true;
+  const D = S[other(k)], tech = S[k].w.classes.includes('TECHNICIAN');
+  const hp = targetHp(D.hp, target), cond = pinCondition(D);
+  if (hp < (tech ? 50 : 35) || cond < (tech ? 55 : 45)) return true;
+  return S.t >= 1500 && hp < 60;
+}
+
+/** A hold has landed. The player chooses; the AI decides on the spot. */
+export function beginSubmission(ctx: Ctx, k: SideKey, move: Move, target: TargetResolution): void {
+  const S = ctx.S, A = S[k], D = S[other(k)];
+  if (A.state.area !== 'IN_RING' || D.state.area !== 'IN_RING') {
+    setControl(ctx, k);
+    afterAction(ctx);
+    return;
+  }
+  if (k === 'you') {
+    const per = workHoldDamage(A, move);
+    S.pending = {
+      kind: 'subChoice',
+      spec: {
+        id: ++S.seq, moveId: move.id, moveName: move.name, target, partLabel: PART_LABEL[target.storyPart],
+        partHp: targetHp(D.hp, target), condition: conditionWord(D),
+        workDamage: target.parts.reduce((t, p) => t + per * (target.weights[p] ?? 1), 0),
+        finisher: move.finisher || A.finishers.includes(move),
+      },
+    };
+    render(ctx);
+    return;
+  }
+  if (aiGoesForTap(S, k, move, target)) startSubmission(ctx, k, move, target);
+  else workTheHold(ctx, k, move, target);
+}
+
+/** Wear the limb down without risking the escape: damage, then let go and keep control. */
+export function workTheHold(ctx: Ctx, k: SideKey, move: Move, target: TargetResolution): void {
+  const S = ctx.S, dk = other(k), A = S[k], D = S[dk];
+  const per = workHoldDamage(A, move);
+  const before = totalHp(D);
+  for (const part of target.parts) {
+    const hpBefore = D.hp[part];
+    damagePart(D, part, per * (target.weights[part] ?? 1));
+    A.targetDamageDealt[part] = (A.targetDamageDealt[part] ?? 0) + Math.max(0, hpBefore - D.hp[part]);
+    markCrossedThresholds(D, part, hpBefore, D.hp[part]);
+  }
+  const applied = Math.max(0, before - totalHp(D));
+  D.damageTaken += applied;
+  A.damageDealt += applied;
+  spendStamina(D, 4);
+  const tech = A.w.classes.includes('TECHNICIAN');
+  say(ctx, tech ? LINES.subWorkTech : LINES.subWork, { a: k, d: dk, m: move.name, vars: { part: PART_LABEL[target.storyPart] } });
+  ring(ctx, 'move_landed', k, move.name);
+  setControl(ctx, k);
+  afterAction(ctx);
 }
 
 export function startSubmission(ctx: Ctx, k: SideKey, move: Move, target: TargetResolution): void {
@@ -36,7 +113,7 @@ export function startSubmission(ctx: Ctx, k: SideKey, move: Move, target: Target
   ring(ctx, 'submission', k, move.name);
   const sc = submissionContext(A, D, move, S.t, target, isTrueSquashContext(ctx, k));
   const playerAttacking = k === 'you';
-  S.txn = { kind: 'sub', k, move, target, nearTapSaid: false, nearEscapeSaid: false, lastMarker: 50 };
+  S.txn = { kind: 'sub', k, move, target, nearTapSaid: false, nearEscapeSaid: false, lastMarker: submissionStart(D) };
   S.pending = {
     kind: 'sub',
     spec: {
@@ -47,6 +124,7 @@ export function startSubmission(ctx: Ctx, k: SideKey, move: Move, target: Target
       tapThreshold: sc.tapThreshold,
       escapeThreshold: sc.escapeThreshold,
       speedMultiplier: SUBMISSION_SPEED_MULTIPLIER,
+      start: submissionStart(D),
       moveName: move.name,
       partLabel: PART_LABEL[part],
       finisher: move.finisher,

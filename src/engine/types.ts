@@ -1,4 +1,5 @@
 // Engine types. No DOM, no React.
+import type { ContestRoll, ContestSide } from './dice';
 import type {
   Area, BodyPart, Motion, Move, MoveType, Orientation, Part, Position, Wrestler,
 } from '../data/rtr/types';
@@ -96,6 +97,10 @@ export interface Side {
   consecutiveNeutralResets: number;
   consecutiveSetupActions: number;
   recoveryDelayProtected: boolean;
+  /** Just won position with a setup: advantage on the next contested roll. */
+  setUp: boolean;
+  /** Contested setups attempted, most recent last (for "same trick again"). */
+  recentSetups: SetupId[];
   announcedLowStamina: boolean;
   announcedHighFatigue: boolean;
   announcedSpent: boolean;
@@ -137,39 +142,21 @@ export type RingBeat = 'move_started' | 'move_landed' | 'reversal' | 'crash' | '
 
 /* ---------- interactions the engine asks the UI for ---------- */
 
-/** Shrinking-ring timing circle used for move reversals (Godot timing_circle_interaction). */
-export interface ReversalSpec {
+/** A contested roll: a move attempt or a contested setup. See dice.ts. */
+export interface ContestSpec {
   id: number;
-  /** defend: the player is defending (hit = reversal). breakthrough: the player is attacking (hit = lands). */
-  role: 'defend' | 'breakthrough';
+  kind: 'move' | 'setup';
   attacker: SideKey;
+  defender: SideKey;
+  /** Move name or setup title. */
   title: string;
-  moveName: string;
-  /** Size of the success band as % of the shrink range. */
-  window: number;
-  /** Seconds for the ring to shrink fully. */
-  timeLimit: number;
-  /** Where the target sits, as remaining progress (Godot: 0.28). */
-  target: number;
   major: 'SIGNATURE' | 'FINISHER' | null;
-  /** The defender's reversal chance (%), shown for transparency in debug. */
+  attack: ContestSide;
+  defend: ContestSide;
+  /** Attacker's chance to win (0–100), with any pushes already declared. */
   chance: number;
-}
-
-/** Horizontal one-way bar used for contested setups (Godot control_meter_interaction). */
-export interface SetupMeterSpec {
-  id: number;
-  role: 'defend' | 'breakthrough';
-  attacker: SideKey;
-  title: string;
-  /** Gold zone width as % of the track (already scaled by the 1/8 visual factor). */
-  width: number;
-  /** Gold centre as % of the track. */
-  center: number;
-  dir: 1 | -1;
-  /** Seconds for the marker to cross the track. */
-  crossSeconds: number;
-  chance: number;
+  /** Can the player push on this roll (enough momentum, no signature banked)? */
+  playerCanPush: boolean;
 }
 
 /** The player is pinned: hold, release in the gold before three. */
@@ -197,6 +184,22 @@ export interface CoverSpec {
   target: number;
 }
 
+/** A hold has landed for the player: go for the tap (the tug) or work the hold (web addition). */
+export interface SubChoiceSpec {
+  id: number;
+  moveId: string;
+  moveName: string;
+  target: TargetResolution;
+  partLabel: string;
+  /** The targeted part's HP now. */
+  partHp: number;
+  /** One word for the defender's condition: fresh / holding up / worn / wrecked. */
+  condition: string;
+  /** Damage working the hold would do (total across parts). */
+  workDamage: number;
+  finisher: boolean;
+}
+
 /** Submission tug-of-war. 100 = tap. */
 export interface SubSpec {
   id: number;
@@ -209,6 +212,8 @@ export interface SubSpec {
   tapThreshold: number;
   escapeThreshold: number;
   speedMultiplier: number;
+  /** Where the marker starts (0–100): set by the defender's condition (web addition). */
+  start: number;
   moveName: string;
   partLabel: string;
   finisher: boolean;
@@ -233,14 +238,17 @@ export type Pending =
   | { kind: 'continue'; delay: number; cont: Cont }
   | { kind: 'awaitPlayer' }
   | { kind: 'aiThinking' }
-  | { kind: 'reversal'; spec: ReversalSpec }
-  | { kind: 'setupMeter'; spec: SetupMeterSpec }
+  /** Waiting for the player to roll (and decide whether to push). */
+  | { kind: 'contest'; spec: ContestSpec }
+  /** Rolled: the UI animates the dice, then calls applyContest(). */
+  | { kind: 'contestRoll'; spec: ContestSpec; roll: ContestRoll }
   | { kind: 'kickout'; spec: KickoutSpec }
   /** AI pinned: the count is pre-rolled; the UI counts it out. kickoutAt null = pinned. */
   | { kind: 'refCount'; id: number; pinner: SideKey; kickoutAt: 1 | 2 | 3 | null }
   | { kind: 'sub'; spec: SubSpec }
   | { kind: 'resiliency'; id: number; threat: 'pinfall' | 'submission' }
   | { kind: 'cover'; spec: CoverSpec }
+  | { kind: 'subChoice'; spec: SubChoiceSpec }
   | { kind: 'over' };
 
 /* ---------- result & rating ---------- */

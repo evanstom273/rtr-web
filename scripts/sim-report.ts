@@ -1,11 +1,14 @@
-/* Prints match-length, finish-type and star distributions from headless matches. */
+/*
+ * Prints match-length, finish-type and star distributions from headless matches. Moves and setups
+ * are contested dice rolls (both sides choose pushes like the AI); the hit model only covers the
+ * hands-on bits left: the pin-combo cover and the kickout hold.
+ */
 import { runBatch, type HitModel } from '../src/engine/sim/runHeadless';
 
 const N = Number(process.argv[2] ?? 300);
 const models: [string, HitModel][] = [
-  ['Fixed hit rate 60%', { kind: 'fixed', rate: 0.6 }],
-  ['Skill-based (timing σ = 70ms)', { kind: 'skill', sigmaSeconds: 0.07 }],
-  ['Skill-based (timing σ = 120ms, casual)', { kind: 'skill', sigmaSeconds: 0.12 }],
+  ['Steady hands (cover/kickout timing σ = 70ms)', { kind: 'skill', sigmaSeconds: 0.07 }],
+  ['Casual (cover/kickout timing σ = 120ms)', { kind: 'skill', sigmaSeconds: 0.12 }],
 ];
 const pct = (n: number, d: number) => `${((n / d) * 100).toFixed(1)}%`;
 const q = (xs: number[], p: number) => {

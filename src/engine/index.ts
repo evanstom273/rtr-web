@@ -11,3 +11,4 @@ export * as interactions from './interactions';
 export { exhaustionBand, staminaPercent } from './exhaustion';
 export { totalHp, MAX_FINISHER_STOCK } from './side';
 export { isOutsideArea } from './areaRules';
+export { PUSH_COST, edgeOf, landChance, type ContestRoll, type ContestSide, type Mod } from './dice';

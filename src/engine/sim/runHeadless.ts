@@ -45,7 +45,7 @@ export interface SimResult {
 
 function simSub(e: MatchEngine, spec: SubSpec, rnd: Rng, mashRate: number): SubOutcome {
   const dt = 1 / 60, tapEvery = 1 / Math.min(mashRate, ix.TUG_MAX_TAPS_PER_SECOND);
-  let marker = 50, t = 0, pulse = 0, second = 0, nextTap = tapEvery * (0.5 + rnd() * 0.5);
+  let marker = spec.start, t = 0, pulse = 0, second = 0, nextTap = tapEvery * (0.5 + rnd() * 0.5);
   let windowMin = marker, windowMax = marker, windowStart = 0;
   for (;;) {
     t += dt;
@@ -99,13 +99,11 @@ export function runHeadless(o: SimOptions): SimResult {
       case 'awaitPlayer':
         ok = e.autoPlayer();
         break;
-      case 'reversal': {
-        // Band half-width in seconds: window% of the shrink range over the time limit.
-        ok = e.resolveReversal(hit((p.spec.window / 200) * p.spec.timeLimit));
+      case 'contest':
+        ok = e.rollContest(e.autoPush());
         break;
-      }
-      case 'setupMeter':
-        ok = e.resolveSetupMeter(hit((p.spec.width / 200) * p.spec.crossSeconds));
+      case 'contestRoll':
+        ok = e.applyContest();
         break;
       case 'kickout': {
         // Repeated holds aimed at the gold centre until success or three.
@@ -126,6 +124,9 @@ export function runHeadless(o: SimOptions): SimResult {
       }
       case 'sub':
         ok = e.resolveSub(simSub(e, p.spec, rnd, o.mashRate ?? 6));
+        break;
+      case 'subChoice':
+        ok = e.resolveSubChoice(e.autoSubChoice());
         break;
       case 'cover':
         ok = e.resolveCover(hit((p.spec.window / 200) * p.spec.timeLimit));

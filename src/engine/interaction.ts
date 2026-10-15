@@ -1,16 +1,13 @@
-// Port of MatchInteractionModel (+ the request builders from simple_match_ui.gd): reversal chances,
-// the sizes of the player-facing timing targets, pin and submission pressure.
-import type { Area, Move } from '../data/rtr/types';
-import { moveAttributeProfile, reversalModifier, submissionModifiers } from './attributes';
-import {
-  executionMultiplier, kickoutPenalty, moveDemand, reversalPenalty, submissionEscapePenalty,
-} from './exhaustion';
+// Port of MatchInteractionModel: move risk classification, late-match escalation, pin and
+// submission pressure. (Reversals are contested rolls now: see dice.ts.)
+import type { Move } from '../data/rtr/types';
+import { moveAttributeProfile, submissionModifiers } from './attributes';
+import { executionMultiplier, kickoutPenalty, moveDemand, submissionEscapePenalty } from './exhaustion';
 import { clamp } from './rng';
-import {
-  isSignatureMove, lastAttemptedMoveMatches, recentMoveTypeCount, recentTargetPartCount, setupPatternRepeats,
-} from './side';
-import { isLimbFocus, resolveTarget, targetHp } from './targeting';
-import type { SetupId, Side, TargetResolution } from './types';
+import { isSignatureMove } from './side';
+import { pinCondition } from './pin';
+import { targetHp } from './targeting';
+import type { Side, TargetResolution } from './types';
 
 const AERIAL_TERMS = [
   'aerial', 'dive', 'diving', 'springboard', 'moonsault', 'shooting star', 'crossbody', 'senton', 'splash', 'hurricanrana',
@@ -42,92 +39,6 @@ function compatibilityBonus(s: Side, m: Move): number {
   if (classCompatible(s, m)) return 8;
   return inferredClassCompatible(s, m) ? 5 : 0;
 }
-
-function tauntInterruptionBase(attackerArea: Area, defenderPosition: string): number {
-  const grounded = defenderPosition === 'GROUNDED';
-  if (attackerArea === 'TOP_ROPE') return grounded ? 28 : 42;
-  if (attackerArea === 'APRON') return grounded ? 23 : 35;
-  return grounded ? 18 : 30;
-}
-
-function baseReversalChance(m: Move | null, setup: SetupId | null): number {
-  if (setup) {
-    if (setup === 'pick_opponent_up') return 30;
-    if (setup === 'irish_whip' || setup === 'throw_into_corner' || setup === 'send_opponent_outside'
-      || setup === 'call_opponent_outside' || setup === 'take_fight_outside') return 28;
-    return 25;
-  }
-  if (!m) return 22;
-  if (m.finisher) return 12;
-  if (isHighRisk(m)) return 28;
-  return isHeavyMove(m) ? 18 : 22;
-}
-
-/** The defender's chance (5–65%) to reverse a move or contested setup. */
-export function reversalChance(
-  attacker: Side, defender: Side, move: Move | null, setup: SetupId | null, target: TargetResolution | null,
-): number {
-  let c = setup === 'taunt' ? tauntInterruptionBase(attacker.state.area, defender.state.position) : baseReversalChance(move, setup);
-  if (defender.momentum >= 70) c += 10;
-  else if (defender.momentum >= 40) c += 5;
-  else if (defender.momentum < 20) c -= 5;
-  if (attacker.momentum >= 70) c -= 8;
-  else if (attacker.momentum >= 40) c -= 4;
-  else if (attacker.momentum < 20) c += 4;
-  if (move) {
-    if (move.impact <= 3) c += 4;
-    else if (move.impact >= 9) c -= 8;
-    else if (move.impact >= 7) c -= 4;
-    if (move.finisher) c -= 10;
-    if (isHighRisk(move)) c += 10;
-    if (lastAttemptedMoveMatches(attacker, move)) c += 10;
-    if (recentMoveTypeCount(attacker, move.type, 5) >= 3) c += 6;
-    if (setupPatternRepeats(attacker, move)) c += 5;
-    const t = target ?? resolveTarget(move, 'NONE', defender.hp);
-    const hp = target ? targetHp(defender.hp, t) : averageHp(defender, move);
-    if (target && isLimbFocus(t.storyPart)) {
-      const recent = recentTargetPartCount(attacker, t.storyPart, 5);
-      if (recent >= 4) c += 12;
-      else if (recent >= 2) c += 7;
-    }
-    if (hp < 25) c -= 10;
-    else if (hp < 50) c -= 5;
-    if (classCompatible(attacker, move) || inferredClassCompatible(attacker, move)) c -= 5;
-  }
-  if (defender.w.classes.includes('TECHNICIAN')) c += 5;
-  c += reversalModifier(attacker, defender, move, setup);
-  const ds = defender.state;
-  if (ds.position === 'GROUNDED' || ds.position === 'SEATED' || ds.position === 'KNEELING' || ds.area === 'CORNER' || ds.motion === 'ROPE_REBOUND') c -= 3;
-  c *= 1 - reversalPenalty(defender) / 100;
-  return clamp(c, 5, 65);
-}
-
-function averageHp(s: Side, m: Move): number {
-  const parts = m.parts.filter((p) => p !== 'NONE');
-  if (!parts.length) return s.hp.BODY;
-  return parts.reduce((t, p) => t + s.hp[p as Exclude<typeof p, 'NONE'>], 0) / parts.length;
-}
-
-/** Time the defender has to react (Godot build_reversal_profile). */
-export function reversalTimeLimit(m: Move | null): number {
-  if (m?.finisher) return 1.6;
-  if (isHighRisk(m)) return 1.75;
-  if (isHeavyMove(m)) return 1.8;
-  return 2.0;
-}
-
-/** Shrinking-ring success band: player defending. */
-export const defendRingWindow = (chance: number): number => clamp(clamp(chance, 5, 65) * 0.5, 8, 26);
-/** Shrinking-ring success band: player attacking, beating the AI's reversal. */
-export const breakthroughRingWindow = (aiChance: number): number => clamp((100 - clamp(aiChance, 5, 65)) * 0.25, 10, 24);
-
-/** Setup bar gold width (% of track) when the player defends: raw clamp(chance×0.78, 24, 65) at 1/8 scale. */
-export const defendBarWidth = (chance: number): number => clamp(chance * 0.78, 24, 65) / 8;
-/** Setup bar gold width when the player attacks: raw clamp((100−ai)×0.78, 24, 32) at 1/8 scale. */
-export const breakthroughBarWidth = (aiChance: number): number => clamp((100 - clamp(aiChance, 5, 75)) * 0.78, 24, 32) / 8;
-/** Setup bar crossing time: one-way travel at max(1, speed)/time_limit. */
-export const DEFEND_BAR_CROSS = 2.0 / 1.25;
-export const BREAKTHROUGH_BAR_CROSS = 2.0 / 1.6;
 
 /* ---------- late match ---------- */
 
@@ -190,6 +101,14 @@ function submissionPressureScore(state: Side, opponent: Side, move: Move, attack
   return clamp(d, 5, 100);
 }
 
+/**
+ * Web addition, the submission twin of pin resistance: a fresh defender takes the edge off the
+ * hold, a wrecked one doesn't. Scales the attacker's score (Godot's scores cap at 100 for any
+ * healthy wrestler, so adding to the defender's does nothing). Fresh ×0.75, worked over ×0.94,
+ * wrecked ×1.14.
+ */
+export const submissionGrip = (D: Side): number => 1 - (pinCondition(D) - 50) / 200;
+
 export function submissionContext(
   attacker: Side, defender: Side, move: Move, t: number, target: TargetResolution, squash: boolean,
 ): SubmissionContext {
@@ -232,7 +151,7 @@ export function submissionContext(
   const attackerScore = submissionPressureScore(attacker, defender, move, true, target) + pressureBonus + attr.attack;
   const defenderScore = submissionPressureScore(defender, defender, move, false, target) + resistance + attr.defence;
   return {
-    attackerScore: clamp(attackerScore, 5, 100),
+    attackerScore: clamp(attackerScore * submissionGrip(defender), 5, 100),
     defenderScore: clamp(defenderScore, 5, 100),
     tapThreshold: clamp(tap, 80, 98),
     escapeThreshold: 10,

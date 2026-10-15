@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { interactions as ix, type CoverSpec, type MatchEngine, type ReversalSpec } from '../../engine';
+import { interactions as ix, type CoverSpec, type MatchEngine } from '../../engine';
 import { buzz } from '../format';
 import { Countdown } from './Countdown';
 import { useActionKey, useLeadIn } from './useLeadIn';
@@ -24,7 +24,7 @@ interface RingProps {
   onResult: (hit: boolean) => void;
 }
 
-/** Shrinking-ring timing (Godot timing_circle_interaction). */
+/** Shrinking-ring timing (Godot timing_circle_interaction). Used for the pin-combo cover. */
 function Ring({ window: band, timeLimit, target, kicker, title, sub, hitWord, tone, strong, quick, onResult }: RingProps) {
   const cd = useLeadIn(quick ? NO_COUNT : undefined, quick ? 0.25 : undefined);
   const live = cd === null;
@@ -91,18 +91,6 @@ function Ring({ window: band, timeLimit, target, kicker, title, sub, hitWord, to
         </div>
       </div>
     </div>
-  );
-}
-
-/** Move reversal: defending, a hit reverses; attacking, a hit lands it. */
-export function TimingRing({ engine, spec }: { engine: MatchEngine; spec: ReversalSpec }) {
-  const defend = spec.role === 'defend';
-  const onResult = useCallback((hit: boolean) => engine.resolveReversal(hit), [engine]);
-  return (
-    <Ring window={spec.window} timeLimit={spec.timeLimit} target={spec.target} tone={defend ? 'def' : 'off'} strong={spec.major !== null}
-      kicker={`${spec.major ? `${spec.major} — ` : ''}${defend ? 'Reversal window' : 'Break through'}`} title={spec.moveName}
-      sub={defend ? 'Tap as the ring crosses the gold to reverse.' : 'Tap as the ring crosses the gold to land it.'}
-      hitWord={defend ? 'REVERSED!' : 'LANDED!'} onResult={onResult} />
   );
 }
 

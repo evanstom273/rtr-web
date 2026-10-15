@@ -10,9 +10,7 @@ import { crowdObserve, isOutsideSpot } from './crowd';
 import { executionMultiplier, exhaustionBand, moveDemand, staminaCostMultiplier, staminaPercent } from './exhaustion';
 import { clamp } from './rng';
 import { afterAction, render, resolveControlAfterAction, schedule } from './flow';
-import {
-  breakthroughRingWindow, defendRingWindow, isHighRisk, reversalChance, reversalTimeLimit,
-} from './interaction';
+import { isHighRisk } from './interaction';
 import { resolvedAttackerArea, resolvedTargetArea } from './areaRules';
 import { moveMatchesSnapshots } from './setupRules';
 import {
@@ -20,6 +18,8 @@ import {
   markCrossedThresholds, markRepeatedTargetMilestone, recordMoveUsed, recordTargetResolution, spendFinisher, spendStamina, totalHp,
 } from './side';
 import { resolveTarget } from './targeting';
+import { startContest } from './contest';
+import { moveContest } from './dice';
 import type { ActionResult, MatchState, Move, Side, SideKey, TargetResolution } from './types';
 
 export const SUCCESSFUL_MOVE_MOMENTUM = 10;
@@ -72,6 +72,7 @@ export function resolveCover(ctx: Ctx, move: Move, hit: boolean): void {
 export function executeMove(ctx: Ctx, k: SideKey, move: Move, target?: TargetResolution): boolean {
   const S = ctx.S, A = S[k], dk = other(k), D = S[dk];
   if (!moveIsValid(S, k, move)) return false;
+  D.setUp = false;
   const tgt = target ?? resolveTarget(move, A.targetFocus, D.hp);
   if (isFinisherMove(A, move) && !spendFinisher(A)) return false;
   crowdObserve(ctx, { type: 'move_attempt', k, move, signatureOrFinisher: isSignatureMove(A, move) || isFinisherMove(A, move), uses: (A.moveUseCounts[move.id] ?? 0) + 1 });
@@ -79,33 +80,19 @@ export function executeMove(ctx: Ctx, k: SideKey, move: Move, target?: TargetRes
   ring(ctx, 'move_started', k, move.name);
   const major = majorKind(A, move);
   if (major) flash(ctx, move.name, major === 'FINISHER');
-  const chance = reversalChance(A, D, move, null, tgt);
-  const role = dk === 'you' ? 'defend' : 'breakthrough';
-  S.txn = { kind: 'move', k, move, target: tgt, chance };
-  S.pending = {
-    kind: 'reversal',
-    spec: {
-      id: ++S.seq,
-      role,
-      attacker: k,
-      title: role === 'defend' ? `REVERSE: ${move.name}` : `BEAT THE REVERSAL: ${move.name}`,
-      moveName: move.name,
-      window: role === 'defend' ? defendRingWindow(chance) : breakthroughRingWindow(chance),
-      timeLimit: reversalTimeLimit(move),
-      target: 0.28,
-      major,
-      chance,
-    },
-  };
+  const { attack, defend } = moveContest(A, D, move, tgt);
+  A.setUp = false;
+  S.txn = { kind: 'move', k, move, target: tgt, chance: 0 };
+  startContest(ctx, { kind: 'move', attacker: k, defender: dk, title: move.name, major, attack, defend });
   return true;
 }
 
 /** The defender's response is in: apply the move and decide what happens next. */
-export function finishMove(ctx: Ctx, k: SideKey, move: Move, reversed: boolean, target: TargetResolution): void {
+export function finishMove(ctx: Ctx, k: SideKey, move: Move, reversed: boolean, target: TargetResolution, crit = false): void {
   const S = ctx.S, A = S[k], dk = other(k);
   const startedAtZero = A.stamina <= 0;
   const result: ActionResult = reversed ? (isHighRisk(move) ? 'HIGH_RISK_CRASH' : 'REVERSAL') : 'CLEAN_SUCCESS';
-  applyMoveResult(ctx, k, dk, move, result, target);
+  applyMoveResult(ctx, k, dk, move, result, target, crit);
   const embedded = shouldStartEmbeddedPin(S, k, dk, move, result);
   settleRefereeCount(ctx);
   if (S.over) return;
@@ -135,7 +122,7 @@ export function shouldStartEmbeddedPin(S: MatchState, k: SideKey, dk: SideKey, m
   return S[k].state.position === 'GROUNDED' && S[dk].state.position === 'GROUNDED';
 }
 
-function applyMoveResult(ctx: Ctx, k: SideKey, dk: SideKey, move: Move, result: ActionResult, target: TargetResolution): void {
+function applyMoveResult(ctx: Ctx, k: SideKey, dk: SideKey, move: Move, result: ActionResult, target: TargetResolution, crit: boolean): void {
   const S = ctx.S, A = S[k], D = S[dk];
   A.lastActionResult = result;
   D.lastActionResult = result;
@@ -155,7 +142,7 @@ function applyMoveResult(ctx: Ctx, k: SideKey, dk: SideKey, move: Move, result: 
     observePhase(ctx, result === 'HIGH_RISK_CRASH' ? 'high_risk_crash' : 'reversal');
   }
   if (!landed) A.lastMoveWasFinisher = false;
-  applyDamage(ctx, k, dk, move, result, target);
+  applyDamage(ctx, k, dk, move, result, target, crit);
   applyStaminaFatigueMomentum(ctx, k, dk, move, result);
   applyPositions(A, D, move, result);
   const signatureConverted = landed && isSignatureMove(A, move) && convertLandedSignature(A);
@@ -190,14 +177,17 @@ function applyMoveResult(ctx: Ctx, k: SideKey, dk: SideKey, move: Move, result: 
   if (signatureConverted) say(ctx, LINES.signatureConverted, { a: k, vars: { n: A.finisherStock } }, 'hl');
 }
 
-function applyDamage(ctx: Ctx, k: SideKey, dk: SideKey, move: Move, result: ActionResult, target: TargetResolution): void {
+/** A natural 20 on offence hits half as hard again. */
+export const CRIT_DAMAGE = 1.5;
+
+function applyDamage(ctx: Ctx, k: SideKey, dk: SideKey, move: Move, result: ActionResult, target: TargetResolution, crit: boolean): void {
   const A = ctx.S[k], D = ctx.S[dk];
   const aBefore = totalHp(A), dBefore = totalHp(D);
   const before: Partial<Record<BodyPart, number>> = {};
   for (const p of target.parts) before[p] = D.hp[p];
   if (result === 'HIGH_RISK_CRASH') damagePart(A, 'BODY', move.impact * 0.75);
   else if (result === 'CLEAN_SUCCESS') {
-    const mult = moveAttributeProfile(A, move).damageMultiplier;
+    const mult = moveAttributeProfile(A, move).damageMultiplier * (crit ? CRIT_DAMAGE : 1);
     for (const p of target.parts) {
       const dmg = move.impact + (100 - D.hp[p]) * 0.08;
       damagePart(D, p, dmg * (target.weights[p] ?? 1) * mult);
