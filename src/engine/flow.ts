@@ -12,7 +12,14 @@ import { lateMatchProfile } from './interaction';
 import { rate } from './rating';
 import { randRange } from './rng';
 import { snapshotView } from './state';
-import type { ActionResult, Cont, Control, FinishType, Move, Side, SideKey } from './types';
+import { refereeAfterAction } from './referee';
+import { stipulation } from './stipulations';
+import type { ActionResult, Cont, Control, FinishType, Move, Side, SideKey, StipulationId } from './types';
+
+const FINISH_FLASH: Partial<Record<FinishType, string>> = {
+  COUNT_OUT: 'Count out', DISQUALIFICATION: 'Disqualified', TABLES: 'Through the table', LADDER: 'Got it!',
+  CAGE_ESCAPE: 'Escaped!', TEN_COUNT: 'Ten!', I_QUIT: 'I quit!', TIME_DECISION: 'Time!',
+};
 
 export const AI_DELAY_MS = 600;
 export const RESULT_REVEAL_MS = 650;
@@ -59,8 +66,87 @@ export function setResolvedControl(ctx: Ctx, value: Control, a: SideKey, d: Side
 
 /** ensure_match_can_continue: settle the referee's count at the end of every action. */
 export function afterAction(ctx: Ctx): void {
+  const S = ctx.S;
+  if (settleDecision(ctx)) return;
   observePhase(ctx, 'action');
+  refereeAfterAction(ctx);
+  if (!S.obj.gateOpen && (S.you.finisherStock > 0 || S.them.finisherStock > 0)) openGate(ctx);
   settleRefereeCount(ctx);
+}
+
+/** A DQ, objective win or time-out reached during the action: act on it now. */
+export function settleDecision(ctx: Ctx): boolean {
+  const S = ctx.S, d = S.obj.decision;
+  if (!d || S.over) return false;
+  S.obj.decision = null;
+  S.pinContext = null;
+  S.txn = null;
+  if (d.final) endMatch(ctx, d.winner, d.finish, d.move);
+  else endFall(ctx, d.winner, d.finish, d.move);
+  return true;
+}
+
+/** Ladder grabs, cage escapes and table wins unlock once someone has banked a finisher. */
+function openGate(ctx: Ctx): void {
+  const S = ctx.S;
+  S.obj.gateOpen = true;
+  const line = GATE_LINES[S.rules.stipulation];
+  if (line && (S.rules.stipulation !== 'steel_cage' || S.rules.cageEscape)) say(ctx, line, {}, 'hl');
+}
+
+const GATE_LINES: Partial<Record<StipulationId, string>> = {
+  ladder: LINES.gateLadder,
+  tables: LINES.gateTables,
+  steel_cage: LINES.gateCage,
+};
+
+/**
+ * A fall. In Iron Man and two out of three it's scored and the match goes on (both reset to a
+ * neutral standing start, damage stays); otherwise it ends the match.
+ */
+export function endFall(ctx: Ctx, winner: SideKey | null, finish: FinishType, move: Move | null): void {
+  const S = ctx.S, o = S.obj, id = S.rules.stipulation;
+  if (S.over) return;
+  if (!stipulation(id).multiFall || !winner) return endMatch(ctx, winner, finish, move);
+  o.score[winner]++;
+  o.falls.push({ k: winner, finish, t: S.t });
+  S.crowd.falls++;
+  const decided = (id === 'two_out_of_three' && o.score[winner] >= 2) || (id === 'iron_man' && o.overtime);
+  if (decided) return endMatch(ctx, winner, finish, move);
+  const loser = other(winner);
+  say(ctx, LINES.fallScored, { a: winner, d: loser, vars: { x: FALL_WORD[finish] ?? 'a fall', s: `${o.score.you}–${o.score.them}` } }, 'hl');
+  flash(ctx, `${S[winner].w.name.split(' ').pop()} scores a fall`, true);
+  crowdObserve(ctx, { type: 'match_end' });
+  resetBetweenFalls(ctx);
+  schedule(ctx, { to: 'nextFall' }, RESULT_REVEAL_MS * 2);
+}
+
+const FALL_WORD: Partial<Record<FinishType, string>> = {
+  PINFALL: 'a pinfall', SUBMISSION: 'a submission', COUNT_OUT: 'a count-out', DISQUALIFICATION: 'a disqualification',
+};
+
+/** _reset_between_falls: a breather and a neutral restart. Damage, cuts, objects and warnings stay. */
+function resetBetweenFalls(ctx: Ctx): void {
+  const S = ctx.S;
+  for (const k of ['you', 'them'] as SideKey[]) {
+    const s = S[k];
+    s.stamina = Math.min(s.maxStamina, s.stamina + s.maxStamina * 0.1);
+    s.fatigue = Math.max(0, s.fatigue - 5);
+    s.state = { position: 'STANDING', orientation: 'FRONT', area: 'IN_RING', motion: 'STATIONARY' };
+    s.setUp = false;
+    s.lastMoveWasFinisher = false;
+  }
+  S.obj.lmsFor = null;
+  S.pinContext = null;
+  S.txn = null;
+  S.control = null;
+  S.neutralFavoured = ctx.rnd() < 0.5 ? 'you' : 'them';
+  const r = S.referee;
+  r.active = false;
+  r.value = 0;
+  r.elapsed = 0;
+  r.pendingResolution = false;
+  render(ctx);
 }
 
 export function neutralRecoveryScore(ctx: Ctx, s: Side): number {
@@ -140,6 +226,7 @@ export function endMatch(ctx: Ctx, winner: SideKey | null, finish: FinishType, m
     byFin: !!move?.finisher,
     byFlash: !!move?.flashPin,
     afterFk: loser ? S.crowd.fkAbsorbed[loser] > 0 : false,
+    ...(stipulation(S.rules.stipulation).multiFall ? { score: { ...S.obj.score } } : {}),
   };
   if (winner) {
     if (finish === 'PINFALL') {
@@ -148,7 +235,7 @@ export function endMatch(ctx: Ctx, winner: SideKey | null, finish: FinishType, m
     } else if (finish === 'SUBMISSION') {
       say(ctx, LINES.subWin, { a: winner, m: move?.name ?? '', vars: { x: S[loser!].w.name.toUpperCase() } }, 'hl');
       flash(ctx, 'Tap out', true);
-    } else flash(ctx, 'Count out', true);
+    } else flash(ctx, FINISH_FLASH[finish] ?? 'Winner', true);
   } else flash(ctx, 'No contest', true);
   crowdObserve(ctx, { type: 'match_end' });
   render(ctx);

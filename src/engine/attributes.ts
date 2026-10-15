@@ -27,7 +27,8 @@ export function moveAttributeProfile(attacker: Side, move: Move | null): MoveAtt
   const str = attributeDelta(st.strength), spd = attributeDelta(st.speed), skl = attributeDelta(st.skill), stk = attributeDelta(st.striking);
   let dmg = 1, win = 0, speed = 1, ctrl = 0;
   if (move) {
-    if (move.strike || move.type === 'STRIKE') {
+    if (move.type === 'WEAPON') dmg *= 1 + str * 0.06 + stk * 0.04;
+    else if (move.strike || move.type === 'STRIKE') {
       dmg *= 1 + stk * 0.1;
       win += stk * 4;
     } else if (move.type === 'GRAPPLE') {

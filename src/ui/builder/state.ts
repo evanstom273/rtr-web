@@ -1,5 +1,6 @@
 import { findWrestler } from '../../data/rtr';
 import { store } from '../../storage/storage';
+import type { StipulationId } from '../../engine';
 import type { TeamKey } from './useDragSort';
 
 /** Everything the match builder remembers between visits. */
@@ -13,6 +14,13 @@ export interface BuilderState {
   actionClock: number;
   countOuts: boolean;
   countOutLimit: number;
+  stipulation: StipulationId;
+  dq: boolean;
+  ironManMinutes: number;
+  ladderPrize: 'Championship' | 'Briefcase';
+  cageEscape: boolean;
+  cagePins: boolean;
+  cageSubs: boolean;
 }
 
 const KEY = 'rtr-builder';
@@ -20,6 +28,7 @@ export const MAX_TEAM = 4;
 
 export const DEFAULT_BUILDER: BuilderState = {
   teams: { A: [], B: [] }, locked: { A: false, B: false }, event: 'auto', titleId: '', actionClock: 20, countOuts: true, countOutLimit: 10,
+  stipulation: 'standard', dq: true, ironManMinutes: 20, ladderPrize: 'Briefcase', cageEscape: true, cagePins: true, cageSubs: true,
 };
 
 export function loadBuilder(): BuilderState {

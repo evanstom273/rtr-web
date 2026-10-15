@@ -25,10 +25,14 @@ export function App() {
       you, them,
       rules: {
         actionClock: builder.actionClock, countOuts: builder.countOuts, countOutLimit: builder.countOutLimit,
+        stipulation: builder.stipulation, dq: builder.dq, ironManMinutes: builder.ironManMinutes, ladderPrize: builder.ladderPrize,
+        cageEscape: builder.cageEscape, cagePins: builder.cagePins, cageSubs: builder.cageSubs,
         title: !!builder.titleId, titleId: builder.titleId || undefined,
         eventPromotion: builder.event === 'auto' ? undefined : builder.event,
       },
     });
+    // Dev only: lets the screenshot scripts poke at a live match.
+    if (import.meta.env.DEV) (window as unknown as { __rtr: MatchEngine }).__rtr = engine;
     setScreen({ name: 'match', engine });
   }, [builder]);
 

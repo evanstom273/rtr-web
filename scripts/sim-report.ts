@@ -31,7 +31,7 @@ for (const [name, model] of models) {
     const R = r.result!;
     const k = R.finish === 'SUBMISSION' ? (R.byFin ? 'Submission (finisher)' : 'Submission (hold)')
       : R.finish === 'PINFALL' ? (R.byFin ? 'Pin after finisher' : R.byFlash ? 'Flash pin' : R.move ? 'Pin after other move' : 'Pin (cold cover)')
-      : R.finish === 'COUNT_OUT' ? 'Count-out' : 'Double count-out';
+      : R.finish === 'COUNT_OUT' ? 'Count-out' : R.finish === 'DOUBLE_COUNT_OUT' ? 'Double count-out' : R.finish === 'DISQUALIFICATION' ? 'Disqualification' : R.finish;
     finish[k] = (finish[k] ?? 0) + 1;
   }
   console.log('\n| Finish | Matches |\n|---|---|');

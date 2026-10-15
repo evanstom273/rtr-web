@@ -12,6 +12,22 @@ export const BARRIER = { x: 120, y: 12, w: 280, h: 276 };
 export const CENTRE = { x: MAT.x + MAT.w / 2, y: MAT.y + MAT.h / 2 };
 
 export type Pt = { x: number; y: number };
+
+/** Where an object lying or standing in an area is drawn. i spreads several apart. */
+export function objectAnchor(area: Area, state: string, i: number): Pt {
+  const cx = CENTRE.x, cy = CENTRE.y;
+  switch (area) {
+    case 'IN_RING':
+      if (state === 'corner') return { x: POSTS.SE.x - 14, y: POSTS.SE.y - 14 };
+      if (state === 'ladder') return { x: cx, y: cy };
+      return { x: cx + (i % 2 ? 46 : -46), y: cy + 58 - Math.floor(i / 2) * 22 };
+    case 'OUTSIDE': return { x: cx - 70 + (i % 5) * 34, y: BARRIER.y + BARRIER.h - 13 };
+    case 'RAMP': return { x: 74, y: cy + 22 };
+    case 'CROWD': return { x: 424, y: cy + 30 };
+    case 'BACKSTAGE': return { x: 14, y: cy + 30 };
+    default: return { x: cx, y: cy + 40 };
+  }
+}
 type Vert = 'N' | 'S';
 
 export const POSTS: Record<'NW' | 'NE' | 'SE' | 'SW', Pt> = {
@@ -60,6 +76,9 @@ function soloAnchor(k: SideKey, s: Snapshot, m: Memory): Pt {
     case 'RAMP': return { x: 90, y: CENTRE.y + (k === 'you' ? 9 : -9) };
     case 'CROWD': return { x: 424, y: cy + vy * 60 };
     case 'BACKSTAGE': return { x: 12, y: cy };
+    // On the ladder (drawn in the middle of the ring) or up the side of the cage.
+    case 'LADDER': return { x: cx + hx * 6, y: cy - 10 };
+    case 'CAGE': return { x: cx + hx * 40, y: APRON.y - 3 };
     default: return { x: cx + hx * 20, y: cy };
   }
 }

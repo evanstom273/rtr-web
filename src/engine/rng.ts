@@ -26,3 +26,6 @@ export function pick<T>(rnd: Rng, arr: readonly T[]): T {
 
 /** Godot randf_range. */
 export const randRange = (rnd: Rng, a: number, b: number): number => a + rnd() * (b - a);
+
+/** Godot randi_range: an integer in [a, b]. */
+export const randInt = (rnd: Rng, a: number, b: number): number => a + Math.floor(rnd() * (b - a + 1));

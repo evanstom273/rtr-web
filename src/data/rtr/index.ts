@@ -1,8 +1,9 @@
 import movesJson from './moves.json';
 import promotionsJson from './promotions.json';
 import titlesJson from './titles.json';
+import weaponsJson from './weapons.json';
 import wrestlersJson from './wrestlers.json';
-import type { Move, Promotion, Title, Wrestler } from './types';
+import type { Move, Promotion, Title, Weapon, Wrestler } from './types';
 
 export * from './types';
 
@@ -10,6 +11,7 @@ export const MOVES = movesJson as Move[];
 export const WRESTLERS = wrestlersJson as Wrestler[];
 export const PROMOTIONS = promotionsJson as Promotion[];
 export const TITLES = titlesJson as Title[];
+export const WEAPONS = weaponsJson as Weapon[];
 
 const moveById = new Map(MOVES.map((m) => [m.id, m]));
 const wrestlerById = new Map(WRESTLERS.map((w) => [w.id, w]));
@@ -19,6 +21,14 @@ export function getMove(id: string): Move {
   const m = moveById.get(id);
   if (!m) throw new Error(`Unknown move ${id}`);
   return m;
+}
+
+const weaponById = new Map(WEAPONS.map((w) => [w.id, w]));
+
+export function getWeapon(id: string): Weapon {
+  const w = weaponById.get(id);
+  if (!w) throw new Error(`Unknown weapon ${id}`);
+  return w;
 }
 
 export function findWrestler(id: string): Wrestler | undefined {

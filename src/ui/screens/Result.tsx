@@ -16,7 +16,11 @@ function Stars({ x }: { x: number }) {
   );
 }
 
-const FINISH: Record<string, string> = { PINFALL: 'Pinfall', SUBMISSION: 'Submission', COUNT_OUT: 'Count-out', DOUBLE_COUNT_OUT: 'Double count-out' };
+const FINISH: Record<string, string> = {
+  PINFALL: 'Pinfall', SUBMISSION: 'Submission', COUNT_OUT: 'Count-out', DOUBLE_COUNT_OUT: 'Double count-out',
+  DISQUALIFICATION: 'Disqualification', TABLES: 'Through a table', LADDER: 'Ladder retrieval', CAGE_ESCAPE: 'Cage escape',
+  TEN_COUNT: 'Ten count', I_QUIT: 'I quit', TIME_DECISION: 'Time limit',
+};
 
 interface Props {
   S: MatchState;
@@ -52,7 +56,8 @@ export function Result({ S, rating: r, hits, onRematch, onNewMatch }: Props) {
         </h2>
         <p className="verdict">
           {FINISH[R.finish]}
-          {R.move ? `, ${R.move.name}` : ''}, {fmtClock(R.t)}. {r.verdict}
+          {R.move ? `, ${R.move.name}` : ''}
+          {R.score && R.winner && R.loser ? ` (${R.score[R.winner]}–${R.score[R.loser]} in falls)` : ''}, {fmtClock(R.t)}. {r.verdict}
         </p>
         <Ropes />
         <div className="break">

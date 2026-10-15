@@ -1,6 +1,6 @@
 import { AREA_LABEL, MOTION_LABEL, ORIENTATION_LABEL, POSITION_LABEL } from '../../data/commentary';
 import type { Wrestler } from '../../data/rtr';
-import { MAX_FINISHER_STOCK, SIGNATURE_MOMENTUM, type BodyPart, type Part, type SideView } from '../../engine';
+import { BLEED_WORDS, MAX_FINISHER_STOCK, SIGNATURE_MOMENTUM, WARNING_LIMIT, type BodyPart, type Part, type SideView } from '../../engine';
 import { Mannequin } from '../common/Mannequin';
 import { Name } from '../common/Name';
 import { classNames } from '../format';
@@ -29,6 +29,9 @@ export function WrestlerCard({ w, v, active, focus, onPick, onSpecials }: Props)
         <span>{classNames(w.classes)}</span>
         <span className={`band b-${v.exhaustion.toLowerCase()}`}>{v.exhaustion}</span>
         {v.resiliencyAvailable && <span className="resil" title="One-use Resiliency: survive a three or a tap">RES</span>}
+        {v.held && <span className="held" title="Holding">{v.held}</span>}
+        {v.bleeding > 0 && <span className={`bleed b${v.bleeding}`} title="Bleeding: tires them out and weakens their defence">{BLEED_WORDS[v.bleeding]} cut</span>}
+        {v.warnings > 0 && <span className="warn-pts" title="Referee warnings: four is a disqualification">{v.warnings}/{WARNING_LIMIT} warned</span>}
       </div>
       <div className="cbody">
         <Mannequin hp={v.hp} focus={focus} onPick={onPick} className="fig" />

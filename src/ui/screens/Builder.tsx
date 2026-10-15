@@ -7,6 +7,7 @@ import { Profile } from '../builder/Profile';
 import {
   CLASSES, COUNTRIES, NO_FILTERS, PROMOTION_LIST, SORTS, TITLE_LIST, activeFilterCount, filterRoster, sortValue, type Filters, type SortMode,
 } from '../builder/roster';
+import { IRON_MAN_MINUTES, STIPULATIONS, rulesEditable, stipulation, type StipulationId } from '../../engine';
 import { MAX_TEAM, type BuilderState } from '../builder/state';
 import { useDragSort, type DragItem, type DropTarget, type TeamKey } from '../builder/useDragSort';
 import { Name } from '../common/Name';
@@ -95,7 +96,12 @@ export function Builder({ state: s, hits, onChange, onStart }: Props) {
   const nFilters = activeFilterCount(f);
   const eventLabel = s.event === 'auto' ? 'Auto event' : s.event === '' ? 'Independent' : s.event;
   const titleName = titleValid && s.titleId ? titles.find((t) => t.id === s.titleId)?.name : '';
-  const summary = `${s.countOuts ? `Count-outs (${s.countOutLimit})` : 'No count-outs'} · ${s.actionClock}s · ${eventLabel}${titleName ? ` · ${titleName}` : ''}`;
+  const stip = stipulation(s.stipulation);
+  const editable = rulesEditable(s.stipulation);
+  const countOuts = editable ? s.countOuts && stip.countOuts : stip.countOuts;
+  const dq = editable ? s.dq && stip.dq : stip.dq;
+  const stipLabel = s.stipulation === 'iron_man' ? `${stip.name} (${s.ironManMinutes} min)` : stip.name;
+  const summary = `${stipLabel} · ${countOuts ? `Count-outs (${s.countOutLimit})` : 'No count-outs'} · ${s.actionClock}s · ${eventLabel}${titleName ? ` · ${titleName}` : ''}`;
   const sortShort = SORTS.find((x) => x.id === f.sort)?.short;
 
   const team = (t: TeamKey) => (
@@ -146,15 +152,72 @@ export function Builder({ state: s, hits, onChange, onStart }: Props) {
         {showRules && (
         <div className="bd-panel bd-rules">
           <div className="bd-row">
+            <span className="bd-label">Match</span>
+            <select value={s.stipulation} onChange={(e) => set({ stipulation: e.target.value as StipulationId })} aria-label="Stipulation">
+              {STIPULATIONS.map((x) => (
+                <option key={x.id} value={x.id}>
+                  {x.name}
+                </option>
+              ))}
+            </select>
+            <span className="bd-blurb">{stip.blurb}</span>
+          </div>
+          {(s.stipulation === 'iron_man' || s.stipulation === 'ladder' || s.stipulation === 'steel_cage') && (
+            <div className="bd-row">
+              <span className="bd-label" />
+              {s.stipulation === 'iron_man' && (
+                <label className="bd-limit">
+                  Time limit
+                  <select value={s.ironManMinutes} onChange={(e) => set({ ironManMinutes: Number(e.target.value) })}>
+                    {IRON_MAN_MINUTES.map((m) => (
+                      <option key={m} value={m}>
+                        {m} min
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {s.stipulation === 'ladder' && (
+                <label className="bd-limit">
+                  Hanging above the ring
+                  <select value={s.titleId ? 'Championship' : s.ladderPrize} disabled={!!s.titleId}
+                    onChange={(e) => set({ ladderPrize: e.target.value as BuilderState['ladderPrize'] })}>
+                    <option value="Briefcase">A briefcase</option>
+                    <option value="Championship">The championship</option>
+                  </select>
+                </label>
+              )}
+              {s.stipulation === 'steel_cage' && (
+                <>
+                  <label className="tog">
+                    <input type="checkbox" checked={s.cageEscape} onChange={(e) => set({ cageEscape: e.target.checked })} />
+                    Escape wins
+                  </label>
+                  <label className="tog">
+                    <input type="checkbox" checked={s.cagePins} onChange={(e) => set({ cagePins: e.target.checked })} />
+                    Pinfalls
+                  </label>
+                  <label className="tog">
+                    <input type="checkbox" checked={s.cageSubs} onChange={(e) => set({ cageSubs: e.target.checked })} />
+                    Submissions
+                  </label>
+                </>
+              )}
+            </div>
+          )}
+          <div className="bd-row">
             <span className="bd-label">Rules</span>
-            <span className="bd-fixed">Standard</span>
             <label className="tog">
-              <input type="checkbox" checked={s.countOuts} onChange={(e) => set({ countOuts: e.target.checked })} />
+              <input type="checkbox" checked={dq} disabled={s.stipulation !== 'standard'} onChange={(e) => set({ dq: e.target.checked })} />
+              Disqualifications
+            </label>
+            <label className="tog">
+              <input type="checkbox" checked={countOuts} disabled={!editable} onChange={(e) => set({ countOuts: e.target.checked })} />
               Count-outs
             </label>
             <label className="bd-limit">
               Count to
-              <input type="number" min={5} max={20} value={s.countOutLimit} disabled={!s.countOuts}
+              <input type="number" min={5} max={20} value={s.countOutLimit} disabled={!countOuts}
                 onChange={(e) => set({ countOutLimit: Math.max(5, Math.min(20, Number(e.target.value) || 10)) })} />
             </label>
             <label className="bd-limit">

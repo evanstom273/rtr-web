@@ -38,8 +38,11 @@ export function rate(S: MatchState): Rating {
   const payoff = c.limbPayoff || (!!finishPart && finishPart === lossWork.part && lossWork.n >= 4);
   const structure = (c.heatSeg ? 0.3 : 0) + (c.comeback ? 0.5 : 0);
   const psych = (limb.n >= 5 ? 0.25 : 0) + (payoff ? 0.35 : 0) - Math.min(0.6, c.repeats * 0.1) - Math.max(0, c.rest - 3) * 0.08;
-  const drama = Math.min(0.7, c.nf * 0.15) + Math.min(0.7, c.fk * 0.35) + Math.min(0.5, c.finRev * 0.25) + Math.min(0.6, c.reversals * 0.05);
-  const how = R.finish === 'SUBMISSION' ? 'sub' : R.finish === 'PINFALL' ? 'pin' : 'countout';
+  // Stipulation drama: climbs stopped, pulls at the prize, ten counts beaten, refusing to quit, falls.
+  const stipDrama = Math.min(0.6, c.climbStops * 0.15 + c.ladderPulls * 0.05 + c.cageClimbs * 0.06 + c.tenCounts * 0.12 + c.nearQuits * 0.2 + c.falls * 0.12);
+  const drama = Math.min(0.7, c.nf * 0.15) + Math.min(0.7, c.fk * 0.35) + Math.min(0.5, c.finRev * 0.25) + Math.min(0.6, c.reversals * 0.05) + stipDrama;
+  const how = R.finish === 'SUBMISSION' || R.finish === 'I_QUIT' ? 'sub' : R.finish === 'PINFALL' ? 'pin'
+    : R.finish === 'COUNT_OUT' || R.finish === 'DOUBLE_COUNT_OUT' ? 'countout' : R.finish === 'DISQUALIFICATION' ? 'dq' : 'stip';
   let finish = 0;
   if (R.byFin && mins >= 10) finish += 0.4;
   if (R.byFin && R.afterFk) finish += 0.25;
@@ -47,7 +50,11 @@ export function rate(S: MatchState): Rating {
   if (mins < 6 && !R.byFin) finish -= 0.5;
   if (how === 'sub' && payoff) finish += 0.1;
   if (how === 'countout') finish -= 0.3;
-  const spots = Math.min(0.3, c.high * 0.06) + (c.spots > 0 ? 0.1 : 0);
+  if (how === 'dq') finish -= 0.4;
+  if (how === 'stip' && mins >= 10) finish += 0.3;
+  // Hardcore: tables broken, weapon shots, blood.
+  const hardcore = Math.min(0.6, (c.tableBreaks * 2 + c.weaponHits + c.bleeds * 1.5) * 0.08);
+  const spots = Math.min(0.3, c.high * 0.06) + (c.spots > 0 ? 0.1 : 0) + hardcore;
   const length = mins < 6 ? -0.6 : mins < 10 ? -0.25 : mins <= 28 ? 0.2 : mins <= 35 ? 0 : -0.2;
   const raw = 0.5 + crowd + structure + psych + drama + finish + spots + length + (S.rules.title ? 0.1 : 0);
   const stars = clamp(Math.round(raw * 4) / 4, 0.25, 5);
@@ -62,6 +69,8 @@ export function rate(S: MatchState): Rating {
   ];
   const finishNote =
     how === 'countout' ? 'Decided on the floor. Not the finish anyone came to see.'
+    : how === 'dq' ? T.finish.dq
+    : how === 'stip' ? (T.finish.stip[R.finish as keyof typeof T.finish.stip] ?? T.finish.plain)
     : R.byFin && R.afterFk ? T.finish.afterFk
     : R.byFin && mins >= 10 ? T.finish.earned
     : R.byFin ? T.finish.tooSoon
@@ -91,9 +100,11 @@ export function rate(S: MatchState): Rating {
     rec.push(format(T.recap.won, {
       w: W.w.name,
       t: fmtClock(R.t),
-      how: how === 'countout' ? ' by count-out' : R.move ? format(T.recap.wonWithMove, { move: R.move.name }) : T.recap.wonPin,
-      sub: how === 'sub' ? T.recap.wonSub : '',
+      how: T.recap.wonBy[R.finish as keyof typeof T.recap.wonBy]
+        ?? (how === 'countout' ? ' by count-out' : R.move ? format(T.recap.wonWithMove, { move: R.move.name }) : T.recap.wonPin),
+      sub: how === 'sub' && R.finish !== 'I_QUIT' ? T.recap.wonSub : '',
     }));
   } else rec.push(`Neither wrestler beat the count. Double count-out at ${fmtClock(R.t)}.`);
+  if (R.score) rec.splice(rec.length - 1, 0, format(T.recap.falls, { s: `${R.score.you}–${R.score.them}` }));
   return { raw, stars, parts, label, verdict, recap: rec.join(' ') };
 }
