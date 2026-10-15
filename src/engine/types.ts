@@ -173,15 +173,17 @@ export interface KickoutSpec {
   forgiveness: number;
 }
 
-/** Player landed a pin combo / flash pin: tap again to make the cover stick (web addition). */
-export interface CoverSpec {
+/** Player landed a pin combo / flash pin: cover now, or keep the upper hand (web addition). */
+export interface PinChoiceSpec {
   id: number;
   moveId: string;
   moveName: string;
-  /** Success band as % of the shrink range (same ring as reversals, centred at `target`). */
-  window: number;
-  timeLimit: number;
-  target: number;
+  /** Chance (0–100) they stay down for three, before any Resiliency. */
+  odds: number;
+  /** One word for the opponent's condition: fresh / holding up / worn / wrecked. */
+  condition: string;
+  /** The opponent still has their one-use Resiliency. */
+  resiliency: boolean;
 }
 
 /** A hold has landed for the player: go for the tap (the tug) or work the hold (web addition). */
@@ -247,7 +249,7 @@ export type Pending =
   | { kind: 'refCount'; id: number; pinner: SideKey; kickoutAt: 1 | 2 | 3 | null }
   | { kind: 'sub'; spec: SubSpec }
   | { kind: 'resiliency'; id: number; threat: 'pinfall' | 'submission' }
-  | { kind: 'cover'; spec: CoverSpec }
+  | { kind: 'pinChoice'; spec: PinChoiceSpec }
   | { kind: 'subChoice'; spec: SubChoiceSpec }
   | { kind: 'over' };
 

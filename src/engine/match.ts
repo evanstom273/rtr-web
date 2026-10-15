@@ -5,17 +5,18 @@ import { say } from './commentary';
 import type { Ctx, EngineHooks } from './ctx';
 import { finalise, render, runNeutralRecovery, schedule, setControl } from './flow';
 import { aiWantsPush, applyPending, rollPending } from './contest';
-import { executeMove, moveIsValid, resolveCover, validMoves } from './moves';
-import { canPin, completeKickout, pinThree, startPin, useResiliency } from './pin';
+import { executeMove, moveIsValid, resolvePinChoice, validMoves } from './moves';
+import { canPin, completeKickout, pinOdds, pinThree, startPin, useResiliency } from './pin';
 import { mathRng, seededRng, type Rng } from './rng';
 import { executeSetup, validSetups } from './setups';
 import { moveMatchesSnapshots } from './setupRules';
 import { canUseMove } from './side';
+import { specialsFor, type SpecialInfo } from './specials';
 import { createState } from './state';
 import { aiGoesForTap, beginSubmission, resolveSubmission, startSubmission, submissionTick, workTheHold } from './submission';
 import { resolveTarget } from './targeting';
 import { endMatch } from './flow';
-import type { Cont, KickoutCount, MatchRulesConfig, MatchState, Move, SetupId, SubOutcome, TargetResolution } from './types';
+import type { SideKey, Cont, KickoutCount, MatchRulesConfig, MatchState, Move, SetupId, SubOutcome, TargetResolution } from './types';
 
 export interface MatchConfig {
   you: string;
@@ -96,6 +97,10 @@ export class MatchEngine {
     if ((move.submission || move.type === 'SUBMISSION') && (S.you.state.area !== 'IN_RING' || S.them.state.area !== 'IN_RING')) return 'Submissions need both of you in the ring';
     if (!canUseMove(S.you, move)) return move.finisher || S.you.finishers.includes(move) ? 'Land a signature to bank a finisher' : 'Fill your momentum first';
     return null;
+  }
+  /** Signatures and finishers for either side: readiness, positions and the route there. */
+  specials(k: SideKey): SpecialInfo[] {
+    return specialsFor(this.state, k);
   }
   canPin(): boolean {
     return this.playerTurn && canPin(this.state, 'you');
@@ -227,14 +232,25 @@ export class MatchEngine {
     });
   }
 
-  /** Pin-combo cover press: did the player hit the ring? */
-  resolveCover(hit: boolean): boolean {
+  /** Pin combo landed: cover now, or keep the upper hand. */
+  resolvePinChoice(cover: boolean): boolean {
     const p = this.state.pending;
-    if (p.kind !== 'cover') return false;
+    if (p.kind !== 'pinChoice') return false;
     return this.act(() => {
       this.state.pending = { kind: 'idle' };
-      resolveCover(this.ctx, getMove(p.spec.moveId), hit);
+      resolvePinChoice(this.ctx, getMove(p.spec.moveId), cover);
     });
+  }
+
+  /** What the AI would do in the player's shoes (headless play): cover when it's a real chance. */
+  autoPinChoice(): boolean {
+    const p = this.state.pending;
+    return p.kind === 'pinChoice' && p.spec.odds >= 20;
+  }
+
+  /** The player's chance (0–100) to get the three with a cover right now, or null if they can't pin. */
+  pinOdds(): number | null {
+    return this.canPin() ? pinOdds(this.state, 'you', false) : null;
   }
 
   /** A hold has landed: go for the tap, or work the hold and keep control. */

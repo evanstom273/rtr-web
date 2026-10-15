@@ -24,18 +24,20 @@ chants) and the star rating are kept, fed by RtR events.
 
 ### Contested rolls (the web version's own system)
 
-Every move attempt and contested setup is a d20-vs-d20 contest (`dice.ts`, `contest.ts`), shown in
+Every move attempt and contested setup is a contested roll (`dice.ts`, `contest.ts`): the attacker
+rolls a **d20**, the defender a **d16** (Lyra: d20 against d20 felt too even). It's shown in
 full on screen. Both sides roll the same way, so the AI's only job is choosing well. Godot had the
 AI never press anything, which is why the player won 95% of matches. The hands-on interactions
-stay where they feel like wrestling: the kickout hold, the submission tug and the pin-combo cover.
+stay where they feel like wrestling: the kickout hold and the submission tug. Pin combos and holds
+end in a choice card instead of a timing test.
 
 - **Highest total wins; the attacker wins ties.** Naturals beat totals, in this order: attacker 1
-  (botch; on a high-risk move that's a crash), defender 20 (reversal; reversing a finisher banks a
+  (botch; on a high-risk move that's a crash), defender 16 (reversal; reversing a finisher banks a
   finisher as before), attacker 20 (critical: ×1.5 damage), defender 1 (lands).
 - **Attacker modifiers:**
   - the stat the move uses (Strike → Striking, Grapple → Strength, Submission/Pinning → Skill,
     Aerial/Springboard/Running → Speed), at `round((stat − 70) / 7)`
-  - +2 initiative and momentum ÷ 25
+  - +2 initiative on moves (not setups), and momentum ÷ 25
   - +1 when the move suits their classes; +2 for a finisher, +1 for a signature
   - −2 high risk, −1 big move (impact 9+), +1 quick move (impact 3 or less)
   - the targeted part worn down: +1 / +2 / +3 below 75 / 50 / 25 HP
@@ -60,10 +62,9 @@ stay where they feel like wrestling: the kickout hold, the submission tug and th
   The AI pushes on signatures and finishers, when desperate on defence, and on close calls with
   momentum to spare (about 8% of rolls).
 - **Typical odds** in headless matches:
-  - ordinary moves land 52–89% (median 74%)
-  - setups 48–83% (median 67%)
-  - signatures ~89% and finishers ~85%
-  - about 1 roll in 10 has a natural 20 on one side or the other
+  - ordinary moves land 61–93% (median 83%), so about 1 in 6 is reversed
+  - setups 43–85% (median 68%); positioning someone stays a struggle
+  - signatures ~88% and finishers ~86%
 - **Submissions follow condition too:**
   - a fresh defender takes the edge off the hold: the attacker's tug score is scaled from ×0.75
     when the defender is fresh to ×1.14 when they're wrecked
@@ -104,10 +105,16 @@ because limb work feeds the story score.
   finisher is ~40% on a fresh wrestler and ~85% once they've been worked over. It feeds the
   player's kickout window too (wider when fresh). A player who pins at every chance went from a
   2.7-minute median match (170/200 under five minutes) to 11 minutes (44/200).
-- **Pin combos need a second press (Lyra's idea).** When the player lands a pin combo or flash
-  pin, a quick cover ring follows (no 3-2-1, 1.15s, band 12–26% shrinking with exhaustion). Hit
-  it and the pin goes ahead; miss and there's no cover, but the player keeps the upper hand. The
-  AI's pin combos still cover automatically.
+- **Pin combos are a choice (Lyra's idea).** When the player lands a pin combo or flash pin, a
+  card asks: hook the leg, or keep the upper hand? It shows the exact chance of the three (the same
+  maths the cover uses, before any Resiliency), how the opponent looks, and whether they still have
+  Resiliency. Covering and getting a kickout sends the match neutral; passing keeps control. The Pin
+  button on the dock shows the same odds for a cold cover. The AI's pin combos still cover
+  automatically. (This replaced an earlier timing ring you could fail.)
+- **No random loss of control.** Godot rolled after every landed non-basic move for a tired
+  attacker to "fail to maintain control" (up to 40%), sending the match neutral so the defender
+  could take over. Removed: land it and you keep it. When both wrestlers end up on the mat, the
+  one who landed the move gets up first 90% of the time (Godot: 80%).
 - **Two AI loop fixes.** In Godot the AI can keep picking a "ready special" setup (e.g. pick the
   opponent up to hit a signature) forever because the opponent reverses or falls back down. Headless
   matches ran to 351 minutes. The AI now skips that setup path after three setup actions in a row,
@@ -134,16 +141,24 @@ because limb work feeds the story score.
     fades. Then come the totals and a verdict (It lands / Reversed! / Critical! / Natural 20! /
     Botch!), held for about 1.25s; tap to skip.
   - Every roll goes in the commentary log too.
-- **Hands-on bits kept**, all with Godot's lead-in and 3-2-1 countdown (0.3s per beat):
+- **Hands-on bits kept** (both with Godot's lead-in and 3-2-1 countdown, 0.3s per beat):
   - Kickout: hold-and-release, 2.7s fill, 3s to three, retry on a miss, overfilling wastes the
     attempt.
   - Submissions: the tug, 8 taps/s cap, AI pulses every 0.2s, 30s stall failsafe.
-  - Pin-combo cover: a quick shrinking ring, with no countdown.
 - **Move wheel.** Radial categories as in Godot, each showing how many moves are ready from the
   current positions. Weapons, Environment and Reversals are left off the wheel until those systems
   exist. The move grid shows (F)/SIG markers, the target tag and that part's HP with the current
   focus applied, and greys out locked signatures and finishers with the reason.
 - **Target focus.** Chips in the move grid, or tap a body part on the opponent's card.
+- **Signatures & finishers sheet.** Tap the FIN row ("Specials ›") on either wrestler's card, at
+  any point in the match. Each special shows:
+  - whether it's ready, and if not, what it needs (momentum, a banked finisher)
+  - the positions both wrestlers need
+  - whether those fit right now, and if not, the shortest setup route (up to three steps, starting
+    with getting up yourself if you need to), or a hint when a move is needed instead
+  - a button to hit it, on your turn when it's on
+
+  The opponent's tab shows what they're building towards.
 - **Ring view.** SVG, top-down: ring, apron, barrier, ramp and crowd. Positions come from the
   four-part state, resolved for the pair together, so an attacker stands next to someone in the
   corner or on the apron. The player is a circle and the AI a diamond, coloured face blue / heel
@@ -160,13 +175,14 @@ because limb work feeds the story score.
 ### Headless simulation
 
 `npm run sim` (`scripts/sim-report.ts`) plays 300 random roster pairings per model. Both sides are
-chosen by the AI, including when to push. The hit model only covers what's still hands-on: the
-cover, the kickout and the mash rate (6 taps/s). Every match finishes, nothing gets stuck and the
+chosen by the AI, including when to push, whether to crank a hold and whether to cover (when the
+odds are at least 20%). The hit model only covers what's still hands-on: the kickout and the mash
+rate (6 taps/s). Every match finishes, nothing gets stuck and the
 AI makes no invalid choices.
 
 Things worth knowing:
 
-- **Median match is ~20 minutes**, and about 1 in 10 is under 10 minutes.
+- **Median match is ~19 minutes**, and about 1 in 10 is under 10 minutes.
 - **The player side wins ~50–60%** when it plays exactly like the AI (the edge is probably the hands-on kickout; not confirmed). That's the point of the dice:
   the edge is in your choices now, not your thumb.
 - **Submissions end about half of these matches.** Partly that's the roster: 58% are Technicians,
@@ -180,53 +196,53 @@ Things worth knowing:
 
 #### Steady hands (cover/kickout timing σ = 70ms) — 300/300 matches finished
 
-Length (min): p10 10.0, median 20.3, p90 33.3, max 74.3
+Length (min): p10 10.0, median 19.7, p90 31.3, max 57.7
 
 | Length | Matches |
 |---|---|
-| < 5 min | 1.0% |
-| 5–8 min | 2.3% |
-| 8–25 min | 66.3% |
-| 25–40 min | 28.3% |
+| < 5 min | 1.3% |
+| 5–8 min | 3.7% |
+| 8–25 min | 69.0% |
+| 25–40 min | 24.0% |
 | > 40 min | 2.0% |
 
 | Finish | Matches |
 |---|---|
-| Submission (hold) | 51.0% |
-| Pin after other move | 22.0% |
-| Pin (cold cover) | 10.3% |
-| Flash pin | 10.0% |
-| Pin after finisher | 3.7% |
-| Submission (finisher) | 3.0% |
+| Submission (hold) | 48.3% |
+| Pin after other move | 17.0% |
+| Flash pin | 14.7% |
+| Pin (cold cover) | 7.3% |
+| Submission (finisher) | 6.7% |
+| Pin after finisher | 6.0% |
 
-Winner: player side 60.0%, AI side 40.0%
-Stars: mean 2.81, median 2.75, p10 2, p90 3.75
-Engine steps per match: median 138, max 467. Stuck: 0. Invalid AI choices: 0
+Winner: player side 56.3%, AI side 43.7%
+Stars: mean 2.91, median 3, p10 2, p90 3.75
+Engine steps per match: median 134, max 350. Stuck: 0. Invalid AI choices: 0
 
 #### Casual (cover/kickout timing σ = 120ms) — 300/300 matches finished
 
-Length (min): p10 9.7, median 19.7, p90 31.7, max 76.7
+Length (min): p10 9.3, median 18.7, p90 29.7, max 57.7
 
 | Length | Matches |
 |---|---|
-| < 5 min | 1.0% |
-| 5–8 min | 4.7% |
-| 8–25 min | 67.3% |
-| 25–40 min | 25.3% |
-| > 40 min | 1.7% |
+| < 5 min | 2.0% |
+| 5–8 min | 5.3% |
+| 8–25 min | 70.7% |
+| 25–40 min | 20.7% |
+| > 40 min | 1.3% |
 
 | Finish | Matches |
 |---|---|
-| Submission (hold) | 48.7% |
-| Pin after other move | 21.7% |
-| Pin (cold cover) | 12.7% |
-| Flash pin | 10.0% |
-| Pin after finisher | 4.0% |
-| Submission (finisher) | 3.0% |
+| Submission (hold) | 43.3% |
+| Pin after other move | 19.7% |
+| Flash pin | 16.3% |
+| Pin (cold cover) | 9.0% |
+| Submission (finisher) | 6.3% |
+| Pin after finisher | 5.3% |
 
-Winner: player side 52.7%, AI side 47.3%
-Stars: mean 2.73, median 2.75, p10 1.5, p90 3.75
-Engine steps per match: median 133, max 473. Stuck: 0. Invalid AI choices: 0
+Winner: player side 51.0%, AI side 49.0%
+Stars: mean 2.83, median 3, p10 1.75, p90 3.75
+Engine steps per match: median 128, max 350. Stuck: 0. Invalid AI choices: 0
 
 ## Legacy: Match of the Night port
 

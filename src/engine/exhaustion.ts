@@ -105,13 +105,6 @@ function finishDefencePenalty(s: S, submission: boolean): number {
 export const kickoutPenalty = (s: S): number => finishDefencePenalty(s, false);
 export const submissionEscapePenalty = (s: S): number => finishDefencePenalty(s, true);
 
-export function controlRetentionChance(s: S, demand: Demand): number {
-  if (demand === 'BASIC') return 100;
-  const x = combinedExhaustion(s);
-  if (demand === 'EXPLOSIVE') return clamp(100 - 40 * x + s.momentum * 0.1, 60, 100);
-  return clamp(100 - 18 * x, 82, 100);
-}
-
 export function recoveryDelayChance(s: S, afterCrash = false): number {
   const x = combinedExhaustion(s);
   let c = 25 * clamp(inverseLerp(0.45, 1, x), 0, 1);

@@ -13,6 +13,7 @@ export function Dock({ engine, onMoves, onSetup }: Props) {
   const mine = S.pending.kind === 'awaitPlayer' && S.control === 'you';
   const ctrl = v.control;
   const chip = S.over ? 'Match over' : ctrl === 'you' ? 'Your control' : ctrl === 'them' ? `${S.them.w.name} in control` : 'Lock up';
+  const odds = mine ? engine.pinOdds() : null;
   const specials = mine ? engine.playerMoves().filter((m) => isFinisherMove(S.you, m) || isSignatureMove(S.you, m)) : [];
   return (
     <div id="dock" className={mine ? 'live' : ''}>
@@ -40,6 +41,7 @@ export function Dock({ engine, onMoves, onSetup }: Props) {
             </button>
             <button className="act pin" disabled={!engine.canPin()} onClick={() => { buzz(); engine.pin(); }}>
               Pin
+              {odds !== null && <span className="pin-odds">{Math.round(odds)}%</span>}
             </button>
           </div>
         </>

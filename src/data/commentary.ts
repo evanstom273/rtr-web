@@ -33,7 +33,6 @@ export const LINES = {
   lowStamina: '{a} is visibly running out of energy.',
   highFatigue: '{a} is struggling to recover between exchanges.',
   spent: '{a} is completely spent.',
-  cannotMaintain: '{a} cannot maintain control after the effort.',
 
   recoveryDelayed: '{a} tries to recover, but exhaustion keeps them down for another beat.',
   neutralDelayed: '{a} struggles to recover, and neither wrestler can claim control yet.',
@@ -62,7 +61,7 @@ export const LINES = {
   pinHook: '{a} hooks the leg!',
   roll: '{m} — {a} rolls {at} ({ad}{ab}) against {d}\'s {dt} ({dd}{db}).',
   botch: '{a} botches it completely!',
-  coverMissed: '{a} rolls through the {m} but can\'t hold the cover — {d} squirms free!',
+  coverPassed: '{a} rolls through the {m} and doesn\'t bother covering — not yet.',
   pinSurprise: '{a} catches {d} by surprise!',
   count1: 'ONE!',
   count2: 'TWO!',

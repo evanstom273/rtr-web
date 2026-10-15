@@ -1,19 +1,8 @@
 /*
- * Pure physics for the timing interactions that remain (cover ring, kickout hold, submission tug). No timers: callers
+ * Pure physics for the timing interactions that remain (kickout hold, submission tug). No timers: callers
  * supply elapsed time. The UI drives these from requestAnimationFrame; the sim steps them.
  */
 import { clamp, lerp } from './rng';
-
-/* ---------- reversal ring (timing_circle_interaction.gd) ---------- */
-
-/** Remaining ring size, 1 → 0 over the time limit. */
-export const ringProgress = (elapsed: number, timeLimit: number): number => Math.max(0, 1 - elapsed / timeLimit);
-
-/** Did a tap at this progress land in the band? window is % of the shrink range. */
-export const ringHit = (progress: number, target: number, window: number): boolean => Math.abs(progress - target) <= window / 200;
-
-/** Seconds into the shrink when the ring passes the target's centre. */
-export const ringTargetTime = (target: number, timeLimit: number): number => (1 - target) * timeLimit;
 
 /* ---------- kickout hold (hold_release_interaction.gd) ---------- */
 

@@ -1,7 +1,7 @@
 // Contest flow: build the roll, let the player (and the AI) decide on a push, roll, then hand the
 // outcome back to the move or setup that started it.
 import { LINES } from '../data/commentary';
-import { flash, say } from './commentary';
+import { say } from './commentary';
 import type { Ctx } from './ctx';
 import { canPush, landChance, PUSH_COST, rollContest, type ContestSide } from './dice';
 import { finishMove } from './moves';
@@ -50,9 +50,8 @@ export function rollPending(ctx: Ctx, push: boolean): boolean {
       dt: String(roll.defenderTotal), dd: String(roll.defenderKept), db: signed(spec.defend.bonus),
     },
   }, 'dim');
-  if (roll.crit === 'attacker20') flash(ctx, 'Critical!', true);
-  else if (roll.crit === 'defender20') flash(ctx, 'Natural 20!', true);
-  else if (roll.crit === 'attacker1') flash(ctx, 'Botch!');
+  // Naturals are announced by the contest card when the dice land, not here (a flash now would
+  // give the result away while they're still tumbling).
   S.pending = { kind: 'contestRoll', spec, roll };
   return true;
 }
@@ -67,7 +66,7 @@ export function applyPending(ctx: Ctx): boolean {
   S.txn = null;
   const { roll } = p;
   if (roll.crit === 'attacker1' && txn.kind !== 'sub') say(ctx, LINES.botch, { a: txn.k }, 'bad');
-  if (txn.kind === 'move') finishMove(ctx, txn.k, txn.move, !roll.landed, txn.target, roll.crit === 'attacker20');
+  if (txn.kind === 'move') finishMove(ctx, txn.k, txn.move, !roll.landed, txn.target, roll.crit === 'attackerTop');
   else if (txn.kind === 'setup') finishContestedSetup(ctx, txn.k, txn.action, !roll.landed);
   return true;
 }

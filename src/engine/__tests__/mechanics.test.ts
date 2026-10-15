@@ -2,9 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { WRESTLERS, getMove } from '../../data/rtr';
 import { exhaustionBand, moveDemand, staminaCostMultiplier } from '../exhaustion';
 import { canPush, edgeOf, judge, landChance, moveContest } from '../dice';
+import { MatchEngine } from '../match';
 import { lateMatchProfile, pinProfile, submissionContext } from '../interaction';
 import * as ix from '../interactions';
-import { conditionResistance, pinCondition } from '../pin';
+import { conditionResistance, pinCondition, pinOdds } from '../pin';
 import { MAX_FINISHER_STOCK, addMomentum, convertLandedSignature, createSide, damagePart, grantFinisherStock, spendFinisher, totalHp } from '../side';
 import { aiGoesForTap, workHoldDamage } from '../submission';
 import { resolveTarget } from '../targeting';
@@ -69,17 +70,19 @@ describe('contested rolls', () => {
     return { a, d, m, ...moveContest(a, d, m, resolveTarget(m, 'NONE', d.hp)) };
   };
 
-  it('a straight roll with equal bonuses favours the attacker slightly (ties go to the attacker; naturals decide the rest)', () => {
+  it('a straight roll with equal bonuses favours the attacker: their d20 against a d16', () => {
     const { attack, defend } = contestFor();
     attack.bonus = defend.bonus = 0;
     attack.edges = defend.edges = [];
-    expect(landChance(attack, defend)).toBeCloseTo(52, 6);
+    const p = landChance(attack, defend);
+    expect(p).toBeGreaterThan(60);
+    expect(p).toBeLessThan(66);
   });
 
   it('naturals beat totals', () => {
     expect(judge(1, 2, 50, 0)).toEqual({ landed: false, crit: 'attacker1' });
-    expect(judge(19, 20, 50, 0)).toEqual({ landed: false, crit: 'defender20' });
-    expect(judge(20, 19, -50, 0)).toEqual({ landed: true, crit: 'attacker20' });
+    expect(judge(19, 16, 50, 0)).toEqual({ landed: false, crit: 'defenderTop' });
+    expect(judge(20, 15, -50, 0)).toEqual({ landed: true, crit: 'attackerTop' });
     expect(judge(5, 1, -50, 0)).toEqual({ landed: true, crit: 'defender1' });
     expect(judge(10, 12, 3, 1)).toEqual({ landed: true, crit: null });
   });
@@ -115,11 +118,6 @@ describe('contested rolls', () => {
     expect(canPush(a)).toBe(false);
     a.signatureReady = false;
     expect(canPush(a)).toBe(true);
-  });
-
-  it('the cover ring still hit-tests', () => {
-    expect(ix.ringHit(ix.ringProgress(ix.ringTargetTime(0.28, 2), 2), 0.28, 10)).toBe(true);
-    expect(ix.ringHit(0.6, 0.28, 10)).toBe(false);
   });
 });
 
@@ -162,6 +160,23 @@ describe('pins and submissions', () => {
   });
 });
 
+describe('pin odds shown to the player', () => {
+  it('a fresh opponent rarely stays down; a wrecked one usually does', () => {
+    const e = new MatchEngine({ you: WRESTLERS[0]!.id, them: WRESTLERS[1]!.id, seed: 4 });
+    const S = e.state;
+    S.you.momentum = 50;
+    S.you.lastActionResult = 'CLEAN_SUCCESS';
+    S.you.lastMoveLanded = getMove('falcon_arrow');
+    const fresh = pinOdds(S, 'you', true);
+    for (const p of Object.keys(S.them.hp) as (keyof typeof S.them.hp)[]) S.them.hp[p] = 20;
+    S.them.stamina = S.them.maxStamina * 0.15;
+    S.them.fatigue = 85;
+    const wrecked = pinOdds(S, 'you', true);
+    expect(fresh).toBeLessThan(15);
+    expect(wrecked).toBeGreaterThan(70);
+  });
+});
+
 describe('pin resistance comes from damage, not the clock', () => {
   it('a fresh wrestler fights harder than a worn-down one', () => {
     const fresh = side('them', 1), worn = side('them', 2);
@@ -197,5 +212,23 @@ describe('holds: go for the tap or work the hold', () => {
     a.w = { ...a.w, classes: ['TECHNICIAN'] };
     expect(aiGoesForTap(S(a, d), 'them', armbar(), t)).toBe(true);
     expect(workHoldDamage(a, armbar())).toBeGreaterThan(workHoldDamage({ ...a, w: { ...a.w, classes: ['STRIKER'] } }, armbar()));
+  });
+});
+
+describe('signatures and finishers sheet', () => {
+  it('lists both specials kinds with requirements, readiness and a route', () => {
+    const e = new MatchEngine({ you: WRESTLERS[0]!.id, them: WRESTLERS[1]!.id, seed: 3 });
+    const list = e.specials('you');
+    expect(list.filter((s) => s.kind === 'SIGNATURE').length).toBeGreaterThan(0);
+    expect(list.filter((s) => s.kind === 'FINISHER').length).toBeGreaterThan(0);
+    for (const s of list) {
+      expect(s.ready).toBe(false);
+      expect(s.needs).toBeTruthy();
+      expect(s.usable).toBe(false);
+      expect(s.userNeeds.length).toBeGreaterThan(0);
+      if (s.fits) expect(s.route).toEqual([]);
+    }
+    e.state.you.signatureReady = true;
+    expect(e.specials('you').filter((s) => s.kind === 'SIGNATURE').every((s) => s.ready && s.needs === null)).toBe(true);
   });
 });

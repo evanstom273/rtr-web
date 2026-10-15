@@ -1,8 +1,9 @@
 /*
  * Contested rolls: the web version's replacement for the reversal ring and the setup bar.
- * Both wrestlers roll a d20 and add modifiers built from the things the match already tracks
+ * The attacker rolls a d20 and the defender a d16, and moves add +2 initiative on top,
+ * each adding modifiers built from the things the match already tracks
  * (attributes, momentum, exhaustion, the six body parts, position, repetition). Highest total
- * wins; the attacker wins ties. Natural 20s and 1s trump totals. Advantage = roll two, keep the
+ * wins; the attacker wins ties. Naturals (a top roll or a 1) trump totals. Advantage = roll two, keep the
  * higher; disadvantage = keep the lower. Either side can spend momentum to push for advantage.
  */
 import type { BodyPart, Move, MoveType } from '../data/rtr/types';
@@ -28,7 +29,11 @@ export interface ContestSide {
   pushed: boolean;
 }
 
-export type Crit = 'attacker20' | 'attacker1' | 'defender20' | 'defender1' | null;
+export type Crit = 'attackerTop' | 'attacker1' | 'defenderTop' | 'defender1' | null;
+
+/** Die sizes: the attacker's d20 against the defender's d16. */
+export const ATTACK_DIE = 20;
+export const DEFEND_DIE = 16;
 
 export interface ContestRoll {
   /** Dice actually thrown (two with advantage or disadvantage). */
@@ -43,9 +48,8 @@ export interface ContestRoll {
 }
 
 export const PUSH_COST = 20;
-const ATTACK_INITIATIVE = 2;
 
-/** d20-style modifier from a 0–100 attribute: 70 is average (+0), 98 ≈ +4, 35 ≈ −4. */
+/** Dice modifier from a 0–100 attribute: 70 is average (+0), 98 ≈ +4, 35 ≈ −4. */
 export const statMod = (v: number): number => Math.round((v - 70) / 7);
 
 const BAND_PENALTY: Record<ExhaustionBand, number> = { Fresh: 0, Winded: -1, Tired: -2, Exhausted: -3, Spent: -5 };
@@ -121,7 +125,7 @@ export function moveContest(A: Side, D: Side, move: Move, target: TargetResoluti
   const aMods: Mod[] = [], aEdges: ContestSide['edges'] = [];
   const stat = ATTACK_STAT[move.type];
   push(aMods, `${STAT_LABEL[stat]} ${A.w.stats[stat]}`, statMod(A.w.stats[stat]));
-  push(aMods, 'Initiative', ATTACK_INITIATIVE);
+  push(aMods, 'Initiative', 2);
   momentum(aMods, A);
   push(aMods, 'Their style', classCompatible(A, move) || inferredClassCompatible(A, move) ? 1 : 0);
   if (isFinisherMove(A, move)) push(aMods, 'Finisher', 2);
@@ -156,7 +160,6 @@ export function setupContest(A: Side, D: Side, id: SetupId): { attack: ContestSi
   const aMods: Mod[] = [], aEdges: ContestSide['edges'] = [];
   const stat = id === 'taunt' ? 'charisma' : SKILL_SETUPS.has(id) ? 'skill' : 'strength';
   push(aMods, `${STAT_LABEL[stat]} ${A.w.stats[stat]}`, statMod(A.w.stats[stat]));
-  push(aMods, 'Initiative', ATTACK_INITIATIVE);
   momentum(aMods, A);
   push(aMods, 'Opponent down', isDown(D) ? 2 : 0);
   exhaustion(aMods, A, false);
@@ -173,14 +176,15 @@ export function edgeOf(s: ContestSide): -1 | 0 | 1 {
   return n > 0 ? 1 : n < 0 ? -1 : 0;
 }
 
-/** Probability the kept die shows k (1–20). */
-const keptP = (k: number, edge: -1 | 0 | 1): number => (edge === 0 ? 1 / 20 : edge > 0 ? (2 * k - 1) / 400 : (41 - 2 * k) / 400);
+/** Probability the kept die (n faces) shows k. */
+const keptP = (k: number, n: number, edge: -1 | 0 | 1): number =>
+  edge === 0 ? 1 / n : edge > 0 ? (2 * k - 1) / (n * n) : (2 * n + 1 - 2 * k) / (n * n);
 
 /** Who wins a pair of kept dice. */
 export function judge(a: number, d: number, aBonus: number, dBonus: number): { landed: boolean; crit: Crit } {
   if (a === 1) return { landed: false, crit: 'attacker1' };
-  if (d === 20) return { landed: false, crit: 'defender20' };
-  if (a === 20) return { landed: true, crit: 'attacker20' };
+  if (d === DEFEND_DIE) return { landed: false, crit: 'defenderTop' };
+  if (a === ATTACK_DIE) return { landed: true, crit: 'attackerTop' };
   if (d === 1) return { landed: true, crit: 'defender1' };
   return { landed: a + aBonus >= d + dBonus, crit: null };
 }
@@ -189,9 +193,9 @@ export function judge(a: number, d: number, aBonus: number, dBonus: number): { l
 export function landChance(attack: ContestSide, defend: ContestSide): number {
   const ea = edgeOf(attack), ed = edgeOf(defend);
   let p = 0;
-  for (let a = 1; a <= 20; a++) {
-    for (let d = 1; d <= 20; d++) {
-      if (judge(a, d, attack.bonus, defend.bonus).landed) p += keptP(a, ea) * keptP(d, ed);
+  for (let a = 1; a <= ATTACK_DIE; a++) {
+    for (let d = 1; d <= DEFEND_DIE; d++) {
+      if (judge(a, d, attack.bonus, defend.bonus).landed) p += keptP(a, ATTACK_DIE, ea) * keptP(d, DEFEND_DIE, ed);
     }
   }
   return p * 100;
@@ -208,18 +212,18 @@ export function setupLandChance(A: Side, D: Side, id: SetupId): number {
   return landChance(attack, defend);
 }
 
-function throwDice(rnd: Rng, edge: -1 | 0 | 1): { dice: number[]; kept: number } {
-  const d20 = () => 1 + Math.floor(rnd() * 20);
+function throwDice(rnd: Rng, faces: number, edge: -1 | 0 | 1): { dice: number[]; kept: number } {
+  const roll = () => 1 + Math.floor(rnd() * faces);
   if (edge === 0) {
-    const v = d20();
+    const v = roll();
     return { dice: [v], kept: v };
   }
-  const dice = [d20(), d20()];
+  const dice = [roll(), roll()];
   return { dice, kept: edge > 0 ? Math.max(...dice) : Math.min(...dice) };
 }
 
 export function rollContest(rnd: Rng, attack: ContestSide, defend: ContestSide): ContestRoll {
-  const a = throwDice(rnd, edgeOf(attack)), d = throwDice(rnd, edgeOf(defend));
+  const a = throwDice(rnd, ATTACK_DIE, edgeOf(attack)), d = throwDice(rnd, DEFEND_DIE, edgeOf(defend));
   const { landed, crit } = judge(a.kept, d.kept, attack.bonus, defend.bonus);
   return {
     attackerDice: a.dice, defenderDice: d.dice, attackerKept: a.kept, defenderKept: d.kept,
