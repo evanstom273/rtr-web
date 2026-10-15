@@ -13,7 +13,7 @@ import {
 import { afterAction, render, setControl, setResolvedControl } from './flow';
 import { startContest } from './contest';
 import { setupContest } from './dice';
-import { exhaustionCommentary, SUCCESSFUL_MOVE_MOMENTUM, REVERSAL_MOMENTUM, validMoves } from './moves';
+import { exhaustionCommentary, TAUNT_MOMENTUM, REVERSAL_MOMENTUM, validMoves } from './moves';
 import { gainMomentum } from './momentum';
 import { pick } from './rng';
 import { candidateActions, findFollowupPaths, isContested, isRecovery, projectAction } from './setupRules';
@@ -208,7 +208,7 @@ function applySuccessfulTaunt(ctx: Ctx, A: Side): void {
   let reward = A.state.area === 'APRON' ? 3 : A.state.area === 'TOP_ROPE' ? 2 : 4;
   reward *= staminaRecoveryMultiplier(A) * profile.staminaMultiplier;
   recoverStamina(A, reward);
-  gainMomentum(ctx, A.key, Math.max(1, SUCCESSFUL_MOVE_MOMENTUM + profile.momentumBonus));
+  gainMomentum(ctx, A.key, Math.max(1, TAUNT_MOMENTUM + profile.momentumBonus));
 }
 
 function tauntLine(ctx: Ctx, A: Side, D: Side): string {

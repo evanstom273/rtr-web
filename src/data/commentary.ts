@@ -23,6 +23,7 @@ export const LINES = {
   reversal: '{d} counters {m} and takes control.',
   crash: '{a} commits to {m}, but {d} moves clear. {a} crashes hard to the mat.',
   finisherStock: '{a} turns the finisher reversal into finisher stock ({n}/3).',
+  signatureConverted: '{a} cashes in the momentum: finisher banked ({n}/3).',
   finisherUnlocked: '{a} is fired up: the finisher is ready ({n}/3).',
   signatureReady: "{a} has the signature banked.",
   critical: "{d}'s {part} is in critical condition after the sustained punishment.",

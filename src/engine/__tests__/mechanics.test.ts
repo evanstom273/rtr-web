@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { moveIsValid, submissionAreaOk } from '../moves';
+import { canConvert, convertSignature, moveIsValid, submissionAreaOk } from '../moves';
 import { WRESTLERS, getMove } from '../../data/rtr';
 import { exhaustionBand, moveDemand, staminaCostMultiplier } from '../exhaustion';
 import { canPush, edgeOf, judge, landChance, moveContest } from '../dice';
@@ -277,5 +277,22 @@ describe('submissions outside the middle of the ring', () => {
     expect(S.pending.kind).not.toBe('sub');
     const ordinary = S.you.all.find((m) => m.submission && m.req.a.areaMode !== 'SPECIFIC' && m.req.t.areaMode !== 'SPECIFIC');
     if (ordinary) expect(submissionAreaOk(S, 'you', ordinary)).toBe(false);
+  });
+});
+
+describe('cashing in a signature', () => {
+  it('converts 50 momentum into a finisher, only with the momentum and room for one', () => {
+    const e = new MatchEngine({ you: WRESTLERS[0]!.id, them: WRESTLERS[1]!.id, seed: 9 });
+    const ctx = (e as unknown as { ctx: Parameters<typeof convertSignature>[0] }).ctx;
+    const A = e.state.you;
+    A.momentum = 70;
+    expect(canConvert(A)).toBe(true);
+    convertSignature(ctx, 'you');
+    expect(A.momentum).toBe(20);
+    expect(A.finisherStock).toBe(1);
+    expect(canConvert(A)).toBe(false);
+    A.momentum = 90;
+    A.finisherStock = MAX_FINISHER_STOCK;
+    expect(canConvert(A)).toBe(false);
   });
 });

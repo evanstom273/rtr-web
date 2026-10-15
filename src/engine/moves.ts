@@ -14,7 +14,7 @@ import { isHighRisk } from './interaction';
 import { resolvedAttackerArea, resolvedTargetArea } from './areaRules';
 import { moveMatchesSnapshots } from './setupRules';
 import {
-  addFatigue, canUseMove, damagePart, grantFinisherStock, isFinisherMove, isSignatureMove,
+  addFatigue, canUseMove, MAX_FINISHER_STOCK, damagePart, grantFinisherStock, isFinisherMove, isSignatureMove,
   markCrossedThresholds, markRepeatedTargetMilestone, recordMoveUsed, recordTargetResolution, spendFinisher, spendStamina, totalHp, useSignature,
 } from './side';
 import { resolveTarget } from './targeting';
@@ -23,7 +23,11 @@ import { moveContest } from './dice';
 import { gainMomentum } from './momentum';
 import type { ActionResult, MatchState, Move, Side, SideKey, TargetResolution } from './types';
 
-export const SUCCESSFUL_MOVE_MOMENTUM = 10;
+export const SUCCESSFUL_MOVE_MOMENTUM = 15;
+/** Landing a taunt (unchanged when moves went to 15). */
+export const TAUNT_MOMENTUM = 10;
+/** Momentum a landed signature can be cashed in for, for a finisher. */
+export const CONVERT_COST = 50;
 export const REVERSAL_MOMENTUM = 5;
 
 const isInRing = (s: Side) => s.state.area === 'IN_RING';
@@ -117,6 +121,40 @@ export function finishMove(ctx: Ctx, k: SideKey, move: Move, reversed: boolean, 
   }
   exhaustionCommentary(ctx, k);
   render(ctx);
+  if (result === 'CLEAN_SUCCESS' && isSignatureMove(A, move) && canConvert(A)) {
+    // Web addition: a landed signature can cash in 50 momentum for a finisher.
+    if (k === 'you') {
+      S.pending = { kind: 'sigConvert', spec: { id: ++S.seq, moveId: move.id, moveName: move.name, momentum: A.momentum, stock: A.finisherStock, target } };
+      render(ctx);
+      return;
+    }
+    if (aiWantsConvert(A)) convertSignature(ctx, k);
+  }
+  continueAfterMove(ctx, k, move, target, result, embedded);
+}
+
+/** Momentum to cash in, and room for another finisher. */
+export const canConvert = (A: Side): boolean => A.momentum >= CONVERT_COST && A.finisherStock < MAX_FINISHER_STOCK;
+/** The AI (and the headless player) cash in when they have no finisher banked. */
+export const aiWantsConvert = (A: Side): boolean => A.finisherStock === 0;
+
+export function convertSignature(ctx: Ctx, k: SideKey): void {
+  const A = ctx.S[k];
+  gainMomentum(ctx, k, -CONVERT_COST);
+  grantFinisherStock(A);
+  say(ctx, LINES.signatureConverted, { a: k, vars: { n: A.finisherStock } }, 'hl');
+  flash(ctx, 'Finisher banked');
+}
+
+/** The player's call after landing a signature: cash in 50 momentum for a finisher, or keep it. */
+export function resolveSigConvert(ctx: Ctx, move: Move, target: TargetResolution, convert: boolean): void {
+  if (convert) convertSignature(ctx, 'you');
+  const embedded = shouldStartEmbeddedPin(ctx.S, 'you', 'them', move, 'CLEAN_SUCCESS');
+  continueAfterMove(ctx, 'you', move, target, 'CLEAN_SUCCESS', embedded);
+}
+
+function continueAfterMove(ctx: Ctx, k: SideKey, move: Move, target: TargetResolution, result: ActionResult, embedded: boolean): void {
+  const S = ctx.S, dk = other(k);
   if (move.submission && result === 'CLEAN_SUCCESS') return schedule(ctx, { to: 'startSub', k, moveId: move.id, target }, 450);
   if (embedded && k === 'you' && (move.pinningCombo || move.flashPin)) {
     // Web addition: the player decides whether to cover, with the real odds in front of them.
@@ -266,7 +304,7 @@ function applyStaminaFatigueMomentum(ctx: Ctx, k: SideKey, dk: SideKey, move: Mo
     addFatigue(D, 2 + (move.finisher ? 4 : 0));
     gainMomentum(ctx, k, SUCCESSFUL_MOVE_MOMENTUM);
   } else {
-    gainMomentum(ctx, k, -REVERSAL_MOMENTUM);
+    // The defender gains; the attacker no longer loses anything for being reversed.
     gainMomentum(ctx, dk, REVERSAL_MOMENTUM);
   }
 }

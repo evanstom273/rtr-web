@@ -129,6 +129,11 @@ because limb work feeds the story score.
   signature. To earn the same unlock again, momentum has to fall below 25 (signature) or 75
   (finisher) first, so sitting at the top of the bar can't farm specials. Reversing a finisher
   still banks one, as before.
+- **Momentum tweaks (Lyra's call):** a landed move is worth 15 momentum (Godot 10; taunts stay at
+  10), being reversed no longer costs the attacker momentum (Godot −5), and a landed signature
+  offers a choice: cash in 50 momentum for a finisher, or keep it. The AI cashes in when it has no
+  finisher banked. Effect in the sim (600 matches): finishers earned 0.46 → 2.4 a match and used
+  0.37 → 2.0; finisher finishes 15% → 53%; median match 20.3 → 16.7 minutes. Not rebalanced around.
 - **Momentum counts ×0.6 in pin pressure.** It no longer resets when a signature lands, so it runs
   higher late in matches, and at full weight that turned mid-match covers into wins.
 - **Steeper pin condition curve:** `(condition − 35) × 3.2` (was `(condition − 40) × 2`), and the AI's

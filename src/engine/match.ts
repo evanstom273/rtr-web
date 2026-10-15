@@ -5,7 +5,7 @@ import { say } from './commentary';
 import type { Ctx, EngineHooks } from './ctx';
 import { finalise, render, runNeutralRecovery, schedule, setControl } from './flow';
 import { aiWantsPush, applyPending, rollPending } from './contest';
-import { executeMove, moveIsValid, resolvePinChoice, submissionAreaOk, validMoves } from './moves';
+import { aiWantsConvert, executeMove, moveIsValid, resolvePinChoice, resolveSigConvert, submissionAreaOk, validMoves } from './moves';
 import { canPin, completeKickout, pinOdds, pinThree, startPin, useResiliency } from './pin';
 import { mathRng, seededRng, type Rng } from './rng';
 import { executeSetup, validSetups } from './setups';
@@ -244,6 +244,21 @@ export class MatchEngine {
       this.state.pending = { kind: 'idle' };
       resolvePinChoice(this.ctx, getMove(p.spec.moveId), cover);
     });
+  }
+
+  /** A signature has landed: cash in 50 momentum for a finisher, or keep it. */
+  resolveSigConvert(convert: boolean): boolean {
+    const p = this.state.pending;
+    if (p.kind !== 'sigConvert') return false;
+    return this.act(() => {
+      this.state.pending = { kind: 'idle' };
+      resolveSigConvert(this.ctx, getMove(p.spec.moveId), p.spec.target, convert);
+    });
+  }
+
+  /** What the AI would do in the player's shoes (headless play). */
+  autoSigConvert(): boolean {
+    return aiWantsConvert(this.state.you);
   }
 
   /** What the AI would do in the player's shoes (headless play): cover when it's a real chance. */

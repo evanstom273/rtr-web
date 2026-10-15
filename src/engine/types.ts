@@ -190,6 +190,17 @@ export interface PinChoiceSpec {
   resiliency: boolean;
 }
 
+/** A signature has landed for the player: cash in 50 momentum for a finisher, or keep it (web addition). */
+export interface SigConvertSpec {
+  id: number;
+  moveId: string;
+  moveName: string;
+  momentum: number;
+  /** Finishers already banked. */
+  stock: number;
+  target: TargetResolution;
+}
+
 /** A hold has landed for the player: go for the tap (the tug) or work the hold (web addition). */
 export interface SubChoiceSpec {
   id: number;
@@ -254,6 +265,7 @@ export type Pending =
   | { kind: 'sub'; spec: SubSpec }
   | { kind: 'resiliency'; id: number; threat: 'pinfall' | 'submission' }
   | { kind: 'pinChoice'; spec: PinChoiceSpec }
+  | { kind: 'sigConvert'; spec: SigConvertSpec }
   | { kind: 'subChoice'; spec: SubChoiceSpec }
   | { kind: 'over' };
 
