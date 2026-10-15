@@ -240,7 +240,6 @@ const wrestlers = wrestlerFiles.map((file) => {
       if (!id) throw new Error(`${rel}: ${field} references unknown move ${path}`);
       return id;
     });
-  const pop = ['pop_north_america', 'pop_south_america', 'pop_europe', 'pop_asia', 'pop_africa', 'pop_oceania'].map((k) => num(p[k], 0));
   return {
     id: stem(file),
     wrestlerId: num(p.wrestler_id, 0),
@@ -266,7 +265,15 @@ const wrestlers = wrestlerFiles.map((file) => {
       striking: num(p.striking, 10),
       charisma: num(p.charisma, 10),
     },
-    popularity: Math.round(pop.reduce((a, b) => a + b, 0) / 6),
+    popularity: {
+      global: num(p.global_popularity, 0),
+      northAmerica: num(p.pop_north_america, 0),
+      southAmerica: num(p.pop_south_america, 0),
+      europe: num(p.pop_europe, 0),
+      asia: num(p.pop_asia, 0),
+      africa: num(p.pop_africa, 0),
+      oceania: num(p.pop_oceania, 0),
+    },
     moves: movesFrom(p.move_set, 'move_set'),
     signatures: movesFrom(p.signature_moves, 'signature_moves'),
     finishers: movesFrom(p.finisher_moves, 'finisher_moves'),

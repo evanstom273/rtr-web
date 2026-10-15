@@ -1,42 +1,36 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { findWrestler } from '../data/rtr';
 import { fmtClock, MatchEngine } from '../engine';
 import { addHit, loadHits, type Hit } from '../storage/greatestHits';
-import { store } from '../storage/storage';
 import { useBackLayer } from './backStack';
 import { LeavePrompt } from './overlays/LeavePrompt';
 import { Match } from './screens/Match';
 import { Result } from './screens/Result';
-import { Setup, type Picks } from './screens/Setup';
+import { loadBuilder, saveBuilder, type BuilderState } from './builder/state';
+import { Builder } from './screens/Builder';
 
 type Screen = { name: 'setup' } | { name: 'match'; engine: MatchEngine } | { name: 'result'; engine: MatchEngine };
 
-const PICKS_KEY = 'rtr-picks';
-const DEFAULT_PICKS: Picks = { you: 'macho_martinez', them: '', step: 'you', title: false, actionClock: 20, countOuts: true };
-
-function loadPicks(): Picks {
-  const p = { ...DEFAULT_PICKS, ...store.get<Partial<Picks>>(PICKS_KEY, {}) };
-  if (!findWrestler(p.you)) p.you = DEFAULT_PICKS.you;
-  if (p.them && !findWrestler(p.them)) p.them = '';
-  return p;
-}
-
 export function App() {
-  const [picks, setPicks] = useState<Picks>(loadPicks);
+  const [builder, setBuilder] = useState<BuilderState>(loadBuilder);
   const [screen, setScreen] = useState<Screen>({ name: 'setup' });
   const [hits, setHits] = useState<Hit[]>(() => loadHits());
   const saved = useRef(new Set<number>());
 
-  useEffect(() => store.set(PICKS_KEY, picks), [picks]);
+  useEffect(() => saveBuilder(builder), [builder]);
 
   const startMatch = useCallback(() => {
-    if (!picks.you || !picks.them) return;
+    const you = builder.teams.A[0], them = builder.teams.B[0];
+    if (!you || !them) return;
     const engine = new MatchEngine({
-      you: picks.you, them: picks.them,
-      rules: { title: picks.title, actionClock: picks.actionClock, countOuts: picks.countOuts },
+      you, them,
+      rules: {
+        actionClock: builder.actionClock, countOuts: builder.countOuts, countOutLimit: builder.countOutLimit,
+        title: !!builder.titleId, titleId: builder.titleId || undefined,
+        eventPromotion: builder.event === 'auto' ? undefined : builder.event,
+      },
     });
     setScreen({ name: 'match', engine });
-  }, [picks]);
+  }, [builder]);
 
   const engine = screen.name === 'setup' ? null : screen.engine;
 
@@ -44,7 +38,6 @@ export function App() {
   const [leaving, setLeaving] = useState(false);
   const toRoster = useCallback(() => {
     setLeaving(false);
-    setPicks((p) => ({ ...p, step: 'you' }));
     setScreen({ name: 'setup' });
   }, []);
   useBackLayer(screen.name !== 'setup', () => {
@@ -67,7 +60,7 @@ export function App() {
     window.setTimeout(() => setScreen({ name: 'result', engine }), 1400);
   }, [engine]);
 
-  if (screen.name === 'setup') return <Setup picks={picks} hits={hits} onPicks={setPicks} onBell={startMatch} />;
+  if (screen.name === 'setup') return <Builder state={builder} hits={hits} onChange={setBuilder} onStart={startMatch} />;
   if (screen.name === 'match') {
     return (
       <>

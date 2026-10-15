@@ -68,6 +68,16 @@ export interface Attributes {
   charisma: number;
 }
 
+export interface Popularity {
+  global: number;
+  northAmerica: number;
+  southAmerica: number;
+  europe: number;
+  asia: number;
+  africa: number;
+  oceania: number;
+}
+
 export interface Wrestler {
   id: string;
   wrestlerId: number;
@@ -87,7 +97,7 @@ export interface Wrestler {
   promotion: string;
   division: 'MENS' | 'WOMENS' | '';
   stats: Attributes;
-  popularity: number;
+  popularity: Popularity;
   /** Move ids. 40 regular, 2 signatures, 3 finishers. */
   moves: string[];
   signatures: string[];
