@@ -58,6 +58,24 @@ function buildPinContext(ctx: Ctx, k: SideKey, embedded: boolean): PinContext {
   return { embedded, lastMove: last, lastMoveWasFinisher: lastFin, flashQualified, flashSuccess, squashQualified: squash };
 }
 
+/**
+ * How much fight a wrestler has left, 0–100: mostly body-part health, then stamina, then fatigue.
+ * A fresh wrestler is ~100; a properly worn-down one is in the 20s–30s.
+ */
+export function pinCondition(D: Side): number {
+  const avgHp = totalHp(D) / 6;
+  const core = Math.min(D.hp.HEAD, D.hp.BODY);
+  return 0.35 * avgHp + 0.2 * core + 0.3 * staminaPercent(D) + 0.15 * (100 - D.fatigue);
+}
+
+/**
+ * Web-version replacement for Godot's early-match pin protection: resistance comes from damage,
+ * not the clock. Fresh ≈ +120, worked over ≈ +45, wrecked ≈ −35.
+ */
+export const PIN_CONDITION_PIVOT = 40;
+export const PIN_CONDITION_SCALE = 2.0;
+export const conditionResistance = (D: Side): number => (pinCondition(D) - PIN_CONDITION_PIVOT) * PIN_CONDITION_SCALE;
+
 export function pinPressureAndResistance(S: MatchState, k: SideKey, pc: PinContext, count: number): { pressure: number; resistance: number } {
   const A = S[k], D = S[other(k)];
   const impact = pc.lastMove?.impact ?? 1;
@@ -67,7 +85,7 @@ export function pinPressureAndResistance(S: MatchState, k: SideKey, pc: PinConte
   if (pc.squashQualified) pressure += 45;
   if (D.hp.HEAD < 40) pressure += 10;
   if (D.hp.BODY < 40) pressure += 10;
-  let resistance = D.momentum - lateMatchProfile(S.t).recoveryPenalty;
+  let resistance = D.momentum - lateMatchProfile(S.t).recoveryPenalty + conditionResistance(D);
   if (pc.flashSuccess) resistance -= 35;
   if (pc.squashQualified) resistance -= 25;
   if (count === 1) resistance += 30;

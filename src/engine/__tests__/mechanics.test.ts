@@ -5,6 +5,7 @@ import {
   breakthroughBarWidth, breakthroughRingWindow, defendBarWidth, defendRingWindow, lateMatchProfile, pinProfile, reversalChance, submissionContext,
 } from '../interaction';
 import * as ix from '../interactions';
+import { conditionResistance, pinCondition } from '../pin';
 import { MAX_FINISHER_STOCK, addMomentum, convertLandedSignature, createSide, damagePart, grantFinisherStock, spendFinisher, totalHp } from '../side';
 import { resolveTarget } from '../targeting';
 
@@ -129,5 +130,18 @@ describe('pins and submissions', () => {
     expect(ix.tugOutcome(5, 90, 10)).toBe('SUBMISSION_ESCAPE');
     expect(ix.tugOutcome(50, 90, 10)).toBeNull();
     expect(ix.tugTapImpulse(100, 1)).toBeCloseTo(ix.TUG_MAX_IMPULSE);
+  });
+});
+
+describe('pin resistance comes from damage, not the clock', () => {
+  it('a fresh wrestler fights harder than a worn-down one', () => {
+    const fresh = side('them', 1), worn = side('them', 2);
+    for (const p of Object.keys(worn.hp) as (keyof typeof worn.hp)[]) worn.hp[p] = 35;
+    worn.stamina = worn.maxStamina * 0.25;
+    worn.fatigue = 70;
+    expect(pinCondition(fresh)).toBeGreaterThan(95);
+    expect(pinCondition(worn)).toBeLessThan(40);
+    expect(conditionResistance(fresh)).toBeGreaterThan(100);
+    expect(conditionResistance(worn)).toBeLessThan(0);
   });
 });

@@ -7,7 +7,8 @@ import { advanceClock, observePhase, settleRefereeCount } from './clock';
 import type { Ctx } from './ctx';
 import { flash, other, ring, say } from './commentary';
 import { crowdObserve, isOutsideSpot } from './crowd';
-import { exhaustionBand, moveDemand, staminaCostMultiplier, staminaPercent } from './exhaustion';
+import { executionMultiplier, exhaustionBand, moveDemand, staminaCostMultiplier, staminaPercent } from './exhaustion';
+import { clamp } from './rng';
 import { afterAction, render, resolveControlAfterAction, schedule } from './flow';
 import {
   breakthroughRingWindow, defendRingWindow, isHighRisk, reversalChance, reversalTimeLimit,
@@ -54,6 +55,17 @@ export function majorKind(s: Side, move: Move): 'SIGNATURE' | 'FINISHER' | null 
   if (isFinisherMove(s, move)) return 'FINISHER';
   if (isSignatureMove(s, move)) return 'SIGNATURE';
   return null;
+}
+
+/** The player's cover press after a pin combo. Miss: no pin, but they keep the upper hand. */
+export function resolveCover(ctx: Ctx, move: Move, hit: boolean): void {
+  if (hit) {
+    schedule(ctx, { to: 'startPin', k: 'you', embedded: true }, 150);
+    return;
+  }
+  say(ctx, LINES.coverMissed, { a: 'you', d: 'them', m: move.name }, 'warn');
+  resolveControlAfterAction(ctx, 'you', 'them', move, 'CLEAN_SUCCESS');
+  afterAction(ctx);
 }
 
 /** Start a move. The UI then runs the reversal ring and calls back with the result. */
@@ -104,6 +116,12 @@ export function finishMove(ctx: Ctx, k: SideKey, move: Move, reversed: boolean, 
   exhaustionCommentary(ctx, k);
   render(ctx);
   if (move.submission && result === 'CLEAN_SUCCESS') return schedule(ctx, { to: 'startSub', k, moveId: move.id, target }, 450);
+  if (embedded && k === 'you' && (move.pinningCombo || move.flashPin)) {
+    // Web addition: the player has to hit the cover themselves.
+    const window = clamp(26 * executionMultiplier(A, 'STANDARD'), 12, 26);
+    S.pending = { kind: 'cover', spec: { id: ++S.seq, moveId: move.id, moveName: move.name, window, timeLimit: 1.15, target: 0.28 } };
+    return;
+  }
   if (embedded) return schedule(ctx, { to: 'startPin', k, embedded: true }, 450);
   resolveControlAfterAction(ctx, k, dk, move, result);
   afterAction(ctx);

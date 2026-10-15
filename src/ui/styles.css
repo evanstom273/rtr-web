@@ -377,6 +377,8 @@ em{font-style:normal;font-weight:600;color:var(--fg)}
 .tring .band-in,.tring .band-out{fill:none;stroke:var(--gold);stroke-width:2}
 .tring .shrink{fill:none;stroke:var(--fg);stroke-width:5}
 .tring .dot{fill:var(--fg);opacity:.5}
+.ov.timing.quick{background:color-mix(in srgb,var(--ink) 80%,transparent)}
+.ov.timing.quick .mt-title{color:var(--gold);animation:slam .25s var(--ease)}
 .timing.g-clean .tring .shrink{stroke:var(--gold);stroke-width:8}
 .timing.g-clean .ringwrap{animation:pop .35s var(--ease)}
 .timing.g-miss .ringwrap,.timing.g-near .ringwrap,.timing.g-timeout .ringwrap{animation:shake .3s}

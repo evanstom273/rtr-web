@@ -14,7 +14,7 @@ import { RefCount } from '../overlays/RefCount';
 import { Resiliency } from '../overlays/Resiliency';
 import { SetupBar } from '../overlays/SetupBar';
 import { SubmissionTug } from '../overlays/SubmissionTug';
-import { TimingRing } from '../overlays/TimingRing';
+import { CoverRing, TimingRing } from '../overlays/TimingRing';
 import { useEngine } from '../useEngine';
 import { useMedia } from '../useMedia';
 
@@ -86,7 +86,7 @@ export function Match({ engine, onOver }: { engine: MatchEngine; onOver: () => v
 
   const close = useCallback(() => setSheet('none'), []);
   const joltCls = jolt.n ? ` ${jolt.big ? 'jolt-big' : 'jolt'}${jolt.n % 2}` : '';
-  const ringBusy = p.kind === 'reversal' || p.kind === 'setupMeter' || p.kind === 'kickout' || p.kind === 'refCount' || p.kind === 'sub';
+  const ringBusy = p.kind === 'reversal' || p.kind === 'cover' || p.kind === 'setupMeter' || p.kind === 'kickout' || p.kind === 'refCount' || p.kind === 'sub';
 
   return (
     <>
@@ -117,6 +117,7 @@ export function Match({ engine, onOver }: { engine: MatchEngine; onOver: () => v
       {p.kind === 'kickout' && <KickoutHold key={p.spec.id} engine={engine} spec={p.spec} />}
       {p.kind === 'refCount' && <RefCount key={p.id} engine={engine} kickoutAt={p.kickoutAt} />}
       {p.kind === 'sub' && <SubmissionTug key={p.spec.id} engine={engine} spec={p.spec} />}
+      {p.kind === 'cover' && <CoverRing key={p.spec.id} engine={engine} spec={p.spec} />}
       {p.kind === 'resiliency' && <Resiliency key={p.id} engine={engine} threat={p.threat} />}
       {flash && <Flash key={flash.id} text={flash.text} strong={flash.strong} />}
     </>

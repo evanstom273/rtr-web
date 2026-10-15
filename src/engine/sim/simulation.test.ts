@@ -22,6 +22,12 @@ describe('headless simulation', () => {
     expect(kinds.size).toBeGreaterThan(1);
   });
 
+  it('the player has to hit the cover after pin combos', () => {
+    const covers = batch.reduce((n, r) => n + r.engine.state.log.filter((l) => l.segs.some((sg) => sg.k === 'text' && sg.v.includes("can't hold the cover"))).length, 0);
+    // With σ = 90ms some covers are missed somewhere in 60 matches.
+    expect(covers).toBeGreaterThan(0);
+  });
+
   it('is deterministic for a seed', () => {
     const a = runHeadless({ seed: 7, you: batch[0]!.you, them: batch[0]!.them, model: { kind: 'fixed', rate: 0.6 } });
     const b = runHeadless({ seed: 7, you: batch[0]!.you, them: batch[0]!.them, model: { kind: 'fixed', rate: 0.6 } });

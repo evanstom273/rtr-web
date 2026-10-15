@@ -8,6 +8,7 @@ import { reduceMotion } from '../format';
 const THREE_TWO_ONE: readonly string[] = ['3', '2', '1'];
 
 export function useLeadIn(values: readonly string[] = THREE_TWO_ONE, leadIn = 0.35, interval = 0.3): string | null {
+  // An empty list means: just the lead-in, then live.
   const [i, setI] = useState(-1);
   useEffect(() => {
     const timers: number[] = [];
