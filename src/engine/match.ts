@@ -5,18 +5,22 @@ import { say } from './commentary';
 import type { Ctx, EngineHooks } from './ctx';
 import { finalise, render, runNeutralRecovery, schedule, setControl } from './flow';
 import { aiWantsPush, applyPending, rollPending } from './contest';
-import { aiWantsConvert, executeMove, moveIsValid, resolvePinChoice, resolveSigConvert, submissionAreaOk, validMoves } from './moves';
+import { aiWantsConvert, executeMove, isLadderDive, moveIsValid, resolvePinChoice, resolveSigConvert, submissionAreaOk, validMoves } from './moves';
 import { canPin, completeKickout, pinOdds, pinThree, startPin, useResiliency } from './pin';
 import { mathRng, seededRng, type Rng } from './rng';
 import { executeSetup, validSetups } from './setups';
 import { moveMatchesSnapshots } from './setupRules';
 import { canUseMove, FINISHER_MOMENTUM, SIGNATURE_MOMENTUM } from './side';
 import { specialsFor, type SpecialInfo } from './specials';
+import { getWeaponMove, objectsIn, retrievableWeapons, weaponMovesFor } from './env';
+import { armedSpot, qualifiesForSpot, resolveTenCount } from './stip';
+import type { Weapon } from '../data/rtr';
+import { DEFAULT_STIPULATION_RULES, normaliseRules } from './stipulations';
 import { createState } from './state';
 import { aiGoesForTap, beginSubmission, resolveSubmission, startSubmission, submissionTick, workTheHold } from './submission';
 import { resolveTarget } from './targeting';
-import { endMatch } from './flow';
-import type { SideKey, Cont, KickoutCount, MatchRulesConfig, MatchState, Move, SetupId, SubOutcome, TargetResolution } from './types';
+import { endFall } from './flow';
+import type { EnvObject, SideKey, Cont, KickoutCount, MatchRulesConfig, MatchState, Move, SetupId, SubOutcome, TargetResolution } from './types';
 
 export interface MatchConfig {
   you: string;
@@ -27,7 +31,7 @@ export interface MatchConfig {
   hooks?: EngineHooks;
 }
 
-export const DEFAULT_RULES: MatchRulesConfig = { actionClock: 20, countOuts: true, countOutLimit: 10, title: false };
+export const DEFAULT_RULES: MatchRulesConfig = { actionClock: 20, countOuts: true, countOutLimit: 10, title: false, ...DEFAULT_STIPULATION_RULES };
 
 /**
  * One match. Holds state and exposes actions. The UI renders `state` and calls actions; whenever
@@ -41,8 +45,9 @@ export class MatchEngine {
 
   constructor(cfg: MatchConfig) {
     const rnd = cfg.rng ?? (cfg.seed !== undefined ? seededRng(cfg.seed) : mathRng);
-    const rules = { ...DEFAULT_RULES, ...cfg.rules };
-    if (rules.titleId) rules.title = true;
+    const merged = { ...DEFAULT_RULES, ...cfg.rules };
+    if (merged.titleId) merged.title = true;
+    const rules = normaliseRules(merged);
     const S = createState(rnd, getWrestler(cfg.you), getWrestler(cfg.them), rules);
     this.state = S;
     const ctx: Ctx = { S, rnd, hooks: cfg.hooks ?? {}, ai: undefined as unknown as Ctx['ai'] };
@@ -90,7 +95,16 @@ export class MatchEngine {
   }
   /** The move's positions fit right now (it may still be locked, e.g. a finisher with no stock). */
   movePositionsFit(move: Move): boolean {
-    return moveMatchesSnapshots(move, this.state.you.state, this.state.them.state);
+    return moveMatchesSnapshots(move, this.state.you.state, this.state.them.state) || isLadderDive(this.state, 'you', move);
+  }
+  /** Attacks with whatever the player is holding. */
+  weaponMoves(): Move[] {
+    return weaponMovesFor(this.state, 'you');
+  }
+  /** Would this move put them through the table (or into the tacks) they're lined up for? */
+  usesSpot(move: Move): boolean {
+    const o = armedSpot(this.state, 'you');
+    return !!o && qualifiesForSpot(this.state.you, move, o);
   }
   /** Why a positionally valid move can't be used, or null if it can. */
   lockedReason(move: Move): string | null {
@@ -135,6 +149,10 @@ export class MatchEngine {
       this.state.pending = { kind: 'idle' };
       aiTurn(this.ctx, 'them');
     });
+    if (p.kind === 'refTen') return this.act(() => {
+      this.state.pending = { kind: 'idle' };
+      resolveTenCount(this.ctx, p.counted, p.beatenAt);
+    });
     if (p.kind === 'refCount') return this.act(() => {
       this.state.pending = { kind: 'idle' };
       if (p.kickoutAt === null) pinThree(this.ctx, p.pinner);
@@ -159,6 +177,10 @@ export class MatchEngine {
         return;
       }
       case 'pinNeutral': return setControl(ctx, 'neutral');
+      case 'nextFall': {
+        say(ctx, LINES.nextFall, {}, 'dim');
+        return setControl(ctx, 'neutral');
+      }
       case 'final': return finalise(ctx);
     }
   }
@@ -167,7 +189,7 @@ export class MatchEngine {
 
   chooseMove(moveId: string): boolean {
     if (!this.playerTurn) return false;
-    const move = this.state.you.all.find((m) => m.id === moveId);
+    const move = this.state.you.all.find((m) => m.id === moveId) ?? getWeaponMove(moveId);
     if (!move || !moveIsValid(this.state, 'you', move)) return false;
     return this.act(() => {
       this.state.pending = { kind: 'idle' };
@@ -175,11 +197,32 @@ export class MatchEngine {
     });
   }
 
-  chooseSetup(id: SetupId): boolean {
+  /** arg: the weapon to fetch (retrieve_weapon) or object id to pick up (pick_up_weapon). */
+  chooseSetup(id: SetupId, arg?: string): boolean {
     if (!this.playerTurn || !validSetups(this.state, 'you').includes(id)) return false;
     return this.act(() => {
       this.state.pending = { kind: 'idle' };
-      executeSetup(this.ctx, 'you', id);
+      if (!executeSetup(this.ctx, 'you', id, arg)) this.state.pending = { kind: 'awaitPlayer' };
+    });
+  }
+
+  /** Weapons the player could pull from under the ring right now. */
+  retrievable(): Weapon[] {
+    return retrievableWeapons(this.state);
+  }
+
+  /** Dropped objects the player could pick up where they stand. */
+  pickUps(): EnvObject[] {
+    return objectsIn(this.state, this.state.you.state.area, ['dropped']);
+  }
+
+  /** Last Man Standing: the player's ten count. success = up in time; count = where they beat it. */
+  resolveTenCount(success: boolean, count: number): boolean {
+    const p = this.state.pending;
+    if (p.kind !== 'tenCount') return false;
+    return this.act(() => {
+      this.state.pending = { kind: 'idle' };
+      resolveTenCount(this.ctx, 'you', success ? Math.max(1, Math.min(9, Math.round(count))) : null);
     });
   }
 
@@ -301,11 +344,11 @@ export class MatchEngine {
       if (p.threat === 'pinfall') {
         const move = S.pinContext?.lastMove ?? null;
         S.pinContext = null;
-        endMatch(this.ctx, 'them', 'PINFALL', move);
+        endFall(this.ctx, 'them', 'PINFALL', move);
       } else {
         const txn = S.txn;
         S.txn = null;
-        endMatch(this.ctx, 'them', 'SUBMISSION', txn && txn.kind === 'sub' ? txn.move : null);
+        endFall(this.ctx, 'them', txn && txn.kind === 'sub' && txn.quit ? 'I_QUIT' : 'SUBMISSION', txn && txn.kind === 'sub' ? txn.move : null);
       }
     });
   }

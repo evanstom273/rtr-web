@@ -7,12 +7,13 @@
  * higher; disadvantage = keep the lower. Either side can spend momentum to push for advantage.
  */
 import type { BodyPart, Move, MoveType } from '../data/rtr/types';
-import { exhaustionBand, moveDemand, type ExhaustionBand } from './exhaustion';
+import { exhaustionBand, moveDemand, staminaPercent, type ExhaustionBand } from './exhaustion';
 import { classCompatible, inferredClassCompatible, isHighRisk } from './interaction';
 import type { Rng } from './rng';
 import { isFinisherMove, isSignatureMove, lastAttemptedMoveMatches, recentMoveTypeCount, setupPatternRepeats } from './side';
+import { groundArea } from './stip';
 import { targetHp } from './targeting';
-import type { SetupId, Side, SideKey, TargetResolution } from './types';
+import type { MatchState, SetupId, Side, SideKey, TargetResolution } from './types';
 
 export interface Mod {
   label: string;
@@ -67,6 +68,13 @@ const SKILL_SETUPS: ReadonlySet<SetupId> = new Set<SetupId>([
   'pull_opponent_to_knees_front', 'pull_opponent_to_knees_back', 'grapple_opponent', 'catch_opponent_running', 'turn_opponent_in_corner',
 ]);
 
+/** Stats for the stipulation, object and dirty-tactic actions. */
+const EXTRA_STAT: Partial<Record<SetupId, keyof Side['w']['stats']>> = {
+  climb_ladder: 'speed', climb_ladder_top: 'speed', climb_cage: 'speed', reach_cage_top: 'speed', escape_over_cage: 'speed',
+  eye_rake: 'skill', closed_fist: 'striking',
+};
+const CLIMBS: ReadonlySet<SetupId> = new Set<SetupId>(['climb_ladder', 'climb_ladder_top', 'climb_cage', 'reach_cage_top', 'escape_over_cage']);
+
 /** Which of the attacker's own limbs a move relies on. */
 function limbsUsed(m: Move): BodyPart[] {
   if (m.type === 'AERIAL' || m.type === 'SPRINGBOARD' || m.type === 'RUNNING') return ['LEFT_LEG', 'RIGHT_LEG'];
@@ -109,6 +117,7 @@ function counterSide(D: Side): Counter {
   push(mods, 'Technician', D.w.classes.includes('TECHNICIAN') ? 1 : 0);
   exhaustion(mods, D, false);
   if (D.hp.HEAD < 40) push(mods, 'Rattled (head)', D.hp.HEAD < 25 ? -3 : -2);
+  push(mods, 'Bleeding', -D.bleeding);
   if (exhaustionBand(D) === 'Spent') own.push({ label: 'Spent', dir: -1 });
   const m = D.state.motion;
   if (m === 'ROPE_REBOUND') push(openings, 'Off the ropes', OPENING_BONUS);
@@ -161,12 +170,22 @@ export function moveContest(A: Side, D: Side, move: Move, target: TargetResoluti
 }
 
 /** Attacker vs defender for a contested setup (whips, corners, apron, taunts…). */
-export function setupContest(A: Side, D: Side, id: SetupId): { attack: ContestSide; defend: ContestSide } {
+export function setupContest(A: Side, D: Side, id: SetupId, S?: MatchState): { attack: ContestSide; defend: ContestSide } {
   const aMods: Mod[] = [], aEdges: ContestSide['edges'] = [];
-  const stat = id === 'taunt' ? 'charisma' : SKILL_SETUPS.has(id) ? 'skill' : 'strength';
+  const stat = id === 'taunt' ? 'charisma' : EXTRA_STAT[id] ?? (SKILL_SETUPS.has(id) ? 'skill' : 'strength');
   push(aMods, `${STAT_LABEL[stat]} ${A.w.stats[stat]}`, statMod(A.w.stats[stat]));
   momentum(aMods, A);
-  push(aMods, 'Opponent down', isDown(D) ? 2 : 0);
+  const climb = CLIMBS.has(id);
+  push(aMods, 'Opponent down', isDown(D) ? (climb ? 4 : 2) : 0);
+  if (climb && S) {
+    // Godot: a defender who isn't there, is down, or is spent can hardly stop a climb.
+    const where = id === 'climb_ladder' || id === 'climb_ladder_top' ? groundArea(S, A.key) : 'IN_RING';
+    push(aMods, 'Out of reach', groundArea(S, D.key) !== where ? 4 : 0);
+    push(aMods, 'Too tired to stop it', D.fatigue >= 70 || staminaPercent(D) <= 25 ? 2 : 0);
+  }
+  // Getting over the top of a cage is the hard part.
+  if (id === 'escape_over_cage') push(aMods, 'Over the top', -3);
+  else if (id === 'climb_cage' || id === 'reach_cage_top') push(aMods, 'Climbing steel', -1);
   exhaustion(aMods, A, false);
   if (exhaustionBand(A) === 'Spent') aEdges.push({ label: 'Spent', dir: -1 });
   const { mods: dMods, own: dEdges, openings } = counterSide(D);

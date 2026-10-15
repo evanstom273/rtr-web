@@ -30,6 +30,7 @@ export interface SimOptions {
   model: HitModel;
   /** Player mash rate in submissions (taps/s, capped at 8 by the game). */
   mashRate?: number;
+  rules?: MatchConfig['rules'];
   maxSteps?: number;
   /** Called after every step (for diagnostics). */
   onStep?: (e: MatchEngine) => void;
@@ -82,7 +83,7 @@ function simSub(e: MatchEngine, spec: SubSpec, rnd: Rng, mashRate: number): SubO
 export function runHeadless(o: SimOptions): SimResult {
   const invalid: SimResult['invalid'] = [];
   const cfg: MatchConfig = {
-    you: o.you, them: o.them, seed: o.seed,
+    you: o.you, them: o.them, seed: o.seed, rules: o.rules,
     hooks: { onAiChoice: (side, c, valid) => { if (!valid) invalid.push({ side, detail: JSON.stringify(c && (c.kind === 'move' ? c.move.name : c.kind === 'setup' ? c.action : 'pin')) }); } },
   };
   const e = new MatchEngine(cfg);
@@ -95,7 +96,7 @@ export function runHeadless(o: SimOptions): SimResult {
     const p = e.pending;
     let ok = false;
     switch (p.kind) {
-      case 'continue': case 'aiThinking': case 'refCount':
+      case 'continue': case 'aiThinking': case 'refCount': case 'refTen':
         ok = e.advance();
         break;
       case 'awaitPlayer':
@@ -130,6 +131,14 @@ export function runHeadless(o: SimOptions): SimResult {
       case 'subChoice':
         ok = e.resolveSubChoice(e.autoSubChoice());
         break;
+      case 'tenCount': {
+        // Like the kickout: aim for the gold, with the same timing error.
+        const s = p.spec;
+        const t = s.center * s.fillDuration;
+        const ok2 = t < s.timeLimit && hit((s.width / 200 + s.forgiveness / 100) * s.fillDuration);
+        ok = e.resolveTenCount(ok2, (t / s.timeLimit) * 10);
+        break;
+      }
       case 'sigConvert':
         ok = e.resolveSigConvert(e.autoSigConvert());
         break;

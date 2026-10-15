@@ -1,10 +1,11 @@
 // Match clock, referee count-outs and the AI's match-phase tracker.
 import { COUNT_WORDS, LINES } from '../data/commentary';
-import { isOutsideArea } from './areaRules';
+import { bleedTick } from './env';
+import { countsAsOutside, ironManClock } from './stip';
 import type { Ctx } from './ctx';
 import { other, ring, say } from './commentary';
 import { crowdTick } from './crowd';
-import { endMatch } from './flow';
+import { endFall, endMatch } from './flow';
 import { staminaPercent } from './exhaustion';
 import { clamp } from './rng';
 import { totalHp } from './side';
@@ -13,7 +14,7 @@ import { SIDES } from './types';
 
 export const COUNT_OUT_INTERVAL_SECONDS = 30;
 
-export const sideIsOutside = (S: MatchState, k: SideKey): boolean => isOutsideArea(S[k].state.area);
+export const sideIsOutside = (S: MatchState, k: SideKey): boolean => countsAsOutside(S, k);
 const outsideSides = (ctx: Ctx): SideKey[] => SIDES.filter((k) => sideIsOutside(ctx.S, k));
 
 /** Advance the clock by one action step. */
@@ -22,6 +23,8 @@ export function advanceClock(ctx: Ctx): void {
   const step = S.rules.actionClock;
   S.t += step;
   accumulateRefereeCount(ctx, step);
+  bleedTick(S);
+  ironManClock(ctx);
   crowdTick(ctx);
 }
 
@@ -91,7 +94,7 @@ export function settleRefereeCount(ctx: Ctx): void {
   }
   const out = outside[0] as SideKey;
   say(ctx, LINES.countOut, { d: out, vars: { n: S.rules.countOutLimit } }, 'bad');
-  endMatch(ctx, other(out), 'COUNT_OUT', null);
+  endFall(ctx, other(out), 'COUNT_OUT', null);
 }
 
 /* ---------- AI match phase (MatchDecisionFramework._update_phase, simplified) ---------- */

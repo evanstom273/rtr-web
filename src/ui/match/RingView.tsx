@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AREA_LABEL, POSITION_LABEL } from '../../data/commentary';
-import type { MatchEngine, RingBeat, SideKey, Snapshot } from '../../engine';
+import { liveObjects, weaponOf, type MatchEngine, type RingBeat, type SideKey, type Snapshot } from '../../engine';
 import { nameTone, reduceMotion, shortName } from '../format';
-import { APRON, BARRIER, CENTRE, MAT, POSTS, VIEW, facing, newMemory, placePair, type Pt } from './ringLayout';
+import { APRON, BARRIER, CENTRE, MAT, POSTS, VIEW, facing, newMemory, objectAnchor, placePair, type Pt } from './ringLayout';
 
 interface Fx {
   id: number;
@@ -95,6 +95,51 @@ function Burst({ fx }: { fx: Fx }) {
   );
 }
 
+/** Tables, ladders, tacks and dropped weapons, where they are. */
+function Objects({ engine }: { engine: MatchEngine }) {
+  const S = engine.state;
+  const counts: Record<string, number> = {};
+  return (
+    <g className="objects">
+      {liveObjects(S).filter((o) => o.state !== 'held').map((o) => {
+        const key = `${o.area}`;
+        const i = (counts[key] = (counts[key] ?? -1) + 1);
+        const at = objectAnchor(o.area, o.state, i);
+        const kind = weaponOf(o).kind;
+        let shape;
+        if (kind === 'TABLE' && o.state !== 'dropped') {
+          shape = (
+            <>
+              <rect className="tbl" x="-16" y="-7" width="32" height="14" rx="1.5" />
+              {o.state === 'stacked' && <rect className="tbl" x="-13" y="-11" width="32" height="14" rx="1.5" />}
+            </>
+          );
+        } else if (kind === 'LADDER' && o.state === 'ladder') {
+          shape = (
+            <g className="ldr">
+              <line x1="-6" y1="-20" x2="-6" y2="20" />
+              <line x1="6" y1="-20" x2="6" y2="20" />
+              {[-14, -6, 2, 10, 18].map((y) => <line key={y} x1="-6" y1={y} x2="6" y2={y} />)}
+            </g>
+          );
+        } else if (kind === 'THUMBTACKS' && o.state === 'spread') {
+          shape = (
+            <g className="tacks">
+              {[[-9, -3], [-4, 4], [0, -5], [5, 2], [9, -2], [-1, 7], [7, 7], [-8, 6]].map(([x, y], j) => <circle key={j} cx={x} cy={y} r="1.3" />)}
+            </g>
+          );
+        } else shape = <line className="dropped" x1="-9" y1="5" x2="9" y2="-5" />;
+        return (
+          <g key={o.id} className={`obj${o.positioned ? ' armed' : ''}`} style={{ transform: `translate(${at.x}px, ${at.y}px)` }}>
+            <title>{weaponOf(o).name}</title>
+            {shape}
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
 /** Top-down ring. variant 'panel' is the permanent big view; 'thumb' is the small HUD version. */
 export function RingView({ engine, version, variant }: { engine: MatchEngine; version: number; variant: 'panel' | 'thumb' }) {
   const S = engine.state, v = S.view;
@@ -168,6 +213,8 @@ export function RingView({ engine, version, variant }: { engine: MatchEngine; ve
         {posts.map((pt, i) => (
           <rect key={i} className="post" x={pt.x - 4.5} y={pt.y - 4.5} width="9" height="9" rx="2" />
         ))}
+        {S.rules.stipulation === 'steel_cage' && <rect className="cage" x={APRON.x - 4} y={APRON.y - 4} width={APRON.w + 8} height={APRON.h + 8} rx="2" />}
+        <Objects engine={engine} />
         {pinning && <circle className="pinring" cx={pos[other(pinning)].x} cy={pos[other(pinning)].y} r="26" />}
         {subbing && <circle className="subring" cx={(pos.you.x + pos.them.x) / 2} cy={(pos.you.y + pos.them.y) / 2} r="30" />}
         {v.count !== null && (

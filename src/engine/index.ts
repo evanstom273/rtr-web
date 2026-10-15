@@ -13,3 +13,7 @@ export { totalHp, MAX_FINISHER_STOCK, SIGNATURE_MOMENTUM, FINISHER_MOMENTUM } fr
 export { isOutsideArea } from './areaRules';
 export { ATTACK_DIE, DEFEND_DIE, PUSH_COST, edgeOf, landChance, type ContestRoll, type ContestSide, type Mod } from './dice';
 export type { SpecialInfo } from './specials';
+export { STIPULATIONS, IRON_MAN_MINUTES, rulesEditable, stipulation, type Stipulation } from './stipulations';
+export { heldBy, liveObjects, weaponOf, BLEED_WORDS, WEAPON_MOVES } from './env';
+export { LADDER_PULLS, ladderUnder, armedSpot } from './stip';
+export { WARNING_LIMIT, detectionChance } from './referee';

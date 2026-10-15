@@ -5,7 +5,7 @@ import type { BodyPart } from '../data/rtr/types';
 import { moveAttributeProfile } from './attributes';
 import { advanceClock, observePhase, settleRefereeCount } from './clock';
 import type { Ctx } from './ctx';
-import { flash, other, ring, say } from './commentary';
+import { flash, format, other, ring, say } from './commentary';
 import { crowdObserve, isOutsideSpot } from './crowd';
 import { exhaustionBand, moveDemand, staminaCostMultiplier, staminaPercent } from './exhaustion';
 import { afterAction, render, resolveControlAfterAction, schedule, setControl } from './flow';
@@ -21,6 +21,9 @@ import { resolveTarget } from './targeting';
 import { startContest } from './contest';
 import { moveContest } from './dice';
 import { gainMomentum } from './momentum';
+import { consumeObject, dropObject, heldBy, isLive, maybeBleed, WEAPON_DAMAGE_PER_IMPACT, weaponForMove, weaponMovesFor, weaponMoveStamina } from './env';
+import { disqualify, refSees, WEAPON_DETECTION } from './referee';
+import { armedSpot, environmentAfterMove, fcaHoldLegal, ladderUnder, lmsAfterMove, pinAreaLegal, qualifiesForSpot } from './stip';
 import type { ActionResult, MatchState, Move, Side, SideKey, TargetResolution } from './types';
 
 export const SUCCESSFUL_MOVE_MOMENTUM = 15;
@@ -43,19 +46,41 @@ const namesItsSpot = (m: Move) => [m.req.a, m.req.t].some((r) => r.areaMode === 
  * usable under the blanket rule, because their own requirements put someone on the ropes or apron.
  */
 export function submissionAreaOk(S: MatchState, k: SideKey, move: Move): boolean {
-  return !isSubmission(move) || namesItsSpot(move) || (isInRing(S[k]) && isInRing(S[other(k)]));
+  return !isSubmission(move) || namesItsSpot(move) || (isInRing(S[k]) && isInRing(S[other(k)])) || fcaHoldLegal(S, k);
+}
+
+/**
+ * Perched on a ladder, top-rope dives work as if from the top rope (_is_ladder_variant), landing
+ * where the ladder stands.
+ */
+export function isLadderDive(S: MatchState, k: SideKey, move: Move): boolean {
+  const a = S[k].state, r = move.req.a;
+  if (a.area !== 'LADDER' || a.position !== 'PERCHED' || !ladderUnder(S, k)) return false;
+  if (r.areaMode !== 'SPECIFIC' || r.area !== 'TOP_ROPE' || r.position !== 'PERCHED') return false;
+  return moveMatchesSnapshots(move, { ...a, area: 'TOP_ROPE' }, S[other(k)].state);
 }
 
 /** _move_is_valid */
 export function moveIsValid(S: MatchState, k: SideKey, move: Move): boolean {
   const a = S[k], d = S[other(k)];
+  if (move.type === 'WEAPON') {
+    const held = heldBy(S, k);
+    return S.rules.weapons && !!held && weaponForMove(move)?.id === held.weaponId && moveMatchesSnapshots(move, a.state, d.state);
+  }
   if (!submissionAreaOk(S, k, move)) return false;
   if (!canUseMove(a, move)) return false;
-  return moveMatchesSnapshots(move, a.state, d.state);
+  return moveMatchesSnapshots(move, a.state, d.state) || isLadderDive(S, k, move);
 }
 
+/** Moves available now, including the held weapon's attacks. Lined up for a table: only moves that use it. */
 export function validMoves(S: MatchState, k: SideKey): Move[] {
-  return S[k].all.filter((m) => moveIsValid(S, k, m));
+  let list = S[k].all.concat(weaponMovesFor(S, k)).filter((m) => moveIsValid(S, k, m));
+  const armed = armedSpot(S, k);
+  if (armed) {
+    const using = list.filter((m) => qualifiesForSpot(S[k], m, armed));
+    if (using.length) list = using;
+  }
+  return list;
 }
 
 export function staminaCost(move: Move): number {
@@ -94,6 +119,8 @@ export function executeMove(ctx: Ctx, k: SideKey, move: Move, target?: TargetRes
   D.setUp = false;
   const tgt = target ?? resolveTarget(move, A.targetFocus, D.hp);
   if (isFinisherMove(A, move) && !spendFinisher(A)) return false;
+  // Last Man Standing: hitting another move instead of making the referee count waives it.
+  if (S.obj.lmsFor === dk) S.obj.lmsFor = null;
   crowdObserve(ctx, { type: 'move_attempt', k, move, signatureOrFinisher: isSignatureMove(A, move) || isFinisherMove(A, move), uses: (A.moveUseCounts[move.id] ?? 0) + 1 });
   advanceClock(ctx);
   ring(ctx, 'move_started', k, move.name);
@@ -111,10 +138,23 @@ export function finishMove(ctx: Ctx, k: SideKey, move: Move, reversed: boolean, 
   const S = ctx.S, A = S[k], dk = other(k);
   const startedAtZero = A.stamina <= 0;
   const result: ActionResult = reversed ? (isHighRisk(move) ? 'HIGH_RISK_CRASH' : 'REVERSAL') : 'CLEAN_SUCCESS';
-  applyMoveResult(ctx, k, dk, move, result, target, crit);
+  const dive = A.state.area === 'LADDER' ? ladderUnder(S, k) : null;
+  applyMoveResult(ctx, k, dk, move, result, target, crit, !!dive);
+  if (dive) {
+    // Off the ladder: whatever happened, they come down where it stands.
+    A.state = result === 'REVERSAL' ? { position: 'GROUNDED', orientation: 'FACE_UP', area: dive.area, motion: 'STATIONARY' } : { ...A.state, area: dive.area };
+    dive.climber = null;
+    dive.climbStage = 0;
+    if (result === 'CLEAN_SUCCESS') crowdObserve(ctx, { type: 'spot', amount: 14 });
+  }
+  if (move.type === 'WEAPON') weaponAfterSwing(ctx, k, move, result, target);
+  environmentAfterMove(ctx, k, move, result);
+  lmsAfterMove(S, k, move, result);
+  if (result === 'CLEAN_SUCCESS' && isFinisherMove(A, move)) S.obj.finisherLanded[k] = true;
   const embedded = shouldStartEmbeddedPin(S, k, dk, move, result);
   settleRefereeCount(ctx);
-  if (S.over) return;
+  // Over, or a count-out just scored a fall in a multi-fall match and the restart is queued.
+  if (S.over || S.pending.kind === 'continue') return;
   if (startedAtZero && result === 'CLEAN_SUCCESS' && !A.announcedHeroic) {
     A.announcedHeroic = true;
     say(ctx, LINES.heroic, { a: k }, 'good');
@@ -155,6 +195,8 @@ export function resolveSigConvert(ctx: Ctx, move: Move, target: TargetResolution
 
 function continueAfterMove(ctx: Ctx, k: SideKey, move: Move, target: TargetResolution, result: ActionResult, embedded: boolean): void {
   const S = ctx.S, dk = other(k);
+  // A DQ or a table win happened during the move: settle it before anything else.
+  if (S.obj.decision) return afterAction(ctx);
   if (move.submission && result === 'CLEAN_SUCCESS') return schedule(ctx, { to: 'startSub', k, moveId: move.id, target }, 450);
   if (embedded && k === 'you' && (move.pinningCombo || move.flashPin)) {
     // Web addition: the player decides whether to cover, with the real odds in front of them.
@@ -175,13 +217,14 @@ function continueAfterMove(ctx: Ctx, k: SideKey, move: Move, target: TargetResol
 
 export function shouldStartEmbeddedPin(S: MatchState, k: SideKey, dk: SideKey, move: Move, result: ActionResult): boolean {
   if (move.submission || result !== 'CLEAN_SUCCESS') return false;
-  if (!isInRing(S[k]) || !isInRing(S[dk])) return false;
+  if (!pinAreaLegal(S, k)) return false;
+  void dk;
   if (move.flashPin || move.pinningCombo) return true;
   if (!move.finisher) return false;
   return S[k].state.position === 'GROUNDED' && S[dk].state.position === 'GROUNDED';
 }
 
-function applyMoveResult(ctx: Ctx, k: SideKey, dk: SideKey, move: Move, result: ActionResult, target: TargetResolution, crit: boolean): void {
+function applyMoveResult(ctx: Ctx, k: SideKey, dk: SideKey, move: Move, result: ActionResult, target: TargetResolution, crit: boolean, dive = false): void {
   const S = ctx.S, A = S[k], D = S[dk];
   A.lastActionResult = result;
   D.lastActionResult = result;
@@ -201,7 +244,7 @@ function applyMoveResult(ctx: Ctx, k: SideKey, dk: SideKey, move: Move, result: 
     observePhase(ctx, result === 'HIGH_RISK_CRASH' ? 'high_risk_crash' : 'reversal');
   }
   if (!landed) A.lastMoveWasFinisher = false;
-  applyDamage(ctx, k, dk, move, result, target, crit);
+  applyDamage(ctx, k, dk, move, result, target, crit, dive);
   applyStaminaFatigueMomentum(ctx, k, dk, move, result);
   applyPositions(A, D, move, result);
   if (landed && isSignatureMove(A, move)) useSignature(A);
@@ -235,19 +278,49 @@ function applyMoveResult(ctx: Ctx, k: SideKey, dk: SideKey, move: Move, result: 
   }
 }
 
+/** Off a ladder: damage ×1.2, and a crash hurts ×1.25 more (Godot). */
+export const LADDER_DIVE_DAMAGE = 1.2;
+export const LADDER_DIVE_CRASH = 1.25;
+
+/**
+ * After a weapon swing (_execute_weapon_move): every committed swing wears it; a reversal knocks it
+ * loose; a clean shot can cut, and in a match with DQs the referee may see it.
+ */
+function weaponAfterSwing(ctx: Ctx, k: SideKey, move: Move, result: ActionResult, target: TargetResolution): void {
+  const S = ctx.S, A = S[k], dk = other(k), held = heldBy(S, k), w = weaponForMove(move);
+  if (!held || !w) return;
+  held.durability--;
+  if (result === 'CLEAN_SUCCESS') {
+    S.crowd.weaponHits++;
+    crowdObserve(ctx, { type: 'spot', amount: 10 });
+    maybeBleed(ctx, dk, w, move.impact, target.storyPart);
+    if (S.rules.dq && w.illegal && refSees(ctx, WEAPON_DETECTION, A.state.area)) {
+      disqualify(ctx, k, format(LINES.whatWeapon, { w: w.name.toLowerCase() }));
+    }
+  } else if (held.durability > 0) {
+    dropObject(held, A.state.area);
+    say(ctx, LINES.weaponDropped, { a: k, vars: { w: w.name.toLowerCase() } }, 'dim');
+  }
+  if (held.durability <= 0 && isLive(held)) {
+    consumeObject(S, held, true);
+    say(ctx, LINES.weaponBreaks, { vars: { w: w.name } }, 'warn');
+  }
+}
+
 /** A natural 20 on offence hits half as hard again. */
 export const CRIT_DAMAGE = 1.5;
 
-function applyDamage(ctx: Ctx, k: SideKey, dk: SideKey, move: Move, result: ActionResult, target: TargetResolution, crit: boolean): void {
+function applyDamage(ctx: Ctx, k: SideKey, dk: SideKey, move: Move, result: ActionResult, target: TargetResolution, crit: boolean, dive = false): void {
   const A = ctx.S[k], D = ctx.S[dk];
   const aBefore = totalHp(A), dBefore = totalHp(D);
   const before: Partial<Record<BodyPart, number>> = {};
   for (const p of target.parts) before[p] = D.hp[p];
-  if (result === 'HIGH_RISK_CRASH') damagePart(A, 'BODY', move.impact * 0.75);
+  if (result === 'HIGH_RISK_CRASH') damagePart(A, 'BODY', move.impact * 0.75 * (dive ? LADDER_DIVE_CRASH : 1));
   else if (result === 'CLEAN_SUCCESS') {
-    const mult = moveAttributeProfile(A, move).damageMultiplier * (crit ? CRIT_DAMAGE : 1);
+    const mult = moveAttributeProfile(A, move).damageMultiplier * (crit ? CRIT_DAMAGE : 1) * (dive ? LADDER_DIVE_DAMAGE : 1);
     for (const p of target.parts) {
-      const dmg = move.impact + (100 - D.hp[p]) * 0.08;
+      // Weapons hit harder and flat (Godot: impact × 1.75 on the part).
+      const dmg = move.type === 'WEAPON' ? move.impact * WEAPON_DAMAGE_PER_IMPACT : move.impact + (100 - D.hp[p]) * 0.08;
       damagePart(D, p, dmg * (target.weights[p] ?? 1) * mult);
     }
   }
@@ -296,8 +369,8 @@ function bodyStory(ctx: Ctx, k: SideKey, dk: SideKey, move: Move, target: Target
 function applyStaminaFatigueMomentum(ctx: Ctx, k: SideKey, dk: SideKey, move: Move, result: ActionResult): void {
   const A = ctx.S[k], D = ctx.S[dk];
   const demand = moveDemand(move, isSignatureMove(A, move));
-  const cost = staminaCost(move) * staminaCostMultiplier(A, demand);
-  const fatigue = 2 + (isHighRisk(move) ? 4 : 0) + (move.finisher ? 4 : 0);
+  const cost = (move.type === 'WEAPON' ? weaponMoveStamina(move) : staminaCost(move)) * staminaCostMultiplier(A, demand);
+  const fatigue = (move.type === 'WEAPON' ? 3 : 2) + (isHighRisk(move) ? 4 : 0) + (move.finisher ? 4 : 0);
   spendStamina(A, cost);
   addFatigue(A, fatigue);
   if (result === 'CLEAN_SUCCESS') {

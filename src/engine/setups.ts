@@ -18,6 +18,8 @@ import { gainMomentum } from './momentum';
 import { pick } from './rng';
 import { candidateActions, findFollowupPaths, isContested, isRecovery, projectAction } from './setupRules';
 import { addFatigue, canUseMove, noteSetupAction, recoverStamina, spendStamina } from './side';
+import { heldBy, liveObjects, weaponOf } from './env';
+import { CAGE_BLOCKED, executeExtra, extraSetups, finishExtraContest, isExtraContested, isExtraSetup } from './stip';
 import type { MatchState, SetupId, Side, SideKey } from './types';
 
 export const TAUNT_COOLDOWN_SECONDS = 120;
@@ -31,9 +33,11 @@ export function validSetups(S: MatchState, k: SideKey): SetupId[] {
     if (path.actions.length && canUseMove(A, path.move)) firstSteps.add(path.actions[0]!);
   }
   const out: SetupId[] = [];
+  const cage = S.rules.stipulation === 'steel_cage';
   for (const id of actions) {
-    // The AI may only leave the ring alone as part of a weapon plan; there are no weapons yet.
-    if (k === 'them' && id === 'exit_ring') continue;
+    if (cage && CAGE_BLOCKED.has(id)) continue;
+    // The AI only leaves the ring alone to fetch a weapon (Godot: only with DQs off).
+    if (k === 'them' && id === 'exit_ring' && !aiWantsWeaponTrip(S, k)) continue;
     if (id === 'taunt' && S.t < A.tauntCooldownUntil) continue;
     if (id === 'catch_breath' && (staminaPercent(A) >= CATCH_BREATH_STAMINA_THRESHOLD || S.t < A.catchBreathCooldownUntil)) continue;
     if (isRecovery(id) || id === 'taunt' || id === 'catch_breath' || (k === 'you' && id === 'exit_ring') || firstSteps.has(id)) out.push(id);
@@ -41,8 +45,29 @@ export function validSetups(S: MatchState, k: SideKey): SetupId[] {
   if (S.rules.countOuts && !sideIsOutside(S, k) && sideIsOutside(S, other(k)) && !out.includes('wait_for_count')) {
     out.push('wait_for_count');
   }
+  for (const id of extraSetups(S, k)) if (!out.includes(id)) out.push(id);
   if (!out.length) out.push('reset_stance');
   return out;
+}
+
+/** A ladder (or table) already set up in the ring, or held by someone. */
+export function objectiveReady(S: MatchState, kind: 'LADDER' | 'TABLE'): boolean {
+  return liveObjects(S).some((o) => weaponOf(o).kind === kind && (o.state === 'held' || (o.area === 'IN_RING' && o.state !== 'dropped')));
+}
+
+/** Stipulations where weapons are part of the plan. */
+export const aiWantsWeaponsHere = (S: MatchState): boolean =>
+  S.rules.weapons && (!S.rules.dq || ['ladder', 'tables'].includes(S.rules.stipulation));
+
+/** _ai_weapon_plan: with weapons around and no DQs, the AI may go under the ring (twice at most). */
+export function aiWantsWeaponTrip(S: MatchState, k: SideKey): boolean {
+  if (!S.rules.weapons || S.rules.dq || heldBy(S, k)) return false;
+  if (S[k].state.area !== 'IN_RING') return false;
+  const id = S.rules.stipulation;
+  // Ladder and Tables: go and get the thing the match is about, if it isn't already standing in the ring.
+  if (id === 'ladder') return !objectiveReady(S, 'LADDER');
+  if (id === 'tables') return !objectiveReady(S, 'TABLE');
+  return S[k].weaponTrips < 2 && S.t >= S[k].nextWeaponTripAt;
 }
 
 export function setupTitle(s: Side, id: SetupId): string {
@@ -51,10 +76,27 @@ export function setupTitle(s: Side, id: SetupId): string {
 
 const DELAYABLE: ReadonlySet<SetupId> = new Set<SetupId>(['stand_up', 'stop_running', 'regain_footing', 'regain_composure']);
 
-export function executeSetup(ctx: Ctx, k: SideKey, id: SetupId): boolean {
+export function executeSetup(ctx: Ctx, k: SideKey, id: SetupId, arg?: string): boolean {
   const S = ctx.S, A = S[k], dk = other(k), D = S[dk];
   if (!validSetups(S, k).includes(id)) return false;
   D.setUp = false;
+  if (id === 'exit_ring' && k === 'them') {
+    A.weaponTrips++;
+    A.nextWeaponTripAt = S.t + 300;
+  }
+  if (isExtraSetup(id)) {
+    if (!isExtraContested(id)) {
+      S.recentReversalSide = null;
+      return executeExtra(ctx, k, id, arg);
+    }
+    S.recentReversalSide = null;
+    advanceClock(ctx);
+    if (S.over) return true;
+    const { attack, defend } = setupContest(A, D, id, S);
+    S.txn = { kind: 'setup', k, action: id, chance: 0 };
+    startContest(ctx, { kind: 'setup', attacker: k, defender: dk, title: setupTitle(A, id), major: null, attack, defend });
+    return true;
+  }
   if (id === 'wait_for_count') {
     advanceClock(ctx);
     spendStamina(A, staminaCostMultiplier(A, 'BASIC'));
@@ -127,6 +169,28 @@ export function finishContestedSetup(ctx: Ctx, k: SideKey, id: SetupId, reversed
   const S = ctx.S, A = S[k], dk = other(k), D = S[dk];
   const isTaunt = id === 'taunt';
   const originalArea = A.state.area;
+  if (isExtraSetup(id)) {
+    if (reversed) {
+      ctx.ai[k].noteSetupExecuted(null, A);
+      spendStamina(A, 2 * staminaCostMultiplier(A, 'STANDARD'));
+      addFatigue(A, 1);
+      gainMomentum(ctx, dk, REVERSAL_MOMENTUM);
+      D.reversals++;
+      A.lastActionResult = 'REVERSAL';
+      crowdObserve(ctx, { type: 'setup_reversed', k: dk });
+      ring(ctx, 'reversal', dk, setupTitle(A, id));
+    } else {
+      A.lastActionResult = 'SETUP_SUCCESS';
+      ctx.ai[k].noteSetupExecuted(id, A);
+      ring(ctx, 'setup', k, setupTitle(A, id));
+    }
+    finishExtraContest(ctx, k, id, reversed);
+    exhaustionCommentary(ctx, k);
+    render(ctx);
+    setResolvedControl(ctx, reversed ? dk : k, k, dk);
+    afterAction(ctx);
+    return;
+  }
   if (reversed) {
     ctx.ai[k].noteSetupExecuted(null, A);
     applyReversedSetupPositions(id, A, D);

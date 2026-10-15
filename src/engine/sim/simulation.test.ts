@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { runBatch, runHeadless } from './runHeadless';
+import { STIPULATIONS } from '../stipulations';
+import { pairings, runBatch, runHeadless } from './runHeadless';
 
 describe('headless simulation', () => {
   const batch = runBatch(60, 4242, { kind: 'skill', sigmaSeconds: 0.09 });
@@ -34,4 +35,19 @@ describe('headless simulation', () => {
     expect(a.result).toEqual(b.result);
     expect(a.engine.state.log.length).toBe(b.engine.state.log.length);
   });
+
+  it('every stipulation finishes without getting stuck, by its own kind of finish', () => {
+    for (const st of STIPULATIONS) {
+      pairings(6, 900).forEach(([you, them], i) => {
+        const r = runHeadless({ seed: 900 + i, you, them, model: { kind: 'skill', sigmaSeconds: 0.09 }, rules: { stipulation: st.id } });
+        expect(r.stuck, `${st.id}: ${you} v ${them}`).toBeNull();
+        expect(r.invalid, st.id).toEqual([]);
+        if (st.id === 'tables') expect(r.result!.finish).toBe('TABLES');
+        if (st.id === 'ladder') expect(r.result!.finish).toBe('LADDER');
+        if (st.id === 'last_man_standing') expect(r.result!.finish).toBe('TEN_COUNT');
+        if (st.id === 'i_quit') expect(r.result!.finish).toBe('I_QUIT');
+        if (st.id === 'submission') expect(r.result!.finish).toBe('SUBMISSION');
+      });
+    }
+  }, 120_000);
 });

@@ -2,6 +2,7 @@ import { HEAT_WORDS, PHASES } from '../data/commentary';
 import { TITLES, getPromotion, type Wrestler } from '../data/rtr';
 import { format } from './commentary';
 import { exhaustionBand } from './exhaustion';
+import { heldBy, weaponOf } from './env';
 import { pick, type Rng } from './rng';
 import { createSide } from './side';
 import type { CrowdStats, MatchRulesConfig, MatchState, MatchView, Side, SideView } from './types';
@@ -57,6 +58,8 @@ function emptyCrowd(): CrowdStats {
   return {
     heatSum: 0, heatN: 0, heatPeak: 0, reversals: 0, finRev: 0, nf: 0, fk: 0, crashes: 0, high: 0, spots: 0, rest: 0,
     repeats: 0, heatSeg: null, comeback: null, limbPayoff: false, finAttemptsSeen: false, fkAbsorbed: { you: 0, them: 0 },
+    tableBreaks: 0, weaponHits: 0, bleeds: 0, ladderPulls: 0, climbStops: 0, cageClimbs: 0, travel: 0, falls: 0, tenCounts: 0,
+    nearQuits: 0, dirty: 0,
   };
 }
 
@@ -75,6 +78,12 @@ export function createState(rnd: Rng, you: Wrestler, them: Wrestler, rules: Matc
     neutralFavoured: null,
     recentReversalSide: null,
     referee: { active: false, value: 0, elapsed: 0, pendingResolution: false, outside: { you: false, them: false } },
+    ref: { distracted: 0, distractedBy: null, moving: 0, area: 'IN_RING', warnings: { you: 0, them: 0 } },
+    env: { objects: [], nextId: 1, padRemoved: false },
+    obj: {
+      gateOpen: false, ladderPulls: 0, cageStage: { you: 0, them: 0 }, score: { you: 0, them: 0 }, falls: [], overtime: false,
+      lmsFor: null, lmsImpact: 0, quitPressure: { you: 0, them: 0 }, finisherLanded: { you: false, them: false }, decision: null,
+    },
     phase: { name: 'opening', drama: 0, controlSwings: 0, actionsSinceChange: 0 },
     heat: rules.title ? 45 : 35,
     crowd: emptyCrowd(),
@@ -113,11 +122,13 @@ export function heatWord(h: number): string {
   return HEAT_WORDS[HEAT_WORDS.length - 1]?.[1] ?? '';
 }
 
-function sideView(s: Side): SideView {
+function sideView(S: MatchState, s: Side): SideView {
+  const held = heldBy(S, s.key);
   return {
     key: s.key, hp: { ...s.hp }, stamina: s.stamina, maxStamina: s.maxStamina, fatigue: s.fatigue, momentum: s.momentum,
     signatureReady: s.signatureReady, finisherStock: s.finisherStock, state: { ...s.state }, exhaustion: exhaustionBand(s),
     targetFocus: s.targetFocus, resiliencyAvailable: s.resiliencyAvailable,
+    held: held ? weaponOf(held).name : null, bleeding: s.bleeding, warnings: S.ref.warnings[s.key],
   };
 }
 
@@ -125,6 +136,6 @@ export function snapshotView(S: MatchState): MatchView {
   return {
     t: S.t, heat: S.heat, control: S.control, over: S.over, phase: phaseLabel(S),
     count: S.referee.active ? S.referee.value : null,
-    sides: { you: sideView(S.you), them: sideView(S.them) },
+    sides: { you: sideView(S, S.you), them: sideView(S, S.them) },
   };
 }

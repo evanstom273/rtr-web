@@ -122,3 +122,46 @@ export interface Title {
   holderId: number;
   weeksHeld: number;
 }
+
+export type WeaponKind = 'HANDHELD' | 'TABLE' | 'LADDER' | 'THUMBTACKS';
+
+export interface WeaponAttack {
+  id: string;
+  name: string;
+  /** Who it's aimed at: a standing opponent, or one on the mat (seated and kneeling count). */
+  posture: 'STANDING' | 'GROUNDED';
+  impactMod: number;
+  staminaMod: number;
+  strike: boolean;
+  resultPosition: Position;
+  resultOrientation: Orientation;
+}
+
+export interface Weapon {
+  id: string;
+  name: string;
+  description: string;
+  kind: WeaponKind;
+  /** 1–10 */
+  impact: number;
+  staminaCost: number;
+  targetPart: Part;
+  /** Disqualifies in a match with DQs. */
+  illegal: boolean;
+  retrievable: boolean;
+  aiWeight: number;
+  minDurability: number;
+  maxDurability: number;
+  /** 0–100: how likely it is to open a cut. */
+  bleed: number;
+  /** Can cut anywhere, not only the head. */
+  bleedAnyTarget: boolean;
+  canSetFlat: boolean;
+  canSetCorner: boolean;
+  canStack: boolean;
+  canClimb: boolean;
+  canSpread: boolean;
+  /** How many can be in play at once. */
+  maxLive: number;
+  attacks: WeaponAttack[];
+}

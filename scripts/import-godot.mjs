@@ -285,6 +285,66 @@ if (wrestlerIds.size !== wrestlers.length) throw new Error('Duplicate wrestler i
 const unassigned = wrestlers.filter((w) => !w.promotion);
 if (unassigned.length) console.warn(`${unassigned.length} wrestlers not on any promotion roster`);
 
+/* ---------- weapons ---------- */
+
+const WEAPON_KIND = ['HANDHELD', 'TABLE', 'LADDER', 'THUMBTACKS'];
+/** Sections of a .tres: [sub_resource id="X"] blocks and the [resource] block, each as props. */
+function tresSections(file) {
+  const text = readFileSync(file, 'utf8');
+  const subs = {};
+  let main = {}, cur = null;
+  for (const line of text.split('\n')) {
+    const sub = line.match(/^\[sub_resource [^\]]*id="([^"]+)"/);
+    if (sub) { cur = subs[sub[1]] = {}; continue; }
+    if (line.startsWith('[resource]')) { cur = main; continue; }
+    if (line.startsWith('[')) { cur = null; continue; }
+    const m = cur && line.match(/^([A-Za-z_][\w/]*) = (.*)$/);
+    if (m) cur[m[1]] = m[2].trim();
+  }
+  return { subs, main };
+}
+const sname = (raw) => (raw === undefined ? undefined : raw.replace(/^&/, '').replace(/^"|"$/g, ''));
+const weapons = walk(join(root, 'Weapons')).filter((f) => !f.endsWith('weapon_catalogue.tres')).map((file) => {
+  const { subs, main: p } = tresSections(file);
+  const attackIds = [...(p.attack_set ?? '').matchAll(/SubResource\("([^"]+)"\)/g)].map((m) => m[1]);
+  return {
+    id: sname(p.weapon_id),
+    name: str(p.display_name),
+    description: str(p.description) ?? '',
+    kind: enumOf(WEAPON_KIND, num(p.weapon_kind, 0), 'weapon_kind'),
+    impact: num(p.impact, 7),
+    staminaCost: num(p.stamina_cost, 8),
+    targetPart: enumOf(PART, num(p.target_body_part, 2), 'target_body_part'),
+    illegal: bool(p.is_illegal_under_normal_rules, true),
+    retrievable: bool(p.can_be_retrieved_from_under_ring, true),
+    aiWeight: num(p.ai_weight, 1),
+    minDurability: num(p.minimum_durability, 1),
+    maxDurability: num(p.maximum_durability, 4),
+    bleed: num(p.bleed_rating, 0),
+    bleedAnyTarget: bool(p.can_bleed_any_target),
+    canSetFlat: bool(p.can_set_flat),
+    canSetCorner: bool(p.can_set_in_corner),
+    canStack: bool(p.can_stack),
+    canClimb: bool(p.can_be_climbed),
+    canSpread: bool(p.can_be_spread),
+    maxLive: num(p.maximum_live_instances, 1),
+    attacks: attackIds.map((sid) => {
+      const a = subs[sid];
+      return {
+        id: sname(a.attack_id),
+        name: str(a.display_name),
+        posture: num(a.target_posture, 0) === 1 ? 'GROUNDED' : 'STANDING',
+        impactMod: num(a.impact_modifier, 0),
+        staminaMod: num(a.stamina_modifier, 0),
+        strike: bool(a.is_strike, true),
+        resultPosition: enumOf(POSITION, num(a.resulting_target_position, 2), 'pos'),
+        resultOrientation: enumOf(ORIENTATION, num(a.resulting_target_orientation, 3), 'ori'),
+      };
+    }),
+  };
+});
+weapons.sort((a, b) => a.name.localeCompare(b.name));
+
 /* ---------- write ---------- */
 
 mkdirSync(outDir, { recursive: true });
@@ -293,5 +353,6 @@ write('moves.json', moves);
 write('wrestlers.json', wrestlers);
 write('promotions.json', promotions);
 write('titles.json', titles);
+write('weapons.json', weapons);
 if (repairedCount) console.log(`repaired ${repairedCount} mis-encoded strings`);
-console.log(`moves ${moves.length}, wrestlers ${wrestlers.length}, promotions ${promotions.length}, titles ${titles.length}`);
+console.log(`moves ${moves.length}, wrestlers ${wrestlers.length}, promotions ${promotions.length}, titles ${titles.length}, weapons ${weapons.length}`);

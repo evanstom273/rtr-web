@@ -163,10 +163,84 @@ because limb work feeds the story score.
 - **No hidden rolls.** Every contest is on screen, modifiers and all.
 - The phase tracker is a simplified version of Godot's MatchDecisionFramework.
 
+### Stipulations, weapons and the referee
+
+Ported from Godot (`match_stipulation_*`, `match_environment_state`, `match_referee_state`,
+`match_rulebreaking_catalogue` and the stipulation parts of `simple_match_ui.gd`); the web code is
+`stipulations.ts` (catalogue and rules), `env.ts` (objects, weapon attacks, bleeding), `referee.ts`
+(detection, warnings, DQs) and `stip.ts` (the actions, spots and objectives).
+
+- **11 stipulations:** Standard, No DQ, Tables, Ladder, Submission, Steel Cage, Falls Count Anywhere,
+  Iron Man (10/15/20/30/60 min), Two out of Three Falls, Last Man Standing, I Quit, each with
+  Godot's rule flags. DQs and count-outs are only editable for Standard (and count-outs for No DQ).
+  Cage: escape / pinfall / submission toggles, at least one stays on. Ladder: briefcase or the
+  championship (always the championship in a title match).
+- **Weapons:** 11, imported from `Weapons/*.tres` (`src/data/rtr/weapons.json`). Look under the ring
+  from the floor (you pick; the AI picks by Godot's scoring), pick up and drop. Each has a standing
+  and a grounded attack, built at runtime as WEAPON moves, rolled like any move: damage impact × 1.75
+  on one part, durability 1–4 (−1 per swing; a reversal knocks it loose), the light tube always
+  breaks. Max 6 objects in play.
+- **The referee:** sees a landed weapon shot ~74% of the time focused, ~52% outside, ~5% distracted,
+  and in a match with DQs that's an instant DQ (Lyra's call: Godot's rule). Dirty tactics (eye rake,
+  hair pull, closed fist, choke, remove the turnbuckle pad, exposed turnbuckle) earn warning points
+  when seen; four is a DQ. Distract the referee for two actions. Without DQs the ref just shouts.
+  Not ported: refusing to break, rope-assisted pins and submissions.
+- **Bleeding:** Godot's chance formula; minor / moderate / heavy. Adds fatigue every clock step and
+  weakens reversals, kickouts and submission defence. Shown on the wrestler card.
+- **Tables, ladders, tacks:** set a table flat, stacked or in the corner; lay or line someone up, and
+  the next big grounding move (impact 6+, 8+ for stacked) goes through it, with a reversal putting the
+  attacker through instead. Ladders are climbed in two contested steps; top-rope dives work off the
+  top of a ladder (×1.2 damage). Tip the ladder to bring someone down. Tacks are spread and used the
+  same way as tables, and can cut.
+- **Objectives:** Tables (put them through one), Ladder (pull the prize down), Cage (climb out),
+  Last Man Standing (a big enough blow lets you make the ref count to ten), I Quit (ask when they're
+  hurt; the submission tug decides it, a refusal makes the next harder), Iron Man (most falls at the
+  bell; level means sudden death), two out of three (falls reset to a neutral start, damage stays).
+  Ladder grabs, cage escapes and table wins unlock once anyone has banked a finisher (Godot: the first
+  100 momentum; Lyra's call to tie it to the finisher with the new progression).
+- **Minigames (Lyra's call, mixed):** the ladder grab is three contested pulls (Godot: eight timed
+  taps), each one the opponent can stop. The Last Man Standing count is hands-on like the kickout,
+  out of ten. I Quit uses the submission tug, as in Godot.
+- **Falls Count Anywhere:** pins and holds count anywhere flat when both are there. Fight into the
+  crowd and backstage.
+- **Rating:** hardcore spots (tables broken, weapon shots, blood) add to Action, stipulation drama
+  (climbs stopped, pulls at the prize, ten counts beaten, refusing to quit, falls) to Drama. A DQ
+  finish costs 0.4; an objective finish after 10 minutes is worth 0.3.
+- **Holds in matches without submissions** always work the hold (damage, keep control) rather than
+  disappearing from the move list as in Godot.
+
+AI (Godot's scores, plus what Godot was missing):
+- Godot's AI swung weapons in plain sight in matches with DQs and got itself disqualified; this one
+  only does it while the referee is distracted.
+- An objective priority list replaces Godot's forced follow-throughs: it grabs the prize, goes over
+  the cage, makes the referee count, tips the ladder, finishes a weapon trip, sets up what it's
+  holding (in the ring), and goes back for a dropped ladder or table. Without it, weighted picks left
+  matches running for hours: a failed climb knocks the ladder to the floor and the AI fetched junk
+  until the six-object limit was hit; tables got set up outside while everyone fought in the ring.
+- Godot's cage-priority bug (it read a key that didn't exist, so the AI never climbed) is not copied.
+- A third loop fix: forced recoveries no longer reset the special-move path forever.
+
+Headless (`npx vite-node scripts/stip-sim.ts 60`), 60 matches each, no stuck matches, no invalid
+choices:
+
+| Stipulation | Median length | Finishes |
+|---|---|---|
+| Standard | 17.0 | pin 58%, submission 40%, DQ 2% |
+| No DQ | 18.7 | pin 60%, submission 40% |
+| Tables | 12.0 | through a table 100% |
+| Ladder | 18.0 | ladder 100% |
+| Submission | 20.7 | submission 100% |
+| Steel Cage | 17.0 | escape 68%, pin 23%, submission 10% (40 matches) |
+| Falls Count Anywhere | 18.3 | pin 53%, submission 47% |
+| Iron Man (20 min) | 20.0 | time 57%, pin 25%, submission 18% |
+| Two out of Three | 27.0 | pin 57%, submission 43% |
+| Last Man Standing | 10.7 | ten count 100% |
+| I Quit | 22.7 | I quit 100% |
+
 ### Not ported yet
 
 - The AI psychology / identity framework (personality modifiers, wrestler identity weighting).
-- Weapons and environment, stipulations, DQs and dirty tactics, bleeding.
+- Tag teams (the builder's teams of up to four only send the first of each into the ring).
 - Godot's own rating calculator and crowd state (the MotN ones are used instead).
 - The broadcast director / camera logic.
 - Champions: every imported title is vacant (holderId 0), so no one shows as `(c)` yet.

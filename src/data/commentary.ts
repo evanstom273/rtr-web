@@ -23,6 +23,42 @@ export const LINES = {
   reversal: '{d} counters {m} and takes control.',
   crash: '{a} commits to {m}, but {d} moves clear. {a} crashes hard to the mat.',
   finisherStock: '{a} turns the finisher reversal into finisher stock ({n}/3).',
+  gateLadder: 'Somebody has a finisher in the bank. The ladder is live now.',
+  gateTables: 'A finisher is banked. Now somebody can go through a table.',
+  gateCage: 'A finisher is banked. The way out over the top is open.',
+  fallScored: '{a} takes {x}! {s}.',
+  nextFall: 'The referee restarts it. Next fall.',
+  dq: 'The referee has seen {x}. That is a disqualification! {a} is thrown out.',
+  refWarning: 'The referee caught {x}. {a} is warned ({n}/{max}).',
+  refAdmonish: 'The referee yells at {a} about {x}, but there are no disqualifications here.',
+  refBack: 'The referee turns back to the action.',
+  retrieve: '{a} reaches under the ring and pulls out a {w}!',
+  refWarnsWeapon: 'The referee is screaming at {a} to put it down.',
+  pickUp: '{a} picks up the {w}.',
+  weaponHit: '{a} cracks {d} with the {w}!',
+  weaponBreaks: 'The {w} breaks!',
+  weaponDropped: '{a} loses the {w} in the exchange.',
+  whatWeapon: 'the {w}',
+  whatSpot: 'the table',
+  climbStopped: '{d} pulls {a} off the ladder and they crash down!',
+  prizeStopped: '{d} drags {a} down from the top of the ladder! So close!',
+  cageStopped: '{d} catches {a} on the cage and drags them back down into the ring!',
+  prizePull: '{a} is pulling at the {w}! ({n}/{max})',
+  prizeWon: '{a} pulls down the {w}!',
+  tackSpot: '{a} lands right in the thumbtacks off the {m}!',
+  tableSpot: '{a} puts {d} through the table with the {m}!',
+  tableStacked: '{a} drives {d} through two tables with the {m}! Good God!',
+  tableCrash: '{d} misses and goes straight through the table themselves!',
+  tenCountStart: '{d} is down. {a} tells the referee to count!',
+  tenCountLost: '{d} cannot beat the count. Ten!',
+  tenCountBeaten: '{d} drags themselves up at {n}!',
+  quitAsk: '{a} gets in the face of {d}: say it! Say I quit!',
+  quitRefused: '{d} refuses. Not a chance.',
+  quitRefusedNear: '{d} was about to say it, and somehow screams NO!',
+  ironManTime: 'Time! The bell goes, and {a} wins it {s}.',
+  ironManOvertime: 'Time! It is {s}. Sudden death: the next fall wins.',
+  bleedStart: '{d} is busted open! A {x} cut, and the crowd sees it.',
+  bleedWorse: '{d} is bleeding worse now. That is a {x} cut.',
   signatureConverted: '{a} cashes in the momentum: finisher banked ({n}/3).',
   finisherUnlocked: '{a} is fired up: the finisher is ready ({n}/3).',
   signatureReady: "{a} has the signature banked.",
@@ -148,6 +184,38 @@ const SETUP_LOG: Partial<Record<SetupId, string>> = {
   bring_opponent_into_ring: '{a} brings {d} down and back into the ring.',
   catch_opponent_running: "{a} cuts off {d}'s run and stops them in their tracks.",
   call_opponent_running: '{a} calls {d} forward from the top rope.',
+  drop_weapon: '{a} drops the {w}.',
+  set_table_flat: '{a} sets up the table.',
+  stack_table: '{a} stacks a second table on top of the first. That is a long way down.',
+  set_table_corner: '{a} wedges the table in the corner.',
+  position_at_table: '{a} lines {d} up next to the table.',
+  lay_on_table: '{a} lays {d} out across the table.',
+  position_at_corner_table: '{a} backs {d} up against the table in the corner.',
+  clear_table: '{a} rolls off the table before it can be used.',
+  set_up_ladder: '{a} sets up the ladder.',
+  climb_ladder: '{a} starts climbing the ladder.',
+  climb_ladder_top: '{a} reaches the top of the ladder.',
+  climb_down_ladder: '{a} climbs back down the ladder.',
+  tip_ladder: '{a} tips the ladder and {d} comes crashing down!',
+  spread_thumbtacks: '{a} pours the thumbtacks out across the mat. The crowd knows what that means.',
+  position_over_thumbtacks: '{a} drags {d} over the thumbtacks.',
+  clear_thumbtacks: '{a} scrambles away from the thumbtacks.',
+  reach_for_prize: '{a} gets a hand on the {w}!',
+  climb_cage: '{a} starts climbing the cage.',
+  reach_cage_top: '{a} reaches the top of the cage!',
+  escape_over_cage: '{a} goes over the top and drops to the floor!',
+  climb_down_cage: '{a} climbs back down into the cage.',
+  enter_crowd: '{a} drags {d} over the barricade and into the crowd!',
+  leave_crowd: '{a} brings {d} back over the barricade to ringside.',
+  fight_backstage: '{a} takes {d} through the curtain. They are fighting backstage!',
+  return_from_backstage: '{a} heads back out through the curtain.',
+  eye_rake: '{a} rakes the eyes of {d}.',
+  hair_pull: '{a} yanks {d} down by the hair.',
+  closed_fist: '{a} throws a closed fist at {d}.',
+  illegal_choke: '{a} chokes {d} on the ropes.',
+  distract_referee: '{a} gets in the referee\'s ear and pulls them out of position.',
+  remove_turnbuckle_pad: '{a} pulls the pad off the top turnbuckle, exposing the steel.',
+  exposed_turnbuckle: '{a} drives {d} into the exposed steel turnbuckle!',
 };
 
 export const setupLogLine = (id: SetupId): string => SETUP_LOG[id] ?? `{a} uses ${SETUP_TEXT[id].title.toLowerCase()} to create an opening.`;
@@ -209,6 +277,42 @@ export const SETUP_TEXT: Record<SetupId, SetupText> = {
   reset_stance: { title: 'RESET STANCE', description: 'Use the safe match fallback and return both wrestlers inside.' },
   taunt: { title: 'TAUNT / PLAY TO CROWD', description: 'Showboat for stamina and momentum.' },
   catch_breath: { title: 'CATCH BREATH', description: 'Recover short-term stamina, then return the match to neutral.' },
+  retrieve_weapon: { title: 'LOOK UNDER THE RING', description: 'Pull a weapon out from under the ring.' },
+  pick_up_weapon: { title: 'PICK UP WEAPON', description: 'Grab the weapon lying here.' },
+  drop_weapon: { title: 'DROP WEAPON', description: 'Put down what you are holding.' },
+  set_table_flat: { title: 'SET UP TABLE', description: 'Open the table and stand it up here.' },
+  stack_table: { title: 'STACK TABLES', description: 'Put this table on top of the one already set up.' },
+  set_table_corner: { title: 'WEDGE TABLE IN CORNER', description: 'Prop the table up in the corner.' },
+  position_at_table: { title: 'LINE THEM UP BY THE TABLE', description: 'Set them up for a big move through the table.' },
+  lay_on_table: { title: 'LAY THEM ON THE TABLE', description: 'Put them on the table for a big move off the top.' },
+  position_at_corner_table: { title: 'BACK THEM INTO THE TABLE', description: 'Set them up in front of the corner table.' },
+  clear_table: { title: 'GET OFF THE TABLE', description: 'Escape the table before they use it.' },
+  set_up_ladder: { title: 'SET UP LADDER', description: 'Stand the ladder up here.' },
+  climb_ladder: { title: 'CLIMB LADDER', description: 'Start up the ladder.' },
+  climb_ladder_top: { title: 'CLIMB TO THE TOP', description: 'Get to the top of the ladder.' },
+  climb_down_ladder: { title: 'CLIMB DOWN', description: 'Come back down the ladder.' },
+  tip_ladder: { title: 'TIP THE LADDER', description: 'Shove the ladder over with them on it.' },
+  spread_thumbtacks: { title: 'SPREAD THUMBTACKS', description: 'Pour the tacks out here.' },
+  position_over_thumbtacks: { title: 'DRAG THEM OVER THE TACKS', description: 'Set them up to land in the thumbtacks.' },
+  clear_thumbtacks: { title: 'GET AWAY FROM THE TACKS', description: 'Scramble clear of the thumbtacks.' },
+  reach_for_prize: { title: 'REACH FOR THE PRIZE', description: 'Pull at it. They can still stop you.' },
+  climb_cage: { title: 'CLIMB THE CAGE', description: 'Start climbing out.' },
+  reach_cage_top: { title: 'REACH THE TOP', description: 'Get to the top of the cage.' },
+  escape_over_cage: { title: 'GO OVER THE TOP', description: 'Drop to the floor and win.' },
+  climb_down_cage: { title: 'CLIMB DOWN', description: 'Back down into the cage.' },
+  enter_crowd: { title: 'FIGHT INTO THE CROWD', description: 'Take it over the barricade.' },
+  leave_crowd: { title: 'BACK TO RINGSIDE', description: 'Bring it back over the barricade.' },
+  fight_backstage: { title: 'FIGHT BACKSTAGE', description: 'Take it through the curtain.' },
+  return_from_backstage: { title: 'HEAD BACK OUT', description: 'Back out through the curtain to the ramp.' },
+  begin_standing_count: { title: 'MAKE THE REF COUNT', description: 'They are down. Ten and it is over.' },
+  ask_to_quit: { title: 'MAKE THEM SAY IT', description: 'Demand they quit. A struggle, like a submission.' },
+  eye_rake: { title: 'EYE RAKE', description: 'Illegal. A warning if the referee sees it.' },
+  hair_pull: { title: 'HAIR PULL', description: 'Illegal. Drags them down.' },
+  closed_fist: { title: 'CLOSED FIST', description: 'Illegal. A proper punch.' },
+  illegal_choke: { title: 'CHOKE ON THE ROPES', description: 'Illegal. Hurts, and the referee hates it.' },
+  distract_referee: { title: 'DISTRACT THE REFEREE', description: 'Their back is turned for the next couple of moments.' },
+  remove_turnbuckle_pad: { title: 'REMOVE TURNBUCKLE PAD', description: 'Expose the steel in this corner.' },
+  exposed_turnbuckle: { title: 'INTO THE EXPOSED STEEL', description: 'Illegal, and it really hurts.' },
 };
 
 /** Area-aware taunt label. */
@@ -220,9 +324,23 @@ export function tauntTitle(area: string): string {
 }
 
 /** Setup page groups, as in the Godot Setup / Showboat menu. */
-export type SetupGroup = 'MOVEMENT' | 'OPPONENT SETUP' | 'RING POSITION' | 'RECOVERY' | 'SHOWBOAT';
+export type SetupGroup = 'OBJECTIVE' | 'WEAPONS' | 'MOVEMENT' | 'OPPONENT SETUP' | 'RING POSITION' | 'RECOVERY' | 'DIRTY' | 'SHOWBOAT';
 export function setupGroup(id: SetupId): SetupGroup {
   switch (id) {
+    case 'reach_for_prize': case 'climb_cage': case 'reach_cage_top': case 'escape_over_cage': case 'begin_standing_count':
+    case 'ask_to_quit': case 'climb_ladder': case 'climb_ladder_top':
+      return 'OBJECTIVE';
+    case 'retrieve_weapon': case 'pick_up_weapon': case 'drop_weapon': case 'set_table_flat': case 'stack_table':
+    case 'set_table_corner': case 'position_at_table': case 'lay_on_table': case 'position_at_corner_table':
+    case 'set_up_ladder': case 'tip_ladder': case 'spread_thumbtacks': case 'position_over_thumbtacks':
+      return 'WEAPONS';
+    case 'eye_rake': case 'hair_pull': case 'closed_fist': case 'illegal_choke': case 'distract_referee':
+    case 'remove_turnbuckle_pad': case 'exposed_turnbuckle':
+      return 'DIRTY';
+    case 'enter_crowd': case 'leave_crowd': case 'fight_backstage': case 'return_from_backstage':
+      return 'RING POSITION';
+    case 'clear_table': case 'clear_thumbtacks': case 'climb_down_ladder': case 'climb_down_cage':
+      return 'RECOVERY';
     case 'start_running': case 'climb_top_rope': case 'prepare_springboard': case 'step_to_ropes':
       return 'MOVEMENT';
     case 'exit_ring': case 'take_fight_outside': case 'send_opponent_outside': case 'call_opponent_outside':
@@ -272,6 +390,15 @@ export const RATING = {
     tooEarly: 'Over far too early. The crowd wanted more.',
     tapped: 'Tapped out. Fair enough.',
     plain: 'A big move and a pin. It did the job.',
+    dq: 'A disqualification. Nobody paid for that ending.',
+    stip: {
+      TABLES: 'Through the table. That is how you settle it.',
+      LADDER: 'Hands on the prize. The building comes unglued.',
+      CAGE_ESCAPE: 'Over the top and out. The cage could not hold them.',
+      TEN_COUNT: 'Ten, and they never got up. Brutal.',
+      I_QUIT: 'They said it. You do not come back from that.',
+      TIME_DECISION: 'The clock settled it. A war of attrition.',
+    },
   },
   labels: {
     offScale: 'Off the scale',
@@ -303,6 +430,16 @@ export const RATING = {
     wonWithMove: ' with the {move}',
     wonPin: ' with a pinfall',
     wonSub: ' by submission',
+    wonBy: {
+      DISQUALIFICATION: ' by disqualification',
+      TABLES: ' by putting them through a table',
+      LADDER: ' by pulling down the prize',
+      CAGE_ESCAPE: ' by escaping the cage',
+      TEN_COUNT: ' when they could not answer ten',
+      I_QUIT: ' when they said I quit',
+      TIME_DECISION: ' when time ran out',
+    },
+    falls: 'The falls finished {s}.',
   },
 } as const;
 

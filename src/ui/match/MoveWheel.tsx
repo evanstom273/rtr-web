@@ -16,6 +16,7 @@ const ICON: Record<string, string> = {
   SPRINGBOARD: 'M-8 7 H8 M-6 7 Q-6 -2 2 -6 L6 -8 M2 -8 H6 V-4',
   RUNNING: 'M-8 -5 L-2 0 L-8 5 M0 -5 L6 0 L0 5',
   PINNING_MOVE: 'M-8 4 H8 M-5 4 V-2 M5 4 V-2 M-7 -4 A3 3 0 0 1 -1 -4 M1 -4 A3 3 0 0 1 7 -4',
+  WEAPON: 'M-7 7 L5 -5 M2 -8 L8 -2 M-8 3 L-3 8',
 };
 
 const CATEGORIES: { type: MoveType; label: string }[] = [
@@ -26,6 +27,7 @@ const CATEGORIES: { type: MoveType; label: string }[] = [
   { type: 'SPRINGBOARD', label: 'Springboard' },
   { type: 'RUNNING', label: 'Running' },
   { type: 'PINNING_MOVE', label: 'Pinning' },
+  { type: 'WEAPON', label: 'Weapon' },
 ];
 
 const FOCUS: Part[] = ['NONE', 'HEAD', 'BODY', 'LEFT_ARM', 'RIGHT_ARM', 'LEFT_LEG', 'RIGHT_LEG'];
@@ -56,18 +58,22 @@ export function MoveWheel({ engine, onClose }: { engine: MatchEngine; onClose: (
   // Android back from a move list returns to the wheel.
   useBackLayer(cat !== null, () => setCat(null));
 
-  const cats: CatInfo[] = useMemo(() => CATEGORIES.map((c) => {
-    const mine = me.all.filter((m) => m.type === c.type && engine.movePositionsFit(m));
+  const cats: CatInfo[] = useMemo(() => {
+    const pool = [...me.all, ...engine.weaponMoves()];
     const special = (m: Move) => isFinisherMove(me, m) || isSignatureMove(me, m);
-    const display = mine.filter((m) => engine.moveAvailable(m) || special(m));
-    const valid = display.filter((m) => engine.moveAvailable(m));
-    return {
-      ...c, display, valid: valid.length,
-      finisherReady: valid.some((m) => isFinisherMove(me, m)),
-      lockedSpecial: display.some((m) => special(m) && !engine.moveAvailable(m)),
-    };
+    return CATEGORIES.map((c) => {
+      const mine = pool.filter((m) => m.type === c.type && engine.movePositionsFit(m));
+      const display = mine.filter((m) => engine.moveAvailable(m) || special(m));
+      const valid = display.filter((m) => engine.moveAvailable(m));
+      return {
+        ...c, display, valid: valid.length,
+        finisherReady: valid.some((m) => isFinisherMove(me, m)),
+        lockedSpecial: display.some((m) => special(m) && !engine.moveAvailable(m)),
+      };
+    // Only show the weapon wedge while holding something.
+    }).filter((c) => c.type !== 'WEAPON' || c.display.length);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [engine, S.view]);
+  }, [engine, S.view]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -131,6 +137,7 @@ export function MoveWheel({ engine, onClose }: { engine: MatchEngine; onClose: (
                     {m.submission && <span className="sub">submission</span>}
                     {m.flashPin && <span className="flash">flash pin</span>}
                     {m.pinningCombo && <span className="flash">pin combo</span>}
+                    {engine.usesSpot(m) && <span className="flash">through the table</span>}
                     {(me.moveUseCounts[m.id] ?? 0) >= 2 && <span className="warn">used ×{me.moveUseCounts[m.id]}</span>}
                     {why && <span className="lock">Locked: {why}</span>}
                   </span>

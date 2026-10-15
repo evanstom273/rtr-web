@@ -31,13 +31,89 @@ export type SetupId =
   | 'send_opponent_outside' | 'call_opponent_outside' | 'exit_ring' | 'take_fight_outside' | 'fight_up_ramp'
   | 'return_from_ramp' | 'bring_match_back_to_ring' | 'pull_opponent_from_corner' | 'pull_opponent_from_ropes'
   | 'bring_opponent_into_ring' | 'catch_opponent_running' | 'call_opponent_running' | 'regain_composure'
-  | 'press_advantage' | 'wait_for_count';
+  | 'press_advantage' | 'wait_for_count'
+  // Weapons and objects
+  | 'retrieve_weapon' | 'pick_up_weapon' | 'drop_weapon'
+  | 'set_table_flat' | 'stack_table' | 'set_table_corner' | 'position_at_table' | 'lay_on_table' | 'position_at_corner_table'
+  | 'clear_table' | 'set_up_ladder' | 'climb_ladder' | 'climb_ladder_top' | 'climb_down_ladder' | 'tip_ladder'
+  | 'spread_thumbtacks' | 'position_over_thumbtacks' | 'clear_thumbtacks'
+  // Stipulation objectives and arena travel
+  | 'reach_for_prize' | 'climb_cage' | 'reach_cage_top' | 'escape_over_cage' | 'climb_down_cage'
+  | 'enter_crowd' | 'leave_crowd' | 'fight_backstage' | 'return_from_backstage' | 'begin_standing_count' | 'ask_to_quit'
+  // Rule-breaking
+  | 'eye_rake' | 'hair_pull' | 'closed_fist' | 'illegal_choke' | 'distract_referee' | 'remove_turnbuckle_pad' | 'exposed_turnbuckle';
+
+export type StipulationId =
+  | 'standard' | 'no_dq' | 'tables' | 'ladder' | 'submission' | 'steel_cage' | 'falls_count_anywhere' | 'iron_man'
+  | 'two_out_of_three' | 'last_man_standing' | 'i_quit';
+
+/** Where an object is and what it's doing. */
+export type ObjectState = 'held' | 'dropped' | 'flat' | 'corner' | 'stacked' | 'spread' | 'ladder' | 'broken' | 'consumed';
+
+/** A weapon or object in play (MatchWeaponInstance). */
+export interface EnvObject {
+  id: number;
+  weaponId: string;
+  durability: number;
+  state: ObjectState;
+  area: Area;
+  holder: SideKey | null;
+  /** Table or tacks: who's been laid on / lined up over it, and by whom. */
+  positioned: SideKey | null;
+  positionedBy: SideKey | null;
+  /** Ladder: who's on it and how high (1 climbing, 2 at the top). */
+  climber: SideKey | null;
+  climbStage: number;
+  /** Stacked table: its partner. */
+  stackedWith: number | null;
+}
+
+/** Stipulation progress (MatchObjectiveState). */
+export interface Objective {
+  /** Ladder grabs, cage escapes and table wins open once anyone has banked a finisher. */
+  gateOpen: boolean;
+  /** Pulls at the prize so far (shared, as in Godot: whoever completes it wins). */
+  ladderPulls: number;
+  cageStage: Record<SideKey, number>;
+  score: Record<SideKey, number>;
+  falls: { k: SideKey; finish: FinishType; t: number }[];
+  overtime: boolean;
+  /** Last Man Standing: who can be counted right now, and how hard the blow was. */
+  lmsFor: SideKey | null;
+  lmsImpact: number;
+  quitPressure: Record<SideKey, number>;
+  /** Has each side landed a finisher yet (I Quit credibility). */
+  finisherLanded: Record<SideKey, boolean>;
+  /** A result reached mid-action (a DQ, a table break, time running out), settled when the action ends. */
+  decision: Decision | null;
+}
+
+export interface Decision {
+  winner: SideKey | null;
+  finish: FinishType;
+  move: Move | null;
+  /** End the whole match even in a multi-fall match (time running out). */
+  final?: boolean;
+}
+
+/** The referee's attention and the rulebook (MatchRefereeState). */
+export interface RefereeWatch {
+  /** Actions left distracted, and by whom. */
+  distracted: number;
+  distractedBy: SideKey | null;
+  /** Actions left catching up after the fight changed area. */
+  moving: number;
+  area: Area;
+  warnings: Record<SideKey, number>;
+}
 
 export type ActionResult = 'CLEAN_SUCCESS' | 'REVERSAL' | 'HIGH_RISK_CRASH' | 'SETUP_SUCCESS' | 'KICKOUT' | 'SUBMISSION_ESCAPE' | 'TAP_OUT' | 'BOTCH_OR_SCRAMBLE' | 'NONE';
 
 export type Control = SideKey | 'neutral';
 
-export type FinishType = 'PINFALL' | 'SUBMISSION' | 'COUNT_OUT' | 'DOUBLE_COUNT_OUT';
+export type FinishType =
+  | 'PINFALL' | 'SUBMISSION' | 'COUNT_OUT' | 'DOUBLE_COUNT_OUT' | 'DISQUALIFICATION' | 'TABLES' | 'LADDER'
+  | 'CAGE_ESCAPE' | 'TEN_COUNT' | 'I_QUIT' | 'TIME_DECISION';
 
 /** Body-target resolution, as produced by MoveTargetResolver. */
 export interface TargetResolution {
@@ -109,6 +185,12 @@ export interface Side {
   announcedHighFatigue: boolean;
   announcedSpent: boolean;
   announcedHeroic: boolean;
+
+  /** 0 none, 1 minor, 2 moderate, 3 heavy. */
+  bleeding: number;
+  /** AI trips under the ring for a weapon, and when the next is allowed (match seconds). */
+  weaponTrips: number;
+  nextWeaponTripAt: number;
 
   movesLanded: number;
   damageDealt: number;
@@ -247,6 +329,7 @@ export type Cont =
   | { to: 'neutralRecovery' }
   | { to: 'startSub'; k: SideKey; moveId: string; target: TargetResolution }
   | { to: 'startPin'; k: SideKey; embedded: boolean }
+  | { to: 'nextFall' }
   | { to: 'pinNeutral' }
   | { to: 'final' };
 
@@ -267,7 +350,25 @@ export type Pending =
   | { kind: 'pinChoice'; spec: PinChoiceSpec }
   | { kind: 'sigConvert'; spec: SigConvertSpec }
   | { kind: 'subChoice'; spec: SubChoiceSpec }
+  /** Last Man Standing: the player is being counted and has to get up (hands-on, like a kickout). */
+  | { kind: 'tenCount'; spec: TenCountSpec }
+  /** Last Man Standing: the AI is being counted; pre-rolled, the UI counts it out. beatenAt null = stays down. */
+  | { kind: 'refTen'; id: number; counted: SideKey; beatenAt: number | null }
   | { kind: 'over' };
+
+/** The player's ten count: hold and release in the gold, like the kickout, but slower and out of ten. */
+export interface TenCountSpec {
+  id: number;
+  /** Gold zone width as % of the track. */
+  width: number;
+  /** Gold centre, 0–1. */
+  center: number;
+  /** Seconds for the bar to fill. */
+  fillDuration: number;
+  /** Seconds before ten. */
+  timeLimit: number;
+  forgiveness: number;
+}
 
 /* ---------- result & rating ---------- */
 
@@ -280,6 +381,8 @@ export interface MatchResult {
   byFin: boolean;
   byFlash: boolean;
   afterFk: boolean;
+  /** Multi-fall matches: the final score. */
+  score?: Record<SideKey, number>;
 }
 
 export interface RatingPart {
@@ -317,6 +420,18 @@ export interface CrowdStats {
   finAttemptsSeen: boolean;
   /** Finishers each side has kicked out of. */
   fkAbsorbed: Record<SideKey, number>;
+  /** Stipulation and hardcore evidence for the rating. */
+  tableBreaks: number;
+  weaponHits: number;
+  bleeds: number;
+  ladderPulls: number;
+  climbStops: number;
+  cageClimbs: number;
+  travel: number;
+  falls: number;
+  tenCounts: number;
+  nearQuits: number;
+  dirty: number;
 }
 
 /* ---------- view ---------- */
@@ -334,6 +449,11 @@ export interface SideView {
   exhaustion: string;
   targetFocus: Part;
   resiliencyAvailable: boolean;
+  /** Name of what they're holding, if anything. */
+  held: string | null;
+  bleeding: number;
+  /** Referee warning points (four is a DQ where there are DQs). */
+  warnings: number;
 }
 
 export interface MatchView {
@@ -359,6 +479,17 @@ export interface MatchRulesConfig {
   eventPromotion?: string;
   /** A specific title on the line (implies title: true). */
   titleId?: string;
+  stipulation: StipulationId;
+  dq: boolean;
+  weapons: boolean;
+  /** Set from the stipulation (and the cage toggles). */
+  pins: boolean;
+  subs: boolean;
+  ironManMinutes: number;
+  ladderPrize: 'Championship' | 'Briefcase';
+  cageEscape: boolean;
+  cagePins: boolean;
+  cageSubs: boolean;
 }
 
 export interface MatchState {
@@ -375,6 +506,9 @@ export interface MatchState {
   recentReversalSide: SideKey | null;
 
   referee: { active: boolean; value: number; elapsed: number; pendingResolution: boolean; outside: Record<SideKey, boolean> };
+  ref: RefereeWatch;
+  env: { objects: EnvObject[]; nextId: number; padRemoved: boolean };
+  obj: Objective;
   phase: { name: 'opening' | 'middle' | 'closing'; drama: number; controlSwings: number; actionsSinceChange: number };
 
   heat: number;
@@ -400,7 +534,7 @@ export interface MatchState {
 export type Txn =
   | { kind: 'move'; k: SideKey; move: Move; target: TargetResolution; chance: number }
   | { kind: 'setup'; k: SideKey; action: SetupId; chance: number }
-  | { kind: 'sub'; k: SideKey; move: Move; target: TargetResolution; nearTapSaid: boolean; nearEscapeSaid: boolean; lastMarker: number };
+  | { kind: 'sub'; k: SideKey; move: Move; target: TargetResolution; nearTapSaid: boolean; nearEscapeSaid: boolean; lastMarker: number; quit?: boolean };
 
 export interface PinContext {
   embedded: boolean;

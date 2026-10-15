@@ -4,10 +4,11 @@ import { observePhase } from './clock';
 import type { Ctx } from './ctx';
 import { other, ring, say } from './commentary';
 import { crowdObserve } from './crowd';
-import { afterAction, endMatch, render, setControl } from './flow';
+import { afterAction, endFall, render, setControl } from './flow';
 import { submissionContext } from './interaction';
 import { aiShouldUseResiliency, conditionWord, pinCondition, useResiliency } from './pin';
 import { clamp } from './rng';
+import { fcaHoldLegal, quitRefused } from './stip';
 import { damagePart, markCrossedThresholds, spendStamina, totalHp } from './side';
 import { targetHp } from './targeting';
 import type { MatchState, Move, Side, SideKey, SubOutcome, TargetResolution } from './types';
@@ -46,12 +47,22 @@ export function aiGoesForTap(S: MatchState, k: SideKey, move: Move, target: Targ
   return S.t >= 1500 && hp < 60;
 }
 
+/**
+ * Can this hold make them tap? Not when the stipulation has no submissions, and not on the ropes,
+ * in the corner or from the apron (the referee forces the break), except in Falls Count Anywhere.
+ */
+export function holdCanWin(S: MatchState, k: SideKey): boolean {
+  if (!S.rules.subs) return false;
+  const a = S[k].state.area, d = S[other(k)].state.area;
+  return (a === 'IN_RING' && d === 'IN_RING') || fcaHoldLegal(S, k);
+}
+
 /** A hold has landed. The player chooses; the AI decides on the spot. */
 export function beginSubmission(ctx: Ctx, k: SideKey, move: Move, target: TargetResolution): void {
   const S = ctx.S, A = S[k], D = S[other(k)];
   // Holds on the ropes, in the corner or from the apron (Tarantula, rope-hung armbars) can't win:
   // the referee forces the break. They're all damage.
-  if (A.state.area !== 'IN_RING' || D.state.area !== 'IN_RING') return workTheHold(ctx, k, move, target, true);
+  if (!holdCanWin(S, k)) return workTheHold(ctx, k, move, target, S.rules.subs);
   if (k === 'you') {
     const per = workHoldDamage(A, move);
     S.pending = {
@@ -94,7 +105,7 @@ export function workTheHold(ctx: Ctx, k: SideKey, move: Move, target: TargetReso
 
 export function startSubmission(ctx: Ctx, k: SideKey, move: Move, target: TargetResolution): void {
   const S = ctx.S, dk = other(k), A = S[k], D = S[dk];
-  if (A.state.area !== 'IN_RING' || D.state.area !== 'IN_RING') {
+  if (!holdCanWin(S, k)) {
     setControl(ctx, k);
     afterAction(ctx);
     return;
@@ -130,7 +141,8 @@ export function submissionTick(ctx: Ctx, marker: number): void {
   const S = ctx.S, txn = S.txn, p = S.pending;
   if (!txn || txn.kind !== 'sub' || p.kind !== 'sub') return;
   const k = txn.k, dk = other(k), A = S[k], D = S[dk];
-  const dmg = 0.5 + (Math.max(0, marker - 50) / 50) * 0.75;
+  // An I Quit demand is a battle of wills, not a hold: no damage.
+  const dmg = txn.quit ? 0 : 0.5 + (Math.max(0, marker - 50) / 50) * 0.75;
   const before = totalHp(D);
   let giving = '';
   for (const part of txn.target.parts) {
@@ -175,7 +187,12 @@ export function resolveSubmission(ctx: Ctx, outcome: SubOutcome): void {
       }
       if (aiShouldUseResiliency(S, dk, txn.move)) return useResiliency(ctx, dk, 'submission');
     }
-    return endMatch(ctx, k, 'SUBMISSION', txn.move);
+    return endFall(ctx, k, txn.quit || S.rules.stipulation === 'i_quit' ? 'I_QUIT' : 'SUBMISSION', txn.move);
+  }
+  if (txn.quit) {
+    quitRefused(ctx, k, txn.nearTapSaid);
+    setControl(ctx, dk);
+    return afterAction(ctx);
   }
   if (outcome === 'SUBMISSION_ESCAPE') {
     D.lastActionResult = 'SUBMISSION_ESCAPE';

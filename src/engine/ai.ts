@@ -13,10 +13,12 @@ import {
 import { afterAction, setControl } from './flow';
 import { moveLandChance, setupLandChance } from './dice';
 import { executionChance, isHighRisk } from './interaction';
-import { executeMove, moveIsValid, validMoves } from './moves';
+import { executeMove, isLadderDive, moveIsValid, validMoves } from './moves';
 import { canPin, isFlashPinMove, pinCondition, startPin } from './pin';
 import { clamp } from './rng';
-import { executeSetup, validSetups } from './setups';
+import { aiWantsWeaponTrip, aiWantsWeaponsHere, executeSetup, validSetups } from './setups';
+import { heldBy, objectsIn, weaponOf } from './env';
+import { chooseAiWeapon, extraSetups, isExtraSetup } from './stip';
 import { findFollowupPaths, isContested, isRecovery, moveMatchesSnapshots, projectAction } from './setupRules';
 import {
   canUseMove, isFinisherMove, isSignatureMove, lastAttemptedMoveMatches, lowestTargetHp, mostTargetedPart,
@@ -27,6 +29,11 @@ import type { Choice, MatchState, Move, SetupId, Side, SideKey, Snapshot, Target
 import { BODY_PARTS } from './types';
 
 const MOVE_BLOCK_WINDOW = 3;
+
+const AI_PRIORITY_EXTRAS: ReadonlySet<SetupId> = new Set<SetupId>([
+  'reach_for_prize', 'escape_over_cage', 'reach_cage_top', 'begin_standing_count', 'retrieve_weapon', 'pick_up_weapon',
+  'climb_ladder_top', 'tip_ladder', 'clear_table', 'clear_thumbtacks', 'ask_to_quit',
+]);
 
 type Candidate = Choice & { readySpecial?: boolean; forcedFallback?: boolean; fallbackLog?: 'commit' | 'reset' };
 
@@ -127,7 +134,7 @@ export class AiBrain {
 
   choose(ai: Side, target: Side, moves: Move[], setups: SetupId[]): Candidate | null {
     if (this.setupCooldownTurns > 0) this.setupCooldownTurns--;
-    const cover = this.coverAfterBigMove(ai, target);
+    const cover = this.coverAfterBigMove(ai, target) ?? this.objectivePriority(ai, target, setups);
     this.justLanded = null;
     if (cover) {
       this.clearSetupIntent();
@@ -221,7 +228,7 @@ export class AiBrain {
       this.recentSetupActions.push('');
       ai.consecutiveSetupActions = 0;
     } else if (c.kind === 'setup') {
-      if (c.action === 'catch_breath') {
+      if (c.action === 'catch_breath' || isExtraSetup(c.action)) {
         this.recentSetupActions.push('');
         ai.consecutiveSetupActions = 0;
       } else {
@@ -412,6 +419,48 @@ export class AiBrain {
     return this.ctx.rnd() < p ? { kind: 'pin', score: 0 } : null;
   }
 
+  /**
+   * Stipulation business that shouldn't be left to a weighted roll (Godot's objective priorities and
+   * forced follow-throughs): grab the prize, go over the cage, make the referee count, knock them
+   * off the ladder, finish a weapon trip, set up what you're holding.
+   */
+  private objectivePriority(ai: Side, target: Side, setups: SetupId[]): Candidate | null {
+    const S = this.S, stip = S.rules.stipulation, has = (id: SetupId) => setups.includes(id);
+    const pickSetup = (id: SetupId): Candidate => ({ kind: 'setup', action: id, score: 999 });
+    const down = ['GROUNDED', 'SEATED', 'KNEELING'].includes(target.state.position);
+    for (const id of ['reach_for_prize', 'escape_over_cage', 'tip_ladder', 'begin_standing_count', 'climb_ladder_top', 'clear_table', 'clear_thumbtacks'] as SetupId[]) {
+      if (has(id) && (id !== 'climb_ladder_top' || stip === 'ladder')) return pickSetup(id);
+    }
+    if (has('reach_cage_top') && this.ctx.rnd() < 0.6) return pickSetup('reach_cage_top');
+    const want = stip === 'ladder' ? 'LADDER' : stip === 'tables' ? 'TABLE' : null;
+    const held = heldBy(S, this.k);
+    if (!held && want && has('pick_up_weapon') && objectsIn(S, ai.state.area, ['dropped']).some((o) => weaponOf(o).kind === want)) return pickSetup('pick_up_weapon');
+    if (has('retrieve_weapon') && ai.state.area === 'OUTSIDE') {
+      const best = chooseAiWeapon(S, this.k);
+      if (best && (want ? best.kind === want : aiWantsWeaponsHere(S) || ai.weaponTrips > 0)) return pickSetup('retrieve_weapon');
+    }
+    if (held) {
+      const kind = weaponOf(held).kind;
+      // The prize hangs over the ring, and tables are no use where the fight isn't: take them inside.
+      if ((kind === 'LADDER' || kind === 'TABLE') && kind === want && ai.state.area !== 'IN_RING' && has('return_to_ring')) return pickSetup('return_to_ring');
+      if (kind === 'LADDER' && has('set_up_ladder') && ai.state.area === 'IN_RING' && this.ctx.rnd() < 0.7) return pickSetup('set_up_ladder');
+      if (kind === 'TABLE' && stip === 'tables') {
+        if (has('stack_table') && this.ctx.rnd() < 0.4) return pickSetup('stack_table');
+        if (has('set_table_flat') && ai.state.area === 'IN_RING') return pickSetup('set_table_flat');
+      }
+      if (kind === 'THUMBTACKS' && has('spread_thumbtacks') && ai.state.area === 'IN_RING') return pickSetup('spread_thumbtacks');
+    }
+    if (stip === 'ladder' && has('climb_ladder') && (down || this.ctx.rnd() < 0.5)) return pickSetup('climb_ladder');
+    if (stip === 'tables') {
+      for (const id of ['lay_on_table', 'position_at_table', 'position_at_corner_table'] as SetupId[]) if (has(id) && this.ctx.rnd() < 0.8) return pickSetup(id);
+    }
+    if (has('position_over_thumbtacks') && this.ctx.rnd() < 0.5) return pickSetup('position_over_thumbtacks');
+    // The cage is the way out, but most of a cage match is fought inside it.
+    if (stip === 'steel_cage' && has('climb_cage') && this.ctx.rnd() < (down ? 0.2 : 0.03)) return pickSetup('climb_cage');
+    if (has('ask_to_quit') && this.ctx.rnd() < (down ? 0.6 : 0.35)) return pickSetup('ask_to_quit');
+    return null;
+  }
+
   private pinSpacingModifier(ai: Side, moveId: string): number {
     if (this.lastPinAttemptLandedCount < 0) return 0;
     const since = Math.max(0, ai.movesLanded - this.lastPinAttemptLandedCount);
@@ -518,7 +567,25 @@ export class AiBrain {
       else if (m.impact >= 6) score += 10;
     }
     if (m.finisher || m.submission || (exhaustionBand(ai) === 'Spent' && moveDemand(m) === 'BASIC')) score += this.phaseFinishBonus();
+    score += this.stipulationMoveBonus(ai, m);
     return score;
+  }
+
+  /** Weapon shots and stipulation preferences (Godot's ai_profile bonuses). */
+  private stipulationMoveBonus(ai: Side, m: Move): number {
+    const S = this.S, stip = S.rules.stipulation;
+    let b = 0;
+    if (m.type === 'WEAPON') {
+      b += stip === 'no_dq' ? 34 : 8;
+      if (ai.w.classes.includes('HARDCORE')) b += 12;
+      // Godot's AI swung in plain sight and got itself disqualified; this one waits for the ref to look away.
+      if (S.rules.dq) b += S.ref.distracted > 0 ? 25 : -90;
+    }
+    if (stip === 'submission' && m.submission) b += 32;
+    if (stip === 'i_quit' && m.submission) b += 25;
+    if (stip === 'last_man_standing' && m.impact >= 8) b += 30;
+    if (isLadderDive(S, this.k, m)) b += 20;
+    return b;
   }
 
   private finisherBonus(ai: Side, target: Side, m: Move, res: TargetResolution): number {
@@ -599,7 +666,76 @@ export class AiBrain {
     return { part, hp };
   }
 
+  /**
+   * Weapons, objects, stipulation objectives, travel and dirty tactics. Godot's bonuses
+   * (match_ai_decision_engine.gd) on the usual base of 40, plus a sense of the DQ risk Godot lacked.
+   */
+  scoreExtra(ai: Side, target: Side, id: SetupId, moves: Move[]): number {
+    const S = this.S, stip = S.rules.stipulation, heel = ai.w.disposition === 'HEEL', hardcore = ai.w.classes.includes('HARDCORE');
+    const weaponMatch = ['ladder', 'tables', 'no_dq', 'falls_count_anywhere', 'last_man_standing', 'i_quit'].includes(stip);
+    const down = ['GROUNDED', 'SEATED', 'KNEELING'].includes(target.state.position);
+    const held = heldBy(S, this.k);
+    let score = 40;
+    switch (id) {
+      case 'retrieve_weapon':
+        score += stip === 'ladder' ? 72 : stip === 'tables' ? 64 : stip === 'no_dq' ? 78 : weaponMatch ? 48 : 10;
+        break;
+      case 'pick_up_weapon': score += weaponMatch ? 62 : S.rules.dq ? -20 : 30; break;
+      case 'drop_weapon': {
+        const w = held ? weaponOf(held) : null;
+        score -= 30;
+        if (w && w.kind !== 'HANDHELD' && !extraSetups(S, this.k).some((x) => x.startsWith('set_') || x === 'stack_table' || x === 'spread_thumbtacks')) score += 50;
+        break;
+      }
+      case 'set_table_flat': case 'set_table_corner': score += stip === 'tables' ? (ai.state.area === 'IN_RING' ? 70 : -40) : 45; break;
+      case 'stack_table': score += stip === 'tables' ? 60 : 50; break;
+      case 'set_up_ladder': score += stip === 'ladder' ? (ai.state.area === 'IN_RING' ? 90 : -60) : 40; break;
+      case 'spread_thumbtacks': score += 45; break;
+      case 'position_at_table': case 'lay_on_table': case 'position_at_corner_table': case 'position_over_thumbtacks':
+        score += stip === 'tables' ? 75 : 50;
+        if (ai.finisherStock > 0) score += 15;
+        break;
+      case 'clear_table': case 'clear_thumbtacks': score += 75; break;
+      case 'climb_ladder': score += stip === 'ladder' ? 70 + (down ? 25 : 0) : 25; break;
+      case 'climb_ladder_top': score += stip === 'ladder' ? 85 + (down ? 20 : 0) : 40; break;
+      case 'reach_for_prize': score += 130; break;
+      case 'climb_down_ladder':
+        score += stip === 'ladder' ? -30 : moves.length ? -40 : 30;
+        break;
+      case 'tip_ladder': score += 95; break;
+      case 'climb_cage': score += 10 + (down ? 20 : 0); break;
+      case 'reach_cage_top': score += 62 + (down ? 20 : 0); break;
+      case 'escape_over_cage': score += 110; break;
+      case 'climb_down_cage': score -= 30; break;
+      case 'enter_crowd': case 'fight_backstage': score += 18; break;
+      case 'leave_crowd': case 'return_from_backstage': score += 8; break;
+      case 'begin_standing_count': score += 90; break;
+      case 'ask_to_quit': score += 82; break;
+      case 'distract_referee':
+        score += held && S.rules.dq && weaponOf(held).illegal ? 80 : heel ? 5 : -30;
+        break;
+      case 'remove_turnbuckle_pad': score += heel ? 5 : -30; break;
+      default: {
+        // Eye rakes, hair pulls, closed fists, chokes, the exposed turnbuckle.
+        score += id === 'exposed_turnbuckle' ? 10 : -25;
+        if (heel) score += 20;
+        if (S.ref.distracted > 0) score += 20;
+        if (S.rules.dq && S.ref.warnings[this.k] >= 2) score -= 70;
+      }
+    }
+    if (hardcore && ['retrieve_weapon', 'pick_up_weapon', 'set_table_flat', 'stack_table', 'spread_thumbtacks', 'set_up_ladder'].includes(id)) score += 12;
+    if (this.recentSetupActions.includes(id) && !['reach_for_prize', 'climb_ladder', 'climb_cage', 'tip_ladder'].includes(id)) score -= 60;
+    return score;
+  }
+
   scoreSetup(ai: Side, target: Side, id: SetupId, moves: Move[], plan: { actions: SetupId[]; move: Move } | null): number {
+    if (isExtraSetup(id)) return this.scoreExtra(ai, target, id, moves);
+    if (id === 'exit_ring' && aiWantsWeaponTrip(this.S, this.k)) {
+      // Under the ring for a weapon (Godot's EXIT_RING scores).
+      const stip = this.S.rules.stipulation;
+      return 40 + (stip === 'ladder' ? 82 : stip === 'tables' ? 74 : 52) + (target.state.position === 'GROUNDED' ? 16 : 0)
+        + (ai.w.classes.includes('HARDCORE') ? 14 : 0);
+    }
     let score = 40;
     if (isContested(id)) score -= (100 - setupLandChance(ai, target, id)) * 0.08;
     score += setupScoringModifier(ai, id);
@@ -796,6 +932,8 @@ function specialStateRecovery(S: MatchState, k: SideKey, moves: Move[], setups: 
     if (!sideIsOutside(S, k) && sideIsOutside(S, other(k)) && remaining <= Math.max(3, Math.floor(S.rules.countOutLimit / 2)) && setups.includes('wait_for_count')) return 'wait_for_count';
   }
   if (moves.length) return null;
+  // Objective and weapon business outranks tidying up.
+  if (setups.some((id) => AI_PRIORITY_EXTRAS.has(id))) return null;
   const has = (id: SetupId) => setups.includes(id);
   const ap = A.state, dp = D.state;
   if ((ap.position === 'GROUNDED' || ap.position === 'SEATED' || ap.position === 'KNEELING') && has('stand_up')) return 'stand_up';

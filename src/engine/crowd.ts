@@ -52,7 +52,9 @@ export type CrowdEvent =
   | { type: 'submission_escape'; k: SideKey }
   | { type: 'near_tap' }
   | { type: 'catch_breath' }
-  | { type: 'match_end' };
+  | { type: 'match_end' }
+  /** A hardcore or stipulation spot: table break, ladder fall, weapon shot. */
+  | { type: 'spot'; amount: number };
 
 export function crowdObserve(ctx: Ctx, e: CrowdEvent): void {
   const S = ctx.S, c = S.crowd;
@@ -147,6 +149,9 @@ export function crowdObserve(ctx: Ctx, e: CrowdEvent): void {
       break;
     case 'match_end':
       heat(ctx, 15);
+      break;
+    case 'spot':
+      heat(ctx, e.amount);
       break;
   }
 }

@@ -5,18 +5,18 @@ import { observePhase, advanceClock } from './clock';
 import type { Ctx } from './ctx';
 import { flash, other, ring, say } from './commentary';
 import { crowdObserve } from './crowd';
-import { endMatch, render, setControl, afterAction } from './flow';
+import { endFall, render, setControl, afterAction } from './flow';
 import { lateMatchProfile, pinProfile } from './interaction';
 import { randRange } from './rng';
+import { bleedPenalty } from './env';
+import { pinAreaLegal } from './stip';
 import { isFinisherMove, isSignatureMove, totalHp } from './side';
 import { staminaPercent } from './exhaustion';
 import type { KickoutCount, MatchState, Move, PinContext, Side, SideKey } from './types';
 
-const inRing = (s: Side) => s.state.area === 'IN_RING';
-
 export function canPin(S: MatchState, k: SideKey): boolean {
   const A = S[k], D = S[other(k)];
-  return A.state.position === 'STANDING' && D.state.position === 'GROUNDED' && inRing(A) && inRing(D) && A.state.motion === 'STATIONARY';
+  return A.state.position === 'STANDING' && D.state.position === 'GROUNDED' && pinAreaLegal(S, k) && A.state.motion === 'STATIONARY';
 }
 
 const FLASH_TERMS = ['roll-up', 'roll up', 'schoolboy', 'backslide', "o'connor", 'oconnor', 'small package', 'cradle', 'victory roll', 'sunset flip', 'rolling crucifix', 'surprise pin'];
@@ -113,7 +113,7 @@ export function pinPressureAndResistance(S: MatchState, k: SideKey, pc: PinConte
   if (pc.squashQualified) pressure += 45;
   if (D.hp.HEAD < 40) pressure += 10;
   if (D.hp.BODY < 40) pressure += 10;
-  let resistance = D.momentum - lateMatchProfile(S.t).recoveryPenalty + conditionResistance(D);
+  let resistance = D.momentum - lateMatchProfile(S.t).recoveryPenalty + conditionResistance(D) - bleedPenalty(D);
   if (pc.flashSuccess) resistance -= 35;
   if (pc.squashQualified) resistance -= 25;
   if (count === 1) resistance += 30;
@@ -125,7 +125,7 @@ export function pinPressureAndResistance(S: MatchState, k: SideKey, pc: PinConte
 export function startPin(ctx: Ctx, k: SideKey, embedded: boolean): boolean {
   const S = ctx.S, dk = other(k), A = S[k];
   if (embedded) {
-    if (!inRing(A) || !inRing(S[dk])) {
+    if (!pinAreaLegal(S, k)) {
       setControl(ctx, k);
       afterAction(ctx);
       return false;
@@ -209,7 +209,7 @@ export function pinThree(ctx: Ctx, k: SideKey): void {
   }
   const move = S.pinContext?.lastMove ?? null;
   S.pinContext = null;
-  endMatch(ctx, k, 'PINFALL', move);
+  endFall(ctx, k, 'PINFALL', move);
 }
 
 export function aiShouldUseResiliency(S: MatchState, dk: SideKey, move: Move | null): boolean {

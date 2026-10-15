@@ -103,6 +103,7 @@ body.dragging,body.dragging *{user-select:none!important;-webkit-user-select:non
 .bd-row>select{flex:1 1 220px}
 .bd-label{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);min-width:3.6em}
 .bd-fixed{font-weight:600}
+.bd-blurb{flex:1 1 100%;font-size:13px;color:var(--muted)}
 .bd-limit{display:inline-flex;gap:8px;align-items:center;color:var(--mute)}
 .bd-limit input{width:4.4em}
 .bd-main{flex:1;min-height:0;display:flex;flex-direction:column;gap:8px}
@@ -292,6 +293,14 @@ body.dragging,body.dragging *{user-select:none!important;-webkit-user-select:non
 .band.b-exhausted,.band.b-spent{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 50%,transparent)}
 .band.b-spent{animation:blink 1.2s steps(2) infinite}
 .resil{color:var(--ink);background:var(--gold);border-radius:3px;padding:0 5px;font-weight:600;letter-spacing:.08em}
+.held{border:1px solid var(--fg);border-radius:3px;padding:0 5px;color:var(--fg);text-transform:uppercase;letter-spacing:.06em}
+.bleed{color:#fff;background:var(--bad);border-radius:3px;padding:0 5px;text-transform:uppercase;letter-spacing:.06em}
+.bleed.b1{opacity:.75}
+.warn-pts{color:var(--bad);border:1px solid var(--bad);border-radius:3px;padding:0 5px;text-transform:uppercase;letter-spacing:.06em}
+.stiprow{display:flex;flex-wrap:wrap;gap:2px 12px;margin-top:3px;font-family:var(--mono);font-size:11.5px;letter-spacing:.04em;color:var(--mute)}
+.stiprow .sn{color:var(--gold);text-transform:uppercase;letter-spacing:.12em}
+.stiprow .hot{color:var(--fg)}
+.stiprow .bad{color:var(--bad)}
 .cbody{display:flex;gap:9px;margin-top:7px;align-items:flex-start}
 .mannequin{width:30px;flex:none;overflow:visible}
 .mannequin .bp{stroke:var(--ink);stroke-width:1;transition:fill .5s}
@@ -654,3 +663,11 @@ body.dragging,body.dragging *{user-select:none!important;-webkit-user-select:non
   #flash.go,#flash.strong{animation:fadeonly 1.2s linear!important}
   @keyframes fadeonly{0%,100%{opacity:0}20%,70%{opacity:1}}
 }
+
+/* Objects in the ring view */
+.ring .cage{fill:none;stroke:var(--mute);stroke-width:2.5;stroke-dasharray:3 2;opacity:.8}
+.ring .obj .tbl{fill:#8a6a44;stroke:#3a2a18;stroke-width:1}
+.ring .obj .ldr line{stroke:#c9c2b0;stroke-width:2;stroke-linecap:round}
+.ring .obj .tacks circle{fill:#e8e8e8}
+.ring .obj .dropped{stroke:var(--fg);stroke-width:3;stroke-linecap:round;opacity:.75}
+.ring .obj.armed .tbl{stroke:var(--gold);stroke-width:2}

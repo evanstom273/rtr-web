@@ -18,6 +18,7 @@ import { SubChoice } from '../overlays/SubChoice';
 import { SubmissionTug } from '../overlays/SubmissionTug';
 import { PinChoice } from '../overlays/PinChoice';
 import { SigConvert } from '../overlays/SigConvert';
+import { RefTen, TenCount } from '../overlays/TenCount';
 import { useEngine } from '../useEngine';
 import { useMedia } from '../useMedia';
 import { useBackLayer } from '../backStack';
@@ -93,7 +94,7 @@ export function Match({ engine, onOver }: { engine: MatchEngine; onOver: () => v
   // Android back closes whichever sheet is open.
   useBackLayer(sheet !== 'none', close);
   const joltCls = jolt.n ? ` ${jolt.big ? 'jolt-big' : 'jolt'}${jolt.n % 2}` : '';
-  const ringBusy = p.kind === 'contest' || p.kind === 'contestRoll' || p.kind === 'pinChoice' || p.kind === 'sigConvert' || p.kind === 'subChoice' || p.kind === 'kickout' || p.kind === 'refCount' || p.kind === 'sub';
+  const ringBusy = p.kind === 'contest' || p.kind === 'contestRoll' || p.kind === 'pinChoice' || p.kind === 'sigConvert' || p.kind === 'subChoice' || p.kind === 'kickout' || p.kind === 'refCount' || p.kind === 'sub' || p.kind === 'tenCount' || p.kind === 'refTen';
 
   return (
     <>
@@ -130,6 +131,8 @@ export function Match({ engine, onOver }: { engine: MatchEngine; onOver: () => v
       {p.kind === 'subChoice' && <SubChoice key={p.spec.id} engine={engine} spec={p.spec} />}
       {p.kind === 'pinChoice' && <PinChoice key={p.spec.id} engine={engine} spec={p.spec} />}
       {p.kind === 'sigConvert' && <SigConvert key={p.spec.id} engine={engine} spec={p.spec} />}
+      {p.kind === 'tenCount' && <TenCount key={p.spec.id} engine={engine} spec={p.spec} />}
+      {p.kind === 'refTen' && <RefTen key={p.id} engine={engine} beatenAt={p.beatenAt} />}
       {p.kind === 'resiliency' && <Resiliency key={p.id} engine={engine} threat={p.threat} />}
       {flash && <Flash key={flash.id} text={flash.text} strong={flash.strong} />}
     </>
