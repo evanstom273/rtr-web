@@ -196,8 +196,11 @@ because limb work feeds the story score.
     current filtered list.
   - **Teams hold up to four** for future tag matches. The engine is one-on-one, so Start needs
     exactly one wrestler a side.
-  - **Layout:** on phones the teams are a sticky drop dock at the bottom; at 900px and wider it's
-    Godot's two columns.
+  - **Layout:** the screen is pinned and only the roster list scrolls, with no bounce.
+    - top: title, a one-line rules/event summary (tap to expand) and Info (how it works and
+      greatest hits)
+    - bottom on phones: the teams, Random and the bell
+    - from 700px (the Fold's inner screen) it's Godot's two columns instead
   - **Data:** popularity is now imported as global plus the six regions (it used to be averaged).
 
 ### Headless simulation

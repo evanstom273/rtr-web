@@ -34,12 +34,6 @@ const SLOP_PX = 10;
 const MOUSE_START_PX = 5;
 const EDGE_PX = 56;
 
-/** Height of the sticky team dock covering the bottom of the page on phones (scroll above it). */
-function dockAbove(list: HTMLElement): number {
-  if (list.id !== 'setup') return 0;
-  return document.querySelector('.bd-dock')?.getBoundingClientRect().height ?? 0;
-}
-
 function targetAt(x: number, y: number): DropTarget | null {
   const el = document.elementFromPoint(x, y);
   const zone = el?.closest<HTMLElement>('[data-drop]');
@@ -84,11 +78,11 @@ export function useDragSort(onTap: (item: DragItem) => void, onDrop: (item: Drag
         const under = document.elementFromPoint(x, y);
         // Never scroll while you're over a team: you're trying to drop.
         let list = under?.closest('[data-drop="A"], [data-drop="B"]') ? null : under?.closest<HTMLElement>('[data-autoscroll]') ?? null;
-        // The nearest one that actually scrolls (the roster list on wide screens, the page on phones).
+        // The nearest one that actually scrolls.
         while (list && list.scrollHeight <= list.clientHeight + 1) list = list.parentElement?.closest<HTMLElement>('[data-autoscroll]') ?? null;
         if (list) {
           const r = list.getBoundingClientRect();
-          const top = Math.max(r.top, 0), bottom = Math.min(r.bottom, window.innerHeight) - dockAbove(list);
+          const top = Math.max(r.top, 0), bottom = Math.min(r.bottom, window.innerHeight);
           if (y < top + EDGE_PX) list.scrollTop -= Math.ceil((top + EDGE_PX - y) / 6);
           else if (y > bottom - EDGE_PX && y < bottom) list.scrollTop += Math.ceil((y - (bottom - EDGE_PX)) / 6);
         }
