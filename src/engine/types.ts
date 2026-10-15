@@ -184,6 +184,22 @@ export interface CoverSpec {
   target: number;
 }
 
+/** A hold has landed for the player: go for the tap (the tug) or work the hold (web addition). */
+export interface SubChoiceSpec {
+  id: number;
+  moveId: string;
+  moveName: string;
+  target: TargetResolution;
+  partLabel: string;
+  /** The targeted part's HP now. */
+  partHp: number;
+  /** One word for the defender's condition: fresh / holding up / worn / wrecked. */
+  condition: string;
+  /** Damage working the hold would do (total across parts). */
+  workDamage: number;
+  finisher: boolean;
+}
+
 /** Submission tug-of-war. 100 = tap. */
 export interface SubSpec {
   id: number;
@@ -232,6 +248,7 @@ export type Pending =
   | { kind: 'sub'; spec: SubSpec }
   | { kind: 'resiliency'; id: number; threat: 'pinfall' | 'submission' }
   | { kind: 'cover'; spec: CoverSpec }
+  | { kind: 'subChoice'; spec: SubChoiceSpec }
   | { kind: 'over' };
 
 /* ---------- result & rating ---------- */

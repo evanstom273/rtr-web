@@ -28,6 +28,11 @@ describe('headless simulation', () => {
     expect(covers).toBeGreaterThan(0);
   });
 
+  it('holds are sometimes worked rather than cranked for the tap', () => {
+    const worked = batch.reduce((n, r) => n + r.engine.state.log.filter((l) => l.segs.some((sg) => sg.k === 'text' && /let(s|ting) go/.test(sg.v))).length, 0);
+    expect(worked).toBeGreaterThan(0);
+  });
+
   it('is deterministic for a seed', () => {
     const a = runHeadless({ seed: 7, you: batch[0]!.you, them: batch[0]!.them, model: { kind: 'fixed', rate: 0.6 } });
     const b = runHeadless({ seed: 7, you: batch[0]!.you, them: batch[0]!.them, model: { kind: 'fixed', rate: 0.6 } });

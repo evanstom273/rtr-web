@@ -12,7 +12,7 @@ import { executeSetup, validSetups } from './setups';
 import { moveMatchesSnapshots } from './setupRules';
 import { canUseMove } from './side';
 import { createState } from './state';
-import { resolveSubmission, startSubmission, submissionTick } from './submission';
+import { aiGoesForTap, beginSubmission, resolveSubmission, startSubmission, submissionTick, workTheHold } from './submission';
 import { resolveTarget } from './targeting';
 import { endMatch } from './flow';
 import type { Cont, KickoutCount, MatchRulesConfig, MatchState, Move, SetupId, SubOutcome, TargetResolution } from './types';
@@ -144,7 +144,7 @@ export class MatchEngine {
       }
       case 'next': return;
       case 'neutralRecovery': return runNeutralRecovery(ctx);
-      case 'startSub': return startSubmission(ctx, c.k, getMove(c.moveId), c.target);
+      case 'startSub': return beginSubmission(ctx, c.k, getMove(c.moveId), c.target);
       case 'startPin': {
         startPin(ctx, c.k, c.embedded);
         return;
@@ -235,6 +235,24 @@ export class MatchEngine {
       this.state.pending = { kind: 'idle' };
       resolveCover(this.ctx, getMove(p.spec.moveId), hit);
     });
+  }
+
+  /** A hold has landed: go for the tap, or work the hold and keep control. */
+  resolveSubChoice(goForTap: boolean): boolean {
+    const p = this.state.pending;
+    if (p.kind !== 'subChoice') return false;
+    return this.act(() => {
+      this.state.pending = { kind: 'idle' };
+      const move = getMove(p.spec.moveId);
+      if (goForTap) startSubmission(this.ctx, 'you', move, p.spec.target);
+      else workTheHold(this.ctx, 'you', move, p.spec.target);
+    });
+  }
+
+  /** What the AI would choose in the player's shoes (headless play). */
+  autoSubChoice(): boolean {
+    const p = this.state.pending;
+    return p.kind === 'subChoice' && aiGoesForTap(this.state, 'you', getMove(p.spec.moveId), p.spec.target);
   }
 
   /** Answer the "use Resiliency?" prompt. */

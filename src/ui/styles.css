@@ -512,6 +512,20 @@ em{font-style:normal;font-weight:600;color:var(--fg)}
   .cc-dice{height:72px}
 }
 
+/* ---------- Hold choice ---------- */
+.sc-read{display:flex;justify-content:center;gap:18px;flex-wrap:wrap;margin-top:10px;color:var(--mute);font-size:16px}
+.sc-read b{color:var(--fg);font-family:var(--display);font-weight:900;font-size:1.3rem;text-transform:uppercase;margin-left:4px}
+.sc-read b.warn{color:var(--risk)}.sc-read b.bad{color:var(--bad)}
+.sc-actions{display:grid;gap:10px;margin-top:18px}
+.sc-btn{border-radius:12px;padding:14px 16px;text-align:left;display:flex;flex-direction:column;gap:3px;min-height:76px;justify-content:center;border:1px solid var(--line);background:var(--panel-2);animation:ready .3s var(--ease) both}
+.sc-btn .pl{font-family:var(--display);font-weight:900;font-size:1.6rem;text-transform:uppercase;letter-spacing:.04em;line-height:1}
+.sc-btn .ps{color:var(--mute);font-size:14px}
+.sc-btn.tap{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 12%,var(--panel-2))}
+.sc-btn.tap .pl{color:var(--bad)}
+.sc-btn.work{border-color:var(--good);animation-delay:.06s}
+.sc-btn.work .pl{color:var(--good)}
+.sc-btn:active{transform:scale(.98)}
+
 /* ---------- Result ---------- */
 .stars{font-family:var(--display);font-weight:900;font-size:clamp(3.4rem,15vw,7rem);line-height:1;color:var(--gold);letter-spacing:.02em;margin-top:8px}
 .stars .off{color:var(--line)}

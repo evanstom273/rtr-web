@@ -6,7 +6,9 @@ import { lateMatchProfile, pinProfile, submissionContext } from '../interaction'
 import * as ix from '../interactions';
 import { conditionResistance, pinCondition } from '../pin';
 import { MAX_FINISHER_STOCK, addMomentum, convertLandedSignature, createSide, damagePart, grantFinisherStock, spendFinisher, totalHp } from '../side';
+import { aiGoesForTap, workHoldDamage } from '../submission';
 import { resolveTarget } from '../targeting';
+import type { MatchState } from '../types';
 
 const side = (k: 'you' | 'them' = 'you', i = 0) => createSide(WRESTLERS[i]!, k);
 
@@ -170,5 +172,30 @@ describe('pin resistance comes from damage, not the clock', () => {
     expect(pinCondition(worn)).toBeLessThan(40);
     expect(conditionResistance(fresh)).toBeGreaterThan(100);
     expect(conditionResistance(worn)).toBeLessThan(0);
+  });
+});
+
+describe('holds: go for the tap or work the hold', () => {
+  const S = (a: ReturnType<typeof side>, d: ReturnType<typeof side>, t = 300) => ({ you: d, them: a, t }) as unknown as MatchState;
+  const armbar = () => getMove('americana');
+
+  it('the AI works the hold on a fresh opponent and goes for the tap once the limb is gone', () => {
+    const a = side('them', 2), d = side('you', 1);
+    a.w = { ...a.w, classes: ['STRIKER'] };
+    const t = resolveTarget(armbar(), 'LEFT_ARM', d.hp);
+    expect(aiGoesForTap(S(a, d), 'them', armbar(), t)).toBe(false);
+    d.hp.LEFT_ARM = 30;
+    expect(aiGoesForTap(S(a, d), 'them', armbar(), resolveTarget(armbar(), 'LEFT_ARM', d.hp))).toBe(true);
+  });
+
+  it('technicians trust their holds sooner', () => {
+    const a = side('them', 2), d = side('you', 1);
+    d.hp.LEFT_ARM = 45;
+    const t = resolveTarget(armbar(), 'LEFT_ARM', d.hp);
+    a.w = { ...a.w, classes: ['STRIKER'] };
+    expect(aiGoesForTap(S(a, d), 'them', armbar(), t)).toBe(false);
+    a.w = { ...a.w, classes: ['TECHNICIAN'] };
+    expect(aiGoesForTap(S(a, d), 'them', armbar(), t)).toBe(true);
+    expect(workHoldDamage(a, armbar())).toBeGreaterThan(workHoldDamage({ ...a, w: { ...a.w, classes: ['STRIKER'] } }, armbar()));
   });
 });

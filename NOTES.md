@@ -72,6 +72,24 @@ stay where they feel like wrestling: the kickout hold, the submission tug and th
   - Godot's submission scores cap at 100 for any healthy wrestler, so adding to the defender's
     score did nothing.
 
+### Holds: go for the tap or work the hold (Lyra's idea)
+
+When a submission lands, the attacker chooses:
+
+- **Go for the tap:** the tug, as before. If the defender escapes, they take control.
+- **Work the hold:** guaranteed damage to the targeted part, `4 + impact/2` per part (×1.5 for a
+  Technician). It also drains 4 stamina, then the attacker lets go and keeps control.
+
+The player gets a card showing the targeted part's HP and how the opponent looks (fresh / holding
+up / worn / wrecked). The AI goes for the tap on a finisher, or when the target part is under 35
+(Technicians 50), or the opponent's condition is under 45 (Technicians 55), or late on with the
+part under 60. Otherwise it works the hold. In headless matches it works holds about twice as
+often as it cranks them.
+
+The result is that Technicians, 58% of the roster, play like submission specialists: they win 62%
+of their matches by submission, everyone else 34%. Ratings went up too (average 2.8★, from 2.4),
+because limb work feeds the story score.
+
 ### Deliberate deviations from Godot
 
 - **Early finish protection removed** (Lyra's call: "it's a game after all"). Godot makes early pins
@@ -148,13 +166,13 @@ AI makes no invalid choices.
 
 Things worth knowing:
 
-- **Median match is ~18 minutes**, and about 1 in 10 is under 9 minutes.
+- **Median match is ~20 minutes**, and about 1 in 10 is under 10 minutes.
 - **The player side wins ~50%** when it plays exactly like the AI. That's the point of the dice:
   the edge is in your choices now, not your thumb.
-- **Submissions end ~56% of these matches. That's mostly the AI, not the rules.** It only goes for
-  ~1.7 pins a match (26% each) against ~1.5 holds (38% each), because its pin scoring is very
-  conservative (from Godot). A human pins far more. Making the AI go for more near-falls belongs in
-  the smarter-AI work.
+- **Submissions end about half of these matches.** Partly that's the roster: 58% are Technicians,
+  and they mostly win by submission (see above). Partly it's the AI being too cautious to pin: it
+  goes for very few pins a match, because its pin scoring is very conservative (from Godot). A
+  human pins far more. Making the AI go for more near-falls belongs in the smarter-AI work.
 - **Signatures and finishers are rare**, about one per three matches, because momentum builds
   slowly (+10 a landed move). Worth revisiting.
 - A tail of long matches remains (about 3% over 40 minutes).
@@ -162,53 +180,53 @@ Things worth knowing:
 
 #### Steady hands (cover/kickout timing σ = 70ms) — 300/300 matches finished
 
-Length (min): p10 9.0, median 18.3, p90 33.7, max 74.3
+Length (min): p10 10.0, median 20.3, p90 33.3, max 74.3
 
 | Length | Matches |
 |---|---|
-| < 5 min | 1.7% |
-| 5–8 min | 3.3% |
-| 8–25 min | 70.7% |
-| 25–40 min | 21.3% |
-| > 40 min | 3.0% |
+| < 5 min | 1.0% |
+| 5–8 min | 2.3% |
+| 8–25 min | 66.3% |
+| 25–40 min | 28.3% |
+| > 40 min | 2.0% |
 
 | Finish | Matches |
 |---|---|
-| Submission (hold) | 57.3% |
-| Pin after other move | 18.3% |
+| Submission (hold) | 51.0% |
+| Pin after other move | 22.0% |
 | Pin (cold cover) | 10.3% |
-| Flash pin | 9.0% |
+| Flash pin | 10.0% |
 | Pin after finisher | 3.7% |
-| Submission (finisher) | 1.3% |
+| Submission (finisher) | 3.0% |
 
-Winner: player side 52.7%, AI side 47.3%
-Stars: mean 2.73, median 2.75, p10 1.75, p90 3.75
-Engine steps per match: median 123, max 467. Stuck: 0. Invalid AI choices: 0
+Winner: player side 60.0%, AI side 40.0%
+Stars: mean 2.81, median 2.75, p10 2, p90 3.75
+Engine steps per match: median 138, max 467. Stuck: 0. Invalid AI choices: 0
 
 #### Casual (cover/kickout timing σ = 120ms) — 300/300 matches finished
 
-Length (min): p10 8.3, median 17.7, p90 32.0, max 76.7
+Length (min): p10 9.7, median 19.7, p90 31.7, max 76.7
 
 | Length | Matches |
 |---|---|
-| < 5 min | 1.7% |
-| 5–8 min | 6.3% |
-| 8–25 min | 69.3% |
-| 25–40 min | 20.0% |
-| > 40 min | 2.7% |
+| < 5 min | 1.0% |
+| 5–8 min | 4.7% |
+| 8–25 min | 67.3% |
+| 25–40 min | 25.3% |
+| > 40 min | 1.7% |
 
 | Finish | Matches |
 |---|---|
-| Submission (hold) | 55.7% |
-| Pin after other move | 16.3% |
-| Pin (cold cover) | 11.3% |
-| Flash pin | 11.0% |
-| Pin after finisher | 4.7% |
-| Submission (finisher) | 1.0% |
+| Submission (hold) | 48.7% |
+| Pin after other move | 21.7% |
+| Pin (cold cover) | 12.7% |
+| Flash pin | 10.0% |
+| Pin after finisher | 4.0% |
+| Submission (finisher) | 3.0% |
 
-Winner: player side 48.0%, AI side 52.0%
-Stars: mean 2.68, median 2.75, p10 1.5, p90 3.75
-Engine steps per match: median 121, max 473. Stuck: 0. Invalid AI choices: 0
+Winner: player side 52.7%, AI side 47.3%
+Stars: mean 2.73, median 2.75, p10 1.5, p90 3.75
+Engine steps per match: median 133, max 473. Stuck: 0. Invalid AI choices: 0
 
 ## Legacy: Match of the Night port
 

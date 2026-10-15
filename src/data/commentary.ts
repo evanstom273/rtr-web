@@ -75,6 +75,8 @@ export const LINES = {
 
   subTrapped: '{a} traps {d} in {m}, attacking the {part}!',
   subEscape: '{d} claws free and breaks the hold.',
+  subWork: '{a} doesn\'t go for the tap — just wrenches on the {part} in {m} and lets go.',
+  subWorkTech: '{a} works the {part} in {m} with surgical precision before letting go.',
   subScramble: 'The hold breaks down into a scramble.',
   subGiving: "{d}'s {part} is giving way under the submission pressure.",
   subGaining: '{a} cranks back harder on the hold.',

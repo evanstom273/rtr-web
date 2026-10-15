@@ -125,6 +125,9 @@ export function runHeadless(o: SimOptions): SimResult {
       case 'sub':
         ok = e.resolveSub(simSub(e, p.spec, rnd, o.mashRate ?? 6));
         break;
+      case 'subChoice':
+        ok = e.resolveSubChoice(e.autoSubChoice());
+        break;
       case 'cover':
         ok = e.resolveCover(hit((p.spec.window / 200) * p.spec.timeLimit));
         break;
