@@ -53,8 +53,9 @@ end in a choice card instead of a timing test.
   - +2 for reading the offence (same move type three times in five)
   - +1 for the same set-up again, and +2 for the same setup trick twice in three
 - **Advantage / disadvantage** (two d20s, keep the higher / lower; they cancel):
-  - attacker advantage: they just won position with a contested setup ("Set up"), or the defender
-    is off the ropes, staggering or still rising
+  - attacker advantage: only from a push. The d20 vs d16 is already the attacker's edge, so
+    "Set up" (just won a contested setup) and openings (the defender is off the ropes, staggering
+    or still rising) are a flat +2 modifier instead of a second die
   - defender advantage: they "saw it coming", because it's the same move as the attacker's last
     attempt
   - disadvantage: Spent, or a limb the move relies on below 25

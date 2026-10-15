@@ -94,12 +94,15 @@ interface Counter {
   mods: Mod[];
   /** The defender's own disadvantages. */
   own: ContestSide['edges'];
-  /** Openings the defender is giving the attacker (attacker advantage). */
-  openings: ContestSide['edges'];
+  /** Openings the defender is giving the attacker (a flat bonus, never a second die). */
+  openings: Mod[];
 }
 
+/** Set up, off the ropes, staggering, still rising. */
+const OPENING_BONUS = 2;
+
 function counterSide(D: Side): Counter {
-  const mods: Mod[] = [], own: ContestSide['edges'] = [], openings: ContestSide['edges'] = [];
+  const mods: Mod[] = [], own: ContestSide['edges'] = [], openings: Mod[] = [];
   const counter = (D.w.stats.skill + D.w.stats.speed) / 2;
   push(mods, `Skill/Speed ${Math.round(counter)}`, statMod(counter));
   momentum(mods, D);
@@ -108,9 +111,9 @@ function counterSide(D: Side): Counter {
   if (D.hp.HEAD < 40) push(mods, 'Rattled (head)', D.hp.HEAD < 25 ? -3 : -2);
   if (exhaustionBand(D) === 'Spent') own.push({ label: 'Spent', dir: -1 });
   const m = D.state.motion;
-  if (m === 'ROPE_REBOUND') openings.push({ label: 'Off the ropes', dir: 1 });
-  else if (m === 'STAGGERING') openings.push({ label: 'Staggering', dir: 1 });
-  else if (m === 'RISING') openings.push({ label: 'Still rising', dir: 1 });
+  if (m === 'ROPE_REBOUND') push(openings, 'Off the ropes', OPENING_BONUS);
+  else if (m === 'STAGGERING') push(openings, 'Staggering', OPENING_BONUS);
+  else if (m === 'RISING') push(openings, 'Still rising', OPENING_BONUS);
   return { mods, own, openings };
 }
 
@@ -145,10 +148,12 @@ export function moveContest(A: Side, D: Side, move: Move, target: TargetResoluti
     else push(aMods, `Sore ${which} (${Math.round(worst)})`, worst < 50 ? -2 : 0);
   }
   if (exhaustionBand(A) === 'Spent') aEdges.push({ label: 'Spent', dir: -1 });
-  if (A.setUp) aEdges.push({ label: 'Set up', dir: 1 });
+  // Set-ups and openings are flat bonuses: the attacker's d20 is already their edge, so the only
+  // way they get a second die is paying for it with a push.
+  if (A.setUp) push(aMods, 'Set up', OPENING_BONUS);
 
   const { mods: dMods, own: dEdges, openings } = counterSide(D);
-  aEdges.push(...openings);
+  aMods.push(...openings);
   if (lastAttemptedMoveMatches(A, move)) dEdges.push({ label: 'Saw it coming', dir: 1 });
   else if (recentMoveTypeCount(A, move.type, 5) >= 3) push(dMods, 'Reading the offence', 2);
   if (setupPatternRepeats(A, move)) push(dMods, 'Same set-up again', 1);
@@ -165,7 +170,7 @@ export function setupContest(A: Side, D: Side, id: SetupId): { attack: ContestSi
   exhaustion(aMods, A, false);
   if (exhaustionBand(A) === 'Spent') aEdges.push({ label: 'Spent', dir: -1 });
   const { mods: dMods, own: dEdges, openings } = counterSide(D);
-  aEdges.push(...openings);
+  aMods.push(...openings);
   if (A.recentSetups.slice(-3).filter((p) => p === id).length >= 2) push(dMods, 'Same trick again', 2);
   return { attack: side(A.key, aMods, aEdges), defend: side(D.key, dMods, dEdges) };
 }
