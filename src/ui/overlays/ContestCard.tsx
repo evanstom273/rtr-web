@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  PUSH_COST, edgeOf, landChance, type ContestRoll, type ContestSide, type ContestSpec, type MatchEngine, type SideKey,
+  ATTACK_DIE, DEFEND_DIE, PUSH_COST, edgeOf, landChance, type ContestRoll, type ContestSide, type ContestSpec, type MatchEngine, type SideKey,
 } from '../../engine';
 import { Name } from '../common/Name';
 import { buzz, reduceMotion } from '../format';
@@ -11,30 +11,46 @@ const HOLD_MS = 1250;
 
 const signed = (n: number) => (n >= 0 ? `+${n}` : `−${Math.abs(n)}`);
 
-/** Flat icosahedron: hexagon outline, centre face, edges out to the corners. */
-function D20({ value, state, dropped }: { value: number | null; state: 'idle' | 'rolling' | 'set'; dropped?: boolean }) {
-  const hex = Array.from({ length: 6 }, (_, i) => {
-    const a = (Math.PI / 3) * i - Math.PI / 2;
-    return [Math.cos(a) * 46, Math.sin(a) * 46] as const;
+type Pt = readonly [number, number];
+const ring = (n: number, r: number, rot = -Math.PI / 2): Pt[] =>
+  Array.from({ length: n }, (_, i) => [Math.cos(rot + (2 * Math.PI * i) / n) * r, Math.sin(rot + (2 * Math.PI * i) / n) * r] as const);
+const poly = (pts: Pt[]) => `M${pts.map((p) => p.join(' ')).join(' L')}Z`;
+
+/**
+ * A die seen face-on. d20: hexagon outline with the centre triangle (an icosahedron). d16: octagon
+ * with a centre kite (a sixteen-sided bipyramid).
+ */
+function Die({ faces, value, state, dropped }: { faces: number; value: number | null; state: 'idle' | 'rolling' | 'set'; dropped?: boolean }) {
+  const d20 = faces === 20;
+  const outer = d20 ? ring(6, 46) : ring(8, 46, -Math.PI / 2 + Math.PI / 8);
+  const inner: Pt[] = d20
+    ? [0, 2, 4].map((i) => [outer[i]![0] * 0.56, outer[i]![1] * 0.56 + 6] as const)
+    : [[0, -30], [24, 2], [0, 30], [-24, 2]];
+  const edges = inner.map((p) => {
+    // Join each centre-face corner to its two nearest outline corners.
+    const near = [...outer].sort((u, v) => Math.hypot(u[0] - p[0], u[1] - p[1]) - Math.hypot(v[0] - p[0], v[1] - p[1])).slice(0, 2);
+    return near.map((q) => `M${p.join(' ')} L${q.join(' ')}`).join(' ');
   });
-  const tri = [0, 2, 4].map((i) => [hex[i]![0] * 0.56, hex[i]![1] * 0.56 + 6] as const);
-  const crit = state === 'set' && (value === 20 || value === 1) && !dropped;
+  const top = state === 'set' && value === faces && !dropped;
+  const one = state === 'set' && value === 1 && !dropped;
   return (
-    <svg viewBox="-50 -50 100 100" className={`d20 ${state}${dropped ? ' dropped' : ''}${crit ? (value === 20 ? ' nat20' : ' nat1') : ''}`} aria-hidden="true">
-      <path className="d20-body" d={`M${hex.map((p) => p.join(' ')).join(' L')}Z`} />
-      <path className="d20-face" d={`M${tri.map((p) => p.join(' ')).join(' L')}Z`} />
-      {tri.map((t, i) => {
-        const h1 = hex[(i * 2 + 5) % 6]!, h2 = hex[i * 2]!, h3 = hex[(i * 2 + 1) % 6]!;
-        return <path key={i} className="d20-edge" d={`M${t.join(' ')} L${h1.join(' ')} M${t.join(' ')} L${h2.join(' ')} M${t.join(' ')} L${h3.join(' ')}`} />;
-      })}
-      <text className="d20-n" y="13">
+    <svg viewBox="-50 -50 100 100" className={`d20 ${state}${dropped ? ' dropped' : ''}${top ? ' nat20' : one ? ' nat1' : ''}`} aria-hidden="true">
+      <path className="d20-body" d={poly(outer)} />
+      <path className="d20-face" d={poly(inner)} />
+      {edges.map((e, i) => (
+        <path key={i} className="d20-edge" d={e} />
+      ))}
+      <text className="d20-n" y="11">
         {value ?? '?'}
+      </text>
+      <text className="d20-kind" y="44">
+        d{faces}
       </text>
     </svg>
   );
 }
 
-function useTumble(target: number[], rolling: boolean): number[] {
+function useTumble(target: number[], rolling: boolean, faces: number): number[] {
   const [shown, setShown] = useState<number[]>(target.map(() => 0));
   useEffect(() => {
     if (!rolling) return;
@@ -47,13 +63,13 @@ function useTumble(target: number[], rolling: boolean): number[] {
     const tick = () => {
       const e = performance.now() - t0;
       if (e >= TUMBLE_MS) return setShown(target);
-      setShown(target.map(() => 1 + Math.floor(Math.random() * 20)));
+      setShown(target.map(() => 1 + Math.floor(Math.random() * faces)));
       // Slow down as it settles.
       id = window.setTimeout(tick, 40 + (e / TUMBLE_MS) * 120);
     };
     tick();
     return () => window.clearTimeout(id);
-  }, [rolling, target]);
+  }, [rolling, target, faces]);
   return shown;
 }
 
@@ -74,7 +90,8 @@ function Column({ engine, side, role, dice, kept, total, rolling, settled, won, 
   const S = engine.state;
   const edgeSide = previewPush ? { ...side, pushed: true } : side;
   const edge = edgeOf(edgeSide);
-  const shown = useTumble(dice ?? [], rolling);
+  const faces = role === 'attack' ? ATTACK_DIE : DEFEND_DIE;
+  const shown = useTumble(dice ?? [], rolling, faces);
   const nDice = dice ? dice.length : edge === 0 ? 1 : 2;
   return (
     <div className={`cc-col ${side.key} ${role}${won === true ? ' won' : won === false ? ' lost' : ''}`}>
@@ -86,7 +103,7 @@ function Column({ engine, side, role, dice, kept, total, rolling, settled, won, 
         {Array.from({ length: nDice }, (_, i) => {
           const v = dice ? (settled ? dice[i]! : shown[i] ?? null) : null;
           const dropped = settled && dice !== null && nDice === 2 && (dice[i] !== kept || (dice[0] === dice[1] && i === 1));
-          return <D20 key={i} value={v} state={dice ? (settled ? 'set' : 'rolling') : 'idle'} dropped={dropped} />;
+          return <Die key={i} faces={faces} value={v} state={dice ? (settled ? 'set' : 'rolling') : 'idle'} dropped={dropped} />;
         })}
       </div>
       <div className="cc-edges">
@@ -119,8 +136,8 @@ const myRoleIsAttack = (spec: ContestSpec) => spec.attacker === 'you';
 function verdictFor(spec: ContestSpec, roll: ContestRoll): { text: string; tone: 'good' | 'bad' | 'gold' } {
   const playerAttacks = spec.attacker === 'you';
   const good = roll.landed === playerAttacks;
-  if (roll.crit === 'attacker20') return { text: 'Critical!', tone: 'gold' };
-  if (roll.crit === 'defender20') return { text: 'Natural 20!', tone: 'gold' };
+  if (roll.crit === 'attackerTop') return { text: 'Critical!', tone: 'gold' };
+  if (roll.crit === 'defenderTop') return { text: `Natural ${DEFEND_DIE}!`, tone: 'gold' };
   if (roll.crit === 'attacker1') return { text: 'Botch!', tone: playerAttacks ? 'bad' : 'good' };
   const text = spec.kind === 'move' ? (roll.landed ? 'It lands' : 'Reversed!') : roll.landed ? 'In control' : 'Countered!';
   return { text, tone: good ? 'good' : 'bad' };
@@ -139,7 +156,7 @@ export function ContestCard({ engine }: { engine: MatchEngine }) {
     if (!roll) return;
     const t1 = window.setTimeout(() => {
       setSettled(true);
-      const crit = roll.crit === 'attacker20' || roll.crit === 'defender20';
+      const crit = roll.crit === 'attackerTop' || roll.crit === 'defenderTop';
       buzz(crit ? [20, 40, 20, 40, 60] : 18);
     }, reduceMotion() ? 50 : TUMBLE_MS);
     const t2 = window.setTimeout(() => {

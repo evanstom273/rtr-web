@@ -22,12 +22,6 @@ describe('headless simulation', () => {
     expect(kinds.size).toBeGreaterThan(1);
   });
 
-  it('the player has to hit the cover after pin combos', () => {
-    const covers = batch.reduce((n, r) => n + r.engine.state.log.filter((l) => l.segs.some((sg) => sg.k === 'text' && sg.v.includes("can't hold the cover"))).length, 0);
-    // With σ = 90ms some covers are missed somewhere in 60 matches.
-    expect(covers).toBeGreaterThan(0);
-  });
-
   it('holds are sometimes worked rather than cranked for the tap', () => {
     const worked = batch.reduce((n, r) => n + r.engine.state.log.filter((l) => l.segs.some((sg) => sg.k === 'text' && /let(s|ting) go/.test(sg.v))).length, 0);
     expect(worked).toBeGreaterThan(0);

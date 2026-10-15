@@ -128,8 +128,8 @@ export function runHeadless(o: SimOptions): SimResult {
       case 'subChoice':
         ok = e.resolveSubChoice(e.autoSubChoice());
         break;
-      case 'cover':
-        ok = e.resolveCover(hit((p.spec.window / 200) * p.spec.timeLimit));
+      case 'pinChoice':
+        ok = e.resolvePinChoice(e.autoPinChoice());
         break;
       case 'resiliency':
         ok = e.resolveResiliency(true);

@@ -6,7 +6,7 @@ import { other, ring, say } from './commentary';
 import { crowdObserve } from './crowd';
 import { afterAction, endMatch, render, setControl } from './flow';
 import { submissionContext } from './interaction';
-import { aiShouldUseResiliency, pinCondition, useResiliency } from './pin';
+import { aiShouldUseResiliency, conditionWord, pinCondition, useResiliency } from './pin';
 import { clamp } from './rng';
 import { damagePart, markCrossedThresholds, spendStamina, totalHp } from './side';
 import { targetHp } from './targeting';
@@ -29,12 +29,6 @@ function isTrueSquashContext(ctx: Ctx, k: SideKey): boolean {
   const sustained = A.movesLanded >= 3;
   const meaningful = D.damageTaken >= 30 || totalHp(D) <= 450;
   return dominant && littleDefence && sustained && meaningful;
-}
-
-/** One word for how much fight is left (for the hold choice). */
-export function conditionWord(D: Side): string {
-  const c = pinCondition(D);
-  return c >= 85 ? 'fresh' : c >= 65 ? 'holding up' : c >= 45 ? 'worn' : 'wrecked';
 }
 
 /** Damage per part from working a hold: a few seconds of cranking, more in a technician's hands. */

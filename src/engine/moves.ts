@@ -7,9 +7,9 @@ import { advanceClock, observePhase, settleRefereeCount } from './clock';
 import type { Ctx } from './ctx';
 import { flash, other, ring, say } from './commentary';
 import { crowdObserve, isOutsideSpot } from './crowd';
-import { executionMultiplier, exhaustionBand, moveDemand, staminaCostMultiplier, staminaPercent } from './exhaustion';
-import { clamp } from './rng';
-import { afterAction, render, resolveControlAfterAction, schedule } from './flow';
+import { exhaustionBand, moveDemand, staminaCostMultiplier, staminaPercent } from './exhaustion';
+import { afterAction, render, resolveControlAfterAction, schedule, setControl } from './flow';
+import { conditionWord, pinOdds } from './pin';
 import { isHighRisk } from './interaction';
 import { resolvedAttackerArea, resolvedTargetArea } from './areaRules';
 import { moveMatchesSnapshots } from './setupRules';
@@ -57,14 +57,14 @@ export function majorKind(s: Side, move: Move): 'SIGNATURE' | 'FINISHER' | null 
   return null;
 }
 
-/** The player's cover press after a pin combo. Miss: no pin, but they keep the upper hand. */
-export function resolveCover(ctx: Ctx, move: Move, hit: boolean): void {
-  if (hit) {
+/** The player's call after a pin combo: cover now, or pass on it and keep the upper hand. */
+export function resolvePinChoice(ctx: Ctx, move: Move, cover: boolean): void {
+  if (cover) {
     schedule(ctx, { to: 'startPin', k: 'you', embedded: true }, 150);
     return;
   }
-  say(ctx, LINES.coverMissed, { a: 'you', d: 'them', m: move.name }, 'warn');
-  resolveControlAfterAction(ctx, 'you', 'them', move, 'CLEAN_SUCCESS');
+  say(ctx, LINES.coverPassed, { a: 'you', d: 'them', m: move.name }, 'dim');
+  setControl(ctx, 'you');
   afterAction(ctx);
 }
 
@@ -104,9 +104,15 @@ export function finishMove(ctx: Ctx, k: SideKey, move: Move, reversed: boolean, 
   render(ctx);
   if (move.submission && result === 'CLEAN_SUCCESS') return schedule(ctx, { to: 'startSub', k, moveId: move.id, target }, 450);
   if (embedded && k === 'you' && (move.pinningCombo || move.flashPin)) {
-    // Web addition: the player has to hit the cover themselves.
-    const window = clamp(26 * executionMultiplier(A, 'STANDARD'), 12, 26);
-    S.pending = { kind: 'cover', spec: { id: ++S.seq, moveId: move.id, moveName: move.name, window, timeLimit: 1.15, target: 0.28 } };
+    // Web addition: the player decides whether to cover, with the real odds in front of them.
+    const D = S[dk];
+    S.pending = {
+      kind: 'pinChoice',
+      spec: {
+        id: ++S.seq, moveId: move.id, moveName: move.name, odds: pinOdds(S, k, true), condition: conditionWord(D),
+        resiliency: D.resiliencyAvailable && !D.resiliencyUsed,
+      },
+    };
     return;
   }
   if (embedded) return schedule(ctx, { to: 'startPin', k, embedded: true }, 450);

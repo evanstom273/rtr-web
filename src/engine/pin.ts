@@ -46,16 +46,36 @@ export function isSquashFinish(A: Side, D: Side, last: Move | null): boolean {
   return dominant && littleDefence && sustained && worn && last.impact >= 8;
 }
 
-function buildPinContext(ctx: Ctx, k: SideKey, embedded: boolean): PinContext {
-  const S = ctx.S, A = S[k], D = S[other(k)];
+/** The pin context before the flash roll (shared by the real cover and the odds shown to the player). */
+function pinContextBase(S: MatchState, k: SideKey, embedded: boolean): PinContext {
+  const A = S[k], D = S[other(k)];
   const last = A.lastActionResult === 'CLEAN_SUCCESS' ? A.lastMoveLanded : null;
   const impact = last?.impact ?? 0;
   const lastFin = !!last?.finisher;
   const flashQualified = (!!last && isFlashPinMove(last)) || S.recentReversalSide === k || (!!last && impact <= 4 && D.momentum >= 75);
-  const flashSuccess = flashQualified && ctx.rnd() * 100 < flashFinishChance(S.t);
   const squash = isSquashFinish(A, D, last);
   // Godot's under-5 / under-10 minute pin protection is deliberately removed in the web version.
-  return { embedded, lastMove: last, lastMoveWasFinisher: lastFin, flashQualified, flashSuccess, squashQualified: squash };
+  return { embedded, lastMove: last, lastMoveWasFinisher: lastFin, flashQualified, flashSuccess: false, squashQualified: squash };
+}
+
+function buildPinContext(ctx: Ctx, k: SideKey, embedded: boolean): PinContext {
+  const pc = pinContextBase(ctx.S, k, embedded);
+  pc.flashSuccess = pc.flashQualified && ctx.rnd() * 100 < flashFinishChance(ctx.S.t);
+  return pc;
+}
+
+const AI_KICKOUT_BASES = [28, 18, 9];
+
+/** Chance (0–100) the AI stays down for three when k covers it now, before any Resiliency. */
+export function pinOdds(S: MatchState, k: SideKey, embedded: boolean): number {
+  const base = pinContextBase(S, k, embedded), D = S[other(k)];
+  const stays = (pc: PinContext) => AI_KICKOUT_BASES.reduce((p, b, i) => {
+    const { pressure, resistance } = pinPressureAndResistance(S, k, pc, i + 1);
+    return p * (1 - pinProfile(b, pressure, resistance, i + 1, D).aiChance / 100);
+  }, 1);
+  if (!base.flashQualified) return stays(base) * 100;
+  const f = flashFinishChance(S.t) / 100;
+  return (f * stays({ ...base, flashSuccess: true }) + (1 - f) * stays(base)) * 100;
 }
 
 /**
@@ -66,6 +86,12 @@ export function pinCondition(D: Side): number {
   const avgHp = totalHp(D) / 6;
   const core = Math.min(D.hp.HEAD, D.hp.BODY);
   return 0.35 * avgHp + 0.2 * core + 0.3 * staminaPercent(D) + 0.15 * (100 - D.fatigue);
+}
+
+/** One word for how much fight is left (shown on the hold and cover choices). */
+export function conditionWord(D: Side): string {
+  const c = pinCondition(D);
+  return c >= 85 ? 'fresh' : c >= 65 ? 'holding up' : c >= 45 ? 'worn' : 'wrecked';
 }
 
 /**
@@ -130,10 +156,9 @@ export function startPin(ctx: Ctx, k: SideKey, embedded: boolean): boolean {
     };
   } else {
     let kickoutAt: 1 | 2 | 3 | null = null;
-    const bases = [28, 18, 9];
     for (let count = 1; count <= 3; count++) {
       const { pressure, resistance } = pinPressureAndResistance(S, k, pc, count);
-      const profile = pinProfile(bases[count - 1]!, pressure, resistance, count, S[dk]);
+      const profile = pinProfile(AI_KICKOUT_BASES[count - 1]!, pressure, resistance, count, S[dk]);
       if (ctx.rnd() * 100 < profile.aiChance) {
         kickoutAt = count as 1 | 2 | 3;
         break;

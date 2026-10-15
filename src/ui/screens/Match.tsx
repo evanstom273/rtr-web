@@ -16,7 +16,7 @@ import { Resiliency } from '../overlays/Resiliency';
 import { ContestCard } from '../overlays/ContestCard';
 import { SubChoice } from '../overlays/SubChoice';
 import { SubmissionTug } from '../overlays/SubmissionTug';
-import { CoverRing } from '../overlays/TimingRing';
+import { PinChoice } from '../overlays/PinChoice';
 import { useEngine } from '../useEngine';
 import { useMedia } from '../useMedia';
 
@@ -89,7 +89,7 @@ export function Match({ engine, onOver }: { engine: MatchEngine; onOver: () => v
 
   const close = useCallback(() => setSheet('none'), []);
   const joltCls = jolt.n ? ` ${jolt.big ? 'jolt-big' : 'jolt'}${jolt.n % 2}` : '';
-  const ringBusy = p.kind === 'contest' || p.kind === 'contestRoll' || p.kind === 'cover' || p.kind === 'subChoice' || p.kind === 'kickout' || p.kind === 'refCount' || p.kind === 'sub';
+  const ringBusy = p.kind === 'contest' || p.kind === 'contestRoll' || p.kind === 'pinChoice' || p.kind === 'subChoice' || p.kind === 'kickout' || p.kind === 'refCount' || p.kind === 'sub';
 
   return (
     <>
@@ -124,7 +124,7 @@ export function Match({ engine, onOver }: { engine: MatchEngine; onOver: () => v
       {p.kind === 'refCount' && <RefCount key={p.id} engine={engine} kickoutAt={p.kickoutAt} />}
       {p.kind === 'sub' && <SubmissionTug key={p.spec.id} engine={engine} spec={p.spec} />}
       {p.kind === 'subChoice' && <SubChoice key={p.spec.id} engine={engine} spec={p.spec} />}
-      {p.kind === 'cover' && <CoverRing key={p.spec.id} engine={engine} spec={p.spec} />}
+      {p.kind === 'pinChoice' && <PinChoice key={p.spec.id} engine={engine} spec={p.spec} />}
       {p.kind === 'resiliency' && <Resiliency key={p.id} engine={engine} threat={p.threat} />}
       {flash && <Flash key={flash.id} text={flash.text} strong={flash.strong} />}
     </>

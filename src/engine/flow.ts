@@ -6,18 +6,18 @@ import type { Ctx } from './ctx';
 import { flash, other, ring, say } from './commentary';
 import { crowdObserve } from './crowd';
 import {
-  combinedExhaustion, controlRetentionChance, moveDemand, recoveryDelayChance, staminaPercent, staminaRecoveryMultiplier, type Demand,
+  combinedExhaustion, recoveryDelayChance, staminaPercent, staminaRecoveryMultiplier,
 } from './exhaustion';
 import { lateMatchProfile } from './interaction';
 import { rate } from './rating';
 import { randRange } from './rng';
-import { isSignatureMove } from './side';
 import { snapshotView } from './state';
 import type { ActionResult, Cont, Control, FinishType, Move, Side, SideKey } from './types';
 
 export const AI_DELAY_MS = 600;
 export const RESULT_REVEAL_MS = 650;
-export const GROUNDED_ATTACKER_RECOVERY_CHANCE = 0.8;
+/** Both on the mat after a move: the one who landed it gets up first this often (Godot: 0.8). */
+export const GROUNDED_ATTACKER_RECOVERY_CHANCE = 0.9;
 
 export function schedule(ctx: Ctx, cont: Cont, delay: number): void {
   ctx.S.pending = { kind: 'continue', delay, cont };
@@ -113,18 +113,13 @@ function advantagedSide(ctx: Ctx, a: SideKey, d: SideKey): SideKey | null {
 }
 
 /** _resolve_control_after_action. */
-export function resolveControlAfterAction(ctx: Ctx, a: SideKey, d: SideKey, move: Move, result: ActionResult, demandOverride?: Demand): void {
+export function resolveControlAfterAction(ctx: Ctx, a: SideKey, d: SideKey, move: Move, result: ActionResult): void {
   const S = ctx.S, A = S[a], D = S[d];
   if (result === 'REVERSAL' || result === 'HIGH_RISK_CRASH') return setResolvedControl(ctx, d, a, d);
   if (result === 'CLEAN_SUCCESS' && move.finisher) return setResolvedControl(ctx, a, a, d);
-  if (result === 'CLEAN_SUCCESS' && !move.pinningCombo && !move.flashPin) {
-    const demand = demandOverride ?? moveDemand(move, isSignatureMove(A, move));
-    const chance = controlRetentionChance(A, demand);
-    if (demand !== 'BASIC' && ctx.rnd() * 100 >= chance) {
-      say(ctx, LINES.cannotMaintain, { a }, 'dim');
-      return setResolvedControl(ctx, 'neutral', a, d);
-    }
-  }
+  // Godot also rolled here for a tired attacker to lose control after a landed move (up to 40%),
+  // handing the defender a free shot at taking over. Removed (Lyra's call): if you land it, you
+  // keep it. Exhaustion still bites through the dice.
   if (A.state.position === 'GROUNDED' && D.state.position === 'GROUNDED') {
     S.neutralFavoured = result === 'CLEAN_SUCCESS' ? a : null;
     return setResolvedControl(ctx, 'neutral', a, d);
