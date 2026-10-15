@@ -4,13 +4,13 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
     <meta name="theme-color" content="#0c0d14" />
-    <meta name="description" content="A wrestling game for people who rate matches." />
+    <meta name="description" content="A wrestling game: 400 wrestlers, every match rated out of five." />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Match Night" />
+    <meta name="apple-mobile-web-app-title" content="RtR" />
     <title>Rise to Relevance</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -21,6 +21,65 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Boot rescue. If the game hasn't started (a stale offline copy asking for files that no
+      // longer exist, or a crash), clear the offline cache and reload once; if that fails too,
+      // say so instead of leaving a blank screen. main.tsx sets window.__rtrBooted.
+      (function () {
+        var KEY = 'rtr-rescue';
+        var lastError = '';
+        function clearCaches() {
+          var jobs = [];
+          try {
+            if ('serviceWorker' in navigator) {
+              jobs.push(navigator.serviceWorker.getRegistrations().then(function (rs) {
+                return Promise.all(rs.map(function (r) { return r.unregister(); }));
+              }));
+            }
+            if (window.caches) {
+              jobs.push(caches.keys().then(function (ks) {
+                return Promise.all(ks.map(function (k) { return caches.delete(k); }));
+              }));
+            }
+          } catch (e) {}
+          return Promise.all(jobs).catch(function () {});
+        }
+        function show() {
+          var root = document.getElementById('root');
+          if (!root || root.childElementCount) return;
+          root.innerHTML =
+            '<div style="max-width:32rem;margin:15vh auto;padding:0 16px;font-family:system-ui,sans-serif;color:#efeadf">' +
+            '<h1 style="font-size:1.6rem;margin:0 0 8px">Rise to Relevance didn\u2019t load</h1>' +
+            '<p style="color:#9093ab;margin:0 0 16px">Something went wrong starting the game.</p>' +
+            (lastError ? '<pre style="white-space:pre-wrap;font-size:12px;color:#e6525c;background:#151724;padding:10px;border-radius:6px">' +
+              lastError.replace(/[<&]/g, function (c) { return c === '<' ? '&lt;' : '&amp;'; }) + '</pre>' : '') +
+            '<button id="rtr-reset" style="margin-top:12px;background:#ebb640;color:#17130a;border:0;border-radius:6px;padding:12px 20px;font-weight:700;font-size:16px">Reset and reload</button></div>';
+          document.getElementById('rtr-reset').onclick = function () {
+            try { sessionStorage.removeItem(KEY); } catch (e) {}
+            clearCaches().then(function () { location.reload(); });
+          };
+        }
+        function rescue() {
+          if (window.__rtrBooted) return;
+          var tried = false;
+          try { tried = sessionStorage.getItem(KEY) === '1'; } catch (e) {}
+          if (tried) return show();
+          try { sessionStorage.setItem(KEY, '1'); } catch (e) {}
+          clearCaches().then(function () { location.reload(); });
+        }
+        window.addEventListener('error', function (e) {
+          var t = e.target;
+          if (t && t.tagName === 'SCRIPT') { lastError = 'Could not load ' + (t.src || 'a script'); rescue(); }
+          else if (e.message) lastError = e.message;
+        }, true);
+        window.addEventListener('load', function () {
+          setTimeout(function () {
+            var root = document.getElementById('root');
+            if (!window.__rtrBooted && root && !root.childElementCount) rescue();
+          }, 5000);
+        });
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

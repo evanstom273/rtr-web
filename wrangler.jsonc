@@ -9,6 +9,9 @@
   },
   "assets": {
     "directory": "./dist",
-    "not_found_handling": "single-page-application"
+    // A real 404 for missing files. With SPA handling, a stale page asking for an old hashed bundle
+    // got index.html back (200, text/html), the module failed to load and the screen stayed blank.
+    // The app only lives at /, and the service worker handles offline navigation itself.
+    "not_found_handling": "none"
   }
 }
