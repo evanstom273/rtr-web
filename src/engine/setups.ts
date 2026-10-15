@@ -11,11 +11,10 @@ import {
   staminaCostMultiplier, staminaPercent, staminaRecoveryMultiplier,
 } from './exhaustion';
 import { afterAction, render, setControl, setResolvedControl } from './flow';
-import {
-  BREAKTHROUGH_BAR_CROSS, DEFEND_BAR_CROSS, breakthroughBarWidth, defendBarWidth, reversalChance,
-} from './interaction';
+import { startContest } from './contest';
+import { setupContest } from './dice';
 import { exhaustionCommentary, signatureReady, SUCCESSFUL_MOVE_MOMENTUM, REVERSAL_MOMENTUM, validMoves } from './moves';
-import { pick, randRange } from './rng';
+import { pick } from './rng';
 import { candidateActions, findFollowupPaths, isContested, isRecovery, projectAction } from './setupRules';
 import { addFatigue, addMomentum, canUseMove, noteSetupAction, recoverStamina, spendStamina } from './side';
 import type { MatchState, SetupId, Side, SideKey } from './types';
@@ -54,6 +53,7 @@ const DELAYABLE: ReadonlySet<SetupId> = new Set<SetupId>(['stand_up', 'stop_runn
 export function executeSetup(ctx: Ctx, k: SideKey, id: SetupId): boolean {
   const S = ctx.S, A = S[k], dk = other(k), D = S[dk];
   if (!validSetups(S, k).includes(id)) return false;
+  D.setUp = false;
   if (id === 'wait_for_count') {
     advanceClock(ctx);
     spendStamina(A, staminaCostMultiplier(A, 'BASIC'));
@@ -97,24 +97,11 @@ export function executeSetup(ctx: Ctx, k: SideKey, id: SetupId): boolean {
   }
   if (id === 'taunt') A.tauntCooldownUntil = S.t + TAUNT_COOLDOWN_SECONDS;
   if (isContested(id)) {
-    const chance = reversalChance(A, D, null, id, null);
-    const role = dk === 'you' ? 'defend' : 'breakthrough';
-    const width = role === 'defend' ? defendBarWidth(chance) : breakthroughBarWidth(chance);
-    const dir: 1 | -1 = ctx.rnd() < 0.5 ? 1 : -1;
-    // Keep the gold at least 24% of the track away from where the marker starts.
-    const half = width / 2;
-    const lo = dir > 0 ? 24 + half : half + 6, hi = dir > 0 ? 94 - half : 76 - half;
-    S.txn = { kind: 'setup', k, action: id, chance };
-    S.pending = {
-      kind: 'setupMeter',
-      spec: {
-        id: ++S.seq, role, attacker: k,
-        title: role === 'defend' ? `REVERSE: ${setupTitle(A, id)}` : `BEAT THE REVERSAL: ${setupTitle(A, id)}`,
-        width, center: randRange(ctx.rnd, lo, hi), dir,
-        crossSeconds: role === 'defend' ? DEFEND_BAR_CROSS : BREAKTHROUGH_BAR_CROSS,
-        chance,
-      },
-    };
+    const { attack, defend } = setupContest(A, D, id);
+    A.recentSetups.push(id);
+    if (A.recentSetups.length > 5) A.recentSetups.shift();
+    S.txn = { kind: 'setup', k, action: id, chance: 0 };
+    startContest(ctx, { kind: 'setup', attacker: k, defender: dk, title: setupTitle(A, id), major: null, attack, defend });
     return true;
   }
   // Uncontested: apply directly.
@@ -167,6 +154,7 @@ export function finishContestedSetup(ctx: Ctx, k: SideKey, id: SetupId, reversed
       crowdObserve(ctx, { type: 'taunt', k, charisma: A.w.stats.charisma });
     } else {
       noteSetupAction(A, id);
+      A.setUp = true;
       spendStamina(A, 3 * staminaCostMultiplier(A, 'STANDARD'));
       addFatigue(A, 1);
       say(ctx, setupLogLine(id), { a: k, d: dk }, 'dim');

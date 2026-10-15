@@ -60,6 +60,8 @@ export const LINES = {
   setupReversed: '{d} counters the setup and takes control.',
 
   pinHook: '{a} hooks the leg!',
+  roll: '{m} — {a} rolls {at} ({ad}{ab}) against {d}\'s {dt} ({dd}{db}).',
+  botch: '{a} botches it completely!',
   coverMissed: '{a} rolls through the {m} but can\'t hold the cover — {d} squirms free!',
   pinSurprise: '{a} catches {d} by surprise!',
   count1: 'ONE!',

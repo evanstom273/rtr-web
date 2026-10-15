@@ -1,12 +1,15 @@
 # Rise to Relevance (web)
 
-The web port of the Godot wrestling game Rise to Relevance, being brought over a piece at a time.
-Right now it's the exhibition match: the full RtR roster (400 wrestlers, 11 promotions), the RtR
-match engine (positions, setups, six-part bodies, stamina and exhaustion, the AI), a top-down
-ring view, and the Match of the Night crowd and star rating on top. Built mobile-first; plays best
+Rise to Relevance, on the web. It started as a port of the Godot game, which has since been
+retired, so this is now the game. Right now it's the exhibition match: the full RtR roster (400
+wrestlers, 11 promotions), the RtR match engine (positions, setups, six-part bodies, stamina and
+exhaustion, the AI), contested d20 rolls for every move and setup with hands-on kickouts,
+submissions and covers, a top-down ring view, and the Match of the Night crowd and star rating
+on top. Built mobile-first; plays best
 on a phone, and on a foldable's inner screen the ring view stays on screen.
 
-The design source of truth is `RISE_TO_RELEVANCE_GDD_TAD.md` and the Godot project.
+The original design doc is `RISE_TO_RELEVANCE_GDD_TAD.md`; `NOTES.md` records where the web version
+has gone its own way.
 
 Vite + React + TypeScript (strict), with Vitest for tests. No backend: the build is a folder of
 static files, served from Cloudflare.
@@ -60,13 +63,13 @@ src/
   engine/   all match rules, pure TypeScript: no DOM, React or timers
   data/rtr/ moves, wrestlers, promotions, titles — generated from the Godot project
   data/     commentary, labels and rating copy
-  ui/       React: ring view, move wheel, cards, timing overlays (ring, bar, kickout, tug)
+  ui/       React: ring view, move wheel, cards, dice, overlays (cover, kickout, tug)
   storage/  localStorage wrapper (greatest hits, last picks)
 legacy/     the original Match of the Night single-file game, kept as a reference
 ```
 
-The engine exposes state and actions. When it needs something from the player (a reversal ring, a
-setup bar, a kickout, a submission struggle, or just a pause for pacing), it sets `state.pending` and waits.
+The engine exposes state and actions. When it needs something from the player (a contested roll,
+a cover, a kickout, a submission struggle, or just a pause for pacing), it sets `state.pending` and waits.
 The UI renders that, runs the interaction and hands the result back. All randomness goes through
 an injectable seeded RNG, so any match can be replayed exactly.
 

@@ -4,10 +4,11 @@ import { AiBrain, aiTurn } from './ai';
 import { say } from './commentary';
 import type { Ctx, EngineHooks } from './ctx';
 import { finalise, render, runNeutralRecovery, schedule, setControl } from './flow';
-import { executeMove, finishMove, moveIsValid, resolveCover, validMoves } from './moves';
+import { aiWantsPush, applyPending, rollPending } from './contest';
+import { executeMove, moveIsValid, resolveCover, validMoves } from './moves';
 import { canPin, completeKickout, pinThree, startPin, useResiliency } from './pin';
 import { mathRng, seededRng, type Rng } from './rng';
-import { executeSetup, finishContestedSetup, validSetups } from './setups';
+import { executeSetup, validSetups } from './setups';
 import { moveMatchesSnapshots } from './setupRules';
 import { canUseMove } from './side';
 import { createState } from './state';
@@ -183,28 +184,22 @@ export class MatchEngine {
 
   /* ---------- results from the UI's timing interactions ---------- */
 
-  /** Reversal ring: did the player tap inside the band? */
-  resolveReversal(hit: boolean): boolean {
-    const p = this.state.pending, txn = this.state.txn;
-    if (p.kind !== 'reversal' || !txn || txn.kind !== 'move') return false;
-    const reversed = p.spec.role === 'defend' ? hit : !hit;
-    return this.act(() => {
-      this.state.pending = { kind: 'idle' };
-      this.state.txn = null;
-      finishMove(this.ctx, txn.k, txn.move, reversed, txn.target);
-    });
+  /** Roll the pending contest. push: spend momentum for advantage (if allowed). */
+  rollContest(push = false): boolean {
+    if (this.state.pending.kind !== 'contest') return false;
+    return this.act(() => rollPending(this.ctx, push));
   }
 
-  /** Setup bar: did the player stop the marker in the gold? */
-  resolveSetupMeter(hit: boolean): boolean {
-    const p = this.state.pending, txn = this.state.txn;
-    if (p.kind !== 'setupMeter' || !txn || txn.kind !== 'setup') return false;
-    const reversed = p.spec.role === 'defend' ? hit : !hit;
-    return this.act(() => {
-      this.state.pending = { kind: 'idle' };
-      this.state.txn = null;
-      finishContestedSetup(this.ctx, txn.k, txn.action, reversed);
-    });
+  /** What the AI would do in the player's shoes (headless play). */
+  autoPush(): boolean {
+    const p = this.state.pending;
+    return p.kind === 'contest' && aiWantsPush(this.state, 'you', p.spec);
+  }
+
+  /** The dice have finished animating: play out the result. */
+  applyContest(): boolean {
+    if (this.state.pending.kind !== 'contestRoll') return false;
+    return this.act(() => applyPending(this.ctx));
   }
 
   /** Player was pinned. success = released in the gold before three; count = count shown at release. */

@@ -45,7 +45,7 @@ export function Dock({ engine, onMoves, onSetup }: Props) {
         </>
       ) : (
         <p className="wait">
-          {S.over ? '' : ctrl === 'them' ? `${S.them.w.name} is on the attack. Watch for the ring — tap in the gold to reverse.` : ctrl === 'you' ? 'Going for it…' : 'Collar and elbow tie-up…'}
+          {S.over ? '' : ctrl === 'them' ? `${S.them.w.name} is on the attack. Get ready to roll.` : ctrl === 'you' ? 'Going for it…' : 'Collar and elbow tie-up…'}
         </p>
       )}
     </div>

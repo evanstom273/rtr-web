@@ -12,9 +12,9 @@ import { Flash } from '../overlays/Flash';
 import { KickoutHold } from '../overlays/KickoutHold';
 import { RefCount } from '../overlays/RefCount';
 import { Resiliency } from '../overlays/Resiliency';
-import { SetupBar } from '../overlays/SetupBar';
+import { ContestCard } from '../overlays/ContestCard';
 import { SubmissionTug } from '../overlays/SubmissionTug';
-import { CoverRing, TimingRing } from '../overlays/TimingRing';
+import { CoverRing } from '../overlays/TimingRing';
 import { useEngine } from '../useEngine';
 import { useMedia } from '../useMedia';
 
@@ -86,7 +86,7 @@ export function Match({ engine, onOver }: { engine: MatchEngine; onOver: () => v
 
   const close = useCallback(() => setSheet('none'), []);
   const joltCls = jolt.n ? ` ${jolt.big ? 'jolt-big' : 'jolt'}${jolt.n % 2}` : '';
-  const ringBusy = p.kind === 'reversal' || p.kind === 'cover' || p.kind === 'setupMeter' || p.kind === 'kickout' || p.kind === 'refCount' || p.kind === 'sub';
+  const ringBusy = p.kind === 'contest' || p.kind === 'contestRoll' || p.kind === 'cover' || p.kind === 'kickout' || p.kind === 'refCount' || p.kind === 'sub';
 
   return (
     <>
@@ -112,8 +112,7 @@ export function Match({ engine, onOver }: { engine: MatchEngine; onOver: () => v
       </section>
       {sheet === 'moves' && p.kind === 'awaitPlayer' && <MoveWheel engine={engine} onClose={close} />}
       {sheet === 'setup' && p.kind === 'awaitPlayer' && <SetupSheet engine={engine} onClose={close} />}
-      {p.kind === 'reversal' && <TimingRing key={p.spec.id} engine={engine} spec={p.spec} />}
-      {p.kind === 'setupMeter' && <SetupBar key={p.spec.id} engine={engine} spec={p.spec} />}
+      {(p.kind === 'contest' || p.kind === 'contestRoll') && <ContestCard key={p.spec.id} engine={engine} />}
       {p.kind === 'kickout' && <KickoutHold key={p.spec.id} engine={engine} spec={p.spec} />}
       {p.kind === 'refCount' && <RefCount key={p.id} engine={engine} kickoutAt={p.kickoutAt} />}
       {p.kind === 'sub' && <SubmissionTug key={p.spec.id} engine={engine} spec={p.spec} />}

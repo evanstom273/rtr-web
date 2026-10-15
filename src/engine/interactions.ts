@@ -1,5 +1,5 @@
 /*
- * Pure physics for the timing interactions, ported from the Godot widgets. No timers: callers
+ * Pure physics for the timing interactions that remain (cover ring, kickout hold, submission tug). No timers: callers
  * supply elapsed time. The UI drives these from requestAnimationFrame; the sim steps them.
  */
 import { clamp, lerp } from './rng';
@@ -14,15 +14,6 @@ export const ringHit = (progress: number, target: number, window: number): boole
 
 /** Seconds into the shrink when the ring passes the target's centre. */
 export const ringTargetTime = (target: number, timeLimit: number): number => (1 - target) * timeLimit;
-
-/* ---------- setup bar (control_meter_interaction.gd, one-way) ---------- */
-
-export const barPos = (dir: 1 | -1, elapsed: number, crossSeconds: number): number => {
-  const f = clamp(elapsed / crossSeconds, 0, 1) * 100;
-  return dir > 0 ? f : 100 - f;
-};
-
-export const barHit = (pos: number, center: number, width: number): boolean => Math.abs(pos - center) <= width / 2;
 
 /* ---------- kickout hold (hold_release_interaction.gd) ---------- */
 

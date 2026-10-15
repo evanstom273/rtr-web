@@ -97,12 +97,6 @@ export function catchBreathRecovery(s: S): number {
   return (s.maxStamina * CATCH_BREATH_BASE_RECOVERY) / 100 * staminaRecoveryMultiplier(s);
 }
 
-export function reversalPenalty(s: S): number {
-  const st = sampleDesc(staminaPercent(s), [100, 50, 25, 0], [0, 5, 9, 12]);
-  const fa = sampleAsc(s.fatigue, [0, 50, 75, 100], [0, 0, 2, 5]);
-  return clamp(st * fatigueAmplification(s) + fa, 0, 20);
-}
-
 function finishDefencePenalty(s: S, submission: boolean): number {
   const st = sampleDesc(staminaPercent(s), [100, 50, 25, 0], [0, 6, 12, 20]);
   const fa = sampleAsc(s.fatigue, [0, 50, 75, 100], [0, 0, 8, submission ? 15 : 12]);

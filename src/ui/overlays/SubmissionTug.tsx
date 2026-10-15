@@ -12,7 +12,7 @@ export function SubmissionTug({ engine, spec }: { engine: MatchEngine; spec: Sub
   const live = cd === null;
   const S = engine.state;
   const marker = useRef<HTMLDivElement>(null);
-  const st = useRef({ marker: 50, taps: [] as number[], done: false });
+  const st = useRef({ marker: spec.start, taps: [] as number[], done: false });
   const [out, setOut] = useState<SubOutcome | null>(null);
   const [push, setPush] = useState(0);
   const attacking = spec.playerDirection > 0;
@@ -90,7 +90,7 @@ export function SubmissionTug({ engine, spec }: { engine: MatchEngine; spec: Sub
           <div className="zone tap" style={{ left: spec.tapThreshold + '%', width: 100 - spec.tapThreshold + '%' }}>
             <span>Tap</span>
           </div>
-          <div className="marker" ref={marker} style={{ left: '50%' }} />
+          <div className="marker" ref={marker} style={{ left: spec.start + '%' }} />
           {!live && cd !== null && <Countdown label={cd} />}
           {out && <div className="verdict sm">{verdict}</div>}
         </div>

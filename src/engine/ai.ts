@@ -11,7 +11,8 @@ import {
   combinedExhaustion, executionPenalty, exhaustionBand, moveDemand, staminaCostMultiplier, staminaPercent, staminaRecoveryMultiplier,
 } from './exhaustion';
 import { afterAction, setControl } from './flow';
-import { executionChance, isHighRisk, reversalChance } from './interaction';
+import { moveLandChance, setupLandChance } from './dice';
+import { executionChance, isHighRisk } from './interaction';
 import { executeMove, moveIsValid, validMoves } from './moves';
 import { canPin, isFlashPinMove, startPin } from './pin';
 import { executeSetup, validSetups } from './setups';
@@ -404,7 +405,7 @@ export class AiBrain {
       else if (leg < 60) score -= 8;
       if (target.momentum >= ai.momentum + 20) score -= 6;
     }
-    score -= reversalChance(ai, target, m, null, res) * 0.08;
+    score -= (100 - moveLandChance(ai, target, m, res)) * 0.08;
     const demand = moveDemand(m, isSignatureMove(ai, m));
     score += (executionChance(ai, m) - 70) * 0.22;
     const attr = moveAttributeProfile(ai, m);
@@ -561,7 +562,7 @@ export class AiBrain {
 
   scoreSetup(ai: Side, target: Side, id: SetupId, moves: Move[], plan: { actions: SetupId[]; move: Move } | null): number {
     let score = 40;
-    if (isContested(id)) score -= reversalChance(ai, target, null, id, null) * 0.08;
+    if (isContested(id)) score -= (100 - setupLandChance(ai, target, id)) * 0.08;
     score += setupScoringModifier(ai, id);
     const projected = projectAction(id, ai.state, target.state);
     const future = this.movesForStates(ai, projected.attacker, projected.target);
@@ -726,7 +727,7 @@ export class AiBrain {
     if (!moves.length) return true;
     if (moves.some((m) => m.finisher)) return true;
     if (this.scorePin(ai, target, bestMoveScore) >= 45) return true;
-    return target.state.position === 'STANDING' && reversalChance(ai, target, null, 'taunt', null) >= 45;
+    return target.state.position === 'STANDING' && 100 - setupLandChance(ai, target, 'taunt') >= 45;
   }
 
   hasReadySpecialContinuation(ai: Side, target: Side, moves: Move[], setups: SetupId[]): boolean {

@@ -146,9 +146,11 @@ export function Setup({ picks, hits, onPicks, onBell }: Props) {
             <ul>
               <li>Every wrestler has a position, orientation, area and motion. Moves only work from the right ones — use Setup to get there.</li>
               <li>Moves come off the radial wheel, grouped by type. Pick a body part to focus and work it over: six parts, each wears down.</li>
-              <li>Every move and contested setup is a timing test: when the ring shrinks onto the gold, tap. Defending, a hit reverses; attacking, a hit lands it.</li>
+              <li>Every move and contested setup is a contested roll: both of you roll a d20 and add your modifiers — the right attribute for the move, momentum, exhaustion, body-part damage, position. Highest wins, the attacker wins ties. A natural 20 is a critical (or a reversal on defence); a natural 1 is a botch.</li>
+              <li>Advantage (roll two, keep the best) comes from setting someone up, catching them off the ropes or staggering. Repeat the same move and they'll see it coming. Spend 20 momentum to push for advantage when it matters.</li>
               <li>Fill momentum to ready your signature. Land a signature to bank a finisher (up to three).</li>
-              <li>Pinned? Hold, then let go in the gold before three. In a hold? Mash — eight taps a second is the cap.</li>
+              <li>Land a pin combo and hit the cover ring to hook the leg. Pinned? Hold, then let go in the gold before three. In a hold? Mash — eight taps a second is the cap.</li>
+              <li>Kickouts come from condition: a fresh wrestler kicks out of nearly anything; wear them down first.</li>
               <li>Your first full momentum bar earns a one-use Resiliency: burn it to survive a three or a tap.</li>
             </ul>
           </details>

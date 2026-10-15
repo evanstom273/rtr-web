@@ -6,13 +6,21 @@ import { other, ring, say } from './commentary';
 import { crowdObserve } from './crowd';
 import { afterAction, endMatch, render, setControl } from './flow';
 import { submissionContext } from './interaction';
-import { aiShouldUseResiliency, useResiliency } from './pin';
+import { aiShouldUseResiliency, pinCondition, useResiliency } from './pin';
+import { clamp } from './rng';
 import { damagePart, markCrossedThresholds, totalHp } from './side';
 import { targetHp } from './targeting';
-import type { Move, SideKey, SubOutcome, TargetResolution } from './types';
+import type { Move, Side, SideKey, SubOutcome, TargetResolution } from './types';
 
 /** Both resolution forces are scaled by this (Godot submission_resolution_speed_multiplier). */
 export const SUBMISSION_SPEED_MULTIPLIER = 1.5;
+
+/**
+ * Web addition, same idea as pin resistance: the struggle starts where the defender's condition
+ * puts it. Fresh (~100) starts at 25, near the escape; worked over (~63) ≈ 44; wrecked (~23) ≈ 64.
+ * (Godot's submission scores cap out for any healthy wrestler, so they can't carry this.)
+ */
+export const submissionStart = (D: Side): number => clamp(50 - (pinCondition(D) - 50) * 0.5, 25, 75);
 
 function isTrueSquashContext(ctx: Ctx, k: SideKey): boolean {
   const A = ctx.S[k], D = ctx.S[other(k)];
@@ -36,7 +44,7 @@ export function startSubmission(ctx: Ctx, k: SideKey, move: Move, target: Target
   ring(ctx, 'submission', k, move.name);
   const sc = submissionContext(A, D, move, S.t, target, isTrueSquashContext(ctx, k));
   const playerAttacking = k === 'you';
-  S.txn = { kind: 'sub', k, move, target, nearTapSaid: false, nearEscapeSaid: false, lastMarker: 50 };
+  S.txn = { kind: 'sub', k, move, target, nearTapSaid: false, nearEscapeSaid: false, lastMarker: submissionStart(D) };
   S.pending = {
     kind: 'sub',
     spec: {
@@ -47,6 +55,7 @@ export function startSubmission(ctx: Ctx, k: SideKey, move: Move, target: Target
       tapThreshold: sc.tapThreshold,
       escapeThreshold: sc.escapeThreshold,
       speedMultiplier: SUBMISSION_SPEED_MULTIPLIER,
+      start: submissionStart(D),
       moveName: move.name,
       partLabel: PART_LABEL[part],
       finisher: move.finisher,
