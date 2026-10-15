@@ -57,7 +57,8 @@ export function addFatigue(s: Side, amount: number): void {
 }
 
 /*
- * Momentum is progression, not a resource for specials (pushes still spend it):
+ * Momentum is progression for specials (pushes spend it, and a landed signature can cash in 50 for
+ * a finisher; see moves.ts):
  * - reaching SIGNATURE_MOMENTUM banks one signature, which stays banked until it lands, however
  *   far momentum drops;
  * - reaching FINISHER_MOMENTUM banks a finisher (and earns Resiliency, once a match);

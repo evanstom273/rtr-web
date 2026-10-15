@@ -355,7 +355,7 @@ function InfoSheet({ hits, onClose }: { hits: Hit[]; onClose: () => void }) {
               <li>Moves come off the radial wheel, grouped by type. Pick a body part to focus and work it over: six parts, each wears down.</li>
               <li>Every move and contested setup is a contested roll: the attacker rolls a d20, the defender a d16, and both add modifiers — the right attribute for the move, momentum, exhaustion, body-part damage, position. Highest wins, the attacker wins ties. A natural 20 is a critical, a natural 16 on defence is a reversal, and a natural 1 is a botch.</li>
               <li>Setting someone up, or catching them off the ropes, staggering or still rising, is +2 on your roll. Advantage (roll two, keep the best) only comes from spending 20 momentum to push. Repeat the same move and the defender sees it coming and gets advantage for free.</li>
-              <li>50 momentum banks your signature; 100 banks a finisher. Using them doesn't cost momentum, but each is one use.</li>
+              <li>50 momentum banks your signature; 100 banks a finisher. Land your signature and you can cash in 50 momentum for a finisher. Each is one use.</li>
               <li>Land a hold and choose: go for the tap (win it, or they escape and take over) or work the hold for guaranteed limb damage and keep control. Technicians are best at it.</li>
               <li>Land a pin combo and choose whether to hook the leg — the card shows your real chance of the three. Pinned? Hold, then let go in the gold before three. In a hold? Mash — eight taps a second is the cap.</li>
               <li>Kickouts come from condition: a fresh wrestler kicks out of nearly anything; wear them down first.</li>

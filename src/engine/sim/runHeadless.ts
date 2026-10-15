@@ -130,6 +130,9 @@ export function runHeadless(o: SimOptions): SimResult {
       case 'subChoice':
         ok = e.resolveSubChoice(e.autoSubChoice());
         break;
+      case 'sigConvert':
+        ok = e.resolveSigConvert(e.autoSigConvert());
+        break;
       case 'pinChoice':
         ok = e.resolvePinChoice(e.autoPinChoice());
         break;
