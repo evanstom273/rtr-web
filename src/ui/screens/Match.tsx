@@ -7,6 +7,7 @@ import { Log } from '../match/Log';
 import { MoveWheel } from '../match/MoveWheel';
 import { RingView, snapKey } from '../match/RingView';
 import { SetupSheet } from '../match/SetupSheet';
+import { SpecialsSheet } from '../match/SpecialsSheet';
 import { WrestlerCard } from '../match/WrestlerCard';
 import { Flash } from '../overlays/Flash';
 import { KickoutHold } from '../overlays/KickoutHold';
@@ -38,7 +39,7 @@ export function Match({ engine, onOver }: { engine: MatchEngine; onOver: () => v
   const wide = useMedia('(min-width: 700px)');
   const vw = useViewportWidth();
   const bigW = Math.min(vw - 16, 480);
-  const [sheet, setSheet] = useState<'none' | 'moves' | 'setup'>('none');
+  const [sheet, setSheet] = useState<'none' | 'moves' | 'setup' | 'specials-you' | 'specials-them'>('none');
   const [flash, setFlash] = useState<{ id: number; text: string; strong: boolean } | null>(null);
   const [jolt, setJolt] = useState<{ n: number; big: boolean }>({ n: 0, big: false });
   const [pinned, setPinned] = useState(false);
@@ -82,7 +83,8 @@ export function Match({ engine, onOver }: { engine: MatchEngine; onOver: () => v
 
   useEffect(() => {
     if (p.kind === 'over') onOver();
-    if (p.kind !== 'awaitPlayer') setSheet('none');
+    // The move wheel and setup page only make sense on your turn; specials can stay open.
+    if (p.kind !== 'awaitPlayer') setSheet((x) => (x === 'moves' || x === 'setup' ? 'none' : x));
   }, [p, onOver]);
 
   const close = useCallback(() => setSheet('none'), []);
@@ -101,8 +103,9 @@ export function Match({ engine, onOver }: { engine: MatchEngine; onOver: () => v
             </button>
           )}
         </Hud>
-        <WrestlerCard w={S.you.w} v={v.sides.you} active={v.control === 'you'} />
-        <WrestlerCard w={S.them.w} v={v.sides.them} active={v.control === 'them'} focus={S.you.targetFocus} onPick={(part) => engine.setFocus(part)} />
+        <WrestlerCard w={S.you.w} v={v.sides.you} active={v.control === 'you'} onSpecials={() => setSheet('specials-you')} />
+        <WrestlerCard w={S.them.w} v={v.sides.them} active={v.control === 'them'} focus={S.you.targetFocus} onPick={(part) => engine.setFocus(part)}
+          onSpecials={() => setSheet('specials-them')} />
         {wide && (
           <div id="ringpanel">
             <RingView engine={engine} version={version} variant="panel" />
@@ -113,6 +116,9 @@ export function Match({ engine, onOver }: { engine: MatchEngine; onOver: () => v
       </section>
       {sheet === 'moves' && p.kind === 'awaitPlayer' && <MoveWheel engine={engine} onClose={close} />}
       {sheet === 'setup' && p.kind === 'awaitPlayer' && <SetupSheet engine={engine} onClose={close} />}
+      {(sheet === 'specials-you' || sheet === 'specials-them') && (
+        <SpecialsSheet engine={engine} initial={sheet === 'specials-you' ? 'you' : 'them'} onClose={close} />
+      )}
       {(p.kind === 'contest' || p.kind === 'contestRoll') && <ContestCard key={p.spec.id} engine={engine} />}
       {p.kind === 'kickout' && <KickoutHold key={p.spec.id} engine={engine} spec={p.spec} />}
       {p.kind === 'refCount' && <RefCount key={p.id} engine={engine} kickoutAt={p.kickoutAt} />}

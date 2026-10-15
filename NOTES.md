@@ -144,6 +144,15 @@ because limb work feeds the story score.
   exist. The move grid shows (F)/SIG markers, the target tag and that part's HP with the current
   focus applied, and greys out locked signatures and finishers with the reason.
 - **Target focus.** Chips in the move grid, or tap a body part on the opponent's card.
+- **Signatures & finishers sheet.** Tap the FIN row ("Specials ›") on either wrestler's card, at
+  any point in the match. Each special shows:
+  - whether it's ready, and if not, what it needs (momentum, a banked finisher)
+  - the positions both wrestlers need
+  - whether those fit right now, and if not, the shortest setup route (up to three steps, starting
+    with getting up yourself if you need to), or a hint when a move is needed instead
+  - a button to hit it, on your turn when it's on
+
+  The opponent's tab shows what they're building towards.
 - **Ring view.** SVG, top-down: ring, apron, barrier, ramp and crowd. Positions come from the
   four-part state, resolved for the pair together, so an attacker stands next to someone in the
   corner or on the apron. The player is a circle and the AI a diamond, coloured face blue / heel

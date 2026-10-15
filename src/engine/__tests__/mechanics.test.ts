@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { WRESTLERS, getMove } from '../../data/rtr';
 import { exhaustionBand, moveDemand, staminaCostMultiplier } from '../exhaustion';
 import { canPush, edgeOf, judge, landChance, moveContest } from '../dice';
+import { MatchEngine } from '../match';
 import { lateMatchProfile, pinProfile, submissionContext } from '../interaction';
 import * as ix from '../interactions';
 import { conditionResistance, pinCondition } from '../pin';
@@ -197,5 +198,23 @@ describe('holds: go for the tap or work the hold', () => {
     a.w = { ...a.w, classes: ['TECHNICIAN'] };
     expect(aiGoesForTap(S(a, d), 'them', armbar(), t)).toBe(true);
     expect(workHoldDamage(a, armbar())).toBeGreaterThan(workHoldDamage({ ...a, w: { ...a.w, classes: ['STRIKER'] } }, armbar()));
+  });
+});
+
+describe('signatures and finishers sheet', () => {
+  it('lists both specials kinds with requirements, readiness and a route', () => {
+    const e = new MatchEngine({ you: WRESTLERS[0]!.id, them: WRESTLERS[1]!.id, seed: 3 });
+    const list = e.specials('you');
+    expect(list.filter((s) => s.kind === 'SIGNATURE').length).toBeGreaterThan(0);
+    expect(list.filter((s) => s.kind === 'FINISHER').length).toBeGreaterThan(0);
+    for (const s of list) {
+      expect(s.ready).toBe(false);
+      expect(s.needs).toBeTruthy();
+      expect(s.usable).toBe(false);
+      expect(s.userNeeds.length).toBeGreaterThan(0);
+      if (s.fits) expect(s.route).toEqual([]);
+    }
+    e.state.you.signatureReady = true;
+    expect(e.specials('you').filter((s) => s.kind === 'SIGNATURE').every((s) => s.ready && s.needs === null)).toBe(true);
   });
 });

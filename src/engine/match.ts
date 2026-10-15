@@ -11,11 +11,12 @@ import { mathRng, seededRng, type Rng } from './rng';
 import { executeSetup, validSetups } from './setups';
 import { moveMatchesSnapshots } from './setupRules';
 import { canUseMove } from './side';
+import { specialsFor, type SpecialInfo } from './specials';
 import { createState } from './state';
 import { aiGoesForTap, beginSubmission, resolveSubmission, startSubmission, submissionTick, workTheHold } from './submission';
 import { resolveTarget } from './targeting';
 import { endMatch } from './flow';
-import type { Cont, KickoutCount, MatchRulesConfig, MatchState, Move, SetupId, SubOutcome, TargetResolution } from './types';
+import type { SideKey, Cont, KickoutCount, MatchRulesConfig, MatchState, Move, SetupId, SubOutcome, TargetResolution } from './types';
 
 export interface MatchConfig {
   you: string;
@@ -96,6 +97,10 @@ export class MatchEngine {
     if ((move.submission || move.type === 'SUBMISSION') && (S.you.state.area !== 'IN_RING' || S.them.state.area !== 'IN_RING')) return 'Submissions need both of you in the ring';
     if (!canUseMove(S.you, move)) return move.finisher || S.you.finishers.includes(move) ? 'Land a signature to bank a finisher' : 'Fill your momentum first';
     return null;
+  }
+  /** Signatures and finishers for either side: readiness, positions and the route there. */
+  specials(k: SideKey): SpecialInfo[] {
+    return specialsFor(this.state, k);
   }
   canPin(): boolean {
     return this.playerTurn && canPin(this.state, 'you');

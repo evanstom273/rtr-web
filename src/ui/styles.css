@@ -251,12 +251,14 @@ em{font-style:normal;font-weight:600;color:var(--fg)}
 .bt i.fat{background:var(--risk);opacity:.85}
 .bt i.mom{background:var(--crowd)}
 .bt i.mom.ready{background:var(--gold);box-shadow:0 0 8px var(--gold);animation:pulse 1.2s ease-in-out infinite}
-.fin{display:flex;align-items:center;gap:5px;min-width:0}
+.fin{display:flex;align-items:center;gap:5px;min-width:0;background:none;border:0;padding:2px 0;text-align:left;width:100%;border-radius:4px}
+.fin:hover .sig.more,.fin:focus-visible .sig.more{color:var(--fg)}
 .pips{display:flex;gap:4px}
 .pips b{width:9px;height:9px;transform:rotate(45deg);border:1.5px solid var(--gold);opacity:.45;transition:background .3s,opacity .3s}
 .pips b.on{background:var(--gold);opacity:1;animation:pip .5s var(--ease)}
 @keyframes pip{0%{transform:rotate(45deg) scale(1.8)}to{transform:rotate(45deg) scale(1)}}
 .sig{font-family:var(--mono);font-size:9px;letter-spacing:.08em;color:var(--gold);margin-left:auto;white-space:nowrap}
+.sig.more{color:var(--mute);text-transform:uppercase}
 .cpos{display:flex;flex-wrap:wrap;gap:3px 5px;margin-top:6px;font-family:var(--mono);font-size:10px;letter-spacing:.04em;text-transform:uppercase}
 .cpos span{background:var(--panel-2);border-radius:3px;padding:1px 5px;color:var(--fg);opacity:.9;animation:chipin .35s var(--ease)}
 .cpos .mo{color:var(--gold)}
@@ -511,6 +513,29 @@ em{font-style:normal;font-weight:600;color:var(--fg)}
   .cc-dice.n2 .d20{width:54px}
   .cc-dice{height:72px}
 }
+
+/* ---------- Signatures & finishers ---------- */
+.sp-tabs{display:flex;width:100%;margin-bottom:10px}
+.sp-tabs button{flex:1;min-width:0;font-family:var(--display);font-weight:800;text-transform:uppercase;font-size:1rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sp-tabs .wname{max-width:100%}
+.sp-meter{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 12px;font-family:var(--mono);font-size:12px;color:var(--mute);margin-bottom:10px}
+.sp-meter b{color:var(--gold)}
+.sp-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.sp{background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:10px 12px;display:grid;gap:6px}
+.sp.ready{border-color:color-mix(in srgb,var(--gold) 45%,transparent)}
+.sp.usable{border-color:var(--gold);box-shadow:0 0 18px color-mix(in srgb,var(--gold) 25%,transparent)}
+.sp-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sp-name{font-family:var(--display);font-weight:800;text-transform:uppercase;font-size:1.2rem;line-height:1.05}
+.sp.sp-f .sp-name{color:var(--gold)}
+.sp-status{margin-left:auto;text-align:right;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute)}
+.sp-status.ok{color:var(--gold)}.sp-status.go{color:var(--good)}
+.sp-req{display:grid;grid-template-columns:minmax(4.5em,auto) 1fr;gap:2px 12px;font-size:14px;align-items:baseline}
+.sp-who{max-width:9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.sp-route{font-size:13.5px;color:var(--mute)}
+.sp-route .fit{color:var(--good)}
+.sp-route .none{font-style:italic}
+.sp-go{justify-self:start;padding:9px 16px;font-size:15px}
+.sp-help{color:var(--mute);font-size:13px;margin:12px 2px 2px}
 
 /* ---------- Hold choice ---------- */
 .sc-read{display:flex;justify-content:center;gap:18px;flex-wrap:wrap;margin-top:10px;color:var(--mute);font-size:16px}

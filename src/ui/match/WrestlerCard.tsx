@@ -12,9 +12,11 @@ interface Props {
   /** Player's focus on this wrestler (opponent card only). */
   focus?: Part;
   onPick?: (p: BodyPart) => void;
+  /** Open the signatures & finishers sheet for this wrestler. */
+  onSpecials?: () => void;
 }
 
-export function WrestlerCard({ w, v, active, focus, onPick }: Props) {
+export function WrestlerCard({ w, v, active, focus, onPick, onSpecials }: Props) {
   const r = Math.round;
   const st = v.state;
   const staPct = v.maxStamina ? (v.stamina / v.maxStamina) * 100 : 0;
@@ -54,15 +56,15 @@ export function WrestlerCard({ w, v, active, focus, onPick }: Props) {
             </span>
             <span className="bv">{r(v.momentum)}</span>
           </div>
-          <div className="fin">
+          <button className="fin" onClick={onSpecials} aria-label={`${w.name}'s signatures and finishers`}>
             <span className="bl">FIN</span>
             <span className="pips">
               {Array.from({ length: MAX_FINISHER_STOCK }, (_, i) => (
                 <b key={i} className={i < v.finisherStock ? 'on' : ''} />
               ))}
             </span>
-            {v.signatureReady && <span className="sig">SIG READY</span>}
-          </div>
+            {v.signatureReady ? <span className="sig">SIG READY</span> : <span className="sig more">Specials ›</span>}
+          </button>
         </div>
       </div>
       <div className="cpos">
