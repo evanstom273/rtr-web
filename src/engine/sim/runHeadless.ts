@@ -31,6 +31,8 @@ export interface SimOptions {
   /** Player mash rate in submissions (taps/s, capped at 8 by the game). */
   mashRate?: number;
   maxSteps?: number;
+  /** Called after every step (for diagnostics). */
+  onStep?: (e: MatchEngine) => void;
 }
 
 export interface SimResult {
@@ -137,6 +139,7 @@ export function runHeadless(o: SimOptions): SimResult {
       default:
         ok = false;
     }
+    o.onStep?.(e);
     if (!ok) {
       stuck = `no progress from '${p.kind}' at step ${steps}`;
       break;

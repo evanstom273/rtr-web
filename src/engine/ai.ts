@@ -14,7 +14,8 @@ import { afterAction, setControl } from './flow';
 import { moveLandChance, setupLandChance } from './dice';
 import { executionChance, isHighRisk } from './interaction';
 import { executeMove, moveIsValid, validMoves } from './moves';
-import { canPin, isFlashPinMove, startPin } from './pin';
+import { canPin, isFlashPinMove, pinCondition, startPin } from './pin';
+import { clamp } from './rng';
 import { executeSetup, validSetups } from './setups';
 import { findFollowupPaths, isContested, isRecovery, moveMatchesSnapshots, projectAction } from './setupRules';
 import {
@@ -33,6 +34,8 @@ export class AiBrain {
   lastSetupIntent: SetupId | null = null;
   targetFocus: BodyPart | null = null;
   lastSuccessfulMoveImpact = 0;
+  /** The move the AI landed on its last action, until its next decision. */
+  justLanded: Move | null = null;
   lastSuccessfulMove: Move | null = null;
   lastLandedFinisher = false;
   playerCrashOpportunity = false;
@@ -88,6 +91,7 @@ export class AiBrain {
       this.lastSuccessfulMove = move;
       this.lastLandedFinisher = move.finisher;
       this.bigMoveFollowupOpportunity = move.impact >= 8;
+      this.justLanded = move;
       if (this.targetFocus === null) {
         this.targetFocus = res.storyPart;
         ai.targetFocus = res.storyPart;
@@ -120,6 +124,14 @@ export class AiBrain {
 
   choose(ai: Side, target: Side, moves: Move[], setups: SetupId[]): Candidate | null {
     if (this.setupCooldownTurns > 0) this.setupCooldownTurns--;
+    const cover = this.coverAfterBigMove(ai, target);
+    this.justLanded = null;
+    if (cover) {
+      this.clearSetupIntent();
+      this.recordChoice(cover, ai);
+      this.playerCrashOpportunity = this.reversalPinOpportunity = this.bigMoveFollowupOpportunity = false;
+      return cover;
+    }
     let candidates: Candidate[] = [];
     this.updateTargetFocus(ai, target, moves);
     const focus = this.targetFocus ?? 'NONE';
@@ -372,6 +384,25 @@ export class AiBrain {
     const established = ai.movesLanded >= 3;
     const worn = target.fatigue >= 55 || target.fatigue >= ai.fatigue + 20 || staminaPercent(target) <= 30;
     return dominant && little && established && worn && this.lastSuccessfulMoveImpact >= 8;
+  }
+
+  /**
+   * Web-version addition: wrestlers cover after big moves. The weighted move scoring alone left the
+   * AI covering about twice a match. The chance rises as the opponent wears down; a signature makes
+   * it likely and a finisher all but certain. Covering twice in a row without landing anything in
+   * between is rare.
+   */
+  private coverAfterBigMove(ai: Side, target: Side): Candidate | null {
+    const m = this.justLanded;
+    if (!m || m.submission || !canPin(this.S, this.k)) return null;
+    const fin = isFinisherMove(ai, m), sig = isSignatureMove(ai, m);
+    if (!fin && !sig && m.impact < 7) return null;
+    let p = clamp((90 - pinCondition(target)) / 70, 0.1, 0.8);
+    if (m.impact >= 9) p += 0.1;
+    if (sig) p += 0.35;
+    if (fin) p = 0.95;
+    if (this.lastPinAttemptLandedCount >= 0 && ai.movesLanded - this.lastPinAttemptLandedCount <= 1) p *= 0.4;
+    return this.ctx.rnd() < p ? { kind: 'pin', score: 0 } : null;
   }
 
   private pinSpacingModifier(ai: Side, moveId: string): number {
@@ -693,7 +724,11 @@ export class AiBrain {
     const untouched = ai.damageDealt <= 0 && target.hp.HEAD > 90 && target.hp.BODY > 90 && target.fatigue < 25 && this.phase === 'opening' && protectedEarly;
     let s = 0;
     if (untouched) s -= 40;
-    if (this.lastSuccessfulMoveImpact >= 6) s += 25;
+    if (this.lastSuccessfulMoveImpact >= 8) s += 40;
+    else if (this.lastSuccessfulMoveImpact >= 6) s += 25;
+    // How beaten-up they are, the same number the kickout uses: go for covers on a worn opponent
+    // even if they'll probably kick out (near-falls are half of wrestling).
+    s += clamp((75 - pinCondition(target)) * 1.4, -15, 60);
     if (this.lastLandedFinisher) s += 45;
     if (flashPin) s += 65;
     if (squash) s += 65;
@@ -708,8 +743,7 @@ export class AiBrain {
     else if (this.phase === 'opening') s -= 20;
     else s -= 10;
     if (ai.damageDealt < 10 && protectedEarly) s -= 50;
-    if (this.phase === 'opening' && protectedEarly) s -= 90;
-    else if (this.phase === 'middle' && protectedEarly) s -= 25;
+    if (this.phase === 'opening' && protectedEarly) s -= 40;
     if (protectedEarly && target.fatigue < 30 && target.hp.BODY > 75 && target.hp.HEAD > 75) s -= 25;
     if (ai.momentum < 30) s -= 20;
     if (bestMoveScore > 75) s -= 15;

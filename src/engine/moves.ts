@@ -23,7 +23,9 @@ import { moveContest } from './dice';
 import type { ActionResult, MatchState, Move, Side, SideKey, TargetResolution } from './types';
 
 export const SUCCESSFUL_MOVE_MOMENTUM = 10;
-export const REVERSAL_MOMENTUM = 5;
+export const REVERSAL_MOMENTUM = 8;
+/** A landed move builds momentum by how big it was: 8 for a jab, 16 for a top-rope bomb. */
+export const moveMomentum = (m: Move): number => SUCCESSFUL_MOVE_MOMENTUM - 4 + m.impact;
 
 const isInRing = (s: Side) => s.state.area === 'IN_RING';
 
@@ -250,9 +252,9 @@ function applyStaminaFatigueMomentum(ctx: Ctx, k: SideKey, dk: SideKey, move: Mo
   addFatigue(A, fatigue);
   if (result === 'CLEAN_SUCCESS') {
     addFatigue(D, 2 + (move.finisher ? 4 : 0));
-    if (addMomentum(A, SUCCESSFUL_MOVE_MOMENTUM)) signatureReady(ctx, k);
+    if (addMomentum(A, moveMomentum(move))) signatureReady(ctx, k);
   } else {
-    addMomentum(A, -REVERSAL_MOMENTUM);
+    addMomentum(A, -5);
     if (addMomentum(D, REVERSAL_MOMENTUM)) signatureReady(ctx, dk);
   }
 }
