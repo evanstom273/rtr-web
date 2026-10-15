@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { CLASS_LABEL } from '../../data/commentary';
 import { TITLES, WRESTLERS, findWrestler, getPromotion, type Wrestler } from '../../data/rtr';
 import type { Hit } from '../../storage/greatestHits';
+import { useBackLayer } from '../backStack';
 import { Profile } from '../builder/Profile';
 import {
   CLASSES, COUNTRIES, NO_FILTERS, PROMOTION_LIST, SORTS, TITLE_LIST, activeFilterCount, filterRoster, sortValue, type Filters, type SortMode,
@@ -40,6 +41,9 @@ export function Builder({ state: s, hits, onChange, onStart }: Props) {
   const [f, setF] = useState<Filters>(NO_FILTERS);
   const [showFilters, setShowFilters] = useState(false);
   const [profile, setProfile] = useState<Wrestler | null>(null);
+  const [showRules, setShowRules] = useState(false);
+  const [info, setInfo] = useState(false);
+  useBackLayer(showRules, () => setShowRules(false));
   const list = useMemo(() => filterRoster(f), [f]);
   const teamOf = useCallback((id: string): TeamKey | null => (s.teams.A.includes(id) ? 'A' : s.teams.B.includes(id) ? 'B' : null), [s.teams]);
   const set = (patch: Partial<BuilderState>) => onChange({ ...s, ...patch });
@@ -89,6 +93,9 @@ export function Builder({ state: s, hits, onChange, onStart }: Props) {
   const titles = hostPromo ? hostPromo.titles.map((id) => TITLES.find((t) => t.id === id)).filter((t): t is NonNullable<typeof t> => !!t) : [];
   const titleValid = !s.titleId || titles.some((t) => t.id === s.titleId);
   const nFilters = activeFilterCount(f);
+  const eventLabel = s.event === 'auto' ? 'Auto event' : s.event === '' ? 'Independent' : s.event;
+  const titleName = titleValid && s.titleId ? titles.find((t) => t.id === s.titleId)?.name : '';
+  const summary = `${s.countOuts ? `Count-outs (${s.countOutLimit})` : 'No count-outs'} · ${s.actionClock}s · ${eventLabel}${titleName ? ` · ${titleName}` : ''}`;
   const sortShort = SORTS.find((x) => x.id === f.sort)?.short;
 
   const team = (t: TeamKey) => (
@@ -123,15 +130,20 @@ export function Builder({ state: s, hits, onChange, onStart }: Props) {
   );
 
   return (
-    <section id="setup" className={`builder${drag ? ' is-dragging' : ''}`} data-autoscroll>
-      <div className="wrap">
-        <header className="mast small">
-          <p className="eyebrow">Exhibition · {WRESTLERS.length} wrestlers</p>
-          <h1>
+    <section id="setup" className={`builder${drag ? ' is-dragging' : ''}`}>
+        <header className="bd-top">
+          <h1 className="bd-title">
             Match <span>builder</span>
           </h1>
+          <button className={`bd-sum${showRules ? ' on' : ''}`} onClick={() => setShowRules((x) => !x)} aria-expanded={showRules}>
+            {summary}
+          </button>
+          <button className="ghost sm bd-info" onClick={() => setInfo(true)}>
+            Info
+          </button>
         </header>
 
+        {showRules && (
         <div className="bd-panel bd-rules">
           <div className="bd-row">
             <span className="bd-label">Rules</span>
@@ -177,6 +189,8 @@ export function Builder({ state: s, hits, onChange, onStart }: Props) {
             </select>
           </div>
         </div>
+
+        )}
 
         <div className="bd-main">
           <div className="bd-panel bd-roster">
@@ -246,7 +260,7 @@ export function Builder({ state: s, hits, onChange, onStart }: Props) {
               </div>
             )}
             <p className="count">
-              {list.length} {list.length === 1 ? 'wrestler' : 'wrestlers'} · tap for profile · hold and drag to a team
+              {list.length} {list.length === 1 ? 'wrestler' : 'wrestlers'} · tap: profile · hold: drag
             </p>
             <ul className={`bd-list${drag?.target?.zone === 'roster' && drag.item.from !== 'roster' ? ' over' : ''}`} data-drop="roster" data-autoscroll>
               {list.map((w) => {
@@ -299,8 +313,42 @@ export function Builder({ state: s, hits, onChange, onStart }: Props) {
           </div>
         </div>
 
-        <details className="howto">
-          <summary>How it works</summary>
+
+      {drag && (
+        <div className="bd-ghost" style={{ transform: `translate(${drag.x}px, ${drag.y}px)` }}>
+          {findWrestler(drag.item.id)?.name}
+          <small>
+            {drag.target?.zone === 'A' || drag.target?.zone === 'B'
+              ? s.locked[drag.target.zone] ? `Team ${drag.target.zone} is locked` : `→ Team ${drag.target.zone}`
+              : drag.item.from !== 'roster' && drag.target?.zone === 'roster' ? 'Remove from team' : 'Drop on a team'}
+          </small>
+        </div>
+      )}
+      {info && <InfoSheet hits={hits} onClose={() => setInfo(false)} />}
+      {profile && (
+        <Profile w={profile} team={teamOf(profile.id)} locked={s.locked}
+          onAdd={(t) => { place(profile.id, t); setProfile(null); }}
+          onRemove={() => { place(profile.id, null); setProfile(null); }}
+          onClose={() => setProfile(null)} />
+      )}
+    </section>
+  );
+}
+
+/** How it works and greatest hits, out of the way of the builder. */
+function InfoSheet({ hits, onClose }: { hits: Hit[]; onClose: () => void }) {
+  useBackLayer(true, onClose);
+  return (
+    <div className="wheel-ov" onClick={onClose}>
+      <div className="movepanel info-panel" onClick={(e) => e.stopPropagation()}>
+        <div className="mp-head">
+          <span />
+          <h3>How it works</h3>
+          <button className="ghost sm" onClick={onClose} aria-label="Close">
+            ✕
+          </button>
+        </div>
+        <div className="howto">
           <ul>
             <li>Tap a wrestler for their profile. Hold and drag them into Team A (you) or Team B (the AI) — or use the buttons in the profile. Drag a team member back to the roster to remove them. Lock a team to keep it when you hit Random.</li>
               <li>Every wrestler has a position, orientation, area and motion. Moves only work from the right ones — use Setup to get there.</li>
@@ -313,28 +361,11 @@ export function Builder({ state: s, hits, onChange, onStart }: Props) {
               <li>Kickouts come from condition: a fresh wrestler kicks out of nearly anything; wear them down first.</li>
               <li>Your first full momentum bar earns a one-use Resiliency: burn it to survive a three or a tap.</li>
             </ul>
-        </details>
+        </div>
         <div className="hits">
           <GreatestHits hits={hits} title="Greatest hits" />
         </div>
       </div>
-
-      {drag && (
-        <div className="bd-ghost" style={{ transform: `translate(${drag.x}px, ${drag.y}px)` }}>
-          {findWrestler(drag.item.id)?.name}
-          <small>
-            {drag.target?.zone === 'A' || drag.target?.zone === 'B'
-              ? s.locked[drag.target.zone] ? `Team ${drag.target.zone} is locked` : `→ Team ${drag.target.zone}`
-              : drag.item.from !== 'roster' && drag.target?.zone === 'roster' ? 'Remove from team' : 'Drop on a team'}
-          </small>
-        </div>
-      )}
-      {profile && (
-        <Profile w={profile} team={teamOf(profile.id)} locked={s.locked}
-          onAdd={(t) => { place(profile.id, t); setProfile(null); }}
-          onRemove={() => { place(profile.id, null); setProfile(null); }}
-          onClose={() => setProfile(null)} />
-      )}
-    </section>
+    </div>
   );
 }
