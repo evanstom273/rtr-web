@@ -14,18 +14,17 @@ import { isHighRisk } from './interaction';
 import { resolvedAttackerArea, resolvedTargetArea } from './areaRules';
 import { moveMatchesSnapshots } from './setupRules';
 import {
-  addFatigue, addMomentum, canUseMove, convertLandedSignature, damagePart, grantFinisherStock, isFinisherMove, isSignatureMove,
-  markCrossedThresholds, markRepeatedTargetMilestone, recordMoveUsed, recordTargetResolution, spendFinisher, spendStamina, totalHp,
+  addFatigue, canUseMove, damagePart, grantFinisherStock, isFinisherMove, isSignatureMove,
+  markCrossedThresholds, markRepeatedTargetMilestone, recordMoveUsed, recordTargetResolution, spendFinisher, spendStamina, totalHp, useSignature,
 } from './side';
 import { resolveTarget } from './targeting';
 import { startContest } from './contest';
 import { moveContest } from './dice';
+import { gainMomentum } from './momentum';
 import type { ActionResult, MatchState, Move, Side, SideKey, TargetResolution } from './types';
 
 export const SUCCESSFUL_MOVE_MOMENTUM = 10;
-export const REVERSAL_MOMENTUM = 8;
-/** A landed move builds momentum by how big it was: 8 for a jab, 16 for a top-rope bomb. */
-export const moveMomentum = (m: Move): number => SUCCESSFUL_MOVE_MOMENTUM - 4 + m.impact;
+export const REVERSAL_MOMENTUM = 5;
 
 const isInRing = (s: Side) => s.state.area === 'IN_RING';
 
@@ -153,7 +152,7 @@ function applyMoveResult(ctx: Ctx, k: SideKey, dk: SideKey, move: Move, result: 
   applyDamage(ctx, k, dk, move, result, target, crit);
   applyStaminaFatigueMomentum(ctx, k, dk, move, result);
   applyPositions(A, D, move, result);
-  const signatureConverted = landed && isSignatureMove(A, move) && convertLandedSignature(A);
+  if (landed && isSignatureMove(A, move)) useSignature(A);
   ctx.ai[k].noteMoveResult(move, landed, D, A, target);
   if (result === 'HIGH_RISK_CRASH') ctx.ai[dk].notePlayerHighRiskCrash();
 
@@ -182,7 +181,6 @@ function applyMoveResult(ctx: Ctx, k: SideKey, dk: SideKey, move: Move, result: 
     say(ctx, LINES.finisherStock, { a: dk, vars: { n: D.finisherStock } }, 'hl');
     flash(ctx, 'Reversed', true);
   }
-  if (signatureConverted) say(ctx, LINES.signatureConverted, { a: k, vars: { n: A.finisherStock } }, 'hl');
 }
 
 /** A natural 20 on offence hits half as hard again. */
@@ -252,15 +250,11 @@ function applyStaminaFatigueMomentum(ctx: Ctx, k: SideKey, dk: SideKey, move: Mo
   addFatigue(A, fatigue);
   if (result === 'CLEAN_SUCCESS') {
     addFatigue(D, 2 + (move.finisher ? 4 : 0));
-    if (addMomentum(A, moveMomentum(move))) signatureReady(ctx, k);
+    gainMomentum(ctx, k, SUCCESSFUL_MOVE_MOMENTUM);
   } else {
-    addMomentum(A, -5);
-    if (addMomentum(D, REVERSAL_MOMENTUM)) signatureReady(ctx, dk);
+    gainMomentum(ctx, k, -REVERSAL_MOMENTUM);
+    gainMomentum(ctx, dk, REVERSAL_MOMENTUM);
   }
-}
-
-export function signatureReady(ctx: Ctx, k: SideKey): void {
-  say(ctx, LINES.signatureReady, { a: k }, 'dim');
 }
 
 function applyPositions(A: Side, D: Side, move: Move, result: ActionResult): void {

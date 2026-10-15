@@ -8,7 +8,7 @@ import { crowdObserve } from './crowd';
 import { endMatch, render, setControl, afterAction } from './flow';
 import { lateMatchProfile, pinProfile } from './interaction';
 import { randRange } from './rng';
-import { addMomentum, isFinisherMove, isSignatureMove, totalHp } from './side';
+import { isFinisherMove, isSignatureMove, totalHp } from './side';
 import { staminaPercent } from './exhaustion';
 import type { KickoutCount, MatchState, Move, PinContext, Side, SideKey } from './types';
 
@@ -96,17 +96,17 @@ export function conditionWord(D: Side): string {
 
 /**
  * Web-version replacement for Godot's early-match pin protection: resistance comes from damage,
- * not the clock. Fresh ≈ +180, worked over ≈ +60, wrecked ≈ −55.
+ * not the clock. Fresh ≈ +190, worked over (55) ≈ +65, wrecked (20) ≈ −50.
  */
-export const PIN_CONDITION_PIVOT = 42;
+export const PIN_CONDITION_PIVOT = 35;
 export const PIN_CONDITION_SCALE = 3.2;
 export const conditionResistance = (D: Side): number => (pinCondition(D) - PIN_CONDITION_PIVOT) * PIN_CONDITION_SCALE;
 
 export function pinPressureAndResistance(S: MatchState, k: SideKey, pc: PinContext, count: number): { pressure: number; resistance: number } {
   const A = S[k], D = S[other(k)];
   const impact = pc.lastMove?.impact ?? 1;
-  // Momentum counts for less than in Godot: it builds faster here (bigger moves, kickouts), and at
-  // full weight it turned mid-match covers into wins.
+  // Momentum counts for less than in Godot: it no longer resets when a signature lands, so it runs
+  // high late in matches, and at full weight it turned mid-match covers into wins.
   let pressure = A.momentum * 0.6 + impact * 4 + lateMatchProfile(S.t).finishPressure;
   if (pc.lastMoveWasFinisher) pressure += 35;
   if (pc.flashSuccess) pressure += 65;
@@ -171,15 +171,11 @@ export function startPin(ctx: Ctx, k: SideKey, embedded: boolean): boolean {
   return true;
 }
 
-export const KICKOUT_MOMENTUM = 10;
-
 /** Both kickout paths end here. count: 0 (before one), 1, 2 or 3 (THREE—NO!). */
 export function completeKickout(ctx: Ctx, k: SideKey, count: KickoutCount): void {
   const S = ctx.S, dk = other(k), D = S[dk], pc = S.pinContext;
   D.kickouts++;
   D.lastActionResult = 'KICKOUT';
-  // Fighting spirit: surviving a cover fires you up, more so the later you kick out.
-  if (addMomentum(D, KICKOUT_MOMENTUM + (count >= 2 ? 6 : 0))) say(ctx, LINES.signatureReady, { a: dk }, 'dim');
   if (count >= 3) {
     say(ctx, LINES.kickoutLate, { a: k, d: dk }, 'hl');
     flash(ctx, 'Kickout', true);

@@ -13,10 +13,11 @@ import {
 import { afterAction, render, setControl, setResolvedControl } from './flow';
 import { startContest } from './contest';
 import { setupContest } from './dice';
-import { exhaustionCommentary, signatureReady, SUCCESSFUL_MOVE_MOMENTUM, REVERSAL_MOMENTUM, validMoves } from './moves';
+import { exhaustionCommentary, SUCCESSFUL_MOVE_MOMENTUM, REVERSAL_MOMENTUM, validMoves } from './moves';
+import { gainMomentum } from './momentum';
 import { pick } from './rng';
 import { candidateActions, findFollowupPaths, isContested, isRecovery, projectAction } from './setupRules';
-import { addFatigue, addMomentum, canUseMove, noteSetupAction, recoverStamina, spendStamina } from './side';
+import { addFatigue, canUseMove, noteSetupAction, recoverStamina, spendStamina } from './side';
 import type { MatchState, SetupId, Side, SideKey } from './types';
 
 export const TAUNT_COOLDOWN_SECONDS = 120;
@@ -131,7 +132,7 @@ export function finishContestedSetup(ctx: Ctx, k: SideKey, id: SetupId, reversed
     applyReversedSetupPositions(id, A, D);
     spendStamina(A, 3 * staminaCostMultiplier(A, 'STANDARD'));
     addFatigue(A, 2);
-    if (addMomentum(D, REVERSAL_MOMENTUM)) signatureReady(ctx, dk);
+    gainMomentum(ctx, dk, REVERSAL_MOMENTUM);
     D.reversals++;
     S.recentReversalSide = dk;
     A.lastActionResult = 'REVERSAL';
@@ -207,7 +208,7 @@ function applySuccessfulTaunt(ctx: Ctx, A: Side): void {
   let reward = A.state.area === 'APRON' ? 3 : A.state.area === 'TOP_ROPE' ? 2 : 4;
   reward *= staminaRecoveryMultiplier(A) * profile.staminaMultiplier;
   recoverStamina(A, reward);
-  if (addMomentum(A, Math.max(1, SUCCESSFUL_MOVE_MOMENTUM + profile.momentumBonus))) signatureReady(ctx, A.key);
+  gainMomentum(ctx, A.key, Math.max(1, SUCCESSFUL_MOVE_MOMENTUM + profile.momentumBonus));
 }
 
 function tauntLine(ctx: Ctx, A: Side, D: Side): string {

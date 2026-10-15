@@ -17,7 +17,7 @@ export function createSide(w: Wrestler, key: SideKey): Side {
     key, w, regular, signatures, finishers, all,
     state: { position: 'STANDING', orientation: 'FRONT', area: 'IN_RING', motion: 'STATIONARY' },
     hp: { HEAD: 100, BODY: 100, LEFT_ARM: 100, RIGHT_ARM: 100, LEFT_LEG: 100, RIGHT_LEG: 100 },
-    stamina: maxStamina, maxStamina, fatigue: 0, momentum: 0, signatureReady: false, finisherStock: 0,
+    stamina: maxStamina, maxStamina, fatigue: 0, momentum: 0, signatureReady: false, finisherStock: 0, signatureArmed: true, finisherArmed: true,
     resiliencyEarned: false, resiliencyAvailable: false, resiliencyUsed: false,
     targetFocus: 'NONE',
     recentMoves: [], recentMoveTypes: [], recentSetupPatterns: [], pendingSetupAction: null,
@@ -56,19 +56,40 @@ export function addFatigue(s: Side, amount: number): void {
   s.fatigue = clamp(s.fatigue + amount, 0, 100);
 }
 
-/** Returns true when this call made the signature ready. */
-export function addMomentum(s: Side, amount: number): boolean {
-  const wasReady = s.signatureReady;
+/*
+ * Momentum is progression, not a resource for specials (pushes still spend it):
+ * - reaching SIGNATURE_MOMENTUM banks one signature, which stays banked until it lands, however
+ *   far momentum drops;
+ * - reaching FINISHER_MOMENTUM banks a finisher (and earns Resiliency, once a match);
+ * - neither resets momentum. To earn the same unlock again, momentum has to fall well back below
+ *   its threshold first (REARM_MARGIN), so sitting at the top of the bar can't farm specials.
+ */
+export const SIGNATURE_MOMENTUM = 50;
+export const FINISHER_MOMENTUM = 100;
+export const REARM_MARGIN = 25;
+
+export type MomentumUnlock = 'signature' | 'finisher';
+
+/** Add (or remove) momentum. Returns whatever this unlocked. */
+export function addMomentum(s: Side, amount: number): MomentumUnlock[] {
   s.momentum = clamp(s.momentum + amount, 0, 100);
-  if (!wasReady && s.momentum >= 100) {
+  const out: MomentumUnlock[] = [];
+  if (s.momentum < SIGNATURE_MOMENTUM - REARM_MARGIN) s.signatureArmed = true;
+  if (s.momentum < FINISHER_MOMENTUM - REARM_MARGIN) s.finisherArmed = true;
+  if (s.signatureArmed && !s.signatureReady && s.momentum >= SIGNATURE_MOMENTUM) {
     s.signatureReady = true;
+    s.signatureArmed = false;
+    out.push('signature');
+  }
+  if (s.finisherArmed && s.momentum >= FINISHER_MOMENTUM) {
+    s.finisherArmed = false;
+    if (grantFinisherStock(s) > 0) out.push('finisher');
     if (!s.resiliencyEarned) {
       s.resiliencyEarned = true;
       s.resiliencyAvailable = true;
     }
-    return true;
   }
-  return false;
+  return out;
 }
 
 export const isSignatureMove = (s: Side, m: Move): boolean => s.signatures.includes(m);
@@ -81,11 +102,10 @@ export function canUseMove(s: Side, m: Move): boolean {
   return true;
 }
 
-export function convertLandedSignature(s: Side): boolean {
+/** A landed signature is used up. Momentum is left alone. */
+export function useSignature(s: Side): boolean {
   if (!s.signatureReady) return false;
   s.signatureReady = false;
-  s.momentum = 0;
-  grantFinisherStock(s);
   return true;
 }
 

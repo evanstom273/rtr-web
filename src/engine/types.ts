@@ -69,8 +69,12 @@ export interface Side {
   maxStamina: number;
   fatigue: number;
   momentum: number;
+  /** A signature is banked (reached SIGNATURE_MOMENTUM); one use. */
   signatureReady: boolean;
   finisherStock: number;
+  /** Momentum has dropped far enough below the threshold to earn that unlock again. */
+  signatureArmed: boolean;
+  finisherArmed: boolean;
   resiliencyEarned: boolean;
   resiliencyAvailable: boolean;
   resiliencyUsed: boolean;
@@ -97,7 +101,7 @@ export interface Side {
   consecutiveNeutralResets: number;
   consecutiveSetupActions: number;
   recoveryDelayProtected: boolean;
-  /** Just won position with a setup: advantage on the next contested roll. */
+  /** Just won position with a setup: +2 on the next contested roll. */
   setUp: boolean;
   /** Contested setups attempted, most recent last (for "same trick again"). */
   recentSetups: SetupId[];

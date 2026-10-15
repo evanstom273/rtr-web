@@ -4,6 +4,7 @@ import { LINES } from '../data/commentary';
 import { say } from './commentary';
 import type { Ctx } from './ctx';
 import { canPush, landChance, PUSH_COST, rollContest, type ContestSide } from './dice';
+import { gainMomentum } from './momentum';
 import { finishMove } from './moves';
 import { pinCondition } from './pin';
 import { finishContestedSetup } from './setups';
@@ -38,7 +39,7 @@ export function rollPending(ctx: Ctx, push: boolean): boolean {
   const mine = spec.attacker === 'you' ? spec.attack : spec.defend;
   if (push && spec.playerCanPush) mine.pushed = true;
   for (const s of [spec.attack, spec.defend]) {
-    if (s.pushed) S[s.key].momentum = Math.max(0, S[s.key].momentum - PUSH_COST);
+    if (s.pushed) gainMomentum(ctx, s.key, -PUSH_COST);
   }
   spec.chance = landChance(spec.attack, spec.defend);
   const roll = rollContest(ctx.rnd, spec.attack, spec.defend);

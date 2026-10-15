@@ -6,7 +6,7 @@ import { MatchEngine } from '../match';
 import { lateMatchProfile, pinProfile, submissionContext } from '../interaction';
 import * as ix from '../interactions';
 import { conditionResistance, pinCondition, pinOdds } from '../pin';
-import { MAX_FINISHER_STOCK, addMomentum, convertLandedSignature, createSide, damagePart, grantFinisherStock, spendFinisher, totalHp } from '../side';
+import { MAX_FINISHER_STOCK, addMomentum, useSignature, createSide, damagePart, grantFinisherStock, spendFinisher, totalHp } from '../side';
 import { aiGoesForTap, workHoldDamage } from '../submission';
 import { resolveTarget } from '../targeting';
 import type { MatchState } from '../types';
@@ -26,13 +26,39 @@ describe('side state', () => {
     expect(s.hp.HEAD).toBe(0);
   });
 
-  it('a full momentum bar readies the signature and earns resiliency once', () => {
+  it('50 momentum banks a signature, 100 banks a finisher, and neither resets momentum', () => {
     const s = side();
-    expect(addMomentum(s, 100)).toBe(true);
-    expect(s.signatureReady && s.resiliencyAvailable).toBe(true);
-    expect(convertLandedSignature(s)).toBe(true);
+    expect(addMomentum(s, 49)).toEqual([]);
+    expect(addMomentum(s, 1)).toEqual(['signature']);
+    expect(s.signatureReady && !s.resiliencyAvailable).toBe(true);
+    // Banked signatures survive a drop below 50.
+    addMomentum(s, -30);
+    expect(s.signatureReady).toBe(true);
+    expect(useSignature(s)).toBe(true);
+    expect(s.signatureReady).toBe(false);
+    expect(s.momentum).toBe(20);
+    expect(addMomentum(s, 80)).toEqual(['signature', 'finisher']);
     expect(s.finisherStock).toBe(1);
+    expect(s.resiliencyAvailable).toBe(true);
+    expect(s.momentum).toBe(100);
+  });
+
+  it('the same unlock only comes back after momentum falls well below its threshold', () => {
+    const s = side();
+    addMomentum(s, 100);
+    expect(s.finisherStock).toBe(1);
+    useSignature(s);
+    // Dipping just under and climbing back earns nothing.
+    addMomentum(s, -10);
+    expect(addMomentum(s, 10)).toEqual([]);
+    addMomentum(s, -40);
+    expect(addMomentum(s, 10)).toEqual([]);
+    // Below 75 re-arms the finisher; below 25 re-arms the signature.
+    addMomentum(s, -50);
+    expect(addMomentum(s, 90)).toEqual(['signature', 'finisher']);
+    expect(s.finisherStock).toBe(2);
     s.resiliencyAvailable = false;
+    addMomentum(s, -80);
     addMomentum(s, 100);
     expect(s.resiliencyAvailable).toBe(false);
   });

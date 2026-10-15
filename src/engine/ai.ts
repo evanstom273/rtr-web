@@ -19,7 +19,7 @@ import { clamp } from './rng';
 import { executeSetup, validSetups } from './setups';
 import { findFollowupPaths, isContested, isRecovery, moveMatchesSnapshots, projectAction } from './setupRules';
 import {
-  canUseMove, isFinisherMove, isSignatureMove, lastAttemptedMoveMatches, lowestTargetHp, MAX_FINISHER_STOCK, mostTargetedPart,
+  canUseMove, isFinisherMove, isSignatureMove, lastAttemptedMoveMatches, lowestTargetHp, mostTargetedPart,
   recentMoveCount, recentTargetPartCount, totalHp, weakestPart,
 } from './side';
 import { focusAppliesToMove, isLimbFocus, resolveTarget, targetHp } from './targeting';
@@ -36,6 +36,8 @@ export class AiBrain {
   lastSuccessfulMoveImpact = 0;
   /** The move the AI landed on its last action, until its next decision. */
   justLanded: Move | null = null;
+  /** Forced recoveries since the AI last committed to a move or a pin. */
+  forcedRecoveries = 0;
   lastSuccessfulMove: Move | null = null;
   lastLandedFinisher = false;
   playerCrashOpportunity = false;
@@ -109,6 +111,7 @@ export class AiBrain {
     this.clearSetupIntent();
   }
   noteMandatoryRecovery(ai: Side): void {
+    this.forcedRecoveries++;
     ai.consecutiveSetupActions = 0;
     this.clearSetupIntent();
   }
@@ -168,7 +171,10 @@ export class AiBrain {
     const crediblePin = canPin(this.S, this.k) && (
       totalHp(target) <= 390 || staminaPercent(target) < 30 || target.fatigue >= 70 || this.phase === 'closing' || ai.lastMoveWasFinisher
     );
-    const skipSpecialPath = ai.consecutiveSetupActions >= 3 || crediblePin;
+    // Also once the special's setup path has bounced off a forced recovery twice without a move in
+    // between: the forced recovery resets the setup-loop breaker, so e.g. apron -> back in -> apron
+    // for a springboard that doesn't fit would otherwise go on forever.
+    const skipSpecialPath = ai.consecutiveSetupActions >= 3 || crediblePin || this.forcedRecoveries >= 2;
     const readySetup = readyMove || skipSpecialPath ? null : this.bestReadySpecialSetup(candidates, ai);
     if (readyMove) selected = readyMove;
     else if (readySetup) {
@@ -208,6 +214,7 @@ export class AiBrain {
   }
 
   private recordChoice(c: Candidate, ai: Side): void {
+    if (c.kind !== 'setup') this.forcedRecoveries = 0;
     if (c.kind === 'move') {
       this.recentAiMoveIds.push(c.move.id);
       while (this.recentAiMoveIds.length > MOVE_BLOCK_WINDOW) this.recentAiMoveIds.shift();
@@ -488,7 +495,8 @@ export class AiBrain {
       if (target.momentum > 80) score -= 20;
     }
     if (m.finisher) score += this.finisherBonus(ai, target, m, res);
-    else if (isSignatureMove(ai, m)) score += ai.finisherStock < MAX_FINISHER_STOCK ? 45 : 8;
+    // A landed signature no longer banks a finisher, but it's still the big move of the match.
+    else if (isSignatureMove(ai, m)) score += 45;
     if (m.submission) {
       score += attributeDelta(ai.w.stats.skill) * 8 * 0.6;
       score += this.submissionBonus(ai, target, m, res);
@@ -724,11 +732,7 @@ export class AiBrain {
     const untouched = ai.damageDealt <= 0 && target.hp.HEAD > 90 && target.hp.BODY > 90 && target.fatigue < 25 && this.phase === 'opening' && protectedEarly;
     let s = 0;
     if (untouched) s -= 40;
-    if (this.lastSuccessfulMoveImpact >= 8) s += 40;
-    else if (this.lastSuccessfulMoveImpact >= 6) s += 25;
-    // How beaten-up they are, the same number the kickout uses: go for covers on a worn opponent
-    // even if they'll probably kick out (near-falls are half of wrestling).
-    s += clamp((75 - pinCondition(target)) * 1.4, -15, 60);
+    if (this.lastSuccessfulMoveImpact >= 6) s += 25;
     if (this.lastLandedFinisher) s += 45;
     if (flashPin) s += 65;
     if (squash) s += 65;
@@ -743,7 +747,8 @@ export class AiBrain {
     else if (this.phase === 'opening') s -= 20;
     else s -= 10;
     if (ai.damageDealt < 10 && protectedEarly) s -= 50;
-    if (this.phase === 'opening' && protectedEarly) s -= 40;
+    if (this.phase === 'opening' && protectedEarly) s -= 90;
+    else if (this.phase === 'middle' && protectedEarly) s -= 25;
     if (protectedEarly && target.fatigue < 30 && target.hp.BODY > 75 && target.hp.HEAD > 75) s -= 25;
     if (ai.momentum < 30) s -= 20;
     if (bestMoveScore > 75) s -= 15;
