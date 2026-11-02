@@ -3,6 +3,7 @@ import { TITLES, getPromotion, type Wrestler } from '../data/rtr';
 import { format } from './commentary';
 import { exhaustionBand } from './exhaustion';
 import { heldBy, weaponOf } from './env';
+import { rateSoFar } from './rating';
 import { pick, type Rng } from './rng';
 import { createSide } from './side';
 import type { CrowdStats, MatchRulesConfig, MatchState, MatchView, Side, SideView } from './types';
@@ -137,5 +138,6 @@ export function snapshotView(S: MatchState): MatchView {
     t: S.t, heat: S.heat, control: S.control, over: S.over, phase: phaseLabel(S),
     count: S.referee.active ? S.referee.value : null,
     sides: { you: sideView(S, S.you), them: sideView(S, S.them) },
+    live: rateSoFar(S),
   };
 }

@@ -1,6 +1,7 @@
 // Engine types. No DOM, no React.
 import type { ContestRoll, ContestSide } from './dice';
 import type { Read } from './reads';
+import type { LiveRating } from './rating';
 import type {
   Area, BodyPart, Motion, Move, MoveType, Orientation, Part, Position, Wrestler,
 } from '../data/rtr/types';
@@ -479,6 +480,8 @@ export interface MatchView {
   phase: string;
   count: number | null;
   sides: Record<SideKey, SideView>;
+  /** Star rating so far (the in-match tracker). */
+  live: LiveRating;
 }
 
 export interface MatchRulesConfig {

@@ -684,3 +684,15 @@ body.dragging,body.dragging *{user-select:none!important;-webkit-user-select:non
 .ring .obj .tacks circle{fill:#e8e8e8}
 .ring .obj .dropped{stroke:var(--fg);stroke-width:3;stroke-linecap:round;opacity:.75}
 .ring .obj.armed .tbl{stroke:var(--gold);stroke-width:2}
+
+/* Live star rating in the HUD */
+.livestars-wrap{position:relative}
+.livestars{font:inherit;font-family:var(--mono);color:var(--gold);background:none;border:1px solid var(--line);border-radius:999px;padding:0 8px;letter-spacing:.04em;transition:transform .2s,background .2s}
+.livestars.up{background:var(--gold);color:#17130a;transform:scale(1.12)}
+.livestars.down{border-color:var(--bad);color:var(--bad)}
+.livestars-pop{position:absolute;z-index:40;top:calc(100% + 6px);right:0;width:220px;display:flex;flex-direction:column;gap:6px;padding:10px 12px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.45);font-family:var(--body);color:var(--fg);letter-spacing:0;text-transform:none}
+.livestars-pop small{color:var(--mute);font-size:12px}
+.livestars-pop .ls-miss{color:var(--fg)}
+.ls-row{display:grid;grid-template-columns:60px 1fr;align-items:center;gap:8px;font-size:12px}
+.ls-row>i{display:block;height:6px;background:var(--panel-2);border-radius:3px;overflow:hidden}
+.ls-row>i>i{display:block;height:100%;background:var(--gold);border-radius:3px}
