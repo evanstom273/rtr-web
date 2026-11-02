@@ -55,6 +55,14 @@ export function objectiveReady(S: MatchState, kind: 'LADDER' | 'TABLE'): boolean
   return liveObjects(S).some((o) => weaponOf(o).kind === kind && (o.state === 'held' || (o.area === 'IN_RING' && o.state !== 'dropped')));
 }
 
+/** Getting up, or steadying yourself, when there's nothing else you could do: done for the player automatically. */
+const SELF_RECOVERIES: readonly SetupId[] = ['stand_up', 'regain_footing', 'regain_composure'];
+export function autoRecovery(S: MatchState): SetupId | null {
+  if (validMoves(S, 'you').length) return null;
+  const setups = validSetups(S, 'you');
+  return SELF_RECOVERIES.find((id) => setups.includes(id)) ?? null;
+}
+
 /** Stipulations where weapons are part of the plan. */
 export const aiWantsWeaponsHere = (S: MatchState): boolean =>
   S.rules.weapons && (!S.rules.dq || ['ladder', 'tables'].includes(S.rules.stipulation));

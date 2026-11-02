@@ -103,7 +103,7 @@ export function runHeadless(o: SimOptions): SimResult {
         ok = e.autoPlayer();
         break;
       case 'contest':
-        ok = e.rollContest(e.autoPush());
+        ok = e.rollContest(e.autoPush(), e.autoRead());
         break;
       case 'contestRoll':
         ok = e.applyContest();

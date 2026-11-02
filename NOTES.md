@@ -74,6 +74,31 @@ end in a choice card instead of a timing test.
   - Godot's submission scores cap at 100 for any healthy wrestler, so adding to the defender's
     score did nothing.
 
+### Reads, counters and momentum tiers (after Wrestling Spirit)
+
+Defence used to be a passive d16. Now, before a move's roll, the defender reads it: **block**
+(strikes, weapon shots), **duck** (running, flying, springboard, off the ropes) or **brace**
+(grapples, holds, pins). The player picks with the move hidden (only tells show: up high, on the
+apron, coming off the ropes, and the attacker's last few moves). The AI reads from the attacker's
+habits and position, sharper with skill, and its read shows in the defence modifiers.
+
+- Right read: +4 to defend (+2 when the move was telegraphed anyway). Wrong read: −1.
+- Right read and win the roll: a **counter**. The defender steals the momentum (the reversal's +5
+  plus 10, a landed move's worth) and, if both are standing in the same spot, lands their best quick
+  strike or grapple (impact up to 6).
+- Right read, lose the roll: the move lands **blunted** (×0.6 damage).
+- **Momentum tiers:** impact 7–8 moves need 15 momentum or an opponent under 80 condition; impact
+  9–10 need 30 momentum or under 65. Signatures, finishers and weapon shots have their own rules.
+- **Limb lockout:** a limb under 12 can't carry the moves that rely on it.
+- **Auto stand-up:** when the player has control but is down (or rebounding / rising) with no moves
+  available, they get up on their own after a short beat.
+
+Sim (300 matches): moves land 71% (was 73%), half of reads right, about 3 counters a match (1 with a
+counter move), 5 blunted moves; median match 19.3 / 17.3 min (was 17.7 / 16.0). Star ratings dip
+(median 3.5 / 3.25, was 3.75 / 3.5): the tiers hold back the big early moves that heat the crowd up.
+Without tiers ratings would be above the old ones (raw 3.67 against 3.53); the reads alone nudge
+them up slightly.
+
 ### Holds: go for the tap or work the hold (Lyra's idea)
 
 When a submission lands, the attacker chooses:

@@ -13,6 +13,7 @@ import { rate } from './rating';
 import { randRange } from './rng';
 import { snapshotView } from './state';
 import { refereeAfterAction } from './referee';
+import { autoRecovery } from './setups';
 import { stipulation } from './stipulations';
 import type { ActionResult, Cont, Control, FinishType, Move, Side, SideKey, StipulationId } from './types';
 
@@ -22,6 +23,8 @@ const FINISH_FLASH: Partial<Record<FinishType, string>> = {
 };
 
 export const AI_DELAY_MS = 600;
+/** Pause before the player's automatic stand-up. */
+export const AUTO_RECOVER_MS = 450;
 export const RESULT_REVEAL_MS = 650;
 /** Both on the mat after a move: the one who landed it gets up first this often (Godot: 0.8). */
 export const GROUNDED_ATTACKER_RECOVERY_CHANCE = 0.9;
@@ -47,7 +50,12 @@ export function setControl(ctx: Ctx, value: Control): void {
   }
   render(ctx);
   if (S.over) return;
-  if (value === 'you') S.pending = { kind: 'awaitPlayer' };
+  if (value === 'you') {
+    // Down with nothing to do but get up: get up, rather than making the player tap for it.
+    const id = autoRecovery(S);
+    if (id) schedule(ctx, { to: 'autoRecover', id }, AUTO_RECOVER_MS);
+    else S.pending = { kind: 'awaitPlayer' };
+  }
   else if (value === 'them') S.pending = { kind: 'aiThinking' };
   else schedule(ctx, { to: 'neutralRecovery' }, AI_DELAY_MS);
 }

@@ -5,9 +5,10 @@ import { say } from './commentary';
 import type { Ctx, EngineHooks } from './ctx';
 import { finalise, render, runNeutralRecovery, schedule, setControl } from './flow';
 import { aiWantsPush, applyPending, rollPending } from './contest';
-import { aiWantsConvert, executeMove, isLadderDive, moveIsValid, resolvePinChoice, resolveSigConvert, submissionAreaOk, validMoves } from './moves';
+import { aiWantsConvert, executeMove, isLadderDive, limbLock, moveIsValid, tierLock, resolvePinChoice, resolveSigConvert, submissionAreaOk, validMoves } from './moves';
 import { canPin, completeKickout, pinOdds, pinThree, startPin, useResiliency } from './pin';
 import { mathRng, seededRng, type Rng } from './rng';
+import { aiRead, type Read } from './reads';
 import { executeSetup, validSetups } from './setups';
 import { moveMatchesSnapshots } from './setupRules';
 import { canUseMove, FINISHER_MOMENTUM, SIGNATURE_MOMENTUM } from './side';
@@ -114,7 +115,7 @@ export class MatchEngine {
       if (move.finisher || S.you.finishers.includes(move)) return `Bank a finisher first (${FINISHER_MOMENTUM} momentum)`;
       return S.you.signatureArmed ? `Bank your signature first (${SIGNATURE_MOMENTUM} momentum)` : 'Signature used';
     }
-    return null;
+    return tierLock(S, 'you', move) ?? limbLock(S.you, move);
   }
   /** Signatures and finishers for either side: readiness, positions and the route there. */
   specials(k: SideKey): SpecialInfo[] {
@@ -177,6 +178,10 @@ export class MatchEngine {
         return;
       }
       case 'pinNeutral': return setControl(ctx, 'neutral');
+      case 'autoRecover': {
+        if (!executeSetup(ctx, 'you', c.id)) this.state.pending = { kind: 'awaitPlayer' };
+        return;
+      }
       case 'nextFall': {
         say(ctx, LINES.nextFall, {}, 'dim');
         return setControl(ctx, 'neutral');
@@ -237,9 +242,16 @@ export class MatchEngine {
   /* ---------- results from the UI's timing interactions ---------- */
 
   /** Roll the pending contest. push: spend momentum for advantage (if allowed). */
-  rollContest(push = false): boolean {
+  rollContest(push = false, read?: Read): boolean {
     if (this.state.pending.kind !== 'contest') return false;
-    return this.act(() => rollPending(this.ctx, push));
+    return this.act(() => rollPending(this.ctx, push, read));
+  }
+
+  /** What the AI would read in the player's shoes (headless play). */
+  autoRead(): Read | undefined {
+    const p = this.state.pending;
+    if (p.kind !== 'contest' || !p.spec.playerReads) return undefined;
+    return aiRead(this.state, 'you', 'them', this.ctx.rnd);
   }
 
   /** What the AI would do in the player's shoes (headless play). */
