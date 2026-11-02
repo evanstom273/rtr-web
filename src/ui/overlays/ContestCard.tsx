@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ATTACK_DIE, DEFEND_DIE, PUSH_COST, edgeOf, landChance, type ContestRoll, type ContestSide, type ContestSpec, type MatchEngine, type SideKey,
+  ATTACK_DIE, DEFEND_DIE, PUSH_COST, READS, READ_HINT, READ_LABEL, edgeOf, landChance, type ContestRoll, type ContestSide, type ContestSpec,
+  type MatchEngine, type Read, type SideKey,
 } from '../../engine';
 import { Name } from '../common/Name';
 import { buzz, reduceMotion } from '../format';
@@ -84,9 +85,11 @@ interface ColumnProps {
   settled: boolean;
   won: boolean | null;
   previewPush: boolean;
+  /** The move isn't revealed yet (the player hasn't read it): keep its modifiers hidden. */
+  hidden?: boolean;
 }
 
-function Column({ engine, side, role, dice, kept, total, rolling, settled, won, previewPush }: ColumnProps) {
+function Column({ engine, side, role, dice, kept, total, rolling, settled, won, previewPush, hidden }: ColumnProps) {
   const S = engine.state;
   const edgeSide = previewPush ? { ...side, pushed: true } : side;
   const edge = edgeOf(edgeSide);
@@ -114,6 +117,13 @@ function Column({ engine, side, role, dice, kept, total, rolling, settled, won, 
         ))}
         {(side.pushed || previewPush) && <span className="edge-why adv push">Pushing</span>}
       </div>
+      {hidden ? (
+        <ul className="cc-mods">
+          <li className="cc-hidden">
+            <span>Hidden until you read it</span>
+          </li>
+        </ul>
+      ) : (
       <ul className="cc-mods">
         {side.mods.map((m, i) => (
           <li key={i}>
@@ -126,6 +136,7 @@ function Column({ engine, side, role, dice, kept, total, rolling, settled, won, 
           <b>{signed(side.bonus)}</b>
         </li>
       </ul>
+      )}
       <div className="cc-total">{settled && total !== null ? `${kept} ${side.bonus >= 0 ? '+' : '−'} ${Math.abs(side.bonus)} = ${total}` : ' '}</div>
     </div>
   );
@@ -139,6 +150,10 @@ function verdictFor(spec: ContestSpec, roll: ContestRoll): { text: string; tone:
   if (roll.crit === 'attackerTop') return { text: 'Critical!', tone: 'gold' };
   if (roll.crit === 'defenderTop') return { text: `Natural ${DEFEND_DIE}!`, tone: 'gold' };
   if (roll.crit === 'attacker1') return { text: 'Botch!', tone: playerAttacks ? 'bad' : 'good' };
+  if (spec.kind === 'move' && spec.readRight) {
+    if (!roll.landed) return { text: 'Countered!', tone: playerAttacks ? 'bad' : 'gold' };
+    return { text: playerAttacks ? 'Lands, but they read it' : 'Read it, but it lands', tone: playerAttacks ? 'good' : 'bad' };
+  }
   const text = spec.kind === 'move' ? (roll.landed ? 'It lands' : 'Reversed!') : roll.landed ? 'In control' : 'Countered!';
   return { text, tone: good ? 'good' : 'bad' };
 }
@@ -171,16 +186,28 @@ export function ContestCard({ engine }: { engine: MatchEngine }) {
     };
   }, [roll, engine]);
 
-  const doRoll = useCallback(() => {
-    if (engine.state.pending.kind === 'contest') {
+  const doRoll = useCallback((read?: Read) => {
+    const pend = engine.state.pending;
+    if (pend.kind === 'contest') {
+      // Defending a move: the roll waits for a read.
+      if (pend.spec.playerReads && !read) return;
       buzz(10);
-      engine.rollContest(push);
+      engine.rollContest(push, read);
     } else if (settled && !applied.current) {
       applied.current = true;
       engine.applyContest();
     }
   }, [engine, push, settled]);
-  useActionKey(doRoll);
+  useActionKey(() => doRoll());
+  // 1 / 2 / 3 pick a read.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const i = ['1', '2', '3'].indexOf(e.key);
+      if (i >= 0 && spec?.playerReads && engine.state.pending.kind === 'contest') doRoll(READS[i]);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  });
 
   if (!spec) return null;
   const playerKey: SideKey = 'you';
@@ -199,6 +226,8 @@ export function ContestCard({ engine }: { engine: MatchEngine }) {
   const totalFor = (s: ContestSide) => (!roll ? null : s === spec.attack ? roll.attackerTotal : roll.defenderTotal);
   const S = engine.state;
   const pushWhy = spec.playerCanPush ? '' : S.you.signatureReady ? 'Signature banked — use it first' : `Needs ${PUSH_COST} momentum`;
+  // Defending a move before the read: the move, its modifiers and the odds stay hidden.
+  const reading = spec.playerReads && !roll;
 
   return (
     <div className={`ov contest${spec.major ? ' strong' : ''}${verdict ? ` v-${verdict.tone}` : ''}`}
@@ -209,7 +238,12 @@ export function ContestCard({ engine }: { engine: MatchEngine }) {
             {spec.major ? `${spec.major} · ` : ''}
             {myRole === 'attack' ? (spec.kind === 'move' ? 'You go for it' : 'You try to set it up') : spec.kind === 'move' ? `${S.them.w.name} goes for it` : `${S.them.w.name} tries to set it up`}
           </div>
-          <div className="mt-title">{spec.title}</div>
+          <div className="mt-title">{reading ? 'Read it' : spec.title}</div>
+          {reading ? (
+            <div className="cc-tells">
+              {spec.tells.length ? spec.tells.map((t) => <span key={t}>{t}</span>) : <span>No tells: anything could be coming</span>}
+            </div>
+          ) : (
           <div className="cc-odds">
             <span className="cc-odds-bar">
               <i style={{ width: `${odds}%` }} />
@@ -218,26 +252,41 @@ export function ContestCard({ engine }: { engine: MatchEngine }) {
               {myRole === 'attack' ? 'Your chance to land it' : 'Your chance to stop it'} <b>{Math.round(odds)}%</b>
             </span>
           </div>
+          )}
         </div>
         <div className="cc-cols">
           <Column engine={engine} side={mine} role={myRole} dice={diceFor(mine)} kept={keptFor(mine)} total={totalFor(mine)}
             rolling={!!roll} settled={settled} won={myWon} previewPush={!roll && push} />
           <div className="cc-vs">vs</div>
           <Column engine={engine} side={theirs} role={myRole === 'attack' ? 'defend' : 'attack'} dice={diceFor(theirs)} kept={keptFor(theirs)}
-            total={totalFor(theirs)} rolling={!!roll} settled={settled} won={myWon === null ? null : !myWon} previewPush={false} />
+            total={totalFor(theirs)} rolling={!!roll} settled={settled} won={myWon === null ? null : !myWon} previewPush={false} hidden={reading} />
         </div>
         {verdict && <div className={`cc-verdict ${verdict.tone}`}>{verdict.text}</div>}
         {!roll && (
-          <div className="cc-actions">
+          <div className={`cc-actions${reading ? ' reading' : ''}`}>
             <button className={`cc-push${push ? ' on' : ''}`} disabled={!spec.playerCanPush} onClick={() => setPush((x) => !x)} aria-pressed={push}>
               <span className="pl">Push</span>
               <span className="ps">{spec.playerCanPush ? `Advantage · −${PUSH_COST} momentum` : pushWhy}</span>
             </button>
-            <button className="cc-roll" onClick={doRoll}>
-              Roll
-            </button>
+            {reading ? (
+              <div className="cc-reads">
+                {READS.map((r, i) => (
+                  <button key={r} className="cc-read" onClick={() => doRoll(r)}>
+                    <span className="pl">
+                      <kbd>{i + 1}</kbd> {READ_LABEL[r]}
+                    </span>
+                    <span className="ps">{READ_HINT[r]}</span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <button className="cc-roll" onClick={() => doRoll()}>
+                Roll
+              </button>
+            )}
           </div>
         )}
+        {reading && <div className="cc-readhelp">Read it right and you'll probably stop it, maybe turn it into a counter. Wrong, and it's a little easier for them.</div>}
       </div>
     </div>
   );

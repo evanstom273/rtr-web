@@ -9,7 +9,7 @@ import { flash, format, other, ring, say } from './commentary';
 import { crowdObserve, isOutsideSpot } from './crowd';
 import { exhaustionBand, moveDemand, staminaCostMultiplier, staminaPercent } from './exhaustion';
 import { afterAction, render, resolveControlAfterAction, schedule, setControl } from './flow';
-import { conditionWord, pinOdds } from './pin';
+import { conditionWord, pinCondition, pinOdds } from './pin';
 import { isHighRisk } from './interaction';
 import { resolvedAttackerArea, resolvedTargetArea } from './areaRules';
 import { moveMatchesSnapshots } from './setupRules';
@@ -19,7 +19,8 @@ import {
 } from './side';
 import { resolveTarget } from './targeting';
 import { startContest } from './contest';
-import { moveContest } from './dice';
+import { limbsUsed, moveContest } from './dice';
+import { BLUNTED_DAMAGE } from './reads';
 import { gainMomentum } from './momentum';
 import { consumeObject, dropObject, heldBy, isLive, maybeBleed, WEAPON_DAMAGE_PER_IMPACT, weaponForMove, weaponMovesFor, weaponMoveStamina } from './env';
 import { disqualify, refSees, WEAPON_DETECTION } from './referee';
@@ -69,6 +70,7 @@ export function moveIsValid(S: MatchState, k: SideKey, move: Move): boolean {
   }
   if (!submissionAreaOk(S, k, move)) return false;
   if (!canUseMove(a, move)) return false;
+  if (tierLock(S, k, move) || limbLock(a, move)) return false;
   return moveMatchesSnapshots(move, a.state, d.state) || isLadderDive(S, k, move);
 }
 
@@ -129,17 +131,19 @@ export function executeMove(ctx: Ctx, k: SideKey, move: Move, target?: TargetRes
   const { attack, defend } = moveContest(A, D, move, tgt);
   A.setUp = false;
   S.txn = { kind: 'move', k, move, target: tgt, chance: 0 };
-  startContest(ctx, { kind: 'move', attacker: k, defender: dk, title: move.name, major, attack, defend });
+  startContest(ctx, { kind: 'move', attacker: k, defender: dk, title: move.name, major, attack, defend, move });
   return true;
 }
 
 /** The defender's response is in: apply the move and decide what happens next. */
-export function finishMove(ctx: Ctx, k: SideKey, move: Move, reversed: boolean, target: TargetResolution, crit = false): void {
+export function finishMove(ctx: Ctx, k: SideKey, move: Move, reversed: boolean, target: TargetResolution, crit = false, readRight = false): void {
   const S = ctx.S, A = S[k], dk = other(k);
   const startedAtZero = A.stamina <= 0;
   const result: ActionResult = reversed ? (isHighRisk(move) ? 'HIGH_RISK_CRASH' : 'REVERSAL') : 'CLEAN_SUCCESS';
   const dive = A.state.area === 'LADDER' ? ladderUnder(S, k) : null;
-  applyMoveResult(ctx, k, dk, move, result, target, crit, !!dive);
+  applyMoveResult(ctx, k, dk, move, result, target, crit, !!dive, !reversed && readRight ? BLUNTED_DAMAGE : 1);
+  if (readRight && reversed) counterAttack(ctx, dk, k, move, result);
+  else if (readRight) say(ctx, LINES.readBlunted, { a: k, d: dk, m: move.name }, 'dim');
   if (dive) {
     // Off the ladder: whatever happened, they come down where it stands.
     A.state = result === 'REVERSAL' ? { position: 'GROUNDED', orientation: 'FACE_UP', area: dive.area, motion: 'STATIONARY' } : { ...A.state, area: dive.area };
@@ -224,7 +228,7 @@ export function shouldStartEmbeddedPin(S: MatchState, k: SideKey, dk: SideKey, m
   return S[k].state.position === 'GROUNDED' && S[dk].state.position === 'GROUNDED';
 }
 
-function applyMoveResult(ctx: Ctx, k: SideKey, dk: SideKey, move: Move, result: ActionResult, target: TargetResolution, crit: boolean, dive = false): void {
+function applyMoveResult(ctx: Ctx, k: SideKey, dk: SideKey, move: Move, result: ActionResult, target: TargetResolution, crit: boolean, dive = false, soft = 1): void {
   const S = ctx.S, A = S[k], D = S[dk];
   A.lastActionResult = result;
   D.lastActionResult = result;
@@ -244,7 +248,7 @@ function applyMoveResult(ctx: Ctx, k: SideKey, dk: SideKey, move: Move, result: 
     observePhase(ctx, result === 'HIGH_RISK_CRASH' ? 'high_risk_crash' : 'reversal');
   }
   if (!landed) A.lastMoveWasFinisher = false;
-  applyDamage(ctx, k, dk, move, result, target, crit, dive);
+  applyDamage(ctx, k, dk, move, result, target, crit, dive, soft);
   applyStaminaFatigueMomentum(ctx, k, dk, move, result);
   applyPositions(A, D, move, result);
   if (landed && isSignatureMove(A, move)) useSignature(A);
@@ -276,6 +280,66 @@ function applyMoveResult(ctx: Ctx, k: SideKey, dk: SideKey, move: Move, result: 
     say(ctx, LINES.finisherStock, { a: dk, vars: { n: D.finisherStock } }, 'hl');
     flash(ctx, 'Reversed', true);
   }
+}
+
+/** A counter steals the momentum: the reversal's own share plus this makes a landed move's worth. */
+export const COUNTER_STEAL = SUCCESSFUL_MOVE_MOMENTUM - REVERSAL_MOMENTUM;
+
+/**
+ * The defender read it and won the roll: they take the attacker's momentum and, if they're both on
+ * their feet in the same spot, hit a quick move of their own (Wrestling Spirit's counters).
+ */
+function counterAttack(ctx: Ctx, dk: SideKey, k: SideKey, move: Move, result: ActionResult): void {
+  const S = ctx.S, D = S[dk], A = S[k];
+  gainMomentum(ctx, dk, COUNTER_STEAL);
+  const c = result === 'REVERSAL' ? pickCounter(S, dk) : null;
+  if (!c) {
+    say(ctx, LINES.readCounter, { a: dk, d: k, m: move.name }, 'hl');
+    return;
+  }
+  const tgt = resolveTarget(c, D.targetFocus, A.hp);
+  applyDamage(ctx, dk, k, c, 'CLEAN_SUCCESS', tgt, false);
+  applyPositions(D, A, c, 'CLEAN_SUCCESS');
+  D.movesLanded++;
+  say(ctx, LINES.readCounterMove, { a: dk, d: k, m: move.name, vars: { c: c.name } }, 'hl');
+  flash(ctx, 'Countered!', true);
+  ring(ctx, 'move_landed', dk, c.name);
+  crowdObserve(ctx, { type: 'spot', amount: 10 });
+}
+
+/** A quick move the counterer can hit from where they both stand: their best strike or grapple up to impact 6. */
+function pickCounter(S: MatchState, dk: SideKey): Move | null {
+  const D = S[dk], A = S[other(dk)];
+  if (D.state.position !== 'STANDING' || A.state.position !== 'STANDING' || D.state.area !== A.state.area) return null;
+  const options = D.regular.filter((m) => !m.submission && !m.flashPin && !m.pinningCombo && !m.finisher && m.impact >= 3 && m.impact <= 6
+    && (m.type === 'STRIKE' || m.type === 'GRAPPLE') && moveMatchesSnapshots(m, { ...D.state, motion: 'STATIONARY' }, { ...A.state, motion: 'STATIONARY' }));
+  return options.sort((a, b) => b.impact - a.impact)[0] ?? null;
+}
+
+/**
+ * Momentum tiers (after Wrestling Spirit): the biggest moves wait until you've built momentum or
+ * worn them down. Signatures, finishers and weapon shots have their own rules.
+ */
+export function tierLock(S: MatchState, k: SideKey, m: Move): string | null {
+  const A = S[k];
+  if (m.type === 'WEAPON' || isFinisherMove(A, m) || isSignatureMove(A, m)) return null;
+  const cond = pinCondition(S[other(k)]);
+  if (m.impact >= 9 && A.momentum < TIER_TOP_MOMENTUM && cond > TIER_TOP_CONDITION) return `Build momentum (${TIER_TOP_MOMENTUM}) or wear them down first`;
+  if (m.impact >= 7 && A.momentum < TIER_BIG_MOMENTUM && cond > TIER_BIG_CONDITION) return `Build momentum (${TIER_BIG_MOMENTUM}) or wear them down first`;
+  return null;
+}
+export const TIER_BIG_MOMENTUM = 15;
+export const TIER_BIG_CONDITION = 80;
+export const TIER_TOP_MOMENTUM = 30;
+export const TIER_TOP_CONDITION = 65;
+
+/** A limb under this can't carry the moves that rely on it (WS3: wrecked legs, no leg moves). */
+export const LIMB_LOCK = 12;
+export function limbLock(A: Side, m: Move): string | null {
+  const limbs = limbsUsed(m);
+  if (!limbs.length || m.type === 'WEAPON') return null;
+  if (Math.min(...limbs.map((p) => A.hp[p])) >= LIMB_LOCK) return null;
+  return `Your ${limbs[0]!.endsWith('LEG') ? 'legs' : 'arms'} can't take it`;
 }
 
 /** Off a ladder: damage ×1.2, and a crash hurts ×1.25 more (Godot). */
@@ -310,14 +374,14 @@ function weaponAfterSwing(ctx: Ctx, k: SideKey, move: Move, result: ActionResult
 /** A natural 20 on offence hits half as hard again. */
 export const CRIT_DAMAGE = 1.5;
 
-function applyDamage(ctx: Ctx, k: SideKey, dk: SideKey, move: Move, result: ActionResult, target: TargetResolution, crit: boolean, dive = false): void {
+function applyDamage(ctx: Ctx, k: SideKey, dk: SideKey, move: Move, result: ActionResult, target: TargetResolution, crit: boolean, dive = false, soft = 1): void {
   const A = ctx.S[k], D = ctx.S[dk];
   const aBefore = totalHp(A), dBefore = totalHp(D);
   const before: Partial<Record<BodyPart, number>> = {};
   for (const p of target.parts) before[p] = D.hp[p];
   if (result === 'HIGH_RISK_CRASH') damagePart(A, 'BODY', move.impact * 0.75 * (dive ? LADDER_DIVE_CRASH : 1));
   else if (result === 'CLEAN_SUCCESS') {
-    const mult = moveAttributeProfile(A, move).damageMultiplier * (crit ? CRIT_DAMAGE : 1) * (dive ? LADDER_DIVE_DAMAGE : 1);
+    const mult = moveAttributeProfile(A, move).damageMultiplier * (crit ? CRIT_DAMAGE : 1) * (dive ? LADDER_DIVE_DAMAGE : 1) * soft;
     for (const p of target.parts) {
       // Weapons hit harder and flat (Godot: impact × 1.75 on the part).
       const dmg = move.type === 'WEAPON' ? move.impact * WEAPON_DAMAGE_PER_IMPACT : move.impact + (100 - D.hp[p]) * 0.08;

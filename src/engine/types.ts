@@ -1,5 +1,6 @@
 // Engine types. No DOM, no React.
 import type { ContestRoll, ContestSide } from './dice';
+import type { Read } from './reads';
 import type {
   Area, BodyPart, Motion, Move, MoveType, Orientation, Part, Position, Wrestler,
 } from '../data/rtr/types';
@@ -159,6 +160,8 @@ export interface Side {
 
   recentMoves: string[];
   recentMoveTypes: MoveType[];
+  /** What kind of move each recent attempt was, for reads (most recent last). */
+  recentReads: Read[];
   recentSetupPatterns: string[];
   pendingSetupAction: SetupId | null;
   recentTargetParts: BodyPart[];
@@ -243,6 +246,17 @@ export interface ContestSpec {
   chance: number;
   /** Can the player push on this roll (enough momentum, no signature banked)? */
   playerCanPush: boolean;
+  /** Moves only: what kind of move it is, for reads. */
+  category: Read | null;
+  /** The player defends a move: they pick a read, and the move stays hidden until they have. */
+  playerReads: boolean;
+  /** The defender's read, once made, and whether it was right. */
+  read: Read | null;
+  readRight: boolean;
+  /** Was the move telegraphed (smaller read bonus)? */
+  telegraphed: boolean;
+  /** What the defender can see before reading. */
+  tells: string[];
 }
 
 /** The player is pinned: hold, release in the gold before three. */
@@ -330,6 +344,7 @@ export type Cont =
   | { to: 'startSub'; k: SideKey; moveId: string; target: TargetResolution }
   | { to: 'startPin'; k: SideKey; embedded: boolean }
   | { to: 'nextFall' }
+  | { to: 'autoRecover'; id: SetupId }
   | { to: 'pinNeutral' }
   | { to: 'final' };
 

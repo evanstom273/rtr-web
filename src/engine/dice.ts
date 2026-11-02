@@ -76,7 +76,7 @@ const EXTRA_STAT: Partial<Record<SetupId, keyof Side['w']['stats']>> = {
 const CLIMBS: ReadonlySet<SetupId> = new Set<SetupId>(['climb_ladder', 'climb_ladder_top', 'climb_cage', 'reach_cage_top', 'escape_over_cage']);
 
 /** Which of the attacker's own limbs a move relies on. */
-function limbsUsed(m: Move): BodyPart[] {
+export function limbsUsed(m: Move): BodyPart[] {
   if (m.type === 'AERIAL' || m.type === 'SPRINGBOARD' || m.type === 'RUNNING') return ['LEFT_LEG', 'RIGHT_LEG'];
   if ((m.type === 'GRAPPLE' || m.type === 'SUBMISSION') && m.impact >= 6) return ['LEFT_ARM', 'RIGHT_ARM'];
   return [];

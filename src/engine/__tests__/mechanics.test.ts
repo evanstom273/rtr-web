@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { canConvert, convertSignature, moveIsValid, submissionAreaOk } from '../moves';
-import { WRESTLERS, getMove } from '../../data/rtr';
+import { canConvert, convertSignature, finishMove, limbLock, moveIsValid, submissionAreaOk, SUCCESSFUL_MOVE_MOMENTUM, tierLock } from '../moves';
+import { applyRead } from '../contest';
+import { readFor, READ_BONUS, WRONG_READ } from '../reads';
+import { autoRecovery } from '../setups';
+import type { ContestSpec } from '../types';
+import { MOVES, WRESTLERS, getMove } from '../../data/rtr';
 import { exhaustionBand, moveDemand, staminaCostMultiplier } from '../exhaustion';
 import { canPush, edgeOf, judge, landChance, moveContest } from '../dice';
 import { MatchEngine } from '../match';
@@ -265,6 +269,7 @@ describe('submissions outside the middle of the ring', () => {
     const e = new MatchEngine({ you: 'the_lock_jenny_west', them: WRESTLERS[1]!.id, seed: 5 });
     const S = e.state, tarantula = S.you.all.find((m) => m.id === 'tarantula')!;
     S.you.signatureReady = true;
+    S.you.momentum = 60;
     S.you.state = { position: 'STANDING', orientation: 'FRONT', area: 'APRON', motion: 'STATIONARY' };
     S.them.state = { position: 'STANDING', orientation: 'FRONT', area: 'ROPES', motion: 'STATIONARY' };
     expect(moveIsValid(S, 'you', tarantula)).toBe(true);
@@ -294,5 +299,80 @@ describe('cashing in a signature', () => {
     A.momentum = 90;
     A.finisherStock = MAX_FINISHER_STOCK;
     expect(canConvert(A)).toBe(false);
+  });
+});
+
+describe('reads, counters and momentum tiers', () => {
+  const engineWith = (rnd?: () => number) => {
+    const e = new MatchEngine({ you: WRESTLERS[0]!.id, them: WRESTLERS[1]!.id, seed: 11, ...(rnd ? { rng: rnd } : {}) });
+    return { e, S: e.state, ctx: (e as unknown as { ctx: Parameters<typeof convertSignature>[0] }).ctx };
+  };
+
+  it('sorts moves into what you would read them as', () => {
+    expect(readFor({ ...getMove('powerbomb') })).toBe('brace');
+    const strike = WRESTLERS[0]!.moves.map(getMove).find((m) => m.type === 'STRIKE');
+    if (strike) expect(readFor(strike)).toBe('block');
+    const dive = MOVES.find((m) => m.type === 'AERIAL')!;
+    expect(readFor(dive)).toBe('duck');
+  });
+
+  it('a right read is a big defensive bonus, smaller when the move was telegraphed; a wrong one costs a little', () => {
+    const { S } = engineWith();
+    const move = S.you.all.find((m) => readFor(m) === 'brace')!;
+    const base = moveContest(S.you, S.them, move, resolveTarget(move, 'NONE', S.them.hp));
+    const spec = { ...base, kind: 'move', category: 'brace', telegraphed: false } as unknown as ContestSpec;
+    applyRead(spec, 'brace');
+    expect(spec.readRight).toBe(true);
+    expect(spec.defend.bonus - base.defend.bonus).toBe(READ_BONUS);
+    const wrong = { ...base, kind: 'move', category: 'brace', telegraphed: false } as unknown as ContestSpec;
+    applyRead(wrong, 'block');
+    expect(wrong.defend.bonus - base.defend.bonus).toBe(WRONG_READ);
+  });
+
+  it('a read that wins the roll is a counter: the defender steals the momentum and lands a move of their own', () => {
+    const { S, ctx } = engineWith(() => 0.5);
+    const move = S.you.all.find((m) => readFor(m) === 'brace' && m.req.a.position === 'STANDING' && m.req.t.position === 'STANDING' && m.impact <= 6)!;
+    const before = totalHp(S.you);
+    finishMove(ctx, 'you', move, true, resolveTarget(move, 'NONE', S.them.hp), false, true);
+    expect(S.them.momentum).toBe(SUCCESSFUL_MOVE_MOMENTUM);
+    expect(totalHp(S.you)).toBeLessThan(before);
+  });
+
+  it('a read that loses the roll still takes the sting out of it', () => {
+    const hit = (readRight: boolean) => {
+      const { S, ctx } = engineWith(() => 0.5);
+      const move = S.you.all.find((m) => m.impact >= 5 && m.impact <= 6 && m.req.a.position === 'STANDING' && m.req.t.position === 'STANDING' && !m.submission)!;
+      const before = totalHp(S.them);
+      finishMove(ctx, 'you', move, false, resolveTarget(move, 'NONE', S.them.hp), false, readRight);
+      return before - totalHp(S.them);
+    };
+    expect(hit(true)).toBeLessThan(hit(false));
+  });
+
+  it('big moves wait for momentum or a worn-down opponent', () => {
+    const { S } = engineWith();
+    const big = MOVES.find((m) => m.impact >= 9 && !m.finisher && readFor(m) === 'brace')!;
+    expect(tierLock(S, 'you', big)).not.toBeNull();
+    S.you.momentum = 60;
+    expect(tierLock(S, 'you', big)).toBeNull();
+    S.you.momentum = 0;
+    for (const p of ['HEAD', 'BODY', 'LEFT_ARM', 'RIGHT_ARM', 'LEFT_LEG', 'RIGHT_LEG'] as const) S.them.hp[p] = 30;
+    S.them.stamina = S.them.maxStamina * 0.3;
+    expect(tierLock(S, 'you', big)).toBeNull();
+  });
+
+  it('a wrecked leg rules out leg moves', () => {
+    const { S } = engineWith();
+    const run = MOVES.find((m) => m.type === 'RUNNING')!;
+    expect(limbLock(S.you, run)).toBeNull();
+    S.you.hp.LEFT_LEG = 5;
+    expect(limbLock(S.you, run)).not.toBeNull();
+  });
+
+  it('getting up when that is all there is to do happens on its own', () => {
+    const { S } = engineWith();
+    S.you.state = { position: 'GROUNDED', orientation: 'FACE_UP', area: 'IN_RING', motion: 'STATIONARY' };
+    S.them.state = { position: 'STANDING', orientation: 'FRONT', area: 'IN_RING', motion: 'STATIONARY' };
+    expect(autoRecovery(S)).toBe('stand_up');
   });
 });
