@@ -99,6 +99,13 @@ counter move), 5 blunted moves; median match 19.3 / 17.3 min (was 17.7 / 16.0). 
 Without tiers ratings would be above the old ones (raw 3.67 against 3.53); the reads alone nudge
 them up slightly.
 
+### Live star rating
+
+The HUD shows the star rating so far (`rateSoFar` in `rating.ts`): the same sums as the result
+screen's rating, with no finish yet and no penalty for being early. It flashes gold when it climbs,
+red when it drops; tap it for the crowd / story / drama / action bars and the weakest part in a few
+words ("Nobody has taken over yet", "Waiting on a comeback", "Needs near-falls", "The crowd is quiet").
+
 ### Holds: go for the tap or work the hold (Lyra's idea)
 
 When a submission lands, the attacker chooses:

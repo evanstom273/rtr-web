@@ -50,4 +50,12 @@ describe('headless simulation', () => {
       });
     }
   }, 120_000);
+
+  it('the live rating tracks the final one, short of the finish', () => {
+    for (const r of batch.slice(0, 20)) {
+      const live = r.engine.state.view.live.stars, final = r.rating!.stars;
+      expect(live).toBeGreaterThanOrEqual(0.25);
+      expect(Math.abs(final - live)).toBeLessThanOrEqual(1.25);
+    }
+  });
 });

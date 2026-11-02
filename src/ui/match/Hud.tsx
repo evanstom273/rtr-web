@@ -1,4 +1,4 @@
-import type { MutableRefObject, ReactNode } from 'react';
+import { useEffect, useRef, useState, type MutableRefObject, type ReactNode } from 'react';
 import { AREA_LABEL } from '../../data/commentary';
 import { LADDER_PULLS, fmtClock, heatWord, liveObjects, stipulation, weaponOf, type MatchEngine, type MatchState } from '../../engine';
 import { CrowdCanvas } from './CrowdCanvas';
@@ -20,6 +20,7 @@ export function Hud({ engine, pulse, children }: { engine: MatchEngine; pulse: M
           <span id="heatLbl">
             Crowd {Math.round(v.heat)} · {heatWord(v.heat)}
           </span>
+          <LiveStars live={v.live} />
         </div>
         <StipRow S={S} />
       </div>
@@ -62,5 +63,45 @@ function StipRow({ S }: { S: MatchState }) {
         </span>
       ))}
     </div>
+  );
+}
+
+const fmtStars = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0$/, ''));
+
+/** The star rating so far. Tap for the breakdown. Flashes when it climbs. */
+function LiveStars({ live }: { live: MatchState['view']['live'] }) {
+  const [open, setOpen] = useState(false);
+  const [bump, setBump] = useState<'' | 'up' | 'down'>('');
+  const prev = useRef(live.stars);
+  useEffect(() => {
+    if (live.stars === prev.current) return;
+    setBump(live.stars > prev.current ? 'up' : 'down');
+    prev.current = live.stars;
+    const id = window.setTimeout(() => setBump(''), 1200);
+    return () => window.clearTimeout(id);
+  }, [live.stars]);
+  const rows: [string, number][] = [['Crowd', live.crowd], ['Story', live.story], ['Drama', live.drama], ['Action', live.action]];
+  return (
+    <span className="livestars-wrap">
+      <button className={`livestars ${bump}`} onClick={() => setOpen((x) => !x)} aria-expanded={open}
+        aria-label={`Rating so far: ${live.stars} stars. Tap for the breakdown.`}>
+        ★ {fmtStars(live.stars)}
+      </button>
+      {open && (
+        <span className="livestars-pop" onClick={() => setOpen(false)}>
+          <b>On course for {fmtStars(live.stars)}★</b>
+          <small>If it ended now, with an ordinary finish.</small>
+          {rows.map(([l, x]) => (
+            <span key={l} className="ls-row">
+              <span>{l}</span>
+              <i>
+                <i style={{ width: `${Math.round(Math.max(0.03, Math.min(1, x)) * 100)}%` }} />
+              </i>
+            </span>
+          ))}
+          <small className="ls-miss">{live.missing}</small>
+        </span>
+      )}
+    </span>
   );
 }
