@@ -27,6 +27,9 @@ import {
 import { focusAppliesToMove, isLimbFocus, resolveTarget, targetHp } from './targeting';
 import type { Choice, MatchState, Move, SetupId, Side, SideKey, Snapshot, TargetResolution } from './types';
 import { BODY_PARTS } from './types';
+import { TRAIT_FX } from '../career/tuning';
+import { isDirty } from './referee';
+import { aiDirtyLean, aiMoveLean, aiSetupLean, has, temperature } from './traits';
 
 const MOVE_BLOCK_WINDOW = 3;
 
@@ -157,7 +160,8 @@ export class AiBrain {
       if (moves.length && isRecovery(action)) continue;
       if (action === 'taunt' && this.rejectTaunt(ai, target, moves, bestMoveScore)) continue;
       const plan = this.bestSetupPlan(ai, target, action);
-      candidates.push({ kind: 'setup', action, score: this.scoreSetup(ai, target, action, moves, plan), path: plan?.actions ?? [], plannedMove: plan?.move ?? null });
+      const lean = aiSetupLean(ai, action) + (isDirty(action) ? aiDirtyLean(ai, action === 'distract_referee') : 0);
+      candidates.push({ kind: 'setup', action, score: this.scoreSetup(ai, target, action, moves, plan) + lean, path: plan?.actions ?? [], plannedMove: plan?.move ?? null });
     }
     const pinScore = this.scorePin(ai, target, bestMoveScore);
     if (pinScore > -Infinity && canPin(this.S, this.k)) candidates.push({ kind: 'pin', score: pinScore });
@@ -248,7 +252,9 @@ export class AiBrain {
     const top = sorted.slice(0, 5);
     if (!top.length) return null;
     const lowest = top[top.length - 1]!.score;
-    const weights = top.map((c) => Math.max(1, c.score - lowest + 10));
+    // Personality: Methodical picks the best more often; Inconsistent and Unpredictable spread wider.
+    const spread = 10 * temperature(this.S[this.k]);
+    const weights = top.map((c) => Math.max(1, c.score - lowest + spread));
     let roll = this.ctx.rnd() * weights.reduce((a, b) => a + b, 0);
     for (let i = 0; i < top.length; i++) {
       roll -= weights[i]!;
@@ -414,6 +420,7 @@ export class AiBrain {
     let p = clamp((90 - pinCondition(target)) / 70, 0.1, 0.8);
     if (m.impact >= 9) p += 0.1;
     if (sig) p += 0.35;
+    if (has(ai, 'opportunist')) p += TRAIT_FX.opportunist.aiCover;
     if (fin) p = 0.95;
     if (this.lastPinAttemptLandedCount >= 0 && ai.movesLanded - this.lastPinAttemptLandedCount <= 1) p *= 0.4;
     return this.ctx.rnd() < p ? { kind: 'pin', score: 0 } : null;
@@ -514,7 +521,9 @@ export class AiBrain {
       const w = target.hp[weakest];
       score += w < 25 ? 40 : w < 50 ? 25 : 15;
     }
-    if (this.targetFocus !== null && res.parts.includes(this.targetFocus)) score += m.submission ? 25 : 8;
+    const focused = this.targetFocus !== null && res.parts.includes(this.targetFocus);
+    if (focused) score += m.submission ? 25 : 8;
+    score += aiMoveLean(ai, m, high, focused, leg);
     if (target.fatigue >= 80) {
       if (m.impact >= 7) score += 15;
       if (m.submission) score += 15;

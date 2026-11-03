@@ -1,4 +1,6 @@
 // Submissions. Port of start_submission_sequence, the damage ticks and resolution.
+import { TRAIT_FX as FX } from '../career/tuning';
+import { has } from './traits';
 import { LINES, PART_LABEL } from '../data/commentary';
 import { observePhase } from './clock';
 import type { Ctx } from './ctx';
@@ -33,7 +35,8 @@ function isTrueSquashContext(ctx: Ctx, k: SideKey): boolean {
 }
 
 /** Damage per part from working a hold: a few seconds of cranking, more in a technician's hands. */
-export const workHoldDamage = (A: Side, move: Move): number => (4 + move.impact * 0.5) * (A.w.classes.includes('TECHNICIAN') ? 1.5 : 1);
+export const workHoldDamage = (A: Side, move: Move): number =>
+  (4 + move.impact * 0.5) * (A.w.classes.includes('TECHNICIAN') ? 1.5 : 1) * (has(A, 'submission_specialist') ? FX.submission_specialist.holdDamage : 1);
 
 /**
  * AI: go for the tap only when it's credible: a finisher, a properly worn target, a worn-down
@@ -41,9 +44,12 @@ export const workHoldDamage = (A: Side, move: Move): number => (4 + move.impact 
  */
 export function aiGoesForTap(S: MatchState, k: SideKey, move: Move, target: TargetResolution): boolean {
   if (move.finisher || S[k].finishers.includes(move)) return true;
-  const D = S[other(k)], tech = S[k].w.classes.includes('TECHNICIAN');
+  const D = S[other(k)], tech = S[k].w.classes.includes('TECHNICIAN'), spec = has(S[k], 'submission_specialist');
   const hp = targetHp(D.hp, target), cond = pinCondition(D);
-  if (hp < (tech ? 50 : 35) || cond < (tech ? 55 : 45)) return true;
+  // A submission specialist reads a hold like a technician (both: a little sooner still).
+  const hpAt = spec ? FX.submission_specialist.tapHp + (tech ? 10 : 0) : tech ? 50 : 35;
+  const condAt = spec ? FX.submission_specialist.tapCondition + (tech ? 7 : 0) : tech ? 55 : 45;
+  if (hp < hpAt || cond < condAt) return true;
   return S.t >= 1500 && hp < 60;
 }
 

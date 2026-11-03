@@ -83,6 +83,7 @@ function breakthroughs(c: Career): void {
   for (const w of WRESTLERS) {
     if (!w.id.startsWith('rookie_') || seen[`break:${w.id}`] || w.popularity.global < BREAKTHROUGH_POP) continue;
     seen[`break:${w.id}`] = c.today;
+    person(c, w.id).breakthrough = c.today;
     record({ day: c.today, kind: 'breakthrough', who: w.id, name: w.name, promo: w.promotion });
     if (w.region === me.region || (w.promotion === me.promotion && me.promotion !== 'TIS')) letter(c, { kind: 'news', from: 'The news desk', subject: `${w.name} is the name on everyone’s lips`, body: [`Not long out of training, ${w.name} has broken through. Promoters are paying attention.`] });
   }

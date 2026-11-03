@@ -1,5 +1,6 @@
 // The career loop: starting one, a day at a time, and what every match changes in the world.
-import { PROMOTIONS, TITLES, WRESTLERS, databaseChanged, findWrestler, type Wrestler } from '../data/rtr';
+import { poachMult, renewLean, retryAdjust } from './leans';
+import { PROMOTIONS, TITLES, WRESTLERS, databaseChanged, findWrestler, hasTrait, type Wrestler } from '../data/rtr';
 import { seededRng, type Rng } from '../engine/rng';
 import type { MatchRulesConfig } from '../engine/types';
 import { HARDCORE_STIPS, available, bookAhead, hashSeed, heated, isIndieTitle, promoRegion, regionalDates, regionalPop, titleRegion } from './booker';
@@ -20,7 +21,7 @@ import {
   INJURY_BASE_PCT, INJURY_HARDCORE_MULT, INJURY_PER_FATIGUE, INJURY_SEVERITY, MEDICAL_BILL_COVER, MEDICAL_PAY_COVER, MEDICAL_PER_DAY, MERCH_INDIE,
   MERCH_SHARE, MERCH_SIGNED, OFF_SCRIPT_TITLE_BAN_DAYS, PLANNED_NUDGE, PLANNED_RETRIES, POACH_CHANCE, POP_CEILING, POP_GLOBAL_SHARE, POP_IDLE_DAYS,
   POP_IDLE_DECAY, POP_LOSS, POP_PER_STAR, POP_STAR_PIVOT, POP_TITLE_WIN, POP_WIN, RELEASE_MONTHLY_BOTTOM, RENEW_CHANCE_REST,
-  CIRCUIT_KEEP, RENEW_CHANCE_TOP, REP_FOUR_STAR, REP_OFF_SCRIPT, REP_PER_DATE, REP_START, ROOKIE_EVERY_DAYS, ROSTER_MAX, ROSTER_SIGN_BELOW,
+  CIRCUIT_KEEP, TRAIT_BACKSTAGE, TRAIT_FX, RENEW_CHANCE_TOP, REP_FOUR_STAR, REP_OFF_SCRIPT, REP_PER_DATE, REP_START, ROOKIE_EVERY_DAYS, ROSTER_MAX, ROSTER_SIGN_BELOW,
   START_CONTRACT_MONTHS_LEFT, START_MONEY_CREATED, START_MONEY_PER_POP, TRYOUT_MIN_STARS, PATIENCE_NO_SHOW,
 } from './tuning';
 import type { Bout, Career, Contract, Letter, Person, PlayerMatch, PopRegion, Show } from './types';
@@ -153,6 +154,8 @@ export function boutRules(c: Career, show: Show, bout: Bout, you: string, them: 
   };
   if (bout.title) { rules.titleId = bout.title; rules.title = true; }
   if (nudge && bout.planned) rules.booked = { side: bout.planned === you ? 'you' : 'them', bonus: PLANNED_NUDGE };
+  // A big occasion (Big-Match Performers rise to it): a flagship or special, a cup final, a farewell. Title matches count anyway.
+  if (show.kind === 'flagship' || show.kind === 'special' || bout.farewell || (bout.tourney && bout.tourney.round === 2)) rules.big = true;
   return rules;
 }
 
@@ -208,6 +211,7 @@ export function applyBout(c: Career, show: Show, index: number, out: SimOut, aIs
       ts.since = show.date; ts.defences = 0;
       t.holder = winner;
       titleChanged = true;
+      if (w.age <= 24) person(c, winner).breakthrough = show.date;
       bout.result.newChamp = true;
       const loser = findWrestler(winner === bout.a ? bout.b : bout.a)!;
       // A regional indie title only makes your news if it's your region, you've worked there lately, or you know someone in it.
@@ -233,10 +237,13 @@ export function applyBout(c: Career, show: Show, index: number, out: SimOut, aIs
     if (!w) continue;
     const p = person(c, id);
     const won = winner === id, lost = winner !== null && !won;
-    const delta = (out.stars - POP_STAR_PIVOT) * POP_PER_STAR + (won ? POP_WIN : lost ? POP_LOSS : 0) + (won && titleChanged ? POP_TITLE_WIN : 0);
+    const delta = (out.stars - POP_STAR_PIVOT) * POP_PER_STAR + (won ? POP_WIN : lost ? POP_LOSS : 0) + (won && titleChanged ? POP_TITLE_WIN : 0)
+      + (hasTrait(w, 'crowd_pleaser') ? TRAIT_FX.crowd_pleaser.popPerMatch : 0);
     changes[id] = popChange(w, show.region, delta);
     p.rep = r1(clamp(p.rep + REP_PER_DATE + (out.stars >= 4 ? REP_FOUR_STAR : 0), 0, 100));
-    const injuryPct = (INJURY_BASE_PCT + p.fatigue / INJURY_PER_FATIGUE) * (hardcore ? INJURY_HARDCORE_MULT : 1);
+    // Resilient wrestlers take more punishment; Reliable ones look after themselves.
+    const injuryPct = (INJURY_BASE_PCT + p.fatigue / INJURY_PER_FATIGUE) * (hardcore ? INJURY_HARDCORE_MULT : 1)
+      * (hasTrait(w, 'resilient') ? TRAIT_FX.resilient.injury : 1) * (hasTrait(w, 'reliable') ? TRAIT_FX.reliable.injury : 1);
     p.fatigue = clamp(p.fatigue + FATIGUE_PER_MATCH + (hardcore ? FATIGUE_HARDCORE_EXTRA : 0), 0, 100);
     p.last = show.date;
     p.circuit = [{ r: show.region, d: show.date }, ...(p.circuit ?? [])].slice(0, CIRCUIT_KEEP);
@@ -324,7 +331,7 @@ function settleMine(c: Career, show: Show, bout: Bout, out: SimOut, aIsYou: bool
   c.history.unshift({
     day: show.date, show: show.id, showName: show.name, promo: show.promo, kind: show.kind, opp: oppId, oppName: opp.name, result,
     finish: out.finish, t: out.t, stars: out.stars, ...(bout.title ? { title: bout.title } : {}), ...(titleChanged && winner === c.player ? { wonTitle: true } : {}),
-    planned, fee: fee + bonus, indie, stats, ...(out.move ? { move: out.move } : {}),
+    planned, fee: fee + bonus, indie, stats, ...(out.move ? { move: out.move } : {}), ...(how === 'played' ? { played: true } : {}),
   });
   const region = REGION_LABEL[show.region];
   letter(c, {
@@ -395,8 +402,10 @@ async function runNight(c: Career, run: (jobs: SimJob[]) => Promise<SimOut[]>): 
     const b = c.shows[showId!]?.card?.[Number(i)];
     return b?.planned ? (b.planned === j.you ? 'you' : 'them') : null;
   };
-  for (let attempt = 1; attempt <= PLANNED_RETRIES; attempt++) {
-    const again = jobs.filter((j) => { const want = plannedSide(j); return want && byKey.get(j.key)?.winner !== want; })
+  // The would-be loser's personality: professionals do the job, the rebellious push back (fewer re-runs).
+  const allowed = (j: SimJob) => { const want = plannedSide(j); return PLANNED_RETRIES + retryAdjust(findWrestler(want === 'you' ? j.them : j.you)); };
+  for (let attempt = 1; attempt <= PLANNED_RETRIES + 2; attempt++) {
+    const again = jobs.filter((j) => { const want = plannedSide(j); return want && attempt <= allowed(j) && byKey.get(j.key)?.winner !== want; })
       .map((j) => ({ ...j, seed: hashSeed(j.seed, 'again', attempt) }));
     if (!again.length) break;
     for (const o of await run(again)) byKey.set(o.key, o);
@@ -416,7 +425,12 @@ export async function finishDay(c: Career, run: (jobs: SimJob[]) => Promise<SimO
   await runToday(c, run);
   // Anything still unplayed today (your match, if you walked away from it) is lost, and the booker remembers.
   const missed = myBoutToday(c);
-  if (missed) { movePatience(c, showBooker(missed.show), PATIENCE_NO_SHOW, `Missed your match on ${missed.show.name}`); remember(c, showBooker(missed.show), 'noShows'); }
+  if (missed) {
+    movePatience(c, showBooker(missed.show), PATIENCE_NO_SHOW, `Missed your match on ${missed.show.name}`);
+    remember(c, showBooker(missed.show), 'noShows');
+    // A no-show undoes whatever was building towards Reliable.
+    delete c.people[c.player]?.leanings?.reliable;
+  }
   for (const show of showsOn(c, c.today)) show.done = true;
   endOfDay(c);
   databaseChanged();
@@ -508,7 +522,8 @@ function monthly(c: Career, day: Day, rnd: Rng): void {
   const me = findWrestler(c.player)!;
   const mine = c.people[c.player]!;
   const pop = me.popularity.global;
-  const merch = mine.contract ? round5(pop * pop * MERCH_SIGNED * (MERCH_SHARE[mine.contract.clauses[C.merch] ?? 0] ?? 0)) : round5(pop * pop * MERCH_INDIE);
+  const pleaser = hasTrait(findWrestler(c.player), 'crowd_pleaser') ? TRAIT_FX.crowd_pleaser.merch : 1;
+  const merch = mine.contract ? round5(pop * pop * MERCH_SIGNED * (MERCH_SHARE[mine.contract.clauses[C.merch] ?? 0] ?? 0) * pleaser) : round5(pop * pop * MERCH_INDIE * pleaser);
   spend(c, merch, mine.contract && !(mine.contract.clauses[C.merch] ?? 0) ? 'Merch (no Merchandise Rights)' : 'Merch', 'merch');
   // Mid-contract releases at the bottom of each roster.
   for (const p of PROMOTIONS.filter((x) => !x.indie)) {
@@ -536,6 +551,9 @@ function sign(c: Career, w: Wrestler, promo: string, day: Day, rnd: Rng): void {
   addEvent(history(), { day, kind: from === 'TIS' ? 'signed' : 'poached', who: w.id, name: w.name, promo, ...(from !== 'TIS' ? { from } : {}) });
   w.promotion = promo;
   c.people[w.id]!.contract = aiContract(rnd, w, promo, day, CONTRACT_MONTHS[1 + Math.floor(rnd() * 2)]!);
+  const pp = c.people[w.id]!;
+  pp.moves = [...(pp.moves ?? []), day].slice(-4);
+  pp.renewals = 0;
   // Indie dates already on the cards are honoured, but not with an indie title on the line: they're signed now.
   for (const s of Object.values(c.shows)) {
     if (s.done || s.promo !== 'TIS' || !s.card) continue;
@@ -568,12 +586,16 @@ function contractsEnding(c: Career, day: Day, rnd: Rng): void {
     const roster = WRESTLERS.filter((x) => x.promotion === w.promotion);
     const median = [...roster].sort((a, b) => a.popularity.global - b.popularity.global)[Math.floor(roster.length / 2)]?.popularity.global ?? 0;
     const champ = TITLES.some((t) => t.holder === w.id);
-    if (champ || rnd() < (w.popularity.global >= median ? RENEW_CHANCE_TOP : RENEW_CHANCE_REST)) {
+    // Personality: Loyal stays more, Mercenary less; the Ambitious leave if they're stuck below the top third.
+    const third = [...roster].sort((a, b) => b.popularity.global - a.popularity.global)[Math.floor(roster.length / 3)]?.popularity.global ?? 0;
+    const restless = hasTrait(w, 'ambitious') && w.popularity.global < third && rnd() < TRAIT_BACKSTAGE.ambitious.leave;
+    if (champ || (!restless && rnd() < (w.popularity.global >= median ? RENEW_CHANCE_TOP : RENEW_CHANCE_REST) + renewLean(w))) {
       p.contract = aiContract(rnd, w, w.promotion, day, CONTRACT_MONTHS[1]!);
+      p.renewals = (p.renewals ?? 0) + 1;
       continue;
     }
     const others = PROMOTIONS.filter((x) => !x.indie && x.initials !== w.promotion && WRESTLERS.filter((y) => y.promotion === x.initials).length < ROSTER_MAX);
-    if (others.length && rnd() < POACH_CHANCE) sign(c, w, others[Math.floor(rnd() * others.length)]!.initials, day, rnd);
+    if (others.length && rnd() < Math.min(0.95, POACH_CHANCE * poachMult(w))) sign(c, w, others[Math.floor(rnd() * others.length)]!.initials, day, rnd);
     else release(c, w, 'expired');
   }
 }

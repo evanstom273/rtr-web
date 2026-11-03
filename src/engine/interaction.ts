@@ -1,5 +1,7 @@
 // Port of MatchInteractionModel: move risk classification, late-match escalation, pin and
 // submission pressure. (Reversals are contested rolls now: see dice.ts.)
+import { TRAIT_FX as FX } from '../career/tuning';
+import { has } from './traits';
 import type { Move } from '../data/rtr/types';
 import { moveAttributeProfile, submissionModifiers } from './attributes';
 import { executionMultiplier, kickoutPenalty, moveDemand, submissionEscapePenalty } from './exhaustion';
@@ -73,8 +75,10 @@ export function pinProfile(baseWindow: number, pressure: number, resistance: num
   const penalty = kickoutPenalty(defender);
   let window = Math.max(0.75, calculated / divisor);
   window = Math.max(0.75, window * (1 - penalty / 100));
+  const resilient = has(defender, 'resilient');
+  if (resilient) window *= FX.resilient.window;
   const aiCalculated = clamp(baseWindow + diff * 0.55, 6, 80);
-  const aiChance = clamp(aiCalculated * (1 - penalty / 100), 1, 80);
+  const aiChance = clamp(aiCalculated * (1 - penalty / 100) + (resilient ? FX.resilient.kickout : 0), 1, 80);
   return { window, aiChance };
 }
 
@@ -143,13 +147,14 @@ export function submissionContext(
   if (attacks >= 5) pressureBonus += 8;
   else if (attacks >= 3) pressureBonus += 4;
   if (attacker.w.classes.includes('TECHNICIAN')) pressureBonus += 4;
+  if (has(attacker, 'submission_specialist')) pressureBonus += FX.submission_specialist.pressure;
   if (attacker.momentum >= 65) pressureBonus += 4;
   if (move.finisher) tap = Math.min(tap, 92);
   void squash;
   const resistance = bodyResistance;
   const attr = submissionModifiers(attacker, defender);
   const attackerScore = submissionPressureScore(attacker, defender, move, true, target) + pressureBonus + attr.attack;
-  const defenderScore = submissionPressureScore(defender, defender, move, false, target) + resistance + attr.defence;
+  const defenderScore = submissionPressureScore(defender, defender, move, false, target) + resistance + attr.defence + (has(defender, 'resilient') ? FX.resilient.escape : 0);
   return {
     attackerScore: clamp(attackerScore * submissionGrip(defender), 5, 100),
     defenderScore: clamp(defenderScore, 5, 100),

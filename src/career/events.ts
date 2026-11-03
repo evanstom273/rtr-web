@@ -37,6 +37,8 @@ export interface EvOption {
   run: (x: EvCtx, d: EvData) => string;
   /** Turning it down (counts as a decline in the letter). */
   decline?: boolean;
+  /** Not offered at all here (a trait card's "Replace" for a slot you haven't filled). */
+  hidden?: (x: EvCtx, d: EvData) => boolean;
 }
 
 export interface EventDef {
@@ -63,6 +65,9 @@ export interface EventDef {
 export interface FollowDef { id: string; run: (x: EvCtx, d: EvData) => void }
 
 const LIBRARY: EventDef[] = [];
+/** Others listening for your answers (personality: what you choose says something about you). */
+const answerHooks: ((c: Career, event: string, option: string) => void)[] = [];
+export const onAnswer = (f: (c: Career, event: string, option: string) => void): void => { answerHooks.push(f); };
 const FOLLOWS = new Map<string, FollowDef>();
 export function registerEvents(defs: EventDef[], follows: FollowDef[] = []): void {
   for (const d of defs) LIBRARY.push(d);
@@ -213,7 +218,7 @@ export function fire(x: EvCtx, d: EventDef, data?: EvData): Letter | null {
   const dd = data ?? (d.setup ? d.setup(x) : {});
   if (!dd) return null;
   const ev = (x.c.events ??= blankEvents());
-  const options: EventChoice[] = d.options.map((o) => ({ id: o.id, label: typeof o.label === 'function' ? o.label(x, dd) : o.label, ...(o.detail ? { detail: o.detail(x, dd) } : {}), ...(o.blocked?.(x, dd) ? { blocked: o.blocked(x, dd)! } : {}) }));
+  const options: EventChoice[] = d.options.filter((o) => !o.hidden?.(x, dd)).map((o) => ({ id: o.id, label: typeof o.label === 'function' ? o.label(x, dd) : o.label, ...(o.detail ? { detail: o.detail(x, dd) } : {}), ...(o.blocked?.(x, dd) ? { blocked: o.blocked(x, dd)! } : {}) }));
   const l = letter(x.c, {
     kind: 'event', from: d.from(x, dd), subject: d.subject(x, dd), body: d.body(x, dd),
     action: { type: 'event', event: d.id, options, expires: addDays(x.day, d.expires ?? EVENT_EXPIRES_DAYS) },
@@ -232,7 +237,7 @@ export function eventChoices(c: Career, letterId: string): EventChoice[] {
   const def = open && LIBRARY.find((d) => d.id === open.id);
   if (!def || !open) return stored;
   const x = ctxFor(c, seededRng(hashSeed(c.seed, 'choices', letterId)));
-  return def.options.map((o) => {
+  return def.options.filter((o) => !o.hidden?.(x, open.d)).map((o) => {
     const b = o.blocked?.(x, open.d);
     return { id: o.id, label: typeof o.label === 'function' ? o.label(x, open.d) : o.label, ...(o.detail ? { detail: o.detail(x, open.d) } : {}), ...(b ? { blocked: b } : {}) };
   });
@@ -248,9 +253,10 @@ export function answerEvent(c: Career, letterId: string, optionId: string): stri
   const opt = def?.options.find((o) => o.id === optionId);
   if (!def || !opt) return 'That’s been dealt with.';
   const x = ctxFor(c, seededRng(hashSeed(c.seed, 'answer', letterId, optionId)));
-  const block = opt.blocked?.(x, open.d);
+  const block = opt.blocked?.(x, open.d) ?? (opt.hidden?.(x, open.d) ? 'That isn’t an option.' : null);
   if (block) return block;
   const said = opt.run(x, open.d);
+  for (const f of answerHooks) f(c, def.id, opt.id);
   l.done = opt.decline ? 'declined' : 'accepted';
   l.outcome = said;
   l.picked = typeof opt.label === 'function' ? opt.label(x, open.d) : opt.label;

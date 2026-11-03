@@ -137,6 +137,10 @@ export interface Side {
   w: Wrestler;
   /** Career: the booker's thumb on the scale (0 almost always). */
   booked: number;
+  /** A big match (title, special, flagship, cup final, farewell): Big-Match Performers rise to it. */
+  big: boolean;
+  /** Inconsistent: tonight's form, −2 to +2 on every roll (0 for everyone else). */
+  form: number;
   regular: Move[];
   signatures: Move[];
   finishers: Move[];
@@ -228,6 +232,12 @@ export interface SideStats {
   holds: number;
   /** Clock steps they ended in control of. */
   controlSteps: number;
+  /** For personality (traits): high-risk moves tried, taunts, dirty tactics, rests, and kickouts after a finisher. */
+  highTried: number;
+  taunts: number;
+  dirty: number;
+  rests: number;
+  fk: number;
 }
 
 /* ---------- log & events ---------- */
@@ -551,6 +561,8 @@ export interface MatchRulesConfig {
   venueName?: string;
   /** Career: the booker's planned winner gets this much on their rolls (AI title matches only). */
   booked?: { side: SideKey; bonus: number };
+  /** Career: a big match (special, flagship, cup final, farewell); title matches count anyway. */
+  big?: boolean;
   /** Career: fatigue carried in, as the share of stamina each side starts with (1 = fresh). */
   freshness?: Partial<Record<SideKey, number>>;
 }

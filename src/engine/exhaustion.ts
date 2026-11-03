@@ -1,4 +1,5 @@
 // Port of MatchExhaustionModel: stamina depletion + fatigue → demand-scaled consequences.
+import { TRAIT_FX as FX } from '../career/tuning';
 import type { Move } from '../data/rtr/types';
 import { clamp, inverseLerp, lerp } from './rng';
 import type { Side } from './types';
@@ -12,7 +13,7 @@ export const CATCH_BREATH_STAMINA_THRESHOLD = 60;
 export const CATCH_BREATH_BASE_RECOVERY = 18;
 export const CATCH_BREATH_COOLDOWN_SECONDS = 90;
 
-type S = Pick<Side, 'stamina' | 'maxStamina' | 'fatigue' | 'momentum'>;
+type S = Pick<Side, 'stamina' | 'maxStamina' | 'fatigue' | 'momentum'> & { w?: Side['w'] };
 
 export const staminaRatio = (s: S): number => (s.maxStamina <= 0 ? 0 : clamp(s.stamina / s.maxStamina, 0, 1));
 export const staminaPercent = (s: S): number => staminaRatio(s) * 100;
@@ -86,7 +87,9 @@ export const executionMultiplier = (s: S, demand: Demand): number => clamp(1 - e
 export function staminaCostMultiplier(s: S, demand: Demand = 'STANDARD'): number {
   const fatigueCost = sampleAsc(s.fatigue, [0, 50, 75, 90, 100], [1, 1.1, 1.25, 1.4, 1.5]);
   const surcharge = demand === 'STANDARD' ? 0.05 * combinedExhaustion(s) : demand === 'EXPLOSIVE' ? 0.15 * combinedExhaustion(s) : 0;
-  return clamp(fatigueCost * (1 + surcharge), 1, 1.75);
+  // Aggressive: all that offence costs more.
+  const aggressive = s.w?.traits?.includes('aggressive') ? FX.aggressive.stamina : 1;
+  return clamp(fatigueCost * (1 + surcharge) * aggressive, 1, 1.75);
 }
 
 export function staminaRecoveryMultiplier(s: S): number {

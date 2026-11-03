@@ -296,7 +296,7 @@ export function executeExtra(ctx: Ctx, k: SideKey, id: SetupId, arg?: string): b
       S.env.padRemoved = true;
       say2(ctx, id, k);
       S.crowd.dirty++;
-      if (refSees(ctx, DIRTY.remove_turnbuckle_pad!.detection, A.state.area)) warn(ctx, k, 1, DIRTY.remove_turnbuckle_pad!.what);
+      if (refSees(ctx, DIRTY.remove_turnbuckle_pad!.detection, A.state.area, k)) warn(ctx, k, 1, DIRTY.remove_turnbuckle_pad!.what);
       break;
     case 'begin_standing_count':
       return beginStandingCount(ctx, k);
@@ -444,7 +444,8 @@ export function finishExtraContest(ctx: Ctx, k: SideKey, id: SetupId, reversed: 
       spendStamina(A, 2 * staminaCostMultiplier(A, 'BASIC'));
       say2(ctx, id, k);
       S.crowd.dirty++;
-      if (refSees(ctx, t.detection, A.state.area)) warn(ctx, k, t.points, t.what);
+      A.stats.dirty++;
+      if (refSees(ctx, t.detection, A.state.area, k)) warn(ctx, k, t.points, t.what);
     }
   }
 }
@@ -488,7 +489,7 @@ export function environmentAfterMove(ctx: Ctx, k: SideKey, move: Move, result: A
       return;
     }
   }
-  if (S.rules.dq && result === 'CLEAN_SUCCESS' && refSees(ctx, SPOT_DETECTION, A.state.area)) disqualify(ctx, k, LINES.whatSpot);
+  if (S.rules.dq && result === 'CLEAN_SUCCESS' && refSees(ctx, SPOT_DETECTION, A.state.area, k)) disqualify(ctx, k, LINES.whatSpot);
 }
 
 /** After a clean move in Last Man Standing: a big enough blow lets the attacker make the referee count. */

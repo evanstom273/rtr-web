@@ -1,4 +1,5 @@
 import { HEAT_WORDS, PHASES } from '../data/commentary';
+import { rollForm } from './traits';
 import { TITLES, getPromotion, type Wrestler } from '../data/rtr';
 import { format } from './commentary';
 import { exhaustionBand } from './exhaustion';
@@ -66,9 +67,11 @@ function emptyCrowd(): CrowdStats {
 
 let nextId = 1;
 
-/** Career extras: the booker's planned winner and how fresh each side arrives. */
-function careerSide(s: Side, rules: MatchRulesConfig): Side {
+/** Career extras: the booker's planned winner, how fresh each side arrives, a big occasion, tonight's form. */
+function careerSide(s: Side, rules: MatchRulesConfig, rnd: Rng): Side {
   if (rules.booked?.side === s.key) s.booked = rules.booked.bonus;
+  s.big = !!(rules.big || rules.title || rules.titleId);
+  s.form = rollForm(s, rnd);
   const fresh = rules.freshness?.[s.key];
   if (fresh !== undefined && fresh < 1) s.stamina = Math.max(1, Math.round(s.maxStamina * Math.max(0, fresh)));
   return s;
@@ -81,8 +84,8 @@ export function createState(rnd: Rng, you: Wrestler, them: Wrestler, rules: Matc
   const S: MatchState = {
     id: nextId++,
     rules,
-    you: careerSide(createSide(you, 'you'), rules),
-    them: careerSide(createSide(them, 'them'), rules),
+    you: careerSide(createSide(you, 'you'), rules, rnd),
+    them: careerSide(createSide(them, 'them'), rules, rnd),
     t: 0,
     control: null,
     over: false,

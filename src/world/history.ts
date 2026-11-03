@@ -51,7 +51,7 @@ export interface Reign {
 }
 
 export type WorldEventKind = 'title' | 'signed' | 'released' | 'expired' | 'poached' | 'debut'
-  | 'retired' | 'returned' | 'milestone' | 'tournament' | 'breakthrough' | 'injured';
+  | 'retired' | 'returned' | 'milestone' | 'tournament' | 'breakthrough' | 'injured' | 'trait';
 export interface WorldEvent {
   day: Day;
   kind: WorldEventKind;

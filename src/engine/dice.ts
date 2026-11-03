@@ -6,6 +6,8 @@
  * wins; the attacker wins ties. Naturals (a top roll or a 1) trump totals. Advantage = roll two, keep the
  * higher; disadvantage = keep the lower. Either side can spend momentum to push for advantage.
  */
+import { TRAIT_FX as FX } from '../career/tuning';
+import { anyRollMods, has } from './traits';
 import type { BodyPart, Move, MoveType } from '../data/rtr/types';
 import { exhaustionBand, moveDemand, staminaPercent, type ExhaustionBand } from './exhaustion';
 import { classCompatible, inferredClassCompatible, isHighRisk } from './interaction';
@@ -123,6 +125,8 @@ function counterSide(D: Side): Counter {
   momentum(mods, D);
   push(mods, 'Technician', D.w.classes.includes('TECHNICIAN') ? 1 : 0);
   push(mods, 'Booked to win', D.booked);
+  push(mods, 'Guarded', has(D, 'defensive') ? FX.defensive.counterDice : 0);
+  for (const m of anyRollMods(D)) push(mods, m.label, m.value);
   exhaustion(mods, D, false);
   if (D.hp.HEAD < 40) push(mods, 'Rattled (head)', D.hp.HEAD < 25 ? -3 : -2);
   push(mods, 'Bleeding', -D.bleeding);
@@ -153,11 +157,14 @@ export function moveContest(A: Side, D: Side, move: Move, target: TargetResoluti
   push(aMods, 'Their style', classCompatible(A, move) || inferredClassCompatible(A, move) ? 1 : 0);
   if (isFinisherMove(A, move)) push(aMods, 'Finisher', 2);
   else if (isSignatureMove(A, move)) push(aMods, 'Signature', 1);
-  if (isHighRisk(move)) push(aMods, 'High risk', -2);
+  if (isHighRisk(move)) push(aMods, 'High risk', has(A, 'risk_taker') ? FX.risk_taker.highRiskDice : -2);
   else if (move.impact >= 9) push(aMods, 'Big move', -1);
   else if (move.impact <= 3) push(aMods, 'Quick', 1);
   const hp = targetHp(D.hp, target);
   push(aMods, `${target.fullTag.toLowerCase()} worn (${Math.round(hp)})`, hp < 25 ? 3 : hp < 50 ? 2 : hp < 75 ? 1 : 0);
+  push(aMods, 'Methodical', has(A, 'methodical') && hp < FX.methodical.wornBelow ? FX.methodical.wornDice : 0);
+  push(aMods, 'Aggressive start', has(A, 'aggressive') && A.stats.movesTried < FX.aggressive.earlyMoves ? FX.aggressive.earlyDice : 0);
+  for (const m of anyRollMods(A)) push(aMods, m.label, m.value);
   push(aMods, 'Opponent down', isDown(D) ? 2 : 0);
   exhaustion(aMods, A, moveDemand(move, isSignatureMove(A, move)) === 'EXPLOSIVE');
   const limbs = limbsUsed(move);
@@ -186,6 +193,8 @@ export function setupContest(A: Side, D: Side, id: SetupId, S?: MatchState): { a
   const stat = id === 'taunt' ? 'charisma' : EXTRA_STAT[id] ?? (SKILL_SETUPS.has(id) ? 'skill' : 'strength');
   push(aMods, `${STAT_LABEL[stat]} ${A.w.stats[stat]}`, statMod(A.w.stats[stat]));
   push(aMods, 'Booked to win', A.booked);
+  push(aMods, 'Showboat', id === 'taunt' && has(A, 'showboat') ? FX.showboat.tauntDice : 0);
+  for (const m of anyRollMods(A)) push(aMods, m.label, m.value);
   momentum(aMods, A);
   const climb = CLIMBS.has(id);
   push(aMods, 'Opponent down', isDown(D) ? (climb ? 4 : 2) : 0);

@@ -1,4 +1,6 @@
 // Match of the Night's star rating, fed by the RtR engine's crowd stats.
+import { TRAIT_FX as FX } from '../career/tuning';
+import { has } from './traits';
 import { PART_LABEL, RATING } from '../data/commentary';
 import { fmtClock, format, other } from './commentary';
 import { clamp } from './rng';
@@ -102,7 +104,8 @@ export function rate(S: MatchState): Rating {
   if (how === 'dq') finish -= 0.4;
   if (how === 'stip' && mins >= 10) finish += 0.3;
   const length = mins < 6 ? -0.6 : mins < 10 ? -0.25 : mins <= 28 ? 0.2 : mins <= 35 ? 0 : -0.2;
-  const raw = 0.5 + crowd + structure + psych + drama + finish + spots + length + (S.rules.title ? 0.1 : 0);
+  const bigMatch = S.you.big && (has(S.you, 'big_match') || has(S.them, 'big_match')) ? FX.big_match.stars : 0;
+  const raw = 0.5 + crowd + structure + psych + drama + finish + spots + length + (S.rules.title ? 0.1 : 0) + bigMatch;
   const stars = clamp(Math.round(raw * 4) / 4, 0.25, 5);
   const story = structure + psych;
 

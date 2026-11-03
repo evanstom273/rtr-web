@@ -293,6 +293,60 @@ Per title per year, two years in three worlds:
 
 Over three years in three worlds, under the weekly cap, every one of the 15 indie titles gets at least 5 defences a year. None goes more than 90 days without one, not counting days its champion was injured. Indie cards average 0.3 title matches.
 
+## Traits
+
+Every wrestler has one to three traits, any mix of in-ring and backstage (catalogue in `data/rtr/traits.ts`). They shift chances; they never decide anything outright. Every number lives in `tuning.ts`: `TRAIT_FX` for in-ring traits, `TRAIT_BACKSTAGE` for backstage ones.
+
+**Conflicts** (Lyra's call): only Loyal/Mercenary, Professional/Rebellious and Team Player/Egotistical. Every other combination is allowed.
+
+**In the ring** (`engine/traits.ts`). The AI's choices are leaned by trait (`ai.ts`). These also apply to the side you control:
+- the dice, shown as chips: Guarded, Big match, On form / Off night, Showboat, Methodical, Aggressive start, and the cheaper high-risk roll;
+- kickouts and escapes (Resilient);
+- holds (Submission Specialist);
+- crowd heat (Risk Taker, Showboat, Crowd Pleaser);
+- the referee (Dirty Fighter);
+- momentum (Defensive) and stamina (Aggressive).
+
+A match is big for the Big-Match Performer when it's a title match, a special or flagship, a cup final or a farewell.
+
+**Calibration:** mirror matches, a wrestler against a copy of themselves with and without the trait (`npx vite-node scripts/trait-sim.ts 600`). Win-rate shifts before the last retune:
+
+| Trait | Win rate |
+| --- | --- |
+| Submission Specialist | +5.8 |
+| Methodical | +2.8 |
+| Resilient | +2.7 |
+| Showboat | +1.7 |
+| Inconsistent | +0.8 |
+| Opportunist | +0.5 |
+| Risk Taker | −0.3 (+0.12★) |
+| Dirty Fighter | −1.0 |
+| Crowd Pleaser | −0.8 (+0.05★) |
+| Defensive | −2.3 |
+| Aggressive | −4.2 |
+
+Noise is about ±2 points. Aggressive and Defensive got gentler downsides afterwards, and Big-Match Performer went to +2 dice in big matches, because +1 measured as nothing.
+
+**Backstage** (`career/leans.ts`, `career/personality.ts`):
+- AI contracts:
+  - Loyal renews more and is half as poachable;
+  - Mercenary the opposite;
+  - Ambitious leaves when stuck below the top third.
+- Simulated planned finishes are re-run more for Professional and Team Player losers, and less for Rebellious and Egotistical ones.
+- Your patience, trust, relationships and negotiations are adjusted by your own traits.
+
+**Getting traits (the player):**
+- What you do in matches you play, and your choices in events, contracts and requests, builds points towards traits. Points fade 15% a month.
+- At the bar, which is 100 and rises 50% for each trait held, a card offers it. You always confirm, even with a free slot; with three, you choose one to replace.
+- Offers are at least 180 days apart. A declined one can't come back for a year.
+- Buying in Training: £12,000 (£15,000 for Big-Match Performer and Crowd Pleaser), one every 90 days.
+- A created wrestler's starting trait comes from their life story.
+
+**The world's personalities:**
+- Checked about a quarter of wrestlers a month, with at most one change a year each, and only from circumstances: age, renewals, moves, long reigns, a young wrestler's breakthrough.
+- Each change is recorded in history.
+- Veterans with Mentor bring on a young wrestler near them: +1 a month to their weakest attribute, up to +4, and a mentor bond.
+
 ## Performance
 
 Two opt-in harnesses keep an eye on speed and save size:

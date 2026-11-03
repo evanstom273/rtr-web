@@ -38,6 +38,8 @@ export interface Bond {
   met: Day;
   last: Day;
   log: { day: Day; d: number; t: string }[];
+  /** Mentorship: attribute points the mentor has passed on so far. */
+  given?: number;
 }
 
 export interface People {

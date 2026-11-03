@@ -1,6 +1,7 @@
 // Requests: what you can ask bookers and promotions for, and how they answer (balance sheet section 13).
 // Every answer: hard noes first, then a yes chance from the request's factors and one roll, fixed per request
 // and day. Under the yes chance: yes. In the next band: a counter. Anything else: no.
+import { leanFrom, playerHas } from './leans';
 import { PROMOTIONS, TITLES, WRESTLERS, findWrestler, type Title, type Wrestler } from '../data/rtr';
 import { seededRng } from '../engine/rng';
 import { activeWorld } from '../world/world';
@@ -15,7 +16,7 @@ import { dayOff, indieAllowed, joinIndie } from './offers';
 import { movePatience, patienceOf, patienceWeek, showBooker } from './patience';
 import { trust, trustLabel } from './relations';
 import {
-  INDIE_PROMISE_ROLLS, REGIONAL_ELIGIBLE_DATES, REGIONAL_WINDOW_DAYS,
+  INDIE_PROMISE_ROLLS, REGIONAL_ELIGIBLE_DATES, REGIONAL_WINDOW_DAYS, TRAIT_BACKSTAGE,
   ASK_COUNTER_BAND, ASK_FORM_PER_RESULT, ASK_PATIENCE_DIVISOR, ASK_REP_DIVISOR, ASK_SPOT_BASE_PCT, ASK_SPOT_MAX_PCT, BOOK_AHEAD_DAYS,
   CAUGHT_CHANCE, CAUGHT_CHANCE_SAME_REGION, CAUGHT_DAYS, CHALLENGE_BASE, CHALLENGE_CHAMPION, CHALLENGE_IN_FEUD, CHALLENGE_PER_POP_ABOVE,
   COOLDOWN_CHALLENGE, COOLDOWN_MORE, COOLDOWN_PROMOTION, COOLDOWN_TITLE, CREATIVE_T1_CHANGE, CREATIVE_T2_COOLDOWN_DAYS, INDIE_CH_ALLOWED,
@@ -45,7 +46,14 @@ export const formLine = (c: Career): string => {
   return last.length ? `${w}–${l}` : 'No matches yet';
 };
 
-const roll = (c: Career, key: string): number => seededRng(hashSeed(c.seed, 'ask', key, c.today))() * 100;
+const roll = (c: Career, key: string): number => {
+  const r = seededRng(hashSeed(c.seed, 'ask', key, c.today));
+  const base = r() * 100;
+  // Unpredictable: how they take it is harder to call, either way.
+  return playerHas(c, 'unpredictable') ? base + (r() * 2 - 1) * TRAIT_BACKSTAGE.unpredictable.askJitter : base;
+};
+/** Title asks: the ambitious and the egotistical push harder for them. */
+const titleLean = (c: Career): number => (playerHas(c, 'ambitious') ? TRAIT_BACKSTAGE.ambitious.titleAsk : 0) + (playerHas(c, 'egotistical') ? TRAIT_BACKSTAGE.egotistical.titleAsk : 0);
 const outcome = (chance: number, r: number): 'yes' | 'counter' | 'no' => (r < chance ? 'yes' : r < chance + ASK_COUNTER_BAND ? 'counter' : 'no');
 
 /** Who a booker key is, for people: a booker's name and promotion, an indie promoter's show, or a promotion. */
@@ -60,6 +68,12 @@ export const bookerName = (key: string): string => {
 function record(c: Career, a: Omit<Ask, 'id' | 'day' | 'status' | 'toName'> & { status?: Ask['status'] }): Ask {
   const full: Ask = { id: `q${++c.seq}`, day: c.today, toName: bookerName(a.to), status: a.status ?? (a.answer === 'counter' ? 'open' : 'closed'), ...a };
   (c.asks ??= []).unshift(full);
+  if (a.kind === 'title') {
+    leanFrom(c, 'title_ask');
+    if (a.answer === 'no' && playerHas(c, 'ambitious')) movePatience(c, a.to, TRAIT_BACKSTAGE.ambitious.refused, 'Took the no badly');
+  }
+  if (a.kind === 'approach' || a.kind === 'tryout') leanFrom(c, 'approach');
+  if (a.kind === 'release') leanFrom(c, 'release');
   if (c.asks.length > 100) c.asks.length = 100;
   return full;
 }
@@ -137,7 +151,7 @@ export function previewTitle(c: Career, titleId: string): Preview {
             : !t.holder ? 'The title’s vacant.'
               : !rank || rank > TITLE_ASK_BY_RANK.length ? `You’re not in the picture: ${rank ? `#${rank}` : 'not ranked'} in line.` : null;
   const base = rank ? TITLE_ASK_BY_RANK[rank - 1] ?? 0 : 0;
-  const chance = base + repPoints(c) + formPoints(c) + (TITLE_ASK_CLAUSE[tier] ?? 0) + (promo ? patiencePoints(c, promo) : 0);
+  const chance = base + repPoints(c) + formPoints(c) + (TITLE_ASK_CLAUSE[tier] ?? 0) + (promo ? patiencePoints(c, promo) : 0) + titleLean(c);
   return {
     hard, chance, nag: cooldownLeft(c, 'title', COOLDOWN_TITLE),
     stand: [['Contender', rank ? `#${rank}` : '—'], ['Popularity', `${Math.round(regionalPop(me(c), promoRegion(promo ?? 'VWF')))}`], ['Reputation', `${Math.round(p.rep)}`],
@@ -254,7 +268,7 @@ export function previewIndieTitle(c: Career, titleId: string, showId: string): P
                   : !t.holder ? 'The title’s vacant.'
                     : show.date < due ? `Not due again until ${fmtDay(due, 'dm')}: pick a show from then.`
                       : !rank || rank > TITLE_ASK_BY_RANK.length ? `You’re not in the picture: ${rank ? `#${rank}` : 'not ranked'} in line.` : null;
-  const chance = (rank ? TITLE_ASK_BY_RANK[rank - 1] ?? 0 : 0) + repPoints(c) + formPoints(c) + patiencePoints(c, promoter) + trustPoints(c, promoter);
+  const chance = (rank ? TITLE_ASK_BY_RANK[rank - 1] ?? 0 : 0) + repPoints(c) + formPoints(c) + patiencePoints(c, promoter) + trustPoints(c, promoter) + titleLean(c);
   return {
     hard, chance, nag: cooldownLeft(c, 'title', COOLDOWN_TITLE),
     stand: [['Contender', rank ? `#${rank}` : '—'], ['Popularity', show ? `${Math.round(regionalPop(me(c), show.region))}` : '—'], ['Reputation', `${Math.round(p.rep)}`],
@@ -537,7 +551,7 @@ export function maybeCaught(c: Career, promo: string): boolean {
   if (!mine) return false;
   if (seededRng(hashSeed(c.seed, 'caught', promo, c.today))() >= caughtChance(c, promo)) return false;
   c.heat = { promo: mine, until: addDays(c.today, CAUGHT_DAYS) };
-  movePatience(c, mine, PATIENCE_CAUGHT, `Heard you’d been talking to ${promo}`);
+  movePatience(c, mine, PATIENCE_CAUGHT * (playerHas(c, 'loyal') ? TRAIT_BACKSTAGE.loyal.caught : 1), `Heard you’d been talking to ${promo}`);
   letter(c, { kind: 'contract', from: promoName(mine), subject: `We hear you’ve been talking to ${promo}`,
     body: [`Word gets around. For the next ${CAUGHT_DAYS} days you’ll get fewer dates, and you’ll be lower on the card.`] });
   return true;
@@ -695,6 +709,7 @@ export function answerCounter(c: Career, askId: string, accept: boolean): string
   if (!a || a.status !== 'open' || !a.counter) return 'That’s been dealt with.';
   a.status = 'closed';
   if (!accept) {
+    leanFrom(c, 'declined_counter');
     movePatience(c, a.to, PATIENCE_DECLINE_COUNTER, `Turned down their counter (${a.what})`);
     a.then = `You turned it down: ${bookerName(a.to)} patience ${PATIENCE_DECLINE_COUNTER}.`;
     return 'Turned down.';
@@ -712,7 +727,8 @@ export function answerCounter(c: Career, askId: string, accept: boolean): string
     if (show && show.promo === 'TIS' && !c.indie[show.id]) joinIndie(c, show, indieFee(me(c), show.region), travelCost(me(c).country, show.country));
     pledge(c, { ...k.pledge, ask: a.id });
   }
-  movePatience(c, a.to, PATIENCE_TOOK_COUNTER, `Took their counter (${a.what})`);
+  leanFrom(c, 'took_counter');
+  movePatience(c, a.to, PATIENCE_TOOK_COUNTER + (playerHas(c, 'team_player') ? TRAIT_BACKSTAGE.team_player.tookCounter : 0), `Took their counter (${a.what})`);
   a.then = k.kind === 'tryout' ? 'You took the tryout.' : 'You took it.';
   return 'Done. It’s booked.';
 }
@@ -758,7 +774,9 @@ function afterMine(c: Career, show: Show, bout: Bout, m: PlayerMatch): void {
   const key = showBooker(show);
   if (m.planned === 'off-script') movePatience(c, key, PATIENCE_OFF_SCRIPT, `Went off-script on ${show.name}`);
   else if (m.planned === 'botched') movePatience(c, key, PATIENCE_BOTCHED, `Didn’t deliver the planned finish on ${show.name}`);
-  else if (m.planned === 'kept' && bout.title) movePatience(c, key, PATIENCE_FOLLOWED_PLAN, `Followed the plan on ${show.name}`);
+  else if (m.planned === 'kept' && bout.title) movePatience(c, key, PATIENCE_FOLLOWED_PLAN * (playerHas(c, 'professional') ? TRAIT_BACKSTAGE.professional.followedPlan : 1), `Followed the plan on ${show.name}`);
+  // Reliable: every few dates worked, the booker notices you always turn up.
+  if (playerHas(c, 'reliable') && c.history.length % TRAIT_BACKSTAGE.reliable.datesPerPatience === 0) movePatience(c, key, 1, 'Always turns up');
   if (m.stars >= PATIENCE_GOOD_MATCH_STARS) movePatience(c, key, PATIENCE_GOOD_MATCH, `${m.stars}★ on ${show.name}`);
   if (bout.earn) {
     const t = TITLES.find((x) => x.id === bout.earn);
