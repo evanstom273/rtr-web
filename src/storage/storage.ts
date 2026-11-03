@@ -8,6 +8,13 @@ export const store = {
       return fallback;
     }
   },
+  remove(key: string): void {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      /* ignore */
+    }
+  },
   set(key: string, value: unknown): void {
     try {
       localStorage.setItem(key, JSON.stringify(value));

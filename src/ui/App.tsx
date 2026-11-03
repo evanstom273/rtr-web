@@ -1,22 +1,21 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { fmtClock, MatchEngine } from '../engine';
 import { addHit, loadHits, type Hit } from '../storage/greatestHits';
 import { useBackLayer } from './backStack';
 import { LeavePrompt } from './overlays/LeavePrompt';
 import { Match } from './screens/Match';
 import { Result } from './screens/Result';
-import { loadBuilder, saveBuilder, type BuilderState } from './builder/state';
+import { freshBuilder, type BuilderState } from './builder/state';
 import { Builder } from './screens/Builder';
 
 type Screen = { name: 'setup' } | { name: 'match'; engine: MatchEngine } | { name: 'result'; engine: MatchEngine };
 
 export function App() {
-  const [builder, setBuilder] = useState<BuilderState>(loadBuilder);
+  const [builder, setBuilder] = useState<BuilderState>(freshBuilder);
   const [screen, setScreen] = useState<Screen>({ name: 'setup' });
   const [hits, setHits] = useState<Hit[]>(() => loadHits());
   const saved = useRef(new Set<number>());
 
-  useEffect(() => saveBuilder(builder), [builder]);
 
   const startMatch = useCallback(() => {
     const you = builder.teams.A[0], them = builder.teams.B[0];
