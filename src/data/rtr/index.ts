@@ -3,9 +3,11 @@ import promotionsJson from './promotions.json';
 import titlesJson from './titles.json';
 import weaponsJson from './weapons.json';
 import wrestlersJson from './wrestlers.json';
-import type { Move, Promotion, Title, Weapon, Wrestler } from './types';
+import bookersJson from './bookers.json';
+import type { Move, Promotion, Staffer, Title, Weapon, Wrestler } from './types';
 
 export * from './types';
+export * from './traits';
 
 export const MOVES = movesJson as Move[];
 export const WEAPONS = weaponsJson as Weapon[];
@@ -34,7 +36,13 @@ export function shippedDatabase(): Database {
   });
 }
 
-const shippedIds = new Set((wrestlersJson as Wrestler[]).map((w) => w.id));
+const shippedById = new Map((wrestlersJson as Wrestler[]).map((w) => [w.id, w]));
+const shippedIds = new Set(shippedById.keys());
+/** A shipped wrestler as the game ships them (read-only), for migrations. */
+export const shippedWrestler = (id: string): Readonly<Wrestler> | undefined => shippedById.get(id);
+
+/** The promotions' bookers as the game ships them (a fresh copy). */
+export const shippedStaff = (): Staffer[] => structuredClone(bookersJson as Staffer[]);
 /** Ships with the game (so a fresh world has them); generated and created wrestlers don't. */
 export const isShippedWrestler = (id: string): boolean => shippedIds.has(id);
 

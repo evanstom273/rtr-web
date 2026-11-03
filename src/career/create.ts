@@ -1,6 +1,8 @@
 // Create-a-wrestler rules (the Mount & Blade-style life story) and moveset templates. The create
 // screens use these, and so do generated rookies, so a rookie is built exactly like you are.
-import { MOVES, type Attributes, type Move, type MoveType, type Wrestler, type WrestlerClass } from '../data/rtr';
+import { MOVES, rollCount, rollTraits, type Attributes, type Move, type MoveType, type TraitId, type Wrestler, type WrestlerClass } from '../data/rtr';
+import { wrestlerGimmick, wrestlerName } from '../data/rtr/names';
+import { CITIES } from './places';
 import type { Rng } from '../engine/rng';
 
 export const ATTR_KEYS: (keyof Attributes)[] = ['strength', 'speed', 'stamina', 'skill', 'striking', 'charisma'];
@@ -62,6 +64,33 @@ export const QUESTIONS: Question[] = [
     { t: 'Hosting a local wrestling podcast', d: 'Hours of talking about wrestling. Now do it on the mic.', mods: [0, 0, -3, 3, 0, 5] },
   ] },
 ];
+
+/**
+ * What each life-story answer says about your personality, by question then answer: the first trait
+ * counts double. A created wrestler starts with the trait their story points to most (Lyra's call).
+ */
+export const STORY_TRAITS: TraitId[][][] = [
+  [['resilient', 'reliable'], ['aggressive', 'hot_headed'], ['showboat', 'crowd_pleaser'], ['methodical', 'submission_specialist'], ['professional', 'reliable']],
+  [['submission_specialist', 'methodical'], ['defensive', 'aggressive'], ['risk_taker', 'ambitious'], ['showboat', 'crowd_pleaser'], ['opportunist', 'unpredictable']],
+  [['professional', 'resilient'], ['risk_taker', 'crowd_pleaser'], ['risk_taker', 'dirty_fighter'], ['methodical', 'big_match'], ['aggressive', 'resilient']],
+  [['egotistical', 'ambitious'], ['loyal', 'politician'], ['hot_headed', 'aggressive'], ['mercenary'], ['team_player', 'crowd_pleaser']],
+  [['hot_headed', 'dirty_fighter'], ['risk_taker', 'resilient'], ['team_player', 'reliable'], ['egotistical', 'aggressive'], ['politician', 'showboat']],
+];
+
+/** The trait a life story points to: the highest score, the earliest answer winning a tie. */
+export function storyTrait(answers: (number | null)[]): TraitId {
+  const score = new Map<TraitId, number>();
+  let best: TraitId = 'reliable', top = -1;
+  answers.forEach((a, q) => {
+    if (a === null) return;
+    (STORY_TRAITS[q]?.[a] ?? []).forEach((t, i) => {
+      const v = (score.get(t) ?? 0) + (i === 0 ? 2 : 1);
+      score.set(t, v);
+      if (v > top) { top = v; best = t; }
+    });
+  });
+  return best;
+}
 
 /** Two classes average their modifiers rather than stacking them. */
 export function classMods(classes: WrestlerClass[]): number[] {
@@ -125,27 +154,24 @@ export function makeRookie(rnd: Rng, roster: readonly Wrestler[], id: string): W
   const pickOne = <T>(xs: readonly T[]): T => xs[Math.floor(rnd() * xs.length)]!;
   const model = pickOne(roster);
   const country = model.country;
-  const sameCountry = roster.filter((w) => w.country === country && w.gender === model.gender && !/["“]/.test(w.name));
-  const pool = sameCountry.length >= 2 ? sameCountry : roster.filter((w) => w.gender === model.gender && !/["“]/.test(w.name));
-  const first = pickOne(pool).name.split(' ')[0]!;
-  const lastSrc = pickOne(pool).name.split(' ');
-  const last = lastSrc.length > 1 ? lastSrc.slice(1).join(' ') : lastSrc[0]!;
-  const taken = new Set(roster.map((w) => w.name));
-  let name = `${first} ${last}`;
-  if (taken.has(name)) name = `${first} ${pickOne(pool).name.split(' ').slice(-1)[0]}`;
+  const name = wrestlerName(rnd, country, model.gender, new Set(roster.map((w) => w.name)));
   const classes: WrestlerClass[] = rnd() < 0.5 ? [pickOne(CLASS_ORDER)] : (() => { const a = pickOne(CLASS_ORDER); let b = pickOne(CLASS_ORDER); while (b === a) b = pickOne(CLASS_ORDER); return [a, b]; })();
   const answers = QUESTIONS.map((q) => Math.floor(rnd() * q.a.length));
   const stats = startingAttributes(classes, answers);
   const kit = templateMoveset(classes, stats, rnd);
-  const gimmicks = roster.map((w) => w.gimmick).filter(Boolean);
-  return {
-    id, wrestlerId: 0, name, gimmick: pickOne(gimmicks), gimmickDescription: 'A rookie fresh out of training.',
-    classes, gender: model.gender, disposition: rnd() < 0.5 ? 'FACE' : 'HEEL', age: 19 + Math.floor(rnd() * 6),
+  const heel = rnd() < 0.5;
+  const city = CITIES[country]?.length ? pickOne(CITIES[country]!) : undefined;
+  const gimmick = wrestlerGimmick(rnd, classes, heel, city, new Set(roster.map((w) => w.gimmick)));
+  const w: Wrestler = {
+    id, wrestlerId: 0, name, gimmick, gimmickDescription: 'A rookie fresh out of training.',
+    classes, gender: model.gender, disposition: heel ? 'HEEL' : 'FACE', age: 19 + Math.floor(rnd() * 6),
     height: model.height, weight: model.weight, region: model.region, regionLabel: model.regionLabel, country,
     promotion: 'TIS', division: model.division, stats,
     popularity: { global: 5, northAmerica: 5, southAmerica: 5, europe: 5, asia: 5, africa: 5, oceania: 5, [regionKeyOf(model.region)]: 10 },
     ...kit,
   };
+  w.traits = rollTraits(w, rnd, rollCount(rnd));
+  return w;
 }
 
 const regionKeyOf = (r: string): string =>

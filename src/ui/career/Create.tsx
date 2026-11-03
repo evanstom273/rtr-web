@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { WRESTLERS, getMove, type MoveType, type Wrestler, type WrestlerClass } from '../../data/rtr';
 import { seededRng } from '../../engine/rng';
 import {
-  ATTR_KEYS, ATTR_LONG, ATTR_SHORT, BASE, CLASS_MODS, CLASS_NAME, CLASS_ORDER, QUESTIONS, classMods, historyMods, startingAttributes, templateMoveset,
+  ATTR_KEYS, ATTR_LONG, ATTR_SHORT, BASE, CLASS_MODS, CLASS_NAME, CLASS_ORDER, QUESTIONS, classMods, historyMods, startingAttributes, storyTrait, templateMoveset,
 } from '../../career/create';
 import { REGION_OF } from '../../career/places';
 import { MovesetEditor, type Kit } from './MovesetEditor';
@@ -77,6 +77,7 @@ export function Create({ hasCareer, onBack, onDone }: Props) {
       classes: cls, gender, disposition: align, age, height: `${Math.floor(h / 12)}'${h % 12}`, weight: wt, region: regionKey, regionLabel, country,
       promotion: 'TIS', division: gender === 'MALE' ? 'MENS' : 'WOMENS', stats, popularity: pop as Wrestler['popularity'],
       moves: kit.moves as string[], signatures: kit.signatures as string[], finishers: kit.finishers as string[],
+      traits: [storyTrait(ans)],
     };
   };
   const next = () => {

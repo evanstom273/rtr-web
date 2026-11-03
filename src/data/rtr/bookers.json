@@ -1,0 +1,324 @@
+[
+ {
+  "id": "st_dale_whitcombe",
+  "name": "Dale Whitcombe",
+  "born": "1971-03-14",
+  "country": "USA",
+  "gender": "MALE",
+  "background": "wrestler",
+  "traits": [
+   "professional",
+   "politician"
+  ],
+  "rep": 74,
+  "job": {
+   "kind": "booker",
+   "promo": "VWF"
+  },
+  "spells": [
+   {
+    "job": {
+     "kind": "booker",
+     "promo": "SSWC"
+    },
+    "from": "2011-02-01",
+    "to": "2014-08-30",
+    "why": "hired",
+    "end": "quit"
+   },
+   {
+    "job": {
+     "kind": "booker",
+     "promo": "VWF"
+    },
+    "from": "2019-06-03",
+    "to": null,
+    "why": "hired"
+   }
+  ],
+  "bio": "Wrestled fifteen years under a mask nobody remembers. Has booked VWF like a television show ever since."
+ },
+ {
+  "id": "st_colette_arsenault",
+  "name": "Colette Arsenault",
+  "born": "1978-09-02",
+  "country": "Canada",
+  "gender": "FEMALE",
+  "background": "promoter",
+  "traits": [
+   "reliable",
+   "mentor"
+  ],
+  "rep": 68,
+  "job": {
+   "kind": "booker",
+   "promo": "TCG"
+  },
+  "spells": [
+   {
+    "job": {
+     "kind": "booker",
+     "promo": "TCG"
+    },
+    "from": "2021-01-11",
+    "to": null,
+    "why": "hired"
+   }
+  ],
+  "bio": "Ran a Moncton indie out of a curling rink for a decade before TCG came calling. Still answers every email."
+ },
+ {
+  "id": "st_aurelio_cardenas",
+  "name": "Aurelio Cárdenas",
+  "born": "1962-12-08",
+  "country": "Mexico",
+  "gender": "MALE",
+  "background": "wrestler",
+  "traits": [
+   "loyal",
+   "hot_headed"
+  ],
+  "rep": 81,
+  "job": {
+   "kind": "booker",
+   "promo": "SLN"
+  },
+  "spells": [
+   {
+    "job": {
+     "kind": "booker",
+     "promo": "SLN"
+    },
+    "from": "2012-05-20",
+    "to": null,
+    "why": "hired"
+   }
+  ],
+  "bio": "Third generation of a lucha family and forty years in Arena SLN. Shouts first, books second."
+ },
+ {
+  "id": "st_gareth_pennington",
+  "name": "Gareth Pennington",
+  "born": "1975-07-21",
+  "country": "UK",
+  "gender": "MALE",
+  "background": "media",
+  "traits": [
+   "ambitious",
+   "unpredictable"
+  ],
+  "rep": 63,
+  "job": {
+   "kind": "booker",
+   "promo": "END"
+  },
+  "spells": [
+   {
+    "job": {
+     "kind": "booker",
+     "promo": "IVW"
+    },
+    "from": "2015-03-02",
+    "to": "2020-08-28",
+    "why": "hired",
+    "end": "poached"
+   },
+   {
+    "job": {
+     "kind": "booker",
+     "promo": "END"
+    },
+    "from": "2020-09-07",
+    "to": null,
+    "why": "hired"
+   }
+  ],
+  "bio": "A commentator who talked his way into booking. Nobody, him included, knows what next week looks like."
+ },
+ {
+  "id": "st_sabine_hartmann",
+  "name": "Sabine Hartmann",
+  "born": "1980-04-30",
+  "country": "Germany",
+  "gender": "FEMALE",
+  "background": "business",
+  "traits": [
+   "professional",
+   "egotistical"
+  ],
+  "rep": 66,
+  "job": {
+   "kind": "booker",
+   "promo": "IVW"
+  },
+  "spells": [
+   {
+    "job": {
+     "kind": "booker",
+     "promo": "IVW"
+    },
+    "from": "2020-10-05",
+    "to": null,
+    "why": "hired"
+   }
+  ],
+  "bio": "Came from concert promotion and runs IVW to the minute. Takes credit for the good weeks."
+ },
+ {
+  "id": "st_masahiro_kuroda",
+  "name": "Masahiro Kuroda",
+  "born": "1966-01-17",
+  "country": "Japan",
+  "gender": "MALE",
+  "background": "wrestler",
+  "traits": [
+   "loyal",
+   "mentor",
+   "professional"
+  ],
+  "rep": 86,
+  "job": {
+   "kind": "booker",
+   "promo": "NWGP"
+  },
+  "spells": [
+   {
+    "job": {
+     "kind": "booker",
+     "promo": "NWGP"
+    },
+    "from": "2008-04-01",
+    "to": null,
+    "why": "hired"
+   }
+  ],
+  "bio": "A former NWGP champion who trained half the current roster in the dojo. Has never worked anywhere else."
+ },
+ {
+  "id": "st_zhang_wenbo",
+  "name": "Zhang Wenbo",
+  "born": "1974-11-03",
+  "country": "China",
+  "gender": "MALE",
+  "background": "business",
+  "traits": [
+   "politician",
+   "mercenary"
+  ],
+  "rep": 70,
+  "job": {
+   "kind": "booker",
+   "promo": "ZWA"
+  },
+  "spells": [
+   {
+    "job": {
+     "kind": "booker",
+     "promo": "ZWA"
+    },
+    "from": "2017-03-13",
+    "to": null,
+    "why": "hired"
+   }
+  ],
+  "bio": "Built ZWA’s television deal and never lets anyone forget it. Knows exactly what everyone costs."
+ },
+ {
+  "id": "st_losa_tuimavave",
+  "name": "Losa Tuimavave",
+  "born": "1979-06-12",
+  "country": "Samoa",
+  "gender": "FEMALE",
+  "background": "wrestler",
+  "traits": [
+   "team_player",
+   "reliable"
+  ],
+  "rep": 64,
+  "job": {
+   "kind": "booker",
+   "promo": "UFC"
+  },
+  "spells": [
+   {
+    "job": {
+     "kind": "booker",
+     "promo": "UFC"
+    },
+    "from": "2018-02-05",
+    "to": null,
+    "why": "hired"
+   }
+  ],
+  "bio": "Wrestled for UFC in its first shows on the beach at Apia. Books it like a family business, because it is one."
+ },
+ {
+  "id": "st_ricardo_albuquerque",
+  "name": "Ricardo Albuquerque",
+  "born": "1969-08-25",
+  "country": "Brazil",
+  "gender": "MALE",
+  "background": "promoter",
+  "traits": [
+   "mercenary",
+   "hot_headed",
+   "unpredictable"
+  ],
+  "rep": 61,
+  "job": {
+   "kind": "booker",
+   "promo": "SSWC"
+  },
+  "spells": [
+   {
+    "job": {
+     "kind": "booker",
+     "promo": "SLN"
+    },
+    "from": "2009-01-12",
+    "to": "2012-05-11",
+    "why": "hired",
+    "end": "fired"
+   },
+   {
+    "job": {
+     "kind": "booker",
+     "promo": "SSWC"
+    },
+    "from": "2016-01-18",
+    "to": null,
+    "why": "hired"
+   }
+  ],
+  "bio": "Fired by SLN, hired by SSWC within the month. Volatile, expensive, and very good at selling tickets."
+ },
+ {
+  "id": "st_hoda_mansour",
+  "name": "Hoda Mansour",
+  "born": "1977-02-09",
+  "country": "Egypt",
+  "gender": "FEMALE",
+  "background": "media",
+  "traits": [
+   "ambitious",
+   "rebellious"
+  ],
+  "rep": 58,
+  "job": {
+   "kind": "booker",
+   "promo": "AAWA"
+  },
+  "spells": [
+   {
+    "job": {
+     "kind": "booker",
+     "promo": "AAWA"
+    },
+    "from": "2022-07-04",
+    "to": null,
+    "why": "hired"
+   }
+  ],
+  "bio": "A sports journalist who wrote that AAWA was badly booked, and was offered the job. Still argues with the owners."
+ }
+]

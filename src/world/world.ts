@@ -1,14 +1,20 @@
 // The world: the one save shared by exhibition and career (Wrestling Empire style). It holds the live
 // database plus, once a career is running, everything the career tracks. Kept in IndexedDB; if that's
 // unavailable the world lives in memory for the session.
-import { PROMOTIONS, TITLES, WRESTLERS, applyDatabase, databaseChanged, shippedDatabase, type Database } from '../data/rtr';
+import { PROMOTIONS, TITLES, WRESTLERS, applyDatabase, databaseChanged, rollCount, rollTraits, shippedDatabase, shippedWrestler, type Database, type Wrestler } from '../data/rtr';
+import { hashSeed, seededRng } from '../engine/rng';
 import { tx } from '../storage/db';
 import type { Career } from '../career/types';
 import { weekStart, type Day } from '../career/dates';
 import { emptyHistory, type WorldHistory } from './history';
 
+/** The world save's revision: each step in `upgrade` runs once, in order, on older saves. */
+export const WORLD_REV = 2;
+
 export interface World {
   v: 1;
+  /** Which upgrade steps this save has had (missing: 1, from before revisions). */
+  rev?: number;
   /** Seeds everything the world rolls, so a day plays out the same if it's replayed. */
   seed: number;
   createdAt: number;
@@ -28,7 +34,7 @@ let active: World | null = null;
 let persistent = true;
 
 export function freshWorld(seed = Math.floor(Math.random() * 2 ** 31)): World {
-  return { v: 1, seed, createdAt: Date.now(), db: shippedDatabase(), career: null, history: emptyHistory(), day: null };
+  return { v: 1, rev: WORLD_REV, seed, createdAt: Date.now(), db: shippedDatabase(), career: null, history: emptyHistory(), day: null };
 }
 
 /** Make `w` the active world. Its database becomes the live one everything reads. */
@@ -52,6 +58,23 @@ function upgrade(w: World): void {
     }
   }
   if (w.day === undefined) w.day = w.career?.today ?? null;
+  const rev = w.rev ?? 1;
+  if (rev < 2) giveTraits(w);
+  w.rev = WORLD_REV;
+}
+
+/**
+ * Rev 2: everyone gets their traits. Shipped wrestlers get the ones they ship with; anyone else (rookies,
+ * created wrestlers) rolls them from their style, the same for this world every time.
+ */
+export function giveTraits(w: World): void {
+  for (const x of w.db.wrestlers) {
+    if (x.traits?.length) continue;
+    const shipped = shippedWrestler(x.id)?.traits;
+    if (shipped?.length) { x.traits = [...shipped]; continue; }
+    const rnd = seededRng(hashSeed(w.seed, 'traits', x.id));
+    x.traits = rollTraits(x as Wrestler, rnd, x.id.startsWith('custom_') ? 1 : rollCount(rnd));
+  }
 }
 
 /** The world has been played in: it has a history, or a career has been through it. */

@@ -1,4 +1,5 @@
 // Types for content imported from the Godot project (scripts/import-godot.mjs).
+import type { TraitId } from './traits';
 // Enum string values mirror the GDScript enum names exactly.
 
 export type Position = 'NONE' | 'STANDING' | 'GROUNDED' | 'SEATED' | 'KNEELING' | 'PERCHED' | 'CLIMBING';
@@ -102,6 +103,38 @@ export interface Wrestler {
   moves: string[];
   signatures: string[];
   finishers: string[];
+  /** Personality: one to three traits (data/rtr/traits.ts). Missing on saves from before traits. */
+  traits?: TraitId[];
+}
+
+/** A job behind the curtain: booking a promotion, or running an indie brand. */
+export type Job = { kind: 'booker'; promo: string } | { kind: 'promoter'; brand: string };
+export type SpellWhy = 'start' | 'hired' | 'founded' | 'promoted' | 'fired' | 'quit' | 'poached' | 'retired' | 'closed';
+/** One stretch in a job: from, to (null while it's still going), and how it began or ended. */
+export interface Spell { job: Job; from: string; to: string | null; why?: SpellWhy; end?: SpellWhy }
+
+/**
+ * Someone who runs things: a promotion's booker or an indie promoter. One identity for life: their
+ * name, traits and relationships stay with them through every job. A wrestler who turns booker keeps
+ * their wrestler id.
+ */
+export interface Staffer {
+  id: string;
+  name: string;
+  /** 'YYYY-MM-DD'. */
+  born: string;
+  country: string;
+  gender: Gender;
+  background: 'wrestler' | 'promoter' | 'trainer' | 'media' | 'business';
+  /** Backstage traits only. */
+  traits: TraitId[];
+  /** Standing in the business, 0–100. */
+  rep: number;
+  job: Job | null;
+  spells: Spell[];
+  /** A line about them. */
+  bio: string;
+  retired?: string;
 }
 
 export interface Promotion {
@@ -121,6 +154,8 @@ export interface Title {
   /** The holder's wrestler id (global, so a champion who moves promotion is still found); null = vacant. */
   holder: string | null;
   weeksHeld: number;
+  /** Regional indie titles: the region they're defended in ('EUROPE'…, the same convention as Promotion.region). */
+  region?: string;
 }
 
 export type WeaponKind = 'HANDHELD' | 'TABLE' | 'LADDER' | 'THUMBTACKS';
