@@ -8,6 +8,7 @@ import './specials';
 import './worldEvents';
 import './indieScene';
 import './personality';
+import './staff';
 
 export * from './career';
 export * from './contracts';
@@ -24,3 +25,4 @@ export { drawCalendar } from './calendar';
 export { CLAUSES, C, BUDGET, attitude } from './clauses';
 export { trainingPrice, attributeTotal, contractFee, indieFee, matchPay, travelCost } from './economy';
 export { buyBlock, buyTrait, offerAt, offerDue, traitPrice, lean } from './personality';
+export { handover, promisesOnHandover } from './staff';

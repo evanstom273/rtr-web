@@ -105,7 +105,9 @@ describe('indie booking', () => {
     const idle = WRESTLERS.filter((w) => w.promotion === 'TIS' && !dates.has(w.id) && w.id !== c.player);
     for (const w of idle) {
       const p = c.people[w.id];
+      const joined = H.events.some((e) => e.who === w.id && (e.kind === 'released' || e.kind === 'expired' || e.kind === 'debut') && e.day >= since);
       const why = p?.retired || (p?.injury && p.injury.until >= since) || (p?.last && p.last >= since) // worked a promotion date, or injured
+        || joined // only on the indies for part of the window
         || w.popularity.global < 15; // a low-popularity unknown: plausible to struggle for dates
       expect(!!why, `${w.name} (${w.region}, pop ${w.popularity.global}) had no dates in 120 days for no reason`).toBe(true);
     }

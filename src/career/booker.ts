@@ -1,4 +1,5 @@
 // The AI bookers: who wrestles on each card, title defences, feuds and planned finishes.
+import { changeLean, contenderBias, stipMult, titleBooker } from './bookerLeans';
 import { contenderLean } from './leans';
 import { PROMOTIONS, TITLES, findWrestler, type Title, type Wrestler } from '../data/rtr';
 import type { StipulationId } from '../engine/types';
@@ -8,7 +9,7 @@ import { NEIGHBOURS, REGION_KEY } from './places';
 import { activeWorld } from '../world/world';
 import { bondOf } from '../world/people';
 import {
-  CARD_SIZE, CIRCUIT_DAYS, REGIONAL_CONTENDER_PER_DATE, REGIONAL_DEFENCE_CHANCE, REGIONAL_DEFENCE_OVERDUE, REGIONAL_ELIGIBLE_DATES, REGIONAL_WINDOW_DAYS, CONTENDER_T1_BONUS, INDIE_CHAMP_DRAW, INDIE_PICK_BOND_WEIGHT, INDIE_PICK_REP_WEIGHT, INDIE_REGION_WEIGHT, INDIE_TITLE_BOUTS_MAX, FEUD_WEEKS, INDIE_DEFENCE_CHANCE, INDIE_DEFENCE_OVERDUE, FEUDS_PER_PROMOTION, INTERGENDER_CHANCE,
+  CARD_SIZE, CIRCUIT_DAYS, PLEDGE_LOG_MAX, REGIONAL_CONTENDER_PER_DATE, REGIONAL_DEFENCE_CHANCE, REGIONAL_DEFENCE_OVERDUE, REGIONAL_ELIGIBLE_DATES, REGIONAL_WINDOW_DAYS, CONTENDER_T1_BONUS, INDIE_CHAMP_DRAW, INDIE_PICK_BOND_WEIGHT, INDIE_PICK_REP_WEIGHT, INDIE_REGION_WEIGHT, INDIE_TITLE_BOUTS_MAX, FEUD_WEEKS, INDIE_DEFENCE_CHANCE, INDIE_DEFENCE_OVERDUE, FEUDS_PER_PROMOTION, INTERGENDER_CHANCE,
   CAUGHT_BOOK_MULT, INTERGENDER_CHANCE_INDIE, SCHEDULE_T2_MAX_PER_MONTH, STIP_CHANCE, TITLE_CHANGE_MAX, TITLE_CHANGE_PER_REIGN_YEAR,
   TITLE_PLANNED_CHANGE, TITLE_RHYTHM, TRUST_HIGH, TRUST_LOW, TRUST_RETAIN_SWING_HIGH, TRUST_RETAIN_SWING_LOW, type TitleClass,
 } from './tuning';
@@ -167,7 +168,8 @@ export function planRetain(c: Career, titleId: string, day: Day): number {
  * you (or not onto you); one who trusts you leans the other way.
  */
 function planRetainWith(c: Career, titleId: string, show: Show, champ: string, challenger: string): number {
-  let r = planRetain(c, titleId, show.date);
+  // The booker's personality: the rebellious and the unpredictable plan more changes.
+  let r = planRetain(c, titleId, show.date) - changeLean(showBooker(show));
   if (champ !== c.player && challenger !== c.player) return r;
   const t = trust(c, showBooker(show));
   const swing = t < TRUST_LOW ? TRUST_RETAIN_SWING_LOW : t >= TRUST_HIGH ? -TRUST_RETAIN_SWING_HIGH : 0;
@@ -188,10 +190,12 @@ export const isIndieTitle = (id: string): boolean => !!PROMOTIONS.find((p) => p.
 /** Top contenders for a title, best first. */
 export function contenders(c: Career, title: Title, pool: Wrestler[], region: PopRegion, day: Day): Wrestler[] {
   const home = titleRegion(title);
+  // The booker's thumb on the scale: politicians favour their friends, mentors the young, the loyal those who stay.
+  const booker = titleBooker(title.id);
   const score = (w: Wrestler) => {
     const p = c.people[w.id]!;
     const form = (p.recent ?? []).reduce((a, b) => a + b, 0);
-    let s = regionalPop(w, home ?? region) + form * 4 + (home ? regionalDates(c, w.id, home, day) * REGIONAL_CONTENDER_PER_DATE : 0) + (w.id === c.player ? 0 : contenderLean(w));
+    let s = regionalPop(w, home ?? region) + form * 4 + (home ? regionalDates(c, w.id, home, day) * REGIONAL_CONTENDER_PER_DATE : 0) + (w.id === c.player ? 0 : contenderLean(w)) + contenderBias(c, booker, w);
     const tier = w.id === c.player ? p.contract?.clauses[5] ?? 0 : 0;
     if (tier >= 1) s += CONTENDER_T1_BONUS;
     if (p.contract?.titleShotBy) s += 100;
@@ -271,10 +275,13 @@ let rollIndie: ((c: Career, p: Pledge, show: Show) => boolean) | null = null;
 export const setIndieRoll = (f: (c: Career, p: Pledge, show: Show) => boolean): void => { rollIndie = f; };
 
 /** Requests: a pledge is used up (or moved on to the next suitable show). */
-function pledgeDone(c: Career, p: Pledge, then: string): void {
+export function pledgeDone(c: Career, p: Pledge, then: string, status: 'kept' | 'lapsed' | 'refused' = then.startsWith('Booked') ? 'kept' : 'lapsed', by?: string): void {
   c.pledges = (c.pledges ?? []).filter((x) => x !== p);
   const a = c.asks?.find((x) => x.id === p.ask);
   if (a) a.then = then;
+  // Every promise stays on record with how it ended.
+  (c.pledgeLog ??= []).unshift({ ...p, status, settled: c.today, then, ...(by ? { settledBy: by } : {}) });
+  if (c.pledgeLog.length > PLEDGE_LOG_MAX) c.pledgeLog.length = PLEDGE_LOG_MAX;
 }
 function pledgeLater(c: Career, p: Pledge, show: Show): void {
   // An indie promoter's promise rolls on to their next show, if you can make it (requests.ts knows indie dates).
@@ -317,6 +324,8 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
   const tryout = !!c.tryouts?.[show.id];
   const hot = heated(c, show);
   const titles = showTitles(show);
+  // An unpredictable booker reaches for stipulations more.
+  const stips = stipMult(showBooker(show));
   const shotHere = (p: Pledge) => p.kind === 'title' && !hot && titles.some((t) => t.id === p.title) && !titlePending(c, p.title!, show)
     && (p.show === show.id || (!p.show && !!p.from && show.date >= p.from && sinceLastDefence(c, p.title!, show) >= titleMinGap(p.title!) && !c.feuds.some((f) => f.title === p.title && !f.done)));
   const matchPledge = pledges.find((p) => p.kind === 'match' && (p.show === show.id || (!p.show && !!p.from && show.date >= p.from && (show.promos ?? [show.promo]).includes(p.promo))));
@@ -488,7 +497,7 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
     const opp = opponentFor(rnd, me, crossPool(me, opps), region, indie);
     if (opp) {
       take(me.id); take(opp.id);
-      card.push({ a: opp.id, b: me.id, ...(tryout ? { tryout: true } : rnd() < STIP_CHANCE[show.kind] ? { stip: pickStip(rnd) } : {}) });
+      card.push({ a: opp.id, b: me.id, ...(tryout ? { tryout: true } : rnd() < STIP_CHANCE[show.kind] * stips ? { stip: pickStip(rnd) } : {}) });
     }
   }
 
@@ -501,7 +510,7 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
     const b = opponentFor(rnd, a, crossPool(a, pool), region, indie);
     if (!b) continue;
     pool.splice(pool.indexOf(b), 1);
-    card.push({ a: a.id, b: b.id, ...(rnd() < STIP_CHANCE[show.kind] ? { stip: pickStip(rnd) } : {}) });
+    card.push({ a: a.id, b: b.id, ...(rnd() < STIP_CHANCE[show.kind] * stips ? { stip: pickStip(rnd) } : {}) });
   }
 
   // Running order: the biggest match last (a world title if there is one), the smallest first.
