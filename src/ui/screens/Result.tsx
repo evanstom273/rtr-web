@@ -12,10 +12,12 @@ interface Props {
   onRematch: () => void;
   onNewMatch: () => void;
   onMenu: () => void;
+  /** Career matches: one button, back to the career. */
+  onCareer?: () => void;
 }
 
 /** The match report. One model (the result, the rating, the headline), three dresses. */
-export function Result({ S, rating, hits, onRematch, onNewMatch, onMenu }: Props) {
+export function Result({ S, rating, hits, onRematch, onNewMatch, onMenu, onCareer }: Props) {
   const skin = useSkin();
   const r = report(S, rating);
   if (!r) return null;
@@ -25,6 +27,12 @@ export function Result({ S, rating, hits, onRematch, onNewMatch, onMenu }: Props
       <div className="wrap">
         <Body r={r} S={S} />
         <div className="ractions">
+          {onCareer ? (
+            <button className="primary" onClick={onCareer}>
+              Back to your career
+            </button>
+          ) : (
+            <>
           <button className="primary" onClick={onRematch}>
             Rematch
           </button>
@@ -34,6 +42,8 @@ export function Result({ S, rating, hits, onRematch, onNewMatch, onMenu }: Props
           <button className="ghost" onClick={onMenu}>
             Main menu
           </button>
+            </>
+          )}
         </div>
         <div className="hits">
           <GreatestHits hits={hits} title="Your greatest hits" />

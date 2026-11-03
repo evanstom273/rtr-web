@@ -302,8 +302,8 @@ export function makeOffer(c: Career, promo: string, why: string): void {
   });
 }
 
-/** Run every remaining match today (yours must be done first), then move the world on a day. */
-export async function finishDay(c: Career, run: (jobs: SimJob[]) => Promise<SimOut[]>): Promise<void> {
+/** Run every remaining match today except yours, and mark today's shows done if nothing's left. */
+export async function runToday(c: Career, run: (jobs: SimJob[]) => Promise<SimOut[]>): Promise<void> {
   const jobs = worldJobs(c);
   const outs = await run(jobs);
   const byKey = new Map(outs.map((o) => [o.key, o]));
@@ -312,8 +312,16 @@ export async function finishDay(c: Career, run: (jobs: SimJob[]) => Promise<SimO
       const o = byKey.get(`${show.id}#${i}`);
       if (o) applyBout(c, show, i, o, true);
     });
-    show.done = true;
+    if (show.card?.every((b) => b.result) ?? true) show.done = true;
   }
+  databaseChanged();
+}
+
+/** Run every remaining match today (yours must be done first), then move the world on a day. */
+export async function finishDay(c: Career, run: (jobs: SimJob[]) => Promise<SimOut[]>): Promise<void> {
+  await runToday(c, run);
+  // Anything still unplayed today (your match, if you walked away from it) is lost.
+  for (const show of showsOn(c, c.today)) show.done = true;
   endOfDay(c);
   databaseChanged();
 }

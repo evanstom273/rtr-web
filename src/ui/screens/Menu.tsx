@@ -9,28 +9,31 @@ interface Props {
   count: number;
   best: number;
   onPlay: () => void;
+  onCareer: () => void;
+  career: string | null;
   onArchive: () => void;
   onSettings: () => void;
   onOpen: (id: string) => void;
 }
 
 const LABELS = {
-  paper: { play: 'Make a match', archive: 'The archive', db: 'The records office', settings: 'Settings' },
-  broadcast: { play: 'Play a match', archive: 'Match archive', db: 'Database', settings: 'Settings' },
-  building: { play: 'Play a match', archive: 'Archive', db: 'Database', settings: 'Settings' },
+  paper: { career: 'The career', play: 'Make a match', archive: 'The archive', db: 'The records office', settings: 'Settings' },
+  broadcast: { career: 'Career', play: 'Play a match', archive: 'Match archive', db: 'Database', settings: 'Settings' },
+  building: { career: 'Career', play: 'Play a match', archive: 'Archive', db: 'Database', settings: 'Settings' },
 };
 
 /** The front door. One menu, dressed per skin: a front page, an opening title card, the big screen. */
-export function Menu({ latest, count, best, onPlay, onArchive, onSettings, onOpen }: Props) {
+export function Menu({ latest, count, best, onPlay, onCareer, career, onArchive, onSettings, onOpen }: Props) {
   const skin = useSkin();
   const L = LABELS[skin];
   const archiveSub = count ? `${count} ${count === 1 ? 'match' : 'matches'}${best ? ` · best ${best}★` : ''}` : 'Nothing on file yet';
   const lastLine = latest ? `${latest.how}${latest.t ? `, ${fmtClock(latest.t)}` : ''}${latest.venue ? ` · ${latest.venue}` : ''}` : '';
   const items = [
-    { id: 'play', label: L.play, sub: 'Pick two, pick the rules, ring the bell', page: 'P. 1', on: onPlay },
-    { id: 'archive', label: L.archive, sub: archiveSub, page: 'P. 2', on: onArchive },
-    { id: 'db', label: L.db, sub: 'Coming soon: wrestlers, moves, titles, promotions', page: 'P. 3', on: undefined },
-    { id: 'settings', label: L.settings, sub: 'Change the look', page: 'P. 4', on: onSettings },
+    { id: 'career', label: L.career, sub: career ?? 'Pick a wrestler or create one, and start on the calendar', page: 'P. 1', on: onCareer },
+    { id: 'play', label: L.play, sub: 'Pick two, pick the rules, ring the bell', page: 'P. 2', on: onPlay },
+    { id: 'archive', label: L.archive, sub: archiveSub, page: 'P. 3', on: onArchive },
+    { id: 'db', label: L.db, sub: 'Coming soon: wrestlers, moves, titles, promotions', page: 'P. 4', on: undefined },
+    { id: 'settings', label: L.settings, sub: 'Change the look', page: 'P. 5', on: onSettings },
   ];
   const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }).toUpperCase();
   return (

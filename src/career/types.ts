@@ -74,6 +74,9 @@ export interface Person {
   daysOff?: Day[];
   /** A contract signed to start when the current one ends. */
   next?: Contract;
+  /** Creative Control: the last time Protected Booking was used, and shows you've already asked about. */
+  creativeUsed?: Day;
+  creativeAsked?: string[];
 }
 
 export interface Reign { holder: string; from: Day; to: Day | null; defences: number }
