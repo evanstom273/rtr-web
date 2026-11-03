@@ -6,7 +6,7 @@ import { addDays, daysBetween, type Day } from './dates';
 import { REGION_KEY } from './places';
 import {
   CARD_SIZE, CONTENDER_T1_BONUS, DEFENCE_CHANCE, DEFENCE_GAP_DAYS, FEUD_WEEKS, FEUDS_PER_PROMOTION, INTERGENDER_CHANCE,
-  INTERGENDER_CHANCE_INDIE, PLANNED_RETAIN, SCHEDULE_T2_MAX_PER_MONTH, STIP_CHANCE,
+  INTERGENDER_CHANCE_INDIE, PLANNED_RETAIN, SCHEDULE_T2_MAX_PER_MONTH, STIP_CHANCE, TITLE_DEFENCE_EVERY_DAYS,
 } from './tuning';
 import type { Bout, Career, Feud, Person, PopRegion, Show } from './types';
 
@@ -121,6 +121,10 @@ export function refreshFeuds(c: Career, show: Show, roster: readonly Wrestler[])
     ?? upcoming.find((s) => daysBetween(show.date, s.date) >= minDays);
   for (const t of showTitles(show)) {
     if (!t.holder || live.some((f) => f.title === t.id)) continue;
+    // A title feud starts only when its payoff would land about when the title's next due.
+    const ts = c.titles[t.id];
+    const since = ts?.last ?? ts?.since;
+    if (since && daysBetween(since, show.date) < TITLE_DEFENCE_EVERY_DAYS - FEUD_WEEKS[1] * 7) continue;
     const champ = findWrestler(t.holder);
     if (!champ) continue;
     const top = contenders(c, t, pool, region, show.date).find((w) => !busy.has(w.id));
@@ -176,11 +180,31 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
     const champHere = champ && (champ.id === c.player ? wantMe : pool.some((w) => w.id === champ.id)) && free(champ.id);
     if (!champ || !champHere) continue;
     const feud = c.feuds.find((f) => f.title === t.id && !f.done && f.payoff === show.id);
-    const sinceLast = ts?.last ? daysBetween(ts.last, show.date) : 999;
+    // A title is only ever on one unplayed card. Cards are drawn a week out, so a second one could
+    // end up with a former champion in it once the first has been wrestled.
+    if (Object.values(c.shows).some((s) => s.id !== show.id && s.card?.some((b) => b.title === t.id && !b.result))) {
+      // A feud paying off tonight still gets its match, just without the belt on the line.
+      const other = feud ? findWrestler(feud.a === champ.id ? feud.b : feud.a) : undefined;
+      if (feud && other && free(other.id) && (other.id === c.player ? wantMe : pool.some((w) => w.id === other.id))) {
+        take(champ.id); take(other.id);
+        card.push({ a: champ.id, b: other.id, feud: feud.id });
+      }
+      continue;
+    }
+    // The last defence, counting ones already booked on cards ahead (cards are drawn a week out).
+    let lastOrWon = ts?.last ?? ts?.since;
+    for (const s of Object.values(c.shows)) {
+      if (s.id !== show.id && s.card?.some((b) => b.title === t.id) && (!lastOrWon || s.date > lastOrWon)) lastOrWon = s.date;
+    }
+    const sinceLast = lastOrWon ? Math.abs(daysBetween(lastOrWon, show.date)) : 999;
+    const feudLive = c.feuds.some((f) => f.title === t.id && !f.done);
     const owedShot = c.people[c.player]?.contract?.titleShotBy && me && me.gender === t.gender && me.id !== champ.id;
     let challenger: Wrestler | undefined;
     if (feud) challenger = findWrestler(feud.a === champ.id ? feud.b : feud.a);
-    else if (sinceLast >= DEFENCE_GAP_DAYS && rnd() < DEFENCE_CHANCE[show.kind]) {
+    // Otherwise a defence when it's due, unless a title feud is already building to one.
+    // Joint shows (A.R.I.S.E.) always put their titles on the line: it's the only place they're defended.
+    // A title gone past its usual spacing is overdue: certain on a big show, likelier on any other.
+    else if (sinceLast >= DEFENCE_GAP_DAYS && !feudLive && (show.promos?.length ? true : rnd() < defenceChance(show, sinceLast))) {
       const cands = contenders(c, t, [...pool, ...(wantMe && me ? [me] : [])], region, show.date).filter((w) => free(w.id));
       challenger = owedShot && wantMe ? me : cands[0];
     }
@@ -230,6 +254,12 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
     return pop + titleRank + (b.feud ? 20 : 0);
   };
   return card.sort((x, y) => weight(x) - weight(y));
+}
+
+function defenceChance(show: Show, sinceLast: number): number {
+  const base = DEFENCE_CHANCE[show.kind];
+  if (sinceLast < TITLE_DEFENCE_EVERY_DAYS) return base;
+  return show.kind === 'special' || show.kind === 'flagship' ? 1 : Math.min(1, base * 4);
 }
 
 function pickStip(rnd: Rng): StipulationId {

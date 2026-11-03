@@ -174,6 +174,8 @@ function popChange(w: Wrestler, region: PopRegion, delta: number): number {
 /** Apply a finished match to the world: popularity, fatigue, injuries, titles, feuds, and your pay. */
 export function applyBout(c: Career, show: Show, index: number, out: SimOut, aIsYou = true): void {
   const bout = show.card![index]!;
+  if (bout.result) return; // a match is settled once, however many times the night gets run
+  dropStaleTitle(bout);
   const rnd = seededRng(hashSeed(c.seed, 'after', show.id, index));
   const sideId = (s: 'you' | 'them' | null) => (s === null ? null : (s === 'you') === aIsYou ? bout.a : bout.b);
   const winner = sideId(out.winner);
@@ -334,8 +336,30 @@ export function makeOffer(c: Career, promo: string, why: string): void {
   });
 }
 
-/** Run every remaining match today except yours, and mark today's shows done if nothing's left. */
-export async function runToday(c: Career, run: (jobs: SimJob[]) => Promise<SimOut[]>): Promise<void> {
+/**
+ * A title match drawn before its title changed hands, without the new champion in it, goes ahead as an
+ * ordinary match. Titles are only booked onto one card at a time now, so only older saves have these.
+ */
+function dropStaleTitle(b: Bout): void {
+  if (!b.title || b.result) return;
+  const holder = TITLES.find((t) => t.id === b.title)?.holder;
+  if (holder && holder !== b.a && holder !== b.b) { delete b.title; delete b.planned; }
+}
+
+const nights = new WeakMap<Career, Promise<void>>();
+
+/**
+ * Run every remaining match today except yours, and mark today's shows done if nothing's left.
+ * One run at a time: after your match the night runs in the background, and moving the day on
+ * meanwhile waits for it rather than running the night a second time.
+ */
+export function runToday(c: Career, run: (jobs: SimJob[]) => Promise<SimOut[]>): Promise<void> {
+  const next = (nights.get(c) ?? Promise.resolve()).then(() => runNight(c, run));
+  nights.set(c, next.catch(() => undefined));
+  return next;
+}
+
+async function runNight(c: Career, run: (jobs: SimJob[]) => Promise<SimOut[]>): Promise<void> {
   const jobs = worldJobs(c);
   const outs = await run(jobs);
   const byKey = new Map(outs.map((o) => [o.key, o]));
@@ -376,6 +400,7 @@ export function endOfDay(c: Career): void {
   const rnd = seededRng(hashSeed(c.seed, 'night', day));
   const worked = new Set<string>();
   for (const s of showsOn(c, day)) for (const b of s.card ?? []) if (b.result) { worked.add(b.a); worked.add(b.b); }
+  for (const s of Object.values(c.shows)) if (!s.done) for (const b of s.card ?? []) dropStaleTitle(b);
   // Indie dates you agreed to but couldn't wrestle (injured, say) fall away.
   for (const id of Object.keys(c.indie)) if ((c.shows[id]?.date ?? '') <= day) delete c.indie[id];
   for (const id of Object.keys(c.tryouts)) if ((c.shows[id]?.date ?? '') <= day) delete c.tryouts[id];

@@ -220,9 +220,9 @@ export function Create({ hasCareer, onBack, onDone }: Props) {
             </>
           )}
           <span className="c-sec">{w('Finishers')}</span>
-          <div className="c-wrap">{kit.finishers.map((id, i) => <span key={i} className={id ? 'c-mv fin' : 'c-mv empty'}>{id ? getMove(id).name : 'Empty slot'}</span>)}</div>
+          <div className="c-wrap">{kit.finishers.map((id, i) => <span key={i} className={id ? 'c-mv mfin' : 'c-mv empty'}>{id ? getMove(id).name : 'Empty slot'}</span>)}</div>
           <span className="c-sec">{w('Signatures')}</span>
-          <div className="c-wrap">{kit.signatures.map((id, i) => <span key={i} className={id ? 'c-mv sig' : 'c-mv empty'}>{id ? getMove(id).name : 'Empty slot'}</span>)}</div>
+          <div className="c-wrap">{kit.signatures.map((id, i) => <span key={i} className={id ? 'c-mv msig' : 'c-mv empty'}>{id ? getMove(id).name : 'Empty slot'}</span>)}</div>
           <div className="c-rowsb"><span className="c-sec c-grow">{w('Moves')}</span><span className="c-hint">{kit.moves.filter(Boolean).length} / 40</span></div>
           <div className="c-cells">
             {TYPE_LABEL.flatMap(([t], ti) => kit.moves.filter((id) => id && getMove(id).type === t).map((_, k) => <i key={`${t}${k}`} className={`c-cell c-t${ti}`} />))}
