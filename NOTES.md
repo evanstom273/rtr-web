@@ -652,3 +652,24 @@ Engine steps per match: median 96, max 188
     and from 12 minutes the AI scores them +12.
 18. **"Off the scale" never happened.** Raw ≥ 5.5 didn't come up in 1,000 simulated matches. It may be
     reachable with deliberate play, but the sim never got there.
+
+## Skins (paper, broadcast, the building)
+
+Three looks over one set of screens, picked from the gear on the match builder (`src/ui/Settings.tsx`).
+The choice is kept between visits (`rtr-skin`, `src/ui/skin.ts`) and set as `data-skin` on `<html>`.
+Ringside paper is the default.
+
+- **One brain, three skins.** What a screen shows is worked out once in `src/ui/model.ts`:
+  - `moment()`: the headline moment (the latest flash plus the commentary line logged nearest it).
+  - `tape()`: vitals, stat edges and a few story lines.
+  - `report()`: winner, how it finished, a newspaper headline, and A–E grades per rating part.
+  Skins only arrange and dress it.
+- **Match screen.** `screens/Match.tsx` keeps all the logic and builds the slots: cards, ring, log, dock. `skins/MatchLayouts.tsx` arranges them per skin.
+  - Broadcast and the building put the ring centre stage on phones.
+  - Paper keeps the tap-to-pop ring thumbnail in its sidebar.
+- **Pop-ups are shared.** The roll card, move wheel, sheets and timing overlays are single components. Each skin re-points the colour and font tokens in `skins.css`, plus a few per-skin edge rules: hard ink edges for paper, angled ends for broadcast, padded buttons for the building.
+- **New screen: tale of the tape** (`screens/Tape.tsx`). It sits between Ring the bell in the builder and the match. Rematch skips it.
+- **Builder changes.**
+  - The matchup card is at the top on phones (on the right on wide screens).
+  - Each roster row has "You" and "AI" quick-add buttons. Tap for the profile and hold to drag still work.
+- A new skin means: tokens in `skins.css`, a layout in `MatchLayouts.tsx`, and a branch each in `BuilderHead`, `Tape` and `Result`.

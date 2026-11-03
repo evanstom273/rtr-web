@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
-import { fmtClock, MatchEngine } from '../engine';
+import { findWrestler } from '../data/rtr';
+import { fmtClock, MatchEngine, stipulation } from '../engine';
 import { addHit, loadHits, type Hit } from '../storage/greatestHits';
 import { useBackLayer } from './backStack';
 import { LeavePrompt } from './overlays/LeavePrompt';
@@ -7,8 +8,9 @@ import { Match } from './screens/Match';
 import { Result } from './screens/Result';
 import { freshBuilder, type BuilderState } from './builder/state';
 import { Builder } from './screens/Builder';
+import { Tape } from './screens/Tape';
 
-type Screen = { name: 'setup' } | { name: 'match'; engine: MatchEngine } | { name: 'result'; engine: MatchEngine };
+type Screen = { name: 'setup' } | { name: 'tape' } | { name: 'match'; engine: MatchEngine } | { name: 'result'; engine: MatchEngine };
 
 export function App() {
   const [builder, setBuilder] = useState<BuilderState>(freshBuilder);
@@ -35,7 +37,7 @@ export function App() {
     setScreen({ name: 'match', engine });
   }, [builder]);
 
-  const engine = screen.name === 'setup' ? null : screen.engine;
+  const engine = screen.name === 'setup' || screen.name === 'tape' ? null : screen.engine;
 
   // Android back: mid-match it asks before leaving; on the result screen it goes to the roster.
   const [leaving, setLeaving] = useState(false);
@@ -63,7 +65,18 @@ export function App() {
     window.setTimeout(() => setScreen({ name: 'result', engine }), 1400);
   }, [engine]);
 
-  if (screen.name === 'setup') return <Builder state={builder} hits={hits} onChange={setBuilder} onStart={startMatch} />;
+  if (screen.name === 'setup') return <Builder state={builder} hits={hits} onChange={setBuilder} onStart={() => setScreen({ name: 'tape' })} />;
+  if (screen.name === 'tape') {
+    const you = findWrestler(builder.teams.A[0] ?? ''), them = findWrestler(builder.teams.B[0] ?? '');
+    if (!you || !them) return null;
+    const st = stipulation(builder.stipulation);
+    const rules = [
+      builder.stipulation === 'iron_man' ? `${st.name} (${builder.ironManMinutes} min)` : st.name,
+      st.countOuts && builder.countOuts ? `Count-out ${builder.countOutLimit}` : 'No count-outs',
+      `${builder.actionClock}s clock`,
+    ].join(' · ');
+    return <Tape you={you} them={them} rules={rules} onBack={toRoster} onBell={startMatch} />;
+  }
   if (screen.name === 'match') {
     return (
       <>

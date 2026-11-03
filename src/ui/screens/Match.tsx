@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from 're
 import type { MatchEngine, SideKey } from '../../engine';
 import { nameTone, reduceMotion } from '../format';
 import { Dock } from '../match/Dock';
-import { Hud } from '../match/Hud';
 import { Log } from '../match/Log';
 import { MoveWheel } from '../match/MoveWheel';
 import { RingView, snapKey } from '../match/RingView';
@@ -22,6 +21,8 @@ import { RefTen, TenCount } from '../overlays/TenCount';
 import { useEngine } from '../useEngine';
 import { useMedia } from '../useMedia';
 import { useBackLayer } from '../backStack';
+import { useSkin } from '../skin';
+import { BroadcastMatch, BuildingMatch, PaperMatch, type MatchSlots } from '../skins/MatchLayouts';
 
 const POP_MS = 1900;
 const THUMB_W = 112;
@@ -40,6 +41,7 @@ export function Match({ engine, onOver }: { engine: MatchEngine; onOver: () => v
   const version = useEngine(engine);
   const S = engine.state, p = S.pending, v = S.view;
   const wide = useMedia('(min-width: 700px)');
+  const skin = useSkin();
   const vw = useViewportWidth();
   const bigW = Math.min(vw - 16, 480);
   const [sheet, setSheet] = useState<'none' | 'moves' | 'setup' | 'specials-you' | 'specials-them'>('none');
@@ -74,8 +76,8 @@ export function Match({ engine, onOver }: { engine: MatchEngine; onOver: () => v
     const key = `${snapKey(v.sides.you.state)}/${snapKey(v.sides.them.state)}`;
     if (key === lastSnap.current) return;
     lastSnap.current = key;
-    if (!wide) setAutoPop((n) => n + 1);
-  }, [v, wide]);
+    if (!wide && skin === 'paper') setAutoPop((n) => n + 1);
+  }, [v, wide, skin]);
   useEffect(() => {
     if (!autoPop) return;
     setPopOpen(true);
@@ -96,28 +98,32 @@ export function Match({ engine, onOver }: { engine: MatchEngine; onOver: () => v
   const joltCls = jolt.n ? ` ${jolt.big ? 'jolt-big' : 'jolt'}${jolt.n % 2}` : '';
   const ringBusy = p.kind === 'contest' || p.kind === 'contestRoll' || p.kind === 'pinChoice' || p.kind === 'sigConvert' || p.kind === 'subChoice' || p.kind === 'kickout' || p.kind === 'refCount' || p.kind === 'sub' || p.kind === 'tenCount' || p.kind === 'refTen';
 
+  // Paper keeps the ring as a tap-to-pop thumbnail on phones; broadcast and the building put it centre stage.
+  const ring = wide || skin !== 'paper' ? (
+    <div id="ringpanel">
+      <RingView engine={engine} version={version} variant="panel" />
+    </div>
+  ) : (
+    <button className={`ringthumb${pop ? ' pop' : ''}${ringBusy ? ' busy' : ''}`}
+      style={{ '--thumb-w': `${THUMB_W}px`, '--big-w': `${bigW}px`, '--thumb-s': THUMB_W / bigW } as CSSProperties} onClick={() => { setPinned(!pop); setPopOpen(false); }}
+      aria-label={pop ? 'Shrink ring view' : 'Expand ring view'}>
+      <RingView engine={engine} version={version} variant={pop ? 'panel' : 'thumb'} />
+    </button>
+  );
+  const slots: MatchSlots = {
+    engine, S, wide, pulse, ring,
+    you: <WrestlerCard w={S.you.w} v={v.sides.you} active={v.control === 'you'} onSpecials={() => setSheet('specials-you')} />,
+    them: <WrestlerCard w={S.them.w} v={v.sides.them} active={v.control === 'them'} focus={S.you.targetFocus} onPick={(part) => engine.setFocus(part)}
+      onSpecials={() => setSheet('specials-them')} />,
+    log: <Log entries={S.log} tones={tones} />,
+    dock: <Dock engine={engine} onMoves={() => setSheet('moves')} onSetup={() => setSheet('setup')} />,
+  };
+  const Layout = skin === 'paper' ? PaperMatch : skin === 'broadcast' ? BroadcastMatch : BuildingMatch;
+
   return (
     <>
-      <section id="match" className={`${wide ? 'wide' : 'narrow'}${joltCls}`}>
-        <Hud engine={engine} pulse={pulse}>
-          {!wide && (
-            <button className={`ringthumb${pop ? ' pop' : ''}${ringBusy ? ' busy' : ''}`}
-              style={{ '--thumb-w': `${THUMB_W}px`, '--big-w': `${bigW}px`, '--thumb-s': THUMB_W / bigW } as CSSProperties} onClick={() => { setPinned(!pop); setPopOpen(false); }}
-              aria-label={pop ? 'Shrink ring view' : 'Expand ring view'}>
-              <RingView engine={engine} version={version} variant={pop ? 'panel' : 'thumb'} />
-            </button>
-          )}
-        </Hud>
-        <WrestlerCard w={S.you.w} v={v.sides.you} active={v.control === 'you'} onSpecials={() => setSheet('specials-you')} />
-        <WrestlerCard w={S.them.w} v={v.sides.them} active={v.control === 'them'} focus={S.you.targetFocus} onPick={(part) => engine.setFocus(part)}
-          onSpecials={() => setSheet('specials-them')} />
-        {wide && (
-          <div id="ringpanel">
-            <RingView engine={engine} version={version} variant="panel" />
-          </div>
-        )}
-        <Log entries={S.log} tones={tones} />
-        <Dock engine={engine} onMoves={() => setSheet('moves')} onSetup={() => setSheet('setup')} />
+      <section id="match" className={`m-${skin} ${wide ? 'wide' : 'narrow'}${joltCls}`}>
+        <Layout {...slots} />
       </section>
       {sheet === 'moves' && p.kind === 'awaitPlayer' && <MoveWheel engine={engine} onClose={close} />}
       {sheet === 'setup' && p.kind === 'awaitPlayer' && <SetupSheet engine={engine} onClose={close} />}

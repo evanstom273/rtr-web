@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef } from 'react';
 import { fmtClock, type LogEntry, type Seg, type SideKey } from '../../engine';
 
-function Segment({ s, tones }: { s: Seg; tones: Record<SideKey, string> }) {
+export function Segment({ s, tones }: { s: Seg; tones: Record<SideKey, string> }) {
   switch (s.k) {
     case 'text': return <>{s.v}</>;
     case 'name': return <b className={`nm ${tones[s.side]}`}>{s.v}</b>;
