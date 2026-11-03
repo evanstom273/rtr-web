@@ -122,6 +122,16 @@ describe('one-off shows', () => {
     expect(makeSpecial(c, 'benefit', 'again')).toBe(false); // once per injury
   });
 
+  it('a save from before the expansion (no events, cups or world state) carries on', async () => {
+    const c = begin();
+    const old = c as unknown as Record<string, unknown>;
+    for (const k of ['events', 'world', 'tourneys', 'relations', 'bookers']) delete old[k];
+    for (const s of Object.values(c.shows)) delete s.special;
+    await days(c, 60);
+    expect(c.events).toBeTruthy();
+    expect(c.world).toBeTruthy();
+  }, 60000);
+
   it('two years of the living world: nobody retired is ever booked, no title on a no-titles show, no retired champion', async () => {
     const c = begin('jamie_mercer', 3);
     await days(c, 730, () => {

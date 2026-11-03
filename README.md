@@ -65,6 +65,8 @@ src/
   data/     commentary, labels and rating copy
   ui/       React: ring view, move wheel, cards, dice, overlays (cover, kickout, tug)
   storage/  localStorage wrapper (greatest hits, last picks)
+  career/   career mode: calendar, booker, contracts, requests, events, one-off shows, the living world
+  world/    the saved world and its history (Records)
 legacy/     the original Match of the Night single-file game, kept as a reference
 ```
 
@@ -74,3 +76,5 @@ The UI renders that, runs the interaction and hands the result back. All randomn
 an injectable seeded RNG, so any match can be replayed exactly.
 
 See `NOTES.md` for porting decisions, things in the original that look off, and simulation results.
+See `docs/career-world.md` for career mode's living world: title rhythm, promoters' memory, career
+events, one-off shows and retirements.
