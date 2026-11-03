@@ -1,9 +1,8 @@
-import { findWrestler } from '../../data/rtr';
 import { store } from '../../storage/storage';
 import type { StipulationId } from '../../engine';
 import type { TeamKey } from './useDragSort';
 
-/** Everything the match builder remembers between visits. */
+/** The match builder's choices, kept while the app is open (they reset on every load). */
 export interface BuilderState {
   teams: Record<TeamKey, string[]>;
   locked: Record<TeamKey, boolean>;
@@ -23,6 +22,7 @@ export interface BuilderState {
   cageSubs: boolean;
 }
 
+/** Where older versions saved the builder; cleared on load. */
 const KEY = 'rtr-builder';
 export const MAX_TEAM = 4;
 
@@ -31,17 +31,13 @@ export const DEFAULT_BUILDER: BuilderState = {
   stipulation: 'standard', dq: true, ironManMinutes: 20, ladderPrize: 'Briefcase', cageEscape: true, cagePins: true, cageSubs: true,
 };
 
-export function loadBuilder(): BuilderState {
-  const saved = store.get<Partial<BuilderState> | null>(KEY, null);
-  const s: BuilderState = { ...DEFAULT_BUILDER, ...(saved ?? {}) };
-  if (!saved) {
-    // Carry over the old setup screen's picks.
-    const old = store.get<{ you?: string; them?: string } | null>('rtr-picks', null);
-    s.teams = { A: old?.you ? [old.you] : [], B: old?.them ? [old.them] : [] };
-  }
-  s.teams = { A: (s.teams?.A ?? []).filter((id) => findWrestler(id)), B: (s.teams?.B ?? []).filter((id) => findWrestler(id)) };
-  s.locked = { A: !!s.locked?.A, B: !!s.locked?.B };
-  return s;
+/**
+ * A fresh builder: no wrestlers picked, a standard singles match. The app starts here on every load
+ * (Lyra's call); picks only last while the app is open. Older versions saved the builder, so clear
+ * whatever they left behind.
+ */
+export function freshBuilder(): BuilderState {
+  store.remove(KEY);
+  store.remove('rtr-picks');
+  return { ...DEFAULT_BUILDER, teams: { A: [], B: [] }, locked: { A: false, B: false } };
 }
-
-export const saveBuilder = (s: BuilderState): void => store.set(KEY, s);
