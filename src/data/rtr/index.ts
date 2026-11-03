@@ -34,6 +34,10 @@ export function shippedDatabase(): Database {
   });
 }
 
+const shippedIds = new Set((wrestlersJson as Wrestler[]).map((w) => w.id));
+/** Ships with the game (so a fresh world has them); generated and created wrestlers don't. */
+export const isShippedWrestler = (id: string): boolean => shippedIds.has(id);
+
 const moveById = new Map(MOVES.map((m) => [m.id, m]));
 const weaponById = new Map(WEAPONS.map((w) => [w.id, w]));
 const wrestlerById = new Map<string, Wrestler>();

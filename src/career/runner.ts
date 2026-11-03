@@ -35,7 +35,9 @@ export async function runJobs(jobs: SimJob[]): Promise<SimOut[]> {
   const w = getWorker();
   if (!w) return simJobs(jobs);
   const id = nextId++;
-  const db = { wrestlers: WRESTLERS, promotions: PROMOTIONS, titles: TITLES };
+  // Only the wrestlers in tonight's matches cross to the worker: the engine looks nobody else up.
+  const who = new Set(jobs.flatMap((j) => [j.you, j.them]));
+  const db = { wrestlers: WRESTLERS.filter((x) => who.has(x.id)), promotions: PROMOTIONS, titles: TITLES };
   try {
     return await new Promise<SimOut[]>((resolve, reject) => {
       waiting.set(id, { resolve, reject });

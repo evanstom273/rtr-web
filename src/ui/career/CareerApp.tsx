@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { WRESTLERS, databaseChanged, type Wrestler } from '../../data/rtr';
+import { WRESTLERS, databaseChanged, findWrestler, isShippedWrestler, type Wrestler } from '../../data/rtr';
 import { ctxFor, eventLibrary, finishDay, fire, makeOffer, makeSpecial, person, startCareer } from '../../career';
 import { todayReal } from '../../career/dates';
 import { runJobs } from '../../career/runner';
@@ -56,9 +56,13 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
   const begin = async (player: string, extra: Wrestler | undefined, fresh: boolean) => {
     // Fresh: the world as it ships, from today's real date. Kept: carry on where the world got to.
     if (!fresh && activeWorld().career) await resetCareer();
+    // Someone who doesn't ship with the game (a rookie, a generated indie) comes with you into a fresh world, as a free agent.
+    const old = fresh && !extra && !isShippedWrestler(player) ? findWrestler(player) : undefined;
+    const carried = old ? { ...structuredClone(old), promotion: 'TIS' } : undefined;
     const world = fresh ? await resetWorld(Math.floor(Math.random() * 2 ** 31)) : activeWorld();
-    if (extra) {
-      WRESTLERS.push(extra);
+    const join = extra ?? carried;
+    if (join) {
+      WRESTLERS.push(join);
       databaseChanged();
     }
     world.career = startCareer({

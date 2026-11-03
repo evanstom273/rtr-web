@@ -206,3 +206,27 @@ A save from before the expansion carries on; a test covers it.
   `relations.test.ts`, `events.test.ts` and `specials.test.ts`.
 - `TITLE_STATS=1 npx vitest run src/career/titlestats.test.ts`: the title table above.
 - `EVENT_STATS=1 npx vitest run src/career/events.test.ts`: how often each event fires in a year.
+
+## Performance
+
+Two opt-in harnesses keep an eye on speed and save size:
+- `PERF=1 npx vitest run src/career/perf.test.ts` (`DAYS=14`): days with the real match engine.
+- `LONG=1 npx vitest run src/career/longrun.test.ts` (`YEARS=3 SEEDS=7,11,23`): years with the quick stand-in.
+
+The sim worker is only sent the wrestlers in that night's matches.
+
+Baseline before the indie, traits and bookers expansion (seeds 7 and 11):
+
+| Measure | Value |
+| --- | --- |
+| Matches a day | about 15 (p95 18) |
+| Engine time a match | 55 ms median, 100 ms p95 |
+| Engine time a day | 0.8–1.0 s |
+| Main-thread time a day | about 3 ms |
+| World save | 760 KB at the start; about +1 MB a year of history (1,000 shows) |
+| Serialising the world | 50–60 ms after a year or two |
+
+Budgets for the expansion:
+- a day takes a median of 1.5 s or less (p95 3 s);
+- main-thread work 50 ms or less a day;
+- saving 60 ms or less.
