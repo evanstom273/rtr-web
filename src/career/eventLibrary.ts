@@ -27,6 +27,8 @@ const booker = (x: EvCtx): string => x.k?.promo ?? 'TIS';
 const fee = (x: EvCtx, m: number): number => round5(feeBase(x) * m);
 const stated = (_x: EvCtx, d: EvData) => `${money(Number(d.amount))}`;
 const healthy = (w: Wrestler, x: EvCtx) => !(x.c.people[w.id]?.injury && x.c.people[w.id]!.injury!.until > x.day) && !x.c.people[w.id]?.retired;
+/** Whoever runs the indie show an event is about. */
+const promoterOf = (x: EvCtx, d: Record<string, string | number>) => { const s = x.c.shows[String(d.show)]; return s ? showBooker(s) : indieKey(String(d.name)); };
 const veteran = (x: EvCtx) => scene(x).filter((w) => w.age >= 35 && healthy(w, x) && !(relationOf(x.c, w.id)?.kind === 'mentor'));
 const youngster = (x: EvCtx) => scene(x).filter((w) => w.age <= 24 && w.popularity.global < x.me.popularity.global - 3 && healthy(w, x));
 const colleague = (x: EvCtx) => scene(x).filter((w) => healthy(w, x));
@@ -567,7 +569,7 @@ const CAREER: EventDef[] = [
     body: (x, d) => [`We’re running ${d.name} in ${d.city} on ${fmtDay(String(d.date), 'long')} and want you on it. ${stated(x, d)}, and we cover the travel.`],
     options: [
       { id: 'yes', label: 'Accept', run: (x, d) => { const s = x.c.shows[String(d.show)]; if (!s || !indieAllowed(x.c, s.date).ok) return 'The date doesn’t work any more.'; joinIndie(x.c, s, Number(d.amount), 0); return `You’re booked: ${d.name}, ${fmtDay(String(d.date), 'dm')}. Travel’s on them.`; } },
-      { id: 'no', label: 'Decline', decline: true, run: (x, d) => join('Maybe next time', fx.snub(x, indieKey(String(d.name)))) },
+      { id: 'no', label: 'Decline', decline: true, run: (x, d) => join('Maybe next time', fx.snub(x, promoterOf(x, d))) },
     ],
   },
   {
@@ -575,7 +577,7 @@ const CAREER: EventDef[] = [
     when: (x) => titlesHeld(x).some(isIndieTitle) && (!x.k || (x.k.clauses[C.indie] ?? 0) >= 1),
     setup: (x) => {
       const indieTitle = titlesHeld(x).find(isIndieTitle);
-      const s = pick(x.rnd, askableIndieShows(x.c).filter((y) => indieAllowed(x.c, y.date).ok && trust(x.c, indieKey(y.name)) >= 45 && !x.c.asked?.[y.id]).slice(0, 25));
+      const s = pick(x.rnd, askableIndieShows(x.c).filter((y) => indieAllowed(x.c, y.date).ok && trust(x.c, showBooker(y)) >= 45 && !x.c.asked?.[y.id]).slice(0, 25));
       return indieTitle && s ? { show: s.id, name: s.name, city: s.city, country: s.country, date: s.date, title: indieTitle, amount: round5(indieFee(x.me, s.region) * 1.5), travel: travelCost(x.me.country, s.country) } : null;
     },
     from: (_x, d) => `${d.name} · ${d.city}, ${d.country}`, subject: () => 'We want the champion',
@@ -588,7 +590,7 @@ const CAREER: EventDef[] = [
         (x.c.pledges ??= []).push({ id: `p${++x.c.seq}`, promo: 'TIS', kind: 'defence', title: String(d.title), show: s.id });
         return `You’re defending on ${d.name}, ${fmtDay(String(d.date), 'dm')}.`;
       } },
-      { id: 'no', label: 'Decline', decline: true, run: (x, d) => join('They’ll get someone else to headline', fx.snub(x, indieKey(String(d.name)))) },
+      { id: 'no', label: 'Decline', decline: true, run: (x, d) => join('They’ll get someone else to headline', fx.snub(x, promoterOf(x, d))) },
     ],
   },
   {
@@ -600,7 +602,7 @@ const CAREER: EventDef[] = [
     setup: (x) => {
       const m = x.c.history.find((y) => y.planned === 'off-script' && y.wonTitle)!;
       const crossed = x.c.shows[m.show] ? showBooker(x.c.shows[m.show]!) : '';
-      const s = pick(x.rnd, askableIndieShows(x.c).filter((y) => indieKey(y.name) !== crossed && indieAllowed(x.c, y.date).ok && !x.c.asked?.[y.id]).slice(0, 25));
+      const s = pick(x.rnd, askableIndieShows(x.c).filter((y) => showBooker(y) !== crossed && indieAllowed(x.c, y.date).ok && !x.c.asked?.[y.id]).slice(0, 25));
       return s ? { show: s.id, name: s.name, city: s.city, date: s.date, title: m.title!, opp: m.opp, amount: round5(indieFee(x.me, s.region) * 1.4), travel: travelCost(x.me.country, s.country) } : null;
     },
     from: (_x, d) => `${d.name} · ${d.city}`, subject: () => '“The Stolen Title”',

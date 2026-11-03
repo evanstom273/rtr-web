@@ -2,6 +2,7 @@
 import { PROMOTIONS, TITLES, WRESTLERS, findWrestler } from '../data/rtr';
 import type { Rng } from '../engine/rng';
 import { seededRng } from '../engine/rng';
+import { activeWorld } from '../world/world';
 import { available, hashSeed, promoRegion, regionalPop } from './booker';
 import { letter, makeOffer, person, promoName, setCareerHooks, spend } from './career';
 import { C } from './clauses';
@@ -132,8 +133,10 @@ function indieOffers(c: Career, rnd: Rng): void {
     days.add(s.date);
     const fee = indieFee(me, s.region), travel = travelCost(me.country, s.country);
     const ok = indieAllowed(c, s.date);
+    const key = showBooker(s);
+    const from = s.brand && activeWorld().people?.staff[key] ? `${activeWorld().people!.staff[key]!.name} · ${activeWorld().people!.brands[s.brand]?.name ?? s.city}` : `${s.name} · ${s.city}, ${s.country}`;
     letter(c, {
-      kind: 'offer', from: `${s.name} · ${s.city}, ${s.country}`, subject: `Booking: ${s.name}`,
+      kind: 'offer', from, subject: `Booking: ${s.name}`,
       body: [`We’re running ${s.name} in ${s.city} on ${fmtDay(s.date, 'long')} and want you on the card.`],
       terms: [['Date', fmtDay(s.date)], ['Fee', `£${fee.toLocaleString('en-GB')}`], ['Travel', travel ? `£${travel}` : 'None']],
       ...(p.contract ? { note: ok.needsApproval ? `Your Indie Bookings clause (Tier 1) means ${p.contract.promo} have to approve it.` : `Your Indie Bookings clause allows it.` } : {}),

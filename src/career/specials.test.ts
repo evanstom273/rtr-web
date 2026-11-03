@@ -10,6 +10,7 @@ import { seededRng } from '../engine/rng';
 import { bookShow } from './booker';
 import type { Show } from './types';
 import type { SimJob, SimOut } from './sim';
+import { who } from './testkit';
 import type { Career } from './types';
 
 const quick = async (jobs: SimJob[]): Promise<SimOut[]> => jobs.map((j) => {
@@ -18,9 +19,9 @@ const quick = async (jobs: SimJob[]): Promise<SimOut[]> => jobs.map((j) => {
   return { key: j.key, winner: (j.seed % 1000) / 1000 < pa ? 'you' : 'them', finish: 'PINFALL', t: 600, stars: 3, stats: { you: {} as never, them: {} as never } };
 });
 
-function begin(player = 'bishop_blackridge', seed = 5): Career {
+function begin(player = '@indie', seed = 5): Career {
   const w = setWorld(freshWorld(seed));
-  const c = startCareer({ player, today: '2026-11-03', seed });
+  const c = startCareer({ player: who(player), today: '2026-11-03', seed });
   w.career = c;
   return c;
 }
@@ -50,7 +51,7 @@ describe('one-off shows', () => {
   }, 60000);
 
   it('entering the cup books you round by round while you keep winning', async () => {
-    const c = begin('ama_quaye', 19);
+    const c = begin('@indie-f', 19);
     makeSpecial(c, 'tournament');
     const t = c.tourneys![0]!;
     const inv = c.letters.find((l) => l.action?.type === 'event' && l.action.event === 'invite_cup');

@@ -34,6 +34,9 @@ export interface ArchivedShow {
   bouts: ArchivedBout[];
   /** One-offs: "Charity show", "Farewell: Name", "Cup final". */
   tag?: string;
+  /** Indie shows: the brand that put it on, and who booked it (a person id, or an old show-name key). */
+  brand?: string;
+  booker?: string;
 }
 
 export interface Reign {

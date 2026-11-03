@@ -11,15 +11,15 @@ import { contractFee, indieFee, matchPay, round5 } from './economy';
 import { REGION_LABEL } from './places';
 import type { SimJob, SimOut } from './sim';
 import { activeWorld } from '../world/world';
-import { addEvent, type ArchivedShow } from '../world/history';
-import { movePatience, showBooker } from './patience';
+import { addEvent, type ArchivedShow, type WorldHistory } from '../world/history';
+import { bookerKey, movePatience, showBooker } from './patience';
 import { remember } from './relations';
 import {
   BOOK_AHEAD_DAYS, CONTRACT_MONTHS, FATIGUE_HARDCORE_EXTRA, FATIGUE_PER_MATCH, FATIGUE_RECOVERY_PER_DAY, FATIGUE_STAMINA_DIVISOR,
   INJURY_BASE_PCT, INJURY_HARDCORE_MULT, INJURY_PER_FATIGUE, INJURY_SEVERITY, MEDICAL_BILL_COVER, MEDICAL_PAY_COVER, MEDICAL_PER_DAY, MERCH_INDIE,
   MERCH_SHARE, MERCH_SIGNED, OFF_SCRIPT_TITLE_BAN_DAYS, PLANNED_NUDGE, PLANNED_RETRIES, POACH_CHANCE, POP_CEILING, POP_GLOBAL_SHARE, POP_IDLE_DAYS,
   POP_IDLE_DECAY, POP_LOSS, POP_PER_STAR, POP_STAR_PIVOT, POP_TITLE_WIN, POP_WIN, RELEASE_MONTHLY_BOTTOM, RENEW_CHANCE_REST,
-  RENEW_CHANCE_TOP, REP_FOUR_STAR, REP_OFF_SCRIPT, REP_PER_DATE, REP_START, ROOKIE_EVERY_DAYS, ROSTER_MAX, ROSTER_SIGN_BELOW,
+  CIRCUIT_KEEP, RENEW_CHANCE_TOP, REP_FOUR_STAR, REP_OFF_SCRIPT, REP_PER_DATE, REP_START, ROOKIE_EVERY_DAYS, ROSTER_MAX, ROSTER_SIGN_BELOW,
   START_CONTRACT_MONTHS_LEFT, START_MONEY_CREATED, START_MONEY_PER_POP, TRYOUT_MIN_STARS, PATIENCE_NO_SHOW,
 } from './tuning';
 import type { Bout, Career, Contract, Letter, Person, PlayerMatch, PopRegion, Show } from './types';
@@ -120,7 +120,12 @@ export function spend(c: Career, amount: number, text: string, kind: Career['led
 function extendCalendar(c: Career): void {
   const to = addDays(c.today, CALENDAR_AHEAD_DAYS);
   if (c.drawnTo && c.drawnTo >= to) return;
-  const state = { seed: c.seed, counters: c.counters, nextIrregular: c.nextIrregular };
+  const brands = Object.values(activeWorld().people?.brands ?? {});
+  const pool = WRESTLERS.filter((w) => w.promotion === 'TIS' && !c.people[w.id]?.retired).length;
+  const state = {
+    seed: c.seed, counters: c.counters, nextIrregular: c.nextIrregular,
+    ...(brands.length ? { indie: { brands, pool, last: (c.brandLast ??= {}), regionLast: (c.regionLast ??= {}) } } : {}),
+  };
   const r = drawCalendar(state, c.drawnTo || null, c.startedOn, to);
   for (const s of r.shows) c.shows[s.id] = s;
   c.drawnTo = r.drawnTo;
@@ -227,6 +232,7 @@ export function applyBout(c: Career, show: Show, index: number, out: SimOut, aIs
     const injuryPct = (INJURY_BASE_PCT + p.fatigue / INJURY_PER_FATIGUE) * (hardcore ? INJURY_HARDCORE_MULT : 1);
     p.fatigue = clamp(p.fatigue + FATIGUE_PER_MATCH + (hardcore ? FATIGUE_HARDCORE_EXTRA : 0), 0, 100);
     p.last = show.date;
+    p.circuit = [{ r: show.region, d: show.date }, ...(p.circuit ?? [])].slice(0, CIRCUIT_KEEP);
     p.recent = [...(p.recent ?? []), won ? 1 : 0].slice(-5);
     if (rnd() * 100 < injuryPct) injure(c, id, show, rnd);
   }
@@ -460,11 +466,19 @@ export function endOfDay(c: Career): void {
 }
 
 /** Put a finished show into the world's history. */
+/** Shows already in the record, per history (so archiving stays quick however long the world runs). */
+const archivedIds = new WeakMap<WorldHistory, Set<string>>();
+
 function archive(s: Show): void {
   const H = history();
-  if (H.shows.some((x) => x.id === s.id)) return;
+  let ids = archivedIds.get(H);
+  if (!ids) archivedIds.set(H, (ids = new Set(H.shows.map((x) => x.id))));
+  if (ids.has(s.id)) return;
+  ids.add(s.id);
+  const booker = s.promo === 'TIS' && !s.promos ? showBooker(s) : bookerKey(s.promo);
   const entry: ArchivedShow = {
     id: s.id, date: s.date, promo: s.promo, ...(s.promos ? { promos: s.promos } : {}), ...(s.special ? { tag: s.special.tag } : {}), name: s.name, kind: s.kind, city: s.city, country: s.country,
+    ...(s.brand ? { brand: s.brand } : {}), ...(booker ? { booker } : {}),
     bouts: (s.card ?? []).filter((b) => b.result).map((b) => ({
       a: b.a, b: b.b, an: findWrestler(b.a)?.name ?? b.a, bn: findWrestler(b.b)?.name ?? b.b,
       ...(b.title ? { title: b.title } : {}), ...(b.stip ? { stip: b.stip } : {}),

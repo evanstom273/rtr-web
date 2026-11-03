@@ -3,11 +3,11 @@ import { TITLES, WRESTLERS, findWrestler } from '../../data/rtr';
 import {
   C, PATIENCE_FLOOR, PATIENCE_START, answerCounter, askApproach, askChallenge, askDayOff, askFinish, askIndieChallenge, askMore, askRelease, askReview,
   askRival, askShow, askSpot, askTitleShot, askTryout, askIndieTitleShot, askableIndieShows, askableIndieTitles, askableShows, askableTitles, caughtChance, cooldownLeft, counterLabel,
-  countersWaiting, exitTerms, finishAskable, firstAskable, myPromo, otherPromotions, patienceOf, person, previewChallenge, previewIndieChallenge,
+  bookerName, countersWaiting, exitTerms, finishAskable, firstAskable, myPromo, otherPromotions, patienceOf, person, previewChallenge, previewIndieChallenge,
   previewIndieTitle, previewMore, previewShow, previewSpot, previewTitle, promoName, standingWith, type Ask, type Career, type Preview, type Show,
 } from '../../career';
 import { regionalPop, titleMinGap } from '../../career/booker';
-import { patienceLog, promoOfBooker } from '../../career/patience';
+import { isIndieBooker, patienceLog, promoOfBooker, showBooker } from '../../career/patience';
 import { addDays, daysBetween, fmtDay } from '../../career/dates';
 import { REGION_LABEL } from '../../career/places';
 import { COOLDOWN_CHALLENGE, COOLDOWN_MORE, COOLDOWN_PROMOTION, COOLDOWN_TITLE, PATIENCE_DECLINE_COUNTER, PATIENCE_TOOK_COUNTER } from '../../career/tuning';
@@ -38,7 +38,7 @@ function Booker({ c, who, keyName }: { c: Career; who: string; keyName: string |
   const { w } = useWords();
   return (
     <div className="c-start" style={{ marginTop: 10, gap: 4 }}>
-      <div className="c-rowsb"><span className="c-lab">{who}</span><span className="c-hint">{w(keyName?.startsWith('TIS:') ? 'Promoter patience' : 'Booker patience')}</span></div>
+      <div className="c-rowsb"><span className="c-lab">{who}</span><span className="c-hint">{w(keyName && isIndieBooker(keyName) ? 'Promoter patience' : 'Booker patience')}</span></div>
       {keyName ? <Meter v={patienceOf(c, keyName)} /> : <span className="c-val">No booker: each indie promoter answers for themselves.</span>}
     </div>
   );
@@ -176,7 +176,7 @@ export function Requests({ c, tab: start, onBack, onFlow, onNegotiate }: ReqProp
   const answered = (c.asks ?? []).filter((a) => a.status !== 'open');
   const keys = Object.keys(c.patience ?? {});
   const askedPromos = [...new Set([...keys.map(promoOfBooker), ...(c.asks ?? []).map((a) => a.to)])].filter((x): x is string => !!x && x !== promo && !x.startsWith('TIS'));
-  const promoters = [...new Set([...keys, ...(c.asks ?? []).map((a) => a.to)])].filter((x) => x.startsWith('TIS:'));
+  const promoters = [...new Set([...keys, ...(c.asks ?? []).map((a) => a.to)])].filter((x) => isIndieBooker(x));
   const chip = (a: Ask) => (a.answer === 'yes' ? ['c-eff up', 'Yes'] : a.answer === 'no' ? ['c-eff dn', 'No'] : a.counter?.kind === 'feud' ? ['c-eff', 'Wait for the feud'] : ['c-eff gold', 'Counter']);
   const log = (key: string) => patienceLog(c, key);
 
@@ -236,7 +236,7 @@ export function Requests({ c, tab: start, onBack, onFlow, onNegotiate }: ReqProp
             {askedPromos.map((x) => <PatienceCard key={x} name={promoName(x)} v={patienceOf(c, x)} log={log(x)} />)}
             <span className="c-sec">{w('The Indie Scene')}</span>
             {promoters.length === 0 && <span className="c-note">None yet. Each indie promoter has their own patience once you ask them for something.</span>}
-            {promoters.map((x) => <PatienceCard key={x} name={x.slice(4)} v={patienceOf(c, x)} log={log(x)} />)}
+            {promoters.map((x) => <PatienceCard key={x} name={bookerName(x)} v={patienceOf(c, x)} log={log(x)} />)}
             <span className="c-sec">{w('What moves patience', 'What moves it')}</span>
             <div className="c-kv">
               <span className="c-lab">{w('Up')}</span><span className="c-val">Time, good matches on their shows, following their plan, taking their counters.</span>
@@ -336,7 +336,7 @@ export function RequestFlow({ c, route, onBack, onNegotiate, onAnswered }: FlowP
     const s = shows[j % Math.max(1, shows.length)];
     title = w('Title Shot');
     who = w(s ? `Asking ${s.name}’s promoter` : 'Asking an indie promoter');
-    booker = s ? `TIS:${s.name}` : null;
+    booker = s ? showBooker(s) : null;
     if (t) {
       const ts = c.titles[t.id];
       top = cyc(titles.length, <div className="c-fld mid"><b className="c-big" style={{ fontSize: 18 }}>{t.name}</b><span className="c-hint">{titles.length > 1 ? w('Tap ‹ › for the other title') : w('Your division’s title')}</span></div>);
@@ -396,7 +396,7 @@ export function RequestFlow({ c, route, onBack, onNegotiate, onAnswered }: FlowP
     const shows = useIndie ? askableIndieShows(c).slice(0, 60) : askableShows(c);
     const s = shows[i % Math.max(1, shows.length)];
     who = useIndie ? w(s ? `Asking ${s.name}’s promoter` : 'Asking an indie promoter') : w(`Asking ${promo}’s booker`);
-    booker = useIndie ? (s ? `TIS:${s.name}` : null) : promo;
+    booker = useIndie ? (s ? showBooker(s) : null) : promo;
     const when = s ? <div className="c-fld mid"><b className="c-big" style={{ fontSize: 18 }}>{s.name} · {fmtDay(s.date, 'dm')}</b><span className="c-hint">{s.city}, {s.country} · {w('card not drawn yet')}</span></div> : <div className="c-fld mid"><span className="c-hint">No shows to ask about</span></div>;
     if (them && s) {
       pv = useIndie ? previewIndieChallenge(c, them.id, s.id) : previewChallenge(c, them.id, s.id);
@@ -451,7 +451,7 @@ export function RequestFlow({ c, route, onBack, onNegotiate, onAnswered }: FlowP
     const shows = askableIndieShows(c).slice(0, 40);
     const cur = sel ?? shows[0]?.id ?? null;
     const s = cur ? c.shows[cur] : undefined;
-    title = w('Indie Spot', 'Indie spot'); who = w(s ? `Asking ${s.name}’s promoter` : 'Asking an indie promoter'); booker = s ? `TIS:${s.name}` : null;
+    title = w('Indie Spot', 'Indie spot'); who = w(s ? `Asking ${s.name}’s promoter` : 'Asking an indie promoter'); booker = s ? showBooker(s) : null;
     if (cur) { pv = previewSpot(c, cur); ask = () => askSpot(c, cur); }
     body = (<><span className="c-sec">{w('Pick a show')}</span>{showPick(shows, cur)}</>);
   }

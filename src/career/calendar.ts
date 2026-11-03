@@ -7,8 +7,11 @@ import {
 } from './dates';
 import { INDIE_COUNTRIES, indieEventName } from './indieEvents';
 import { CITIES, PROMO_COUNTRIES, regionOfCountry } from './places';
-import { SPECIAL_REPLACES_WEEKLY } from './tuning';
-import type { Show, ShowKind } from './types';
+import {
+  INDIE_DATES_PER_WEEK, INDIE_REGION_DROUGHT_DAYS, INDIE_SHOWS_MAX_WEEK, INDIE_SHOWS_PER_WEEK, INDIE_SLOTS_PER_SHOW, SPECIAL_REPLACES_WEEKLY,
+} from './tuning';
+import type { Brand } from '../world/people';
+import type { PopRegion, Show, ShowKind } from './types';
 
 type When =
   | { every: string }
@@ -36,6 +39,44 @@ export interface CalendarState {
   seed: number;
   counters: Record<string, number>;
   nextIrregular: Record<string, Day>;
+  /** The indie scene's brands: when there are any, they run the indie week (each brand's last show is kept here). */
+  indie?: IndieCalendar;
+}
+
+export interface IndieCalendar {
+  brands: Brand[];
+  /** How many indies there are to book. */
+  pool: number;
+  last: Record<string, Day>;
+  regionLast: Partial<Record<PopRegion, Day>>;
+}
+
+/** Regular indie shows a week the draw aims for, from how many indies there are to book (Lyra's call: 6 to 10). */
+export const indieTarget = (pool: number): number =>
+  Math.max(INDIE_SHOWS_PER_WEEK[0], Math.min(INDIE_SHOWS_PER_WEEK[1], Math.round((pool * INDIE_DATES_PER_WEEK) / INDIE_SLOTS_PER_SHOW)));
+
+/**
+ * The indie week: the brands most due a show (and any in a region that's gone quiet) run one, about
+ * the target number, never more than the weekly maximum. No region is promised a show every week.
+ */
+function brandWeek(r: Rng, ind: IndieCalendar, ws: Day, used: Set<string>): { date: Day; country: string; name: string; brand: string }[] {
+  const open = ind.brands.filter((b) => !b.closed && b.from <= addDays(ws, 6) && CITIES[b.country]?.length);
+  const target = Math.min(open.length, INDIE_SHOWS_MAX_WEEK, Math.max(INDIE_SHOWS_PER_WEEK[0], Math.min(INDIE_SHOWS_PER_WEEK[1], indieTarget(ind.pool) + randInt(r, -1, 1))));
+  const score = (b: Brand) => {
+    const last = ind.last[b.id];
+    let s = (last ? daysBetween(last, ws) : b.every) / b.every;
+    const quiet = ind.regionLast[b.region];
+    if (!quiet || daysBetween(quiet, ws) >= INDIE_REGION_DROUGHT_DAYS) s += 1.5;
+    return s + r() * 0.6;
+  };
+  const picked = open.map((b) => ({ b, s: score(b) })).sort((x, y) => y.s - x.s || (x.b.id < y.b.id ? -1 : 1)).slice(0, target);
+  return picked.map(({ b }) => {
+    const shift = r() < 0.25 ? (r() < 0.5 ? -1 : 1) : 0;
+    const date = addDays(ws, Math.max(0, Math.min(6, b.dow + shift)));
+    ind.last[b.id] = date;
+    if (!ind.regionLast[b.region] || ind.regionLast[b.region]! < date) ind.regionLast[b.region] = date;
+    return { date, country: b.country, name: indieEventName(r, b.country, used), brand: b.id };
+  });
 }
 
 /** A small stable hash, so every (seed, rule, week) gets its own repeatable dice. */
@@ -78,7 +119,7 @@ function showName(rule: Rule, date: Day, n: number): string {
     .replace('{month}', MONTHS[monthOf(date)]!);
 }
 
-interface Draft { date: Day; promo: string; rule: Rule; country?: string; name?: string; promos?: string[]; irregular?: string }
+interface Draft { date: Day; promo: string; rule: Rule; country?: string; name?: string; promos?: string[]; irregular?: string; brand?: string }
 
 /** Every date in [from, to] with the given weekday. */
 function weekdaysIn(from: Day, to: Day, wd: number): Day[] {
@@ -158,8 +199,12 @@ function draftWeek(state: CalendarState, ws: Day): Draft[] {
         }
       } else if ('procedural' in w) {
         const r = rngFor(state.seed, key, ws);
-        const n = randInt(r, w.procedural.eventsPerWeek[0], w.procedural.eventsPerWeek[1]);
         const used = new Set<string>();
+        if (state.indie?.brands.length) {
+          for (const d of brandWeek(r, state.indie, ws, used)) out.push({ ...d, promo, rule });
+          continue;
+        }
+        const n = randInt(r, w.procedural.eventsPerWeek[0], w.procedural.eventsPerWeek[1]);
         for (let i = 0; i < n; i++) {
           const country = INDIE_COUNTRIES[Math.floor(r() * INDIE_COUNTRIES.length)]!;
           const date = addDays(ws, Math.floor(r() * 7));
@@ -218,6 +263,7 @@ export function drawWeek(state: CalendarState, ws: Day): Show[] {
       done: false,
       ...(series ?? {}),
       ...(d.irregular ? { irregular: d.irregular } : {}),
+      ...(d.brand ? { brand: d.brand } : {}),
     });
   });
   return shows;

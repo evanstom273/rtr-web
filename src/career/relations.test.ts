@@ -5,11 +5,12 @@ import { addDays } from './dates';
 import { affinity, applyBout, memoryOf, patienceOf, relLabel, startCareer, trust } from './index';
 import { indieKey } from './patience';
 import type { SimOut } from './sim';
+import { who } from './testkit';
 import type { Career, Show } from './types';
 
-function begin(player = 'bishop_blackridge', seed = 3): Career {
+function begin(player = '@indie', seed = 3): Career {
   const w = setWorld(freshWorld(seed));
-  const c = startCareer({ player, today: '2026-11-03', seed });
+  const c = startCareer({ player: who(player), today: '2026-11-03', seed });
   w.career = c;
   return c;
 }

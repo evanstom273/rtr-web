@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { PROMOTIONS, TITLES, WRESTLERS, findWrestler } from '../data/rtr';
 import { freshWorld, setWorld } from '../world/world';
 import { addDays } from './dates';
-import { bookerKey } from './patience';
+import { bookerKey, showBooker } from './patience';
+import { who } from './testkit';
 import {
   answerCounter, applyBout, askApproach, askChallenge, askIndieChallenge, askIndieTitleShot, askMore, askShow, askTitleShot, askableShows, askableIndieShows,
   askableIndieTitles, makeOffer, previewTitle, signOffer,
@@ -22,7 +23,7 @@ const runner = (fix?: () => 'you' | 'them' | null) => async (jobs: SimJob[]): Pr
 
 function begin(player = 'jamie_mercer', seed = 7): Career {
   const w = setWorld(freshWorld(seed));
-  const c = startCareer({ player, today: '2026-11-03', seed });
+  const c = startCareer({ player: who(player), today: '2026-11-03', seed });
   w.career = c;
   return c;
 }
@@ -147,19 +148,19 @@ describe('requests', () => {
   }, 60000);
 
   it('approaching a promotion: at their median an offer, bottom quarter a tryout counter, below that no', () => {
-    const c = begin('bishop_blackridge');
+    const c = begin('@indie');
     const me = findWrestler(c.player)!;
     const promo = 'TCG';
     const st = standingWith(c, promo);
     me.popularity.northAmerica = st.median + 1;
     expect(askApproach(c, promo).answer).toBe('yes');
     expect(c.offers.some((o) => o.promo === promo && o.status === 'open')).toBe(true);
-    const d = begin('bishop_blackridge');
+    const d = begin('@indie');
     findWrestler(d.player)!.popularity.northAmerica = st.q1 + 0.5;
     const a = askApproach(d, promo);
     expect(a.answer).toBe('counter');
     expect(a.counter!.kind).toBe('tryout');
-    const e = begin('bishop_blackridge');
+    const e = begin('@indie');
     findWrestler(e.player)!.popularity.northAmerica = st.q1 - 5;
     expect(askApproach(e, promo).answer).toBe('no');
   });
@@ -210,7 +211,7 @@ describe('requests', () => {
   }, 60000);
 
   it('a challenge on an indie show can bring in someone signed elsewhere, and their promotion keeps them free that night', async () => {
-    const c = begin('bishop_blackridge');
+    const c = begin('@indie');
     charm(c, 'TIS');
     const show = askableIndieShows(c).find((s) => s.region === 'northAmerica')!;
     // A signed wrestler whose deal allows indie dates.
@@ -251,12 +252,12 @@ describe('requests', () => {
   }, 60000);
 
   it('a free agent can ask an indie promoter for a shot at an indie title: a yes puts you in it on their show', async () => {
-    const c = begin('bishop_blackridge');
+    const c = begin('@indie');
     const me = findWrestler(c.player)!;
     for (const k of Object.keys(me.popularity) as (keyof typeof me.popularity)[]) me.popularity[k] = 99;
     const t = askableIndieTitles(c)[0]!;
     const show = askableIndieShows(c).find((x) => x.date >= addDays(c.titles[t.id]!.since, 30))!;
-    charm(c, `TIS:${show.name}`);
+    charm(c, showBooker(show));
     const a = askIndieTitleShot(c, t.id, show.id);
     expect(a.answer, a.said).toBe('yes');
     expect(c.indie[show.id]).toBeTruthy();
@@ -269,12 +270,12 @@ describe('requests', () => {
   }, 60000);
 
   it('an indie promoter whose champion isn’t free that night offers a different show', () => {
-    const c = begin('bishop_blackridge');
+    const c = begin('@indie');
     const me = findWrestler(c.player)!;
     for (const k of Object.keys(me.popularity) as (keyof typeof me.popularity)[]) me.popularity[k] = 99;
     const t = askableIndieTitles(c)[0]!;
     const show = askableIndieShows(c).find((x) => x.date >= addDays(c.titles[t.id]!.since, 30))!;
-    charm(c, `TIS:${show.name}`);
+    charm(c, showBooker(show));
     c.people[t.holder!]!.injury = { until: addDays(show.date, 1), what: 'knee' };
     const a = askIndieTitleShot(c, t.id, show.id);
     expect(a.answer).toBe('counter');
@@ -288,7 +289,7 @@ describe('requests', () => {
   });
 
   it('signing without Indie Bookings vacates your indie title, and the indie scene crowns someone new', async () => {
-    const c = begin('bishop_blackridge');
+    const c = begin('@indie');
     const t = TITLES.find((x) => x.id === 'WORLD_INDEPENDENT_CHAMPIONSHIP')!;
     t.holder = c.player;
     makeOffer(c, 'TCG', 'test');
@@ -301,7 +302,7 @@ describe('requests', () => {
   }, 60000);
 
   it('signing with Indie Bookings keeps it, and it doesn’t stop you going for your promotion’s titles', () => {
-    const c = begin('bishop_blackridge');
+    const c = begin('@indie');
     const t = TITLES.find((x) => x.id === 'WORLD_INDEPENDENT_CHAMPIONSHIP')!;
     t.holder = c.player;
     makeOffer(c, 'TCG', 'test');

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { WRESTLERS } from '../../data/rtr';
+import { TITLES, WRESTLERS } from '../../data/rtr';
 import { NO_FILTERS, filterRoster } from './roster';
 
 describe('match builder roster', () => {
@@ -24,9 +24,10 @@ describe('match builder roster', () => {
     expect(asia[0]!.popularity.asia).toBe(Math.max(...WRESTLERS.map((w) => w.popularity.asia)));
   });
 
-  it('title status: 33 champions, everyone else not', () => {
-    expect(filterRoster({ ...NO_FILTERS, title: 'champ' })).toHaveLength(33);
-    expect(filterRoster({ ...NO_FILTERS, title: 'non' })).toHaveLength(WRESTLERS.length - 33);
+  it('title status: champions, everyone else not', () => {
+    const held = TITLES.filter((t) => t.holder).length;
+    expect(filterRoster({ ...NO_FILTERS, title: 'champ' })).toHaveLength(held);
+    expect(filterRoster({ ...NO_FILTERS, title: 'non' })).toHaveLength(WRESTLERS.length - held);
     expect(filterRoster({ ...NO_FILTERS, title: 'VWF_CHAMPIONSHIP' }).map((w) => w.name)).toEqual(['Ray Hollis']);
   });
 });

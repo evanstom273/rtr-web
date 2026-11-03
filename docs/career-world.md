@@ -207,6 +207,55 @@ A save from before the expansion carries on; a test covers it.
 - `TITLE_STATS=1 npx vitest run src/career/titlestats.test.ts`: the title table above.
 - `EVENT_STATS=1 npx vitest run src/career/events.test.ts`: how often each event fires in a year.
 
+## The indie scene
+
+Lyra's calls set its shape:
+- **The ten promotions start with 40 each.** The 40 indies that used to ship were signed by the promotions in their region (`scripts/move-indies.ts`).
+- **Every new world generates its own indie scene** (`world/populate.ts`).
+
+**The generated scene:**
+- **100–200 wrestlers**, built by the same rules as rookies and created wrestlers. Each is a prospect, journeyman or veteran, with a home region and country. Names and gimmicks come from `data/rtr/names.ts`; each gets traits.
+- **Indie brands with named promoters.** Each brand runs a show about every 7–21 days, mostly at weekends. A region's brands are in proportion to its share of the scene, at least two everywhere.
+- **All 15 indie titles** go to the best generated indies when the world starts.
+- **Older saves:** a world played before the scene existed is topped up to 120 instead.
+
+**The calendar:**
+- Each week the brands most due a show run one.
+- The draw aims for indie wrestlers × 0.5 dates ÷ 10 slots a show, kept to 6–10 shows a week.
+- **Never more than 10 indie shows in a calendar week.** Charity, benefit, tribute and farewell nights and every cup round count towards it.
+  - A one-off in a full week takes the place of a regular show nobody's counting on.
+  - If none can give way, the one-off moves on a week.
+- No region is promised a show every week. A region that's gone 21 days without one gets priority, and each region has at least two shows in any four weeks.
+
+**Who gets booked:**
+- Who's around for an indie show depends on how near they are: home 1, a region they've worked lately 0.5, next door 0.2, anywhere else 0.05. Champions are three times as likely to travel.
+- The promoter then picks by popularity, reputation and how they feel about the wrestler, less if they're tired.
+- There's no quota, so the least popular struggle for dates (Lyra's call). The tests still check that nobody available is ever locked out by a bug.
+- **At most two title matches on an indie card, one on a short card.** Promised shots go first, then the most overdue.
+
+**Promoters and promises:**
+- Indie promoters are people now. Their patience and memory of you go with them; older saves keep their show-name keys as they were.
+- Indie promises roll on to the same brand's next show.
+
+**Monthly upkeep:**
+- When the scene is over 220, idle unknowns (90 days without a match, popularity under 10) quietly leave the business.
+- When it's under 120, a few new faces debut.
+
+The `LONG=1` harness reports, each year:
+- indie dates a month (p10, median, p90);
+- who's gone 60 or 120 days without a match, overall and by popularity quarter;
+- signed wrestlers' dates;
+- indie shows a week and by region.
+
+After the scene went in (3 seeds, a year):
+
+| Measure | Value |
+| --- | --- |
+| Indie dates a month | median 1.8–2.0, p10 0.6–0.8, p90 2.8–3.0 |
+| No match in 120 days | 1–2% overall; 4–8% of the least popular quarter |
+| Indie shows a week | median 7–9, never more than 10 |
+| Engine time a day | about 0.8 s (unchanged) |
+
 ## Performance
 
 Two opt-in harnesses keep an eye on speed and save size:
