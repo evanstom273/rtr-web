@@ -85,9 +85,9 @@ export function SpecialsSheet({ engine, initial, onClose }: { engine: MatchEngin
           ))}
         </ul>
         <p className="sp-help">
-          50 momentum banks a signature: it stays banked until it lands, even if momentum drops. Land it and you can cash in 50
-          momentum for a finisher. 100 momentum banks a finisher too (up to three), and so does reversing the opponent’s finisher. To
-          earn the same unlock again, momentum has to drop well back first.
+          50 momentum banks a signature: it stays banked until it lands, even if momentum drops. 100 banks a finisher (up to three),
+          and so does reversing the opponent’s finisher. Using either drops momentum to 25, and you climb again for the next one. Land
+          your signature and you can cash in the rest for a finisher instead (down to 0).
         </p>
       </div>
     </div>

@@ -58,13 +58,13 @@ export function addFatigue(s: Side, amount: number): void {
 }
 
 /*
- * Momentum is progression for specials (pushes spend it, and a landed signature can cash in 50 for
- * a finisher; see moves.ts):
+ * Momentum is progression for specials (pushes spend it; see moves.ts for cashing in a signature):
  * - reaching SIGNATURE_MOMENTUM banks one signature, which stays banked until it lands, however
  *   far momentum drops;
  * - reaching FINISHER_MOMENTUM banks a finisher (and earns Resiliency, once a match);
- * - neither resets momentum. To earn the same unlock again, momentum has to fall well back below
- *   its threshold first (REARM_MARGIN), so sitting at the top of the bar can't farm specials.
+ * - using either drops momentum to SPECIAL_FLOOR and re-arms both, so you climb for the next one.
+ *   Otherwise the same unlock only comes back after momentum falls well below its threshold
+ *   (REARM_MARGIN), so sitting at the top of the bar can't farm specials.
  */
 export const SIGNATURE_MOMENTUM = 50;
 export const FINISHER_MOMENTUM = 100;
@@ -108,7 +108,20 @@ export function canUseMove(s: Side, m: Move): boolean {
 export function useSignature(s: Side): boolean {
   if (!s.signatureReady) return false;
   s.signatureReady = false;
+  dropAfterSpecial(s);
   return true;
+}
+
+/**
+ * Using a special knocks momentum back to 25 (Lyra's call), and you earn the next one by climbing
+ * again: a signature at 50, a finisher at 100. Without this, a wrestler who'd used everything at 100
+ * momentum was stuck there for the rest of the match, with nothing left to earn.
+ */
+export const SPECIAL_FLOOR = 25;
+export function dropAfterSpecial(s: Side): void {
+  s.momentum = Math.min(s.momentum, SPECIAL_FLOOR);
+  s.signatureArmed = true;
+  s.finisherArmed = true;
 }
 
 export function grantFinisherStock(s: Side, amount = 1): number {

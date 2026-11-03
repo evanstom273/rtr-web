@@ -11,7 +11,7 @@ import { MatchEngine } from '../match';
 import { lateMatchProfile, pinProfile, submissionContext } from '../interaction';
 import * as ix from '../interactions';
 import { conditionResistance, pinCondition, pinOdds } from '../pin';
-import { MAX_FINISHER_STOCK, addMomentum, useSignature, createSide, damagePart, grantFinisherStock, spendFinisher, totalHp } from '../side';
+import { MAX_FINISHER_STOCK, addMomentum, dropAfterSpecial, useSignature, createSide, damagePart, grantFinisherStock, spendFinisher, totalHp } from '../side';
 import { aiGoesForTap, beginSubmission, workHoldDamage } from '../submission';
 import { resolveTarget } from '../targeting';
 import type { MatchState } from '../types';
@@ -31,7 +31,7 @@ describe('side state', () => {
     expect(s.hp.HEAD).toBe(0);
   });
 
-  it('50 momentum banks a signature, 100 banks a finisher, and neither resets momentum', () => {
+  it('50 momentum banks a signature, 100 banks a finisher', () => {
     const s = side();
     expect(addMomentum(s, 49)).toEqual([]);
     expect(addMomentum(s, 1)).toEqual(['signature']);
@@ -52,7 +52,9 @@ describe('side state', () => {
     const s = side();
     addMomentum(s, 100);
     expect(s.finisherStock).toBe(1);
-    useSignature(s);
+    // Banked and still holding both: no specials used, so no drop to 25.
+    s.signatureReady = false;
+    s.signatureArmed = false;
     // Dipping just under and climbing back earns nothing.
     addMomentum(s, -10);
     expect(addMomentum(s, 10)).toEqual([]);
@@ -286,19 +288,33 @@ describe('submissions outside the middle of the ring', () => {
 });
 
 describe('cashing in a signature', () => {
-  it('converts 50 momentum into a finisher, only with the momentum and room for one', () => {
+  it('landing a signature drops you to 25; cashing it in for a finisher drops you to 0', () => {
     const e = new MatchEngine({ you: WRESTLERS[0]!.id, them: WRESTLERS[1]!.id, seed: 9 });
     const ctx = (e as unknown as { ctx: Parameters<typeof convertSignature>[0] }).ctx;
     const A = e.state.you;
-    A.momentum = 70;
+    A.momentum = 90;
+    A.signatureReady = true;
+    useSignature(A);
+    expect(A.momentum).toBe(25);
     expect(canConvert(A)).toBe(true);
     convertSignature(ctx, 'you');
-    expect(A.momentum).toBe(20);
+    expect(A.momentum).toBe(0);
     expect(A.finisherStock).toBe(1);
-    expect(canConvert(A)).toBe(false);
-    A.momentum = 90;
     A.finisherStock = MAX_FINISHER_STOCK;
     expect(canConvert(A)).toBe(false);
+  });
+
+  it('using everything at 100 momentum no longer leaves you stuck there', () => {
+    const e = new MatchEngine({ you: WRESTLERS[0]!.id, them: WRESTLERS[1]!.id, seed: 9 });
+    const A = e.state.you;
+    addMomentum(A, 100);
+    expect(A.signatureReady && A.finisherStock === 1).toBe(true);
+    useSignature(A);
+    A.finisherStock = 0;
+    dropAfterSpecial(A);
+    expect(A.momentum).toBe(25);
+    expect(addMomentum(A, 25)).toEqual(['signature']);
+    expect(addMomentum(A, 50)).toEqual(['finisher']);
   });
 });
 

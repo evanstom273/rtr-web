@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import type { MatchEngine, SigConvertSpec } from '../../engine';
 import { buzz } from '../format';
 
-/** A signature has landed: cash in 50 momentum for a finisher, or keep the momentum. */
+/** A signature has landed (momentum drops to 25): cash in the rest for a finisher, or keep it. */
 export function SigConvert({ engine, spec }: { engine: MatchEngine; spec: SigConvertSpec }) {
   const pick = (convert: boolean) => {
     buzz(convert ? [12, 30, 12] : 10);
@@ -16,7 +16,6 @@ export function SigConvert({ engine, spec }: { engine: MatchEngine; spec: SigCon
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   });
-  const left = Math.round(spec.momentum) - 50;
   return (
     <div className="ov subchoice">
       <div className="inner">
@@ -33,11 +32,11 @@ export function SigConvert({ engine, spec }: { engine: MatchEngine; spec: SigCon
         <div className="sc-actions">
           <button className="sc-btn tap" onClick={() => pick(true)}>
             <span className="pl">Bank a finisher</span>
-            <span className="ps">Cash in 50 momentum ({left} left). The finisher’s yours to use whenever it fits.</span>
+            <span className="ps">Momentum drops to 0. The finisher’s yours to use whenever it fits.</span>
           </button>
           <button className="sc-btn work" onClick={() => pick(false)}>
             <span className="pl">Keep the momentum</span>
-            <span className="ps">Stay at {Math.round(spec.momentum)} and push on for 100, which banks a finisher anyway.</span>
+            <span className="ps">Stay at {Math.round(spec.momentum)}: halfway to your next signature, and on the way to 100.</span>
           </button>
         </div>
         <div className="mt-hint">F to bank a finisher · K to keep the momentum</div>

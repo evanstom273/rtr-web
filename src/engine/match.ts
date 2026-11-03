@@ -301,7 +301,7 @@ export class MatchEngine {
     });
   }
 
-  /** A signature has landed: cash in 50 momentum for a finisher, or keep it. */
+  /** A signature has landed: cash in the rest of the momentum for a finisher, or keep it. */
   resolveSigConvert(convert: boolean): boolean {
     const p = this.state.pending;
     if (p.kind !== 'sigConvert') return false;

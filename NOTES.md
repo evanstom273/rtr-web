@@ -99,6 +99,15 @@ counter move), 5 blunted moves; median match 19.3 / 17.3 min (was 17.7 / 16.0). 
 Without tiers ratings would be above the old ones (raw 3.67 against 3.53); the reads alone nudge
 them up slightly.
 
+### Using a special drops momentum to 25 (Lyra's call)
+
+Landing a signature or using a finisher (landed or not) drops momentum to 25 and re-arms both, so
+you climb for the next one (signature at 50, finisher at 100). Cashing a landed signature in for a
+finisher drops you to 0 instead. Before this, with no momentum lost on reversals, a wrestler who had
+used everything at 100 sat there for the rest of the match with nothing left to earn. Sim (400
+matches): finishers used 2.13 → 2.27 a match, signatures landed 1.85 → 1.92; the difference is all
+in long matches.
+
 ### Live star rating
 
 The HUD shows the star rating so far (`rateSoFar` in `rating.ts`): the same sums as the result
