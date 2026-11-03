@@ -135,6 +135,8 @@ export type HP = Record<BodyPart, number>;
 export interface Side {
   key: SideKey;
   w: Wrestler;
+  /** Career: the booker's thumb on the scale (0 almost always). */
+  booked: number;
   regular: Move[];
   signatures: Move[];
   finishers: Move[];
@@ -544,6 +546,13 @@ export interface MatchRulesConfig {
   cageEscape: boolean;
   cagePins: boolean;
   cageSubs: boolean;
+  /** Career shows: the real show name and venue instead of a generated one. */
+  eventName?: string;
+  venueName?: string;
+  /** Career: the booker's planned winner gets this much on their rolls (AI title matches only). */
+  booked?: { side: SideKey; bonus: number };
+  /** Career: fatigue carried in, as the share of stamina each side starts with (1 = fresh). */
+  freshness?: Partial<Record<SideKey, number>>;
 }
 
 export interface MatchState {

@@ -66,13 +66,23 @@ function emptyCrowd(): CrowdStats {
 
 let nextId = 1;
 
+/** Career extras: the booker's planned winner and how fresh each side arrives. */
+function careerSide(s: Side, rules: MatchRulesConfig): Side {
+  if (rules.booked?.side === s.key) s.booked = rules.booked.bonus;
+  const fresh = rules.freshness?.[s.key];
+  if (fresh !== undefined && fresh < 1) s.stamina = Math.max(1, Math.round(s.maxStamina * Math.max(0, fresh)));
+  return s;
+}
+
 export function createState(rnd: Rng, you: Wrestler, them: Wrestler, rules: MatchRulesConfig): MatchState {
   const ev = eventFor(rnd, you, them, rules.title, rules);
+  if (rules.eventName) ev.event = rules.eventName;
+  if (rules.venueName) ev.venue = rules.venueName;
   const S: MatchState = {
     id: nextId++,
     rules,
-    you: createSide(you, 'you'),
-    them: createSide(them, 'them'),
+    you: careerSide(createSide(you, 'you'), rules),
+    them: careerSide(createSide(them, 'them'), rules),
     t: 0,
     control: null,
     over: false,

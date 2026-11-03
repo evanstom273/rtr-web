@@ -122,6 +122,7 @@ function counterSide(D: Side): Counter {
   push(mods, `Skill/Speed ${Math.round(counter)}`, statMod(counter));
   momentum(mods, D);
   push(mods, 'Technician', D.w.classes.includes('TECHNICIAN') ? 1 : 0);
+  push(mods, 'Booked to win', D.booked);
   exhaustion(mods, D, false);
   if (D.hp.HEAD < 40) push(mods, 'Rattled (head)', D.hp.HEAD < 25 ? -3 : -2);
   push(mods, 'Bleeding', -D.bleeding);
@@ -147,6 +148,7 @@ export function moveContest(A: Side, D: Side, move: Move, target: TargetResoluti
   const stat = ATTACK_STAT[move.type];
   push(aMods, `${STAT_LABEL[stat]} ${A.w.stats[stat]}`, statMod(A.w.stats[stat]));
   push(aMods, 'Initiative', 2);
+  push(aMods, 'Booked to win', A.booked);
   momentum(aMods, A);
   push(aMods, 'Their style', classCompatible(A, move) || inferredClassCompatible(A, move) ? 1 : 0);
   if (isFinisherMove(A, move)) push(aMods, 'Finisher', 2);
@@ -183,6 +185,7 @@ export function setupContest(A: Side, D: Side, id: SetupId, S?: MatchState): { a
   const aMods: Mod[] = [], aEdges: ContestSide['edges'] = [];
   const stat = id === 'taunt' ? 'charisma' : EXTRA_STAT[id] ?? (SKILL_SETUPS.has(id) ? 'skill' : 'strength');
   push(aMods, `${STAT_LABEL[stat]} ${A.w.stats[stat]}`, statMod(A.w.stats[stat]));
+  push(aMods, 'Booked to win', A.booked);
   momentum(aMods, A);
   const climb = CLIMBS.has(id);
   push(aMods, 'Opponent down', isDown(D) ? (climb ? 4 : 2) : 0);
