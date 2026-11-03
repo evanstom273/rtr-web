@@ -300,7 +300,8 @@ body.dragging,body.dragging *{user-select:none!important;-webkit-user-select:non
 .bv{font-family:var(--mono);font-size:9.5px;color:var(--mute);font-variant-numeric:tabular-nums;flex:none;min-width:3.6em;text-align:right}
 .bt{position:relative;flex:1;height:6px;background:var(--panel-2);border-radius:3px;overflow:hidden;min-width:0}
 .bt i{display:block;height:100%;width:0;border-radius:3px;transition:width .45s var(--ease)}
-.bt i.sta{background:var(--fg);opacity:.75}
+.bt i.sta{position:relative;background:var(--fg);opacity:.75}
+.bt i.ghost{position:absolute;left:0;top:0;bottom:0;background:var(--bad);opacity:.7;transition:width .55s ease-in}
 .bt i.fat{background:var(--risk);opacity:.85}
 .bt i.mom{background:var(--crowd)}
 .bt i.tick{position:absolute;top:-1px;bottom:-1px;width:2px;margin-left:-1px;background:var(--fg,#fff);opacity:.45}
@@ -476,14 +477,19 @@ body.dragging,body.dragging *{user-select:none!important;-webkit-user-select:non
 #flash.strong{font-size:clamp(3rem,15vw,7.5rem);animation:flashbig 1.6s ease-out}
 @keyframes flash{0%{opacity:0;transform:translate(-50%,-50%) scale(1.35)}15%{opacity:1;transform:translate(-50%,-50%) scale(1)}70%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(.98)}}
 @keyframes flashbig{0%{opacity:0;transform:translate(-50%,-50%) scale(2.2);letter-spacing:.3em}12%{opacity:1;transform:translate(-50%,-50%) scale(1);letter-spacing:.02em}75%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(1.05)}}
-#match.jolt0{animation:joltA .22s}
-#match.jolt1{animation:joltB .22s}
-#match.jolt-big0{animation:joltA2 .45s}
-#match.jolt-big1{animation:joltB2 .45s}
-@keyframes joltA{40%{transform:translateY(2px)}}
-@keyframes joltB{40%{transform:translateY(2px)}}
-@keyframes joltA2{15%{transform:translate(-6px,3px)}35%{transform:translate(5px,-2px)}55%{transform:translate(-3px,1px)}}
-@keyframes joltB2{15%{transform:translate(-6px,3px)}35%{transform:translate(5px,-2px)}55%{transform:translate(-3px,1px)}}
+/* Hits shake the screen by how much they took off. Two copies of each so back-to-back hits restart. */
+#match.jolt-light0{animation:joltL0 .2s}
+#match.jolt-light1{animation:joltL1 .2s}
+#match.jolt-medium0{animation:joltM0 .32s}
+#match.jolt-medium1{animation:joltM1 .32s}
+#match.jolt-heavy0{animation:joltH0 .5s}
+#match.jolt-heavy1{animation:joltH1 .5s}
+@keyframes joltL0{40%{transform:translateY(2px)}}
+@keyframes joltL1{40%{transform:translateY(2px)}}
+@keyframes joltM0{20%{transform:translate(-3px,3px)}45%{transform:translate(3px,-1px)}70%{transform:translate(-1px,1px)}}
+@keyframes joltM1{20%{transform:translate(-3px,3px)}45%{transform:translate(3px,-1px)}70%{transform:translate(-1px,1px)}}
+@keyframes joltH0{10%{transform:translate(-7px,5px)}25%{transform:translate(6px,-4px)}42%{transform:translate(-5px,3px)}60%{transform:translate(3px,-2px)}80%{transform:translate(-1px,1px)}}
+@keyframes joltH1{10%{transform:translate(-7px,5px)}25%{transform:translate(6px,-4px)}42%{transform:translate(-5px,3px)}60%{transform:translate(3px,-2px)}80%{transform:translate(-1px,1px)}}
 
 /* ---------- Contested roll ---------- */
 .ov.contest{align-items:flex-start;overflow-y:auto;touch-action:manipulation}
@@ -663,3 +669,20 @@ body.dragging,body.dragging *{user-select:none!important;-webkit-user-select:non
 .ls-row{display:grid;grid-template-columns:60px 1fr;align-items:center;gap:8px;font-size:12px}
 .ls-row>i{display:block;height:6px;background:var(--panel-2);border-radius:3px;overflow:hidden}
 .ls-row>i>i{display:block;height:100%;background:var(--gold);border-radius:3px}
+
+/* A wrestler taking a hit: their card jolts and flashes, and the damage pops off it. */
+.card{position:relative}
+.card.hit.h0{animation:cardhitA .35s ease-out}
+.card.hit.h1{animation:cardhitB .35s ease-out}
+.card.hit-big.h0{animation:cardhitBigA .5s ease-out}
+.card.hit-big.h1{animation:cardhitBigB .5s ease-out}
+@keyframes cardhitA{0%{box-shadow:inset 0 0 0 2px var(--bad);transform:translateX(-3px)}40%{transform:translateX(2px)}100%{box-shadow:inset 0 0 0 0 transparent;transform:none}}
+@keyframes cardhitB{0%{box-shadow:inset 0 0 0 2px var(--bad);transform:translateX(-3px)}40%{transform:translateX(2px)}100%{box-shadow:inset 0 0 0 0 transparent;transform:none}}
+@keyframes cardhitBigA{0%{box-shadow:inset 0 0 0 3px var(--bad),0 0 24px color-mix(in srgb,var(--bad) 45%,transparent);transform:translateX(-6px) rotate(-1deg)}30%{transform:translateX(5px) rotate(.6deg)}60%{transform:translateX(-2px)}100%{box-shadow:none;transform:none}}
+@keyframes cardhitBigB{0%{box-shadow:inset 0 0 0 3px var(--bad),0 0 24px color-mix(in srgb,var(--bad) 45%,transparent);transform:translateX(-6px) rotate(-1deg)}30%{transform:translateX(5px) rotate(.6deg)}60%{transform:translateX(-2px)}100%{box-shadow:none;transform:none}}
+.dmg-pop{position:absolute;right:10px;top:6px;z-index:3;pointer-events:none;display:flex;flex-direction:column;align-items:flex-end;font-family:var(--display);font-weight:900;font-size:1.6rem;line-height:.9;color:var(--bad);
+  text-shadow:0 2px 0 var(--ink),0 0 10px var(--ink);animation:dmgpop 1.1s var(--ease) forwards}
+.dmg-pop small{font-family:var(--mono);font-weight:600;font-size:10px;letter-spacing:.1em;text-transform:uppercase;text-shadow:none}
+.dmg-pop.big{font-size:2.3rem}
+@keyframes dmgpop{0%{opacity:0;transform:translateY(6px) scale(1.5)}15%{opacity:1;transform:none}70%{opacity:1}100%{opacity:0;transform:translateY(-14px)}}
+@media (prefers-reduced-motion:reduce){.dmg-pop{animation:fadeonly 1.1s linear forwards}}

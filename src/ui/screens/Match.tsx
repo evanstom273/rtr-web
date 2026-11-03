@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { MatchEngine, SideKey } from '../../engine';
-import { nameTone, reduceMotion } from '../format';
+import { buzz, nameTone, reduceMotion } from '../format';
 import { Dock } from '../match/Dock';
 import { Log } from '../match/Log';
 import { MoveWheel } from '../match/MoveWheel';
-import { RingView, snapKey } from '../match/RingView';
+import { RingView } from '../match/RingView';
 import { SetupSheet } from '../match/SetupSheet';
 import { SpecialsSheet } from '../match/SpecialsSheet';
 import { WrestlerCard } from '../match/WrestlerCard';
@@ -25,7 +25,6 @@ import { useBackLayer } from '../backStack';
 import { useSkin } from '../skin';
 import { BroadcastMatch, BuildingMatch, PaperMatch, type MatchSlots } from '../skins/MatchLayouts';
 
-const POP_MS = 1900;
 const THUMB_W = 112;
 
 function useViewportWidth(): number {
@@ -38,6 +37,9 @@ function useViewportWidth(): number {
   return w;
 }
 
+type Impact = 'light' | 'medium' | 'heavy';
+const hpTotal = (hp: Record<string, number>) => Object.values(hp).reduce((a, b) => a + b, 0);
+
 export function Match({ engine, onOver }: { engine: MatchEngine; onOver: () => void }) {
   const version = useEngine(engine);
   const S = engine.state, p = S.pending, v = S.view;
@@ -47,45 +49,36 @@ export function Match({ engine, onOver }: { engine: MatchEngine; onOver: () => v
   const bigW = Math.min(vw - 16, 480);
   const [sheet, setSheet] = useState<'none' | 'moves' | 'setup' | 'specials-you' | 'specials-them'>('none');
   const [flash, setFlash] = useState<{ id: number; text: string; strong: boolean } | null>(null);
-  const [jolt, setJolt] = useState<{ n: number; big: boolean }>({ n: 0, big: false });
+  const [jolt, setJolt] = useState<{ n: number; level: Impact }>({ n: 0, level: 'light' });
   const [pinned, setPinned] = useState(false);
-  const [autoPop, setAutoPop] = useState(0);
-  const [popOpen, setPopOpen] = useState(false);
   const pulse = useRef(0);
   const seenEvent = useRef(0);
-  const lastSnap = useRef(`${snapKey(v.sides.you.state)}/${snapKey(v.sides.them.state)}`);
+  const lastHp = useRef(hpTotal(v.sides.you.hp) + hpTotal(v.sides.them.hp));
   const tones: Record<SideKey, string> = { you: nameTone(S.you.w), them: nameTone(S.them.w) };
 
-  // Engine events: big-word flashes, crowd pulses, screen jolts.
+  // Engine events: big-word flashes, crowd pulses. Hits shake the screen (and the phone) by how much
+  // they took off: a jab nudges it, a piledriver rattles it.
   useEffect(() => {
-    let big = false, any = false;
+    let hit = false, strong = false;
     for (const ev of S.events) {
       if (ev.id <= seenEvent.current) continue;
       seenEvent.current = ev.id;
       if (ev.type === 'flash') {
         setFlash({ id: ev.id, text: ev.text, strong: !!ev.strong });
-        if (ev.strong) big = any = true;
+        if (ev.strong) strong = true;
       } else if (ev.type === 'heatSpike') pulse.current = Math.min(1, pulse.current + ev.amount / 25);
-      else if (ev.beat === 'crash') big = any = true;
-      else if (ev.beat === 'move_landed') any = true;
+      else if (ev.beat === 'crash') hit = strong = true;
+      else if (ev.beat === 'move_landed') hit = true;
     }
-    if (any && !reduceMotion()) setJolt((j) => ({ n: j.n + 1, big }));
-  }, [S, version]);
-
-  // Phone: pop the ring thumbnail open when someone changes position.
-  useEffect(() => {
-    const key = `${snapKey(v.sides.you.state)}/${snapKey(v.sides.them.state)}`;
-    if (key === lastSnap.current) return;
-    lastSnap.current = key;
-    if (!wide && skin === 'paper') setAutoPop((n) => n + 1);
-  }, [v, wide, skin]);
-  useEffect(() => {
-    if (!autoPop) return;
-    setPopOpen(true);
-    const id = window.setTimeout(() => setPopOpen(false), POP_MS);
-    return () => window.clearTimeout(id);
-  }, [autoPop]);
-  const pop = pinned || popOpen;
+    const hp = hpTotal(v.sides.you.hp) + hpTotal(v.sides.them.hp);
+    const dmg = Math.max(0, lastHp.current - hp);
+    lastHp.current = hp;
+    if (!hit && !strong && dmg < 1) return;
+    const level: Impact = strong || dmg >= 14 ? 'heavy' : dmg >= 6 ? 'medium' : 'light';
+    buzz(level === 'heavy' ? [30, 40, 60] : level === 'medium' ? 28 : 12);
+    if (!reduceMotion()) setJolt((j) => ({ n: j.n + 1, level }));
+  }, [S, version, v]);
+  const pop = pinned;
 
   useEffect(() => {
     if (p.kind === 'over') onOver();
@@ -96,7 +89,7 @@ export function Match({ engine, onOver }: { engine: MatchEngine; onOver: () => v
   const close = useCallback(() => setSheet('none'), []);
   // Android back closes whichever sheet is open.
   useBackLayer(sheet !== 'none', close);
-  const joltCls = jolt.n ? ` ${jolt.big ? 'jolt-big' : 'jolt'}${jolt.n % 2}` : '';
+  const joltCls = jolt.n ? ` jolt-${jolt.level}${jolt.n % 2}` : '';
   const ringBusy = p.kind === 'defend' || p.kind === 'contest' || p.kind === 'contestRoll' || p.kind === 'pinChoice' || p.kind === 'sigConvert' || p.kind === 'subChoice' || p.kind === 'kickout' || p.kind === 'refCount' || p.kind === 'sub' || p.kind === 'tenCount' || p.kind === 'refTen';
 
   // Paper keeps the ring as a tap-to-pop thumbnail on phones; broadcast and the building put it centre stage.
@@ -106,7 +99,7 @@ export function Match({ engine, onOver }: { engine: MatchEngine; onOver: () => v
     </div>
   ) : (
     <button className={`ringthumb${pop ? ' pop' : ''}${ringBusy ? ' busy' : ''}`}
-      style={{ '--thumb-w': `${THUMB_W}px`, '--big-w': `${bigW}px`, '--thumb-s': THUMB_W / bigW } as CSSProperties} onClick={() => { setPinned(!pop); setPopOpen(false); }}
+      style={{ '--thumb-w': `${THUMB_W}px`, '--big-w': `${bigW}px`, '--thumb-s': THUMB_W / bigW } as CSSProperties} onClick={() => setPinned(!pop)}
       aria-label={pop ? 'Shrink ring view' : 'Expand ring view'}>
       <RingView engine={engine} version={version} variant={pop ? 'panel' : 'thumb'} />
     </button>
