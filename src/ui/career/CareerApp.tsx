@@ -16,6 +16,7 @@ import { Negotiate } from './Negotiate';
 import { commit, useCareer } from './parts';
 import { Profile, type ProfileLink } from './Profile';
 import { Records } from './Records';
+import { RequestFlow, Requests, showAnswersNext, type ReqRoute } from './Requests';
 import { ShowDay } from './ShowDay';
 import { Start } from './Start';
 import { Stats } from './Stats';
@@ -24,8 +25,8 @@ import './career.css';
 import './career-app.css';
 
 export type CareerScreen =
-  | 'cal' | 'show' | 'profile' | 'letters' | 'contract' | 'training' | 'finances' | 'history' | 'stats' | 'records' | 'moveset' | 'start' | 'create'
-  | { negotiate: string };
+  | 'cal' | 'show' | 'profile' | 'letters' | 'contract' | 'training' | 'finances' | 'history' | 'stats' | 'records' | 'moveset' | 'start' | 'create' | 'requests'
+  | { negotiate: string } | { requests: number } | ReqRoute;
 
 interface Props {
   initial?: CareerScreen;
@@ -83,7 +84,13 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
   if (screen === 'create') return <Create hasCareer={!!c} onBack={back} onDone={(w, fresh) => void begin(w.id, w, fresh)} />;
   if (!c) return <Start hasCareer={false} onBack={onMenu} onPick={(id, fresh) => void begin(id, undefined, fresh)} onCreate={() => go('create')} />;
 
-  if (typeof screen === 'object') return <Negotiate c={c} offerId={screen.negotiate} onBack={back} onDone={home} />;
+  if (typeof screen === 'object') {
+    if ('negotiate' in screen) return <Negotiate c={c} offerId={screen.negotiate} onBack={back} onDone={home} />;
+    if ('requests' in screen) return <Requests c={c} tab={screen.requests} onBack={back} onFlow={(r) => go(r)} onNegotiate={(id) => go({ negotiate: id })} />;
+    // A request: answered, it lands you back on Requests › Answers.
+    return <RequestFlow key={JSON.stringify(screen)} c={c} route={screen} onBack={back} onNegotiate={(id) => go({ negotiate: id })}
+      onAnswered={() => { showAnswersNext(); setStack((st) => [...st.slice(0, -1).filter((x) => x !== 'requests' && !(typeof x === 'object' && 'requests' in x)), 'requests']); }} />;
+  }
   switch (screen) {
     case 'show': return <ShowDay c={c} onBack={home} onPlay={onPlay} />;
     case 'profile': return <Profile c={c} onBack={back} onShowDay={() => go('show')} onHub={home} onOpen={(s: ProfileLink) => go(s === 'contract' || s === 'history' || s === 'finances' || s === 'stats' ? s : 'profile')} />;
@@ -93,7 +100,8 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
     case 'finances': return <Finances c={c} onBack={back} />;
     case 'history': return <History c={c} onBack={back} onStats={() => go('stats')} />;
     case 'stats': return <Stats c={c} onBack={back} onHistory={() => go('history')} />;
-    case 'records': return <Records c={c} onBack={back} onMoveset={() => go('moveset')} onNewCareer={() => go('start')} />;
+    case 'records': return <Records c={c} onBack={back} onMoveset={() => go('moveset')} onNewCareer={() => go('start')} onRequest={(r) => go(r)} />;
+    case 'requests': return <Requests c={c} onBack={back} onFlow={(r) => go(r)} onNegotiate={(id) => go({ negotiate: id })} />;
     case 'moveset': {
       const me = WRESTLERS.find((x) => x.id === c.player)!;
       return (
@@ -102,7 +110,7 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
       );
     }
     default:
-      return <Calendar c={c} busy={busy} onAdvance={() => void advance()} onShowDay={() => go('show')} onOpen={(s) => go(s)} />;
+      return <Calendar c={c} busy={busy} onAdvance={() => void advance()} onShowDay={() => go('show')} onOpen={(s) => go(s)} onAsk={(r) => go(r)} />;
   }
 }
 

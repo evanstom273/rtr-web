@@ -8,9 +8,10 @@ import { C } from './clauses';
 import { addDays, addMonths, daysBetween, fmtDay, weekday, type Day } from './dates';
 import { indieFee, travelCost } from './economy';
 import {
-  ASK_SPOT_BASE_PCT, ASK_SPOT_MAX_PCT, DAY_OFF_T1_CHANCE, INDIE_OFFER_WINDOW_DAYS, INDIE_OFFERS_BASE, INDIE_OFFERS_PER_POP, INDIE_T1_APPROVAL, NOTICE_CHANCE, REP_NO_SHOW,
+  ASK_SPOT_BASE_PCT, ASK_SPOT_MAX_PCT, DAY_OFF_T1_CHANCE, INDIE_OFFER_WINDOW_DAYS, INDIE_OFFERS_BASE, INDIE_OFFERS_PER_POP, INDIE_T1_APPROVAL, NOTICE_CHANCE, REP_NO_SHOW, PATIENCE_NO_SHOW,
 } from './tuning';
 import type { Career, Letter, Show } from './types';
+import { movePatience } from './patience';
 
 /** Can you take an indie date on this day? (Free agents always; signed wrestlers by their Indie Bookings tier.) */
 export function indieAllowed(c: Career, day: Day): { ok: boolean; why?: string; needsApproval?: boolean } {
@@ -30,7 +31,7 @@ export function indieAllowed(c: Career, day: Day): { ok: boolean; why?: string; 
 }
 
 /** Put you on an indie show you've agreed to. If its card is already drawn up, add a match. */
-function joinIndie(c: Career, show: Show, fee: number, travel: number): void {
+export function joinIndie(c: Career, show: Show, fee: number, travel: number): void {
   c.indie[show.id] = { fee, travel };
   // Unrestricted indie bookings can clash with a contracted date: you miss that date, and it costs you.
   const k = person(c, c.player).contract;
@@ -40,6 +41,7 @@ function joinIndie(c: Career, show: Show, fee: number, travel: number): void {
       s.card = s.card.filter((b) => b.a !== c.player && b.b !== c.player);
       const p = person(c, c.player);
       p.rep = Math.max(0, p.rep + REP_NO_SHOW);
+      movePatience(c, k.promo, PATIENCE_NO_SHOW, `Missed ${s.name} for an indie date`);
       letter(c, { kind: 'contract', from: promoName(k.promo), subject: `You’re missing ${s.name}`, body: [`You’ve taken an indie date the same night. Your contract lets you, but ${k.promo} aren’t happy: reputation ${REP_NO_SHOW}.`] });
     }
   }

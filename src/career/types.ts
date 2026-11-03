@@ -35,6 +35,8 @@ export interface Bout {
   /** Title matches: the booker's planned winner. */
   planned?: string;
   tryout?: boolean;
+  /** Requests ("earn it first"): win this and you've earned a shot at this title. */
+  earn?: string;
   result?: BoutResult;
 }
 
@@ -188,7 +190,62 @@ export interface Career {
   tryouts: Record<string, string>;
   /** Indie shows you've asked to be on (each promoter only answers once). */
   asked?: Record<string, boolean>;
+  /** Requests: everything you've asked for, newest first. */
+  asks?: Ask[];
+  /** Booker patience: a promotion's initials, or 'TIS:' + an indie promoter's show name. */
+  patience?: Record<string, { v: number; log: PatienceLog[] }>;
+  /** What bookers have agreed to; honoured when they draw the cards. */
+  pledges?: Pledge[];
+  /** Caught approaching another promotion: your promotion holds it against you until this day. */
+  heat?: { promo: string; until: Day };
   nextRookie: Day;
   seq: number;
   seed: number;
 }
+
+export type AskKind = 'title' | 'challenge' | 'indieChallenge' | 'show' | 'more' | 'approach' | 'tryout' | 'spot' | 'review' | 'rival' | 'release' | 'dayoff' | 'finish';
+export type CounterKind = 'show' | 'opponent' | 'earn' | 'feud' | 'tryout';
+
+/** Something a booker agreed to (Requests). */
+export interface Pledge {
+  id: string;
+  /** The promotion whose booker made it ('TIS' for indie promoters). */
+  promo: string;
+  kind: 'title' | 'match' | 'show' | 'dates';
+  title?: string;
+  opp?: string;
+  /** A particular show, or else the first suitable show from `from`. */
+  show?: string;
+  from?: Day;
+  /** dates: the month ('YYYY-MM') and how many dates at least. */
+  month?: string;
+  min?: number;
+  /** match: winning it earns a shot at this title. */
+  earn?: string;
+  /** The request it came from. */
+  ask?: string;
+}
+
+/** A request and its answer. */
+export interface Ask {
+  id: string;
+  day: Day;
+  kind: AskKind;
+  /** Who answered: a promotion's initials or an indie promoter ('TIS:' + show name). */
+  to: string;
+  toName: string;
+  /** What you asked, in a line. */
+  what: string;
+  /** For cooldowns: the kind, or the kind and its target. */
+  key: string;
+  answer: 'yes' | 'no' | 'counter';
+  /** Their words. */
+  said: string;
+  /** What came of it. */
+  then?: string;
+  counter?: { kind: CounterKind; pledge?: Omit<Pledge, 'id' | 'ask'>; tryout?: { show: string; promo: string } };
+  /** A counter waiting on you is open. */
+  status: 'open' | 'closed';
+}
+
+export interface PatienceLog { day: Day; d: number; t: string }

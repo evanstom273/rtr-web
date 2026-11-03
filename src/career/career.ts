@@ -2,7 +2,7 @@
 import { PROMOTIONS, TITLES, WRESTLERS, databaseChanged, findWrestler, type Wrestler } from '../data/rtr';
 import { seededRng, type Rng } from '../engine/rng';
 import type { MatchRulesConfig } from '../engine/types';
-import { HARDCORE_STIPS, available, bookAhead, hashSeed, promoRegion, regionalPop } from './booker';
+import { HARDCORE_STIPS, available, bookAhead, hashSeed, heated, promoRegion, regionalPop } from './booker';
 import { drawCalendar } from './calendar';
 import { BUDGET, C, NO_CLAUSES, attitude } from './clauses';
 import { makeRookie } from './create';
@@ -12,15 +12,16 @@ import { REGION_LABEL } from './places';
 import type { SimJob, SimOut } from './sim';
 import { activeWorld } from '../world/world';
 import { addEvent, type ArchivedShow } from '../world/history';
+import { movePatience, showBooker } from './patience';
 import {
   BOOK_AHEAD_DAYS, CONTRACT_MONTHS, FATIGUE_HARDCORE_EXTRA, FATIGUE_PER_MATCH, FATIGUE_RECOVERY_PER_DAY, FATIGUE_STAMINA_DIVISOR,
   INJURY_BASE_PCT, INJURY_HARDCORE_MULT, INJURY_PER_FATIGUE, INJURY_SEVERITY, MEDICAL_BILL_COVER, MEDICAL_PAY_COVER, MEDICAL_PER_DAY, MERCH_INDIE,
   MERCH_SHARE, MERCH_SIGNED, OFF_SCRIPT_TITLE_BAN_DAYS, PLANNED_NUDGE, PLANNED_RETRIES, POACH_CHANCE, POP_CEILING, POP_GLOBAL_SHARE, POP_IDLE_DAYS,
   POP_IDLE_DECAY, POP_LOSS, POP_PER_STAR, POP_STAR_PIVOT, POP_TITLE_WIN, POP_WIN, RELEASE_MONTHLY_BOTTOM, RENEW_CHANCE_REST,
   RENEW_CHANCE_TOP, REP_FOUR_STAR, REP_OFF_SCRIPT, REP_PER_DATE, REP_START, ROOKIE_EVERY_DAYS, ROSTER_MAX, ROSTER_SIGN_BELOW,
-  START_CONTRACT_MONTHS_LEFT, START_MONEY_CREATED, START_MONEY_PER_POP, TRYOUT_MIN_STARS,
+  START_CONTRACT_MONTHS_LEFT, START_MONEY_CREATED, START_MONEY_PER_POP, TRYOUT_MIN_STARS, PATIENCE_NO_SHOW,
 } from './tuning';
-import type { Bout, Career, Contract, Letter, Person, PopRegion, Show } from './types';
+import type { Bout, Career, Contract, Letter, Person, PlayerMatch, PopRegion, Show } from './types';
 
 export const CALENDAR_AHEAD_DAYS = 70;
 const POP_KEYS: PopRegion[] = ['northAmerica', 'southAmerica', 'europe', 'asia', 'africa', 'oceania'];
@@ -263,7 +264,13 @@ function injure(c: Career, id: string, show: Show, rnd: Rng): void {
     letter(c, { kind: 'injury', from: `${w.promotion} medical`, subject: `${w.name} out for ${days} days`, body: [`A ${sev.label} injury at ${show.name}.`] });
   }
   // Pull them from any card they were on.
-  for (const s of Object.values(c.shows)) if (!s.done && s.date > show.date && s.date < p.injury.until && s.card) s.card = s.card.filter((b) => b.a !== id && b.b !== id);
+  for (const s of Object.values(c.shows)) {
+    if (s.done || s.date <= show.date || s.date >= p.injury.until || !s.card) continue;
+    s.card = s.card.filter((b) => b.a !== id && b.b !== id);
+    // Still in your promotion's doghouse (Requests): a shorter card mustn't make you the main event.
+    const last = s.card[s.card.length - 1];
+    if (heated(c, s) && s.card.length > 1 && last && (last.a === c.player || last.b === c.player)) s.card.splice(s.card.length - 2, 0, s.card.pop()!);
+  }
 }
 
 /** Your side of a match: pay, history, the planned finish, tryouts, letters. */
@@ -309,6 +316,7 @@ function settleMine(c: Career, show: Show, bout: Bout, out: SimOut, aIsYou: bool
     read: false,
   } as Omit<Letter, 'id' | 'day'>);
   if (bout.tryout) tryoutVerdict(c, show, result === 'win' || out.stars >= TRYOUT_MIN_STARS);
+  for (const f of hooks.mine) f(c, show, bout, c.history[0]!);
 }
 
 /** A tryout match went well (or didn't): the promotion writes either way. */
@@ -388,7 +396,9 @@ async function runNight(c: Career, run: (jobs: SimJob[]) => Promise<SimOut[]>): 
 /** Run every remaining match today (yours must be done first), then move the world on a day. */
 export async function finishDay(c: Career, run: (jobs: SimJob[]) => Promise<SimOut[]>): Promise<void> {
   await runToday(c, run);
-  // Anything still unplayed today (your match, if you walked away from it) is lost.
+  // Anything still unplayed today (your match, if you walked away from it) is lost, and the booker remembers.
+  const missed = myBoutToday(c);
+  if (missed) movePatience(c, showBooker(missed.show), PATIENCE_NO_SHOW, `Missed your match on ${missed.show.name}`);
   for (const show of showsOn(c, c.today)) show.done = true;
   endOfDay(c);
   databaseChanged();
@@ -484,6 +494,7 @@ function monthly(c: Career, day: Day, rnd: Rng): void {
   }
   topUpRosters(c, day, rnd);
   noticePlayer(c, rnd);
+  for (const f of hooks.monthly) f(c, rnd);
 }
 
 function release(c: Career, w: Wrestler, how: 'released' | 'expired'): void {
@@ -556,13 +567,16 @@ function playerContractEnds(c: Career, w: Wrestler, day: Day): void {
 }
 
 /** Promotions noticing you (and players near the end of a deal). Filled in by the offers rules. */
-let noticeHook: (c: Career, rnd: Rng) => void = () => {};
-let dailyHook: (c: Career, rnd: Rng) => void = () => {};
-export function setCareerHooks(h: { notice?: typeof noticeHook; daily?: typeof dailyHook }): void {
-  if (h.notice) noticeHook = h.notice;
-  if (h.daily) dailyHook = h.daily;
+type Hook = (c: Career, rnd: Rng) => void;
+const hooks: { notice: Hook[]; daily: Hook[]; monthly: Hook[]; mine: ((c: Career, show: Show, bout: Bout, m: PlayerMatch) => void)[] } = { notice: [], daily: [], monthly: [], mine: [] };
+/** Other career modules (offers, requests) plug in here; each adds to the list. */
+export function setCareerHooks(h: { notice?: Hook; daily?: Hook; monthly?: Hook; mine?: (c: Career, show: Show, bout: Bout, m: PlayerMatch) => void }): void {
+  if (h.notice) hooks.notice.push(h.notice);
+  if (h.daily) hooks.daily.push(h.daily);
+  if (h.monthly) hooks.monthly.push(h.monthly);
+  if (h.mine) hooks.mine.push(h.mine);
 }
-const noticePlayer = (c: Career, rnd: Rng) => noticeHook(c, rnd);
-const dailyPlayer = (c: Career, rnd: Rng) => dailyHook(c, rnd);
+const noticePlayer = (c: Career, rnd: Rng) => { for (const f of hooks.notice) f(c, rnd); };
+const dailyPlayer = (c: Career, rnd: Rng) => { for (const f of hooks.daily) f(c, rnd); };
 
 export { available, BUDGET };

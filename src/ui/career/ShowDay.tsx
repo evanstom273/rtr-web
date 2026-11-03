@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { findWrestler, TITLES } from '../../data/rtr';
 import { applyBout, boutRules, C, matchPay, myBoutToday, person, runToday, showsOn, type Career } from '../../career';
-import { daysBetween, fmtDay } from '../../career/dates';
+import { fmtDay } from '../../career/dates';
 import { runJobs } from '../../career/runner';
 import { outOf, simOne } from '../../career/sim';
-import { CREATIVE_T1_CHANGE, CREATIVE_T2_COOLDOWN_DAYS, FATIGUE_PER_MATCH, OFF_SCRIPT_TITLE_BAN_DAYS, REP_OFF_SCRIPT } from '../../career/tuning';
+import { FATIGUE_PER_MATCH, OFF_SCRIPT_TITLE_BAN_DAYS, REP_OFF_SCRIPT } from '../../career/tuning';
 import { hashSeed } from '../../career/booker';
-import { seededRng } from '../../engine/rng';
 import { stipulation } from '../../engine';
 import { commit, Head, money, Nm, Screen, stars, useToast, useWords } from './parts';
 
@@ -19,7 +18,7 @@ interface Props {
 /** Your night: the card, the booker's plan if it's a title match, and Play or Sim. */
 export function ShowDay({ c, onBack, onPlay }: Props) {
   const { skin, w } = useWords();
-  const [toast, say] = useToast();
+  const [toast] = useToast();
   const [working, setWorking] = useState(false);
   const mine = myBoutToday(c);
   // After your match: the show you were on (now with results).
@@ -48,24 +47,11 @@ export function ShowDay({ c, onBack, onPlay }: Props) {
   const planned = bout?.planned ? findWrestler(bout.planned) : undefined;
   const plannedMe = bout?.planned === c.player;
   const titleName = bout?.title ? TITLES.find((t) => t.id === bout.title)?.name : undefined;
-  const lastUse = me.creativeUsed ? daysBetween(me.creativeUsed, c.today) : 999;
-  const canChange = !!bout?.planned && !plannedMe && !me.creativeAsked?.includes(show.id) && (creative >= 3 || (creative === 2 && lastUse >= CREATIVE_T2_COOLDOWN_DAYS) || creative === 1);
-  const changeFinish = () => {
-    if (!bout || !planned) return;
-    (me.creativeAsked ??= []).push(show.id);
-    const granted = creative >= 2 || seededRng(hashSeed(c.seed, 'creative', show.id))() < CREATIVE_T1_CHANGE;
-    if (granted) {
-      bout.planned = c.player;
-      if (creative === 2) me.creativeUsed = c.today;
-      say(creative >= 3 ? 'Vetoed. You’re booked to win.' : creative === 2 ? 'Refused. They’ve changed it: you win.' : 'They listened. You’re going over.');
-    } else say('They heard you out. The finish stands.');
-    commit();
-  };
   const planText = !bout?.planned ? null
     : `${planned?.name} ${plannedMe ? 'wins' : bout.a === bout.planned ? 'retains' : 'wins the title'}. `
-      + (plannedMe ? 'That’s you: go and win it.' : creative >= 3 ? 'Your Full Creative Control lets you veto it.'
-        : creative === 2 ? 'Protected Booking lets you refuse a finish like this once every 90 days.'
-          : creative === 1 ? 'Consultation: you can ask for the other finish; they may listen.'
+      + (plannedMe ? 'That’s you: go and win it.' : creative >= 3 ? 'Your Full Creative Control lets you veto it: Requests › Veto tonight’s finish.'
+        : creative === 2 ? 'Protected Booking lets you refuse a finish like this once every 90 days: Requests › Refuse tonight’s finish.'
+          : creative === 1 ? 'Consultation: you can ask for the other finish in Requests; they may listen.'
             : `Your contract has no Creative Control, so winning anyway is going off-script: reputation ${REP_OFF_SCRIPT}, no fee, and no title matches for ${OFF_SCRIPT_TITLE_BAN_DAYS} days.`);
 
   const indie = show.promo === 'TIS';
@@ -113,7 +99,6 @@ export function ShowDay({ c, onBack, onPlay }: Props) {
           {planText && (
             <div className="c-warn" style={{ marginTop: 8 }}>
               <b>{w('The booker’s plan:', 'Booker’s plan:')}</b> {titleName ? `${titleName}. ` : ''}{planText}
-              {canChange && <button className="c-b3" style={{ width: '100%', marginTop: 8 }} onClick={changeFinish}>{w(creative >= 3 ? 'Veto it' : creative === 2 ? 'Refuse this finish' : 'Ask for the other finish')}</button>}
             </div>
           )}
           <div className="c-live">

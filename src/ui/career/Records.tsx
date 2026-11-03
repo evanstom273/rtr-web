@@ -1,14 +1,15 @@
 import { useMemo, useState } from 'react';
 import { PROMOTIONS, TITLES, WRESTLERS, findWrestler, getMove, titlesHeldBy } from '../../data/rtr';
-import { person, promoName, type Career } from '../../career';
+import { askableTitles, person, promoName, type Career } from '../../career';
 import { ATTR_KEYS, ATTR_LONG, CLASS_NAME } from '../../career/create';
 import { daysBetween, fmtDay } from '../../career/dates';
 import { stipulation } from '../../engine';
 import { activeWorld } from '../../world/world';
 import { promotionStory, reignsOf, titleLineage, wrestlerHistory, type ArchivedShow, type WorldEvent } from '../../world/history';
 import { Head, money, Nm, Screen, useWords } from './parts';
+import type { ReqRoute } from './Requests';
 
-interface Props { c: Career; onBack: () => void; onMoveset: () => void; onNewCareer: () => void }
+interface Props { c: Career; onBack: () => void; onMoveset: () => void; onNewCareer: () => void; onRequest: (r: ReqRoute) => void }
 
 const ORDER = ['VWF', 'TCG', 'NWGP', 'ZWA', 'SLN', 'END', 'IVW', 'SSWC', 'UFC', 'AAWA', 'TIS'];
 const FINISH: Record<string, string> = {
@@ -27,7 +28,7 @@ type Overlay = { k: 'show'; id: string } | { k: 'title'; id: string } | { k: 'wr
  * Records (the database): today's rosters, and the world's history: every show, every title's lineage,
  * every promotion's story, and any wrestler's file. Read only, except your own moveset.
  */
-export function Records({ c, onBack, onMoveset, onNewCareer }: Props) {
+export function Records({ c, onBack, onMoveset, onNewCareer, onRequest }: Props) {
   const { skin, w } = useWords();
   const H = activeWorld().history;
   const mine = WRESTLERS.find((x) => x.id === c.player)!;
@@ -197,8 +198,10 @@ export function Records({ c, onBack, onMoveset, onNewCareer }: Props) {
       <div className="c-nav"><button className="c-b2" onClick={onBack}>{w('‹ Back')}</button><button className="c-b1" onClick={() => open({ k: 'wr', id: c.player })}>{w('My history')}</button></div>
 
       {top?.k === 'show' && <ShowCard id={top.id} onClose={close} onWrestler={(id) => open({ k: 'wr', id })} />}
-      {top?.k === 'title' && <Lineage id={top.id} today={c.today} onClose={close} onWrestler={(id) => open({ k: 'wr', id })} />}
-      {top?.k === 'wr' && <File id={top.id} c={c} tab={wtab} setTab={setWtab} onClose={close} onShow={(id) => open({ k: 'show', id })} onTitle={(id) => open({ k: 'title', id })} onMoveset={onMoveset} />}
+      {top?.k === 'title' && <Lineage id={top.id} today={c.today} onClose={close} onWrestler={(id) => open({ k: 'wr', id })}
+        onAsk={askableTitles(c).some((t) => t.id === top.id) ? () => onRequest({ req: 'title', title: top.id }) : undefined} />}
+      {top?.k === 'wr' && <File id={top.id} c={c} tab={wtab} setTab={setWtab} onClose={close} onShow={(id) => open({ k: 'show', id })} onTitle={(id) => open({ k: 'title', id })} onMoveset={onMoveset}
+        onChallenge={() => onRequest({ req: 'challenge', target: top.id })} />}
     </Screen>
   );
 }
@@ -243,7 +246,7 @@ function ShowCard({ id, onClose, onWrestler }: { id: string; onClose: () => void
 }
 
 /** A title's lineage: every reign since records began. */
-function Lineage({ id, today, onClose, onWrestler }: { id: string; today: string; onClose: () => void; onWrestler: (id: string) => void }) {
+function Lineage({ id, today, onClose, onWrestler, onAsk }: { id: string; today: string; onClose: () => void; onWrestler: (id: string) => void; onAsk?: () => void }) {
   const { skin, w } = useWords();
   const t = TITLES.find((x) => x.id === id);
   const line = titleLineage(activeWorld().history, id);
@@ -274,14 +277,14 @@ function Lineage({ id, today, onClose, onWrestler }: { id: string; today: string
           );
         })}
       </div>
-      <div className="c-nav"><button className="c-b2" onClick={onClose}>{w('‹ Back')}</button><button className="c-b1" onClick={onClose}>{w('Done')}</button></div>
+      <div className="c-nav"><button className="c-b2" onClick={onClose}>{w('‹ Back')}</button>{onAsk ? <button className="c-b1" onClick={onAsk}>{w('Ask for a shot ›')}</button> : <button className="c-b1" onClick={onClose}>{w('Done')}</button>}</div>
     </div>
   );
 }
 
 /** Any wrestler's file: today's profile, and their matches, title reigns and moves on record. */
-function File({ id, c, tab, setTab, onClose, onShow, onTitle, onMoveset }: {
-  id: string; c: Career; tab: number; setTab: (n: number) => void; onClose: () => void; onShow: (id: string) => void; onTitle: (id: string) => void; onMoveset: () => void;
+function File({ id, c, tab, setTab, onClose, onShow, onTitle, onMoveset, onChallenge }: {
+  id: string; c: Career; tab: number; setTab: (n: number) => void; onClose: () => void; onShow: (id: string) => void; onTitle: (id: string) => void; onMoveset: () => void; onChallenge: () => void;
 }) {
   const { skin, w } = useWords();
   const x = findWrestler(id);
@@ -357,7 +360,7 @@ function File({ id, c, tab, setTab, onClose, onShow, onTitle, onMoveset }: {
       </div>
       <div className="c-nav">
         <button className="c-b2" onClick={onClose}>{w('‹ Back')}</button>
-        {x.id === c.player ? <button className="c-b1" onClick={onMoveset}>{w('Edit your moveset ›', 'Edit moveset ›')}</button> : <button className="c-b1" onClick={onClose}>{w('Done')}</button>}
+        {x.id === c.player ? <button className="c-b1" onClick={onMoveset}>{w('Edit your moveset ›', 'Edit moveset ›')}</button> : <button className="c-b1" onClick={onChallenge}>{w('Challenge ›')}</button>}
       </div>
     </div>
   );
