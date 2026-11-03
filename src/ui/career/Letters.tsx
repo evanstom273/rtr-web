@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { acceptLetter, declineLetter, type Career, type Letter } from '../../career';
+import { C, acceptLetter, declineLetter, matchRival, person, type Career, type Letter } from '../../career';
 import { fmtDay } from '../../career/dates';
 import { commit, Head, Screen, useToast, useWords } from './parts';
 
@@ -72,6 +72,13 @@ export function Letters({ c, onBack, onNegotiate }: Props) {
             {l.body.map((p, i) => <span key={i} className="c-ad" style={{ fontSize: 15 }}>{p}</span>)}
             {l.terms && <div className="c-kv">{l.terms.map(([a, b]) => <span key={a} style={{ display: 'contents' }}><span className="c-lab">{w(a)}</span><span className="c-val">{b}</span></span>)}</div>}
             {l.note && <span className="c-note">{l.note}</span>}
+            {(() => {
+              // Wage Matching Tier 2: show a rival offer to your promotion and they may match it.
+              const k = person(c, c.player).contract;
+              const o = l.action?.type === 'negotiate' ? c.offers.find((x) => x.id === (l.action as { offer: string }).offer) : undefined;
+              if (!k || !o || o.status !== 'open' || o.promo === k.promo || (k.clauses[C.wage] ?? 0) < 2) return null;
+              return <button className="c-b3" onClick={() => { say(matchRival(c, o.id)); commit(); setOpen(null); }}>{w(`Show it to ${k.promo}`)}</button>;
+            })()}
             {l.done && <span className="c-note">{l.done === 'accepted' ? 'You accepted this.' : l.done === 'declined' ? 'You turned this down.' : 'This has lapsed.'}</span>}
           </div>
           <div className="c-nav">

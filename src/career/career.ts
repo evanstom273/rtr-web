@@ -12,7 +12,7 @@ import { REGION_LABEL } from './places';
 import type { SimJob, SimOut } from './sim';
 import {
   BOOK_AHEAD_DAYS, CONTRACT_MONTHS, FATIGUE_HARDCORE_EXTRA, FATIGUE_PER_MATCH, FATIGUE_RECOVERY_PER_DAY, FATIGUE_STAMINA_DIVISOR,
-  INJURY_BASE_PCT, INJURY_HARDCORE_MULT, INJURY_PER_FATIGUE, INJURY_SEVERITY, MEDICAL_BILL_COVER, MEDICAL_PER_DAY, MERCH_INDIE,
+  INJURY_BASE_PCT, INJURY_HARDCORE_MULT, INJURY_PER_FATIGUE, INJURY_SEVERITY, MEDICAL_BILL_COVER, MEDICAL_PAY_COVER, MEDICAL_PER_DAY, MERCH_INDIE,
   MERCH_SHARE, MERCH_SIGNED, OFF_SCRIPT_TITLE_BAN_DAYS, PLANNED_NUDGE, POACH_CHANCE, POP_CEILING, POP_GLOBAL_SHARE, POP_IDLE_DAYS,
   POP_IDLE_DECAY, POP_LOSS, POP_PER_STAR, POP_STAR_PIVOT, POP_TITLE_WIN, POP_WIN, RELEASE_MONTHLY_BOTTOM, RENEW_CHANCE_REST,
   RENEW_CHANCE_TOP, REP_FOUR_STAR, REP_OFF_SCRIPT, REP_PER_DATE, REP_START, ROOKIE_EVERY_DAYS, ROSTER_MAX, ROSTER_SIGN_BELOW,
@@ -224,6 +224,14 @@ function injure(c: Career, id: string, show: Show, rnd: Rng): void {
     const cover = MEDICAL_BILL_COVER[p.contract?.clauses[C.medical] ?? 0] ?? 0;
     const bill = round5(days * MEDICAL_PER_DAY * (1 - cover));
     if (bill) spend(c, -bill, `Medical bills (${days} days)`, 'medical');
+    const payCover = MEDICAL_PAY_COVER[p.contract?.clauses[C.medical] ?? 0] ?? 0;
+    if (payCover && p.contract) {
+      // Your usual earnings: your average fee times how often you've worked lately, for the days out.
+      const recent = c.history.filter((m) => !m.indie && daysBetween(m.day, show.date) <= 56);
+      const perDay = recent.length ? recent.reduce((t, m) => t + m.fee, 0) / 56 : 0;
+      const owed = round5(perDay * days * payCover);
+      if (owed) spend(c, owed, `Medical Pay: earnings while injured (${days} days)`, 'medical');
+    }
     letter(c, { kind: 'injury', from: 'The doctor', subject: `You’re out for ${days} days`, body: [`A ${sev.label} injury at ${show.name}. You can’t be booked until ${fmtDay(p.injury.until, 'long')}.`, bill ? `Medical bills: £${bill.toLocaleString('en-GB')}${cover ? ' after your Medical Pay cover' : ''}.` : 'Your contract covers the medical bills.'] });
   } else if (w.promotion === findWrestler(c.player)?.promotion && w.promotion !== 'TIS') {
     letter(c, { kind: 'injury', from: `${w.promotion} medical`, subject: `${w.name} out for ${days} days`, body: [`A ${sev.label} injury at ${show.name}.`] });

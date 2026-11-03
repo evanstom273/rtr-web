@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { findWrestler, TITLES } from '../../data/rtr';
-import { askForSpot, myBoutToday, promoName, showsOn, type Career, type Show } from '../../career';
+import { C, askForSpot, dayOff, myBoutToday, promoName, showsOn, type Career, type Show } from '../../career';
 import { addDays, dateOf, dayOf, daysInMonth, fmtDay, MONTHS, monthOf, weekday, yearOf } from '../../career/dates';
 import { stipulation } from '../../engine';
 import { commit, Nm, Screen, useToast, useWords } from './parts';
@@ -183,6 +183,15 @@ export function Calendar({ c, busy, onAdvance, onShowDay, onOpen }: Props) {
                 );
               })}
             </div>
+            {(() => {
+              // Schedule Flexibility: refuse a date (Tier 3) or ask for the day off (Tier 1+), on your promotion's shows.
+              const k = p.contract, tier = k?.clauses[C.schedule] ?? 0;
+              if (!k || !tier || sheet.date <= c.today || !(sheet.promos ?? [sheet.promo]).includes(k.promo)) return null;
+              const onIt = sheet.card?.some((b) => b.a === c.player || b.b === c.player);
+              if (onIt && tier < 3) return null;
+              if (p.daysOff?.includes(sheet.date)) return <span className="c-note">You’ve got this day off.</span>;
+              return <button className="c-b3" style={{ marginTop: 6 }} onClick={() => { say(dayOff(c, sheet.date)); commit(); }}>{w(onIt ? 'Refuse this date' : 'Ask for the day off')}</button>;
+            })()}
             {sheet.promo === 'TIS' && sheet.date > c.today && !c.indie[sheet.id] && !sheet.card?.some((b) => b.a === c.player || b.b === c.player) && (
               <button className="c-b1" style={{ marginTop: 6 }} onClick={() => ask(sheet)}>{w('Ask for a spot', 'Ask for a spot')}</button>
             )}
