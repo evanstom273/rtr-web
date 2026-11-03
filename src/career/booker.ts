@@ -215,6 +215,10 @@ function sinceLastDefence(c: Career, titleId: string, show: Show): number {
   return lastOrWon ? Math.abs(daysBetween(lastOrWon, show.date)) : 999;
 }
 
+/** Indie promises that can't happen roll on to the promoter's next show: set by requests.ts. */
+let rollIndie: ((c: Career, p: Pledge, show: Show) => boolean) | null = null;
+export const setIndieRoll = (f: (c: Career, p: Pledge, show: Show) => boolean): void => { rollIndie = f; };
+
 /** Requests: a pledge is used up (or moved on to the next suitable show). */
 function pledgeDone(c: Career, p: Pledge, then: string): void {
   c.pledges = (c.pledges ?? []).filter((x) => x !== p);
@@ -222,8 +226,11 @@ function pledgeDone(c: Career, p: Pledge, then: string): void {
   if (a) a.then = then;
 }
 function pledgeLater(c: Career, p: Pledge, show: Show): void {
-  // An indie promoter's promise is for their show only: if it can't happen that night, it's gone.
-  if (show.promo === 'TIS') { pledgeDone(c, p, `It couldn’t happen on ${show.name}.`); return; }
+  // An indie promoter's promise rolls on to their next show, if you can make it (requests.ts knows indie dates).
+  if (show.promo === 'TIS') {
+    if (!rollIndie?.(c, p, show)) pledgeDone(c, p, `It couldn’t happen on ${show.name}, and there’s no later date of theirs you can make.`);
+    return;
+  }
   delete p.show;
   p.from = addDays(show.date, 1);
 }
@@ -277,7 +284,7 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
   if (cup && show.special?.round !== undefined) {
     const r = show.special.round;
     if (r === 0 && !cup.entrants.length) {
-      const field = pool.filter((w) => free(w.id)).sort((a, b) => regionalPop(b, region) - regionalPop(a, region));
+      const field = pool.filter((w) => free(w.id) && (!cup.gender || w.gender === cup.gender)).sort((a, b) => regionalPop(b, region) - regionalPop(a, region));
       const seeds = [...(cup.player && wantMe && me && free(me.id) ? [me] : []), ...field].slice(0, 8)
         .sort((a, b) => regionalPop(b, region) - regionalPop(a, region));
       cup.entrants = BRACKET.map((i) => seeds[i]?.id ?? '');
@@ -378,7 +385,10 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
     // A title gone past its usual spacing is overdue: certain on a big show, likelier on any other.
     else if (!pledge && sinceLast >= titleMinGap(t.id) && !feudLive && (show.promos?.length ? true : rnd() < defenceChance(c, show, t.id, sinceLast))) {
       const cands = contenders(c, t, [...pool, ...(wantMe && me && !hot ? [me] : [])], region, show.date).filter((w) => free(w.id));
-      challenger = owedShot && wantMe && !hot ? me : cands[0];
+      // A cup winner owed a shot at this title gets it, if they're here.
+      const cup = c.cupShots?.find((x) => x.title === t.id && x.who !== champ.id && cands.some((w) => w.id === x.who));
+      challenger = owedShot && wantMe && !hot ? me : cup ? findWrestler(cup.who) : cands[0];
+      if (cup && challenger?.id === cup.who) c.cupShots = c.cupShots!.filter((x) => x !== cup);
     }
     if (!challenger || !free(challenger.id) || (challenger.id !== c.player && !pool.some((w) => w.id === challenger!.id))) continue;
     if (challenger.id === c.player && !wantMe) continue;

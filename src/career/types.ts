@@ -1,6 +1,7 @@
 // The career's saved state. Lives in the world save next to the database it changes.
 import type { FinishType, StipulationId } from '../engine/types';
 import type { Day } from './dates';
+import type { Gender } from '../data/rtr/types';
 
 export type ShowKind = 'weekly' | 'special' | 'flagship' | 'tour' | 'indie';
 /** Popularity keys (Wrestler['popularity'] minus global). */
@@ -60,6 +61,8 @@ export interface Tourney {
   prize: number;
   /** Rounds whose results are in. */
   settled?: number;
+  /** One division per cup (yours, when you're invited). */
+  gender?: Gender;
 }
 
 export interface Bout {
@@ -257,6 +260,8 @@ export interface Career {
   /** Career events: when each last happened, what you chose, follow-ups still to land, and ones waiting on you. */
   /** Cups (tournaments) running or finished recently. */
   tourneys?: Tourney[];
+  /** Cup winners owed a shot at an indie title (you get a pledge instead). */
+  cupShots?: { title: string; who: string; until: Day }[];
   /** The living world: when each kind of one-off last went on, and what's already been noticed (milestones, retirements). */
   world?: { last: Partial<Record<SpecialKind, Day>>; seen: Record<string, Day> };
   events?: {
@@ -292,6 +297,8 @@ export interface Pledge {
   min?: number;
   /** match: winning it earns a shot at this title. */
   earn?: string;
+  /** Indie promises roll on to the promoter's next show when they can't happen: how many times so far. */
+  rolls?: number;
   /** The request it came from. */
   ask?: string;
 }
