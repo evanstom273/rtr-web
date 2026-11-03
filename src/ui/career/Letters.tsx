@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { acceptLetter, answerEvent, declineLetter, eventChoices, type Career, type Letter } from '../../career';
+import { acceptLetter, answerEvent, declineLetter, type Career, type Letter } from '../../career';
 import { fmtDay } from '../../career/dates';
+import { EventChoices } from './EventCard';
 import { commit, Head, Screen, useToast, useWords } from './parts';
 
 interface Props { c: Career; onBack: () => void; onNegotiate: (offerId: string) => void }
@@ -31,7 +32,6 @@ export function Letters({ c, onBack, onNegotiate }: Props) {
     setOpen(x.id);
   };
   const ev = l?.action?.type === 'event' ? l.action : null;
-  const choices = ev && l && !l.done ? eventChoices(c, l.id) : [];
   const choose = () => {
     if (!l || !choice) return;
     const msg = answerEvent(c, l.id, choice);
@@ -84,24 +84,7 @@ export function Letters({ c, onBack, onNegotiate }: Props) {
             {l.body.map((p, i) => <span key={i} className="c-ad" style={{ fontSize: 15 }}>{p}</span>)}
             {l.terms && <div className="c-kv">{l.terms.map(([a, b]) => <span key={a} style={{ display: 'contents' }}><span className="c-lab">{w(a)}</span><span className="c-val">{b}</span></span>)}</div>}
             {l.note && <span className="c-note">{l.note}</span>}
-            {ev && !l.done && (
-              <>
-                <span className="c-hint">{w('Your call')} · {w('answer by')} {fmtDay(ev.expires, 'dm')}</span>
-                {choices.map((o) => (
-                  <button key={o.id} className={o.blocked ? 'c-ans dis' : o.id === choice ? 'c-ans on' : 'c-ans'} disabled={!!o.blocked} onClick={() => setChoice(o.id)}>
-                    <b className="c-at">{o.label}</b>
-                    {(o.blocked || o.detail) && <span className={o.blocked ? 'c-ad c-why' : 'c-ad'}>{o.blocked ?? o.detail}</span>}
-                  </button>
-                ))}
-              </>
-            )}
-            {ev && l.done && (
-              <div className="c-ans on" style={{ cursor: 'default' }}>
-                <span className="c-lab">{l.picked ? w('You chose') : w('No answer')}</span>
-                {l.picked && <b className="c-at">{l.picked}</b>}
-                <span className="c-ad">{l.outcome ?? (l.done === 'expired' ? 'You didn’t answer in time. Nothing came of it.' : '')}</span>
-              </div>
-            )}
+            {ev && <EventChoices c={c} l={l} choice={choice} onPick={setChoice} />}
             {!ev && l.done && <span className="c-note">{l.done === 'accepted' ? 'You accepted this.' : l.done === 'declined' ? 'You turned this down.' : 'This has lapsed.'}</span>}
           </div>
           <div className="c-nav">
