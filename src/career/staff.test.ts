@@ -88,7 +88,8 @@ describe('bookers’ careers', () => {
     for (const s of Object.values(P.staff)) if (s.job?.kind === 'promoter' && s !== promoter) s.rep = 10;
     moveBond(P, promoter.id, c.player, 25, 'worked together', c.today);
     remember(c, promoter.id, 'kept', 3);
-    const brand = promoter.job!.kind === 'promoter' ? promoter.job.brand : '';
+    const job = promoter.job!;
+    const brand = job.kind === 'promoter' ? job.brand : '';
     let hired = null;
     for (let seed = 0; seed < 60 && !hired; seed++) {
       const old = bookerOf(P, 'TCG')!;
