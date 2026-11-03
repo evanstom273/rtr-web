@@ -269,6 +269,21 @@
       }
     }
   ],
+  "AAWA": [
+    {
+      "name": "AAWA: Chapter {n:roman}",
+      "kind": "special",
+      "numbered": true,
+      "numberingNeverResets": true,
+      "when": {
+        "irregular": {
+          "minGapDays": 14,
+          "maxGapDays": 63,
+          "day": null
+        }
+      }
+    }
+  ],
   "joint": [
     {
       "name": "ZWA & NWGP: A.R.I.S.E.",
