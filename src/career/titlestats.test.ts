@@ -16,7 +16,7 @@ const cls = (id: string) => {
   if (id.startsWith('ARISE_')) return 'alliance';
   const p = PROMOTIONS.find((x) => x.titles.includes(id));
   if (!p) return '?';
-  if (p.initials === 'TIS') return 'indie';
+  if (p.initials === 'TIS') return TITLES.find((t) => t.id === id)?.region ? 'regional' : 'indie';
   return p.titles[0] === id ? 'world' : 'secondary';
 };
 

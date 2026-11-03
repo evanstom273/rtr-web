@@ -2,13 +2,14 @@
 import { PROMOTIONS, TITLES, WRESTLERS, databaseChanged, findWrestler, type Wrestler } from '../data/rtr';
 import { seededRng, type Rng } from '../engine/rng';
 import type { MatchRulesConfig } from '../engine/types';
-import { HARDCORE_STIPS, available, bookAhead, hashSeed, heated, isIndieTitle, promoRegion, regionalPop } from './booker';
+import { HARDCORE_STIPS, available, bookAhead, hashSeed, heated, isIndieTitle, promoRegion, regionalDates, regionalPop, titleRegion } from './booker';
+import { bondOf } from '../world/people';
 import { drawCalendar } from './calendar';
 import { BUDGET, C, NO_CLAUSES, attitude } from './clauses';
 import { makeRookie } from './create';
 import { addDays, addMonths, daysBetween, fmtDay, type Day } from './dates';
 import { contractFee, indieFee, matchPay, round5 } from './economy';
-import { REGION_LABEL } from './places';
+import { REGION_KEY, REGION_LABEL } from './places';
 import type { SimJob, SimOut } from './sim';
 import { activeWorld } from '../world/world';
 import { addEvent, type ArchivedShow, type WorldHistory } from '../world/history';
@@ -209,7 +210,13 @@ export function applyBout(c: Career, show: Show, index: number, out: SimOut, aIs
       titleChanged = true;
       bout.result.newChamp = true;
       const loser = findWrestler(winner === bout.a ? bout.b : bout.a)!;
-      if (show.promo === findWrestler(c.player)?.promotion || show.kind === 'flagship' || PROMOTIONS.find((p) => p.titles[0] === t.id)) {
+      // A regional indie title only makes your news if it's your region, you've worked there lately, or you know someone in it.
+      const region = titleRegion(t);
+      const P = activeWorld().people;
+      const knows = (id: string) => !!P && !!bondOf(P, c.player, id);
+      const mine = findWrestler(c.player);
+      const cares = !region || (mine && REGION_KEY[mine.region] === region) || regionalDates(c, c.player, region, show.date) > 0 || knows(winner) || knows(loser.id);
+      if ((show.promo === mine?.promotion && cares) || show.kind === 'flagship' || PROMOTIONS.find((p) => p.titles[0] === t.id)) {
         letter(c, { kind: 'news', from: 'The news desk', subject: `New ${t.name} champion`, body: [`${w.name} beat ${loser.name} at ${show.name} to win the ${t.name}.`] });
       }
     } else {
@@ -529,6 +536,11 @@ function sign(c: Career, w: Wrestler, promo: string, day: Day, rnd: Rng): void {
   addEvent(history(), { day, kind: from === 'TIS' ? 'signed' : 'poached', who: w.id, name: w.name, promo, ...(from !== 'TIS' ? { from } : {}) });
   w.promotion = promo;
   c.people[w.id]!.contract = aiContract(rnd, w, promo, day, CONTRACT_MONTHS[1 + Math.floor(rnd() * 2)]!);
+  // Indie dates already on the cards are honoured, but not with an indie title on the line: they're signed now.
+  for (const s of Object.values(c.shows)) {
+    if (s.done || s.promo !== 'TIS' || !s.card) continue;
+    for (const b of s.card) if (!b.result && b.title && isIndieTitle(b.title) && (b.a === w.id || b.b === w.id)) { delete b.title; delete b.planned; }
+  }
   const myPromo = findWrestler(c.player)?.promotion;
   if (promo === myPromo || (from === myPromo && from !== 'TIS')) letter(c, { kind: 'news', from: 'The news desk', subject: `${w.name} signs with ${promo}`, body: [from === 'TIS' ? `${promo} have signed ${w.name} from The Indie Scene.` : `${w.name} leaves ${from} for ${promo}.`] });
 }

@@ -8,10 +8,10 @@ import type { Career } from '../career/types';
 import { weekStart, type Day } from '../career/dates';
 import { emptyHistory, type WorldHistory } from './history';
 import { bookerOf, freshPeople, pairKey, type Bond, type People } from './people';
-import { populateIndies } from './populate';
+import { crownIndies, populateIndies } from './populate';
 
 /** The world save's revision: each step in `upgrade` runs once, in order, on older saves. */
-export const WORLD_REV = 3;
+export const WORLD_REV = 4;
 
 export interface World {
   v: 1;
@@ -70,6 +70,31 @@ function upgrade(w: World): void {
   w.people ??= freshPeople();
   w.rev = WORLD_REV;
   ensurePopulation(w);
+  if (rev < 4) addRegionalTitles(w);
+}
+
+/**
+ * Rev 4: the twelve regional indie titles join an older world. Each goes to the best indie in its
+ * region straight away (Lyra's call: crowned at the start), with a reign from the world's day.
+ */
+export function addRegionalTitles(w: World): void {
+  const shipped = shippedDatabase();
+  const tis = w.db.promotions.find((p) => p.indie);
+  const added: string[] = [];
+  for (const t of shipped.titles) {
+    if (!t.region || w.db.titles.some((x) => x.id === t.id)) continue;
+    w.db.titles.push({ ...t, holder: null });
+    if (tis && !tis.titles.includes(t.id)) tis.titles.push(t.id);
+    added.push(t.id);
+  }
+  const retired = (id: string) => !!w.career?.people[id]?.retired;
+  const day = w.career?.today ?? w.day;
+  for (const [id, who] of crownIndies(w.db.titles, added, w.db.wrestlers.filter((x) => !retired(x.id)))) {
+    if (!day) continue;
+    const name = w.db.wrestlers.find((x) => x.id === who)?.name ?? who;
+    (w.history.reigns[id] ??= []).push({ holder: who, name, from: day, to: null, defences: 0 });
+    if (w.career) w.career.titles[id] = { since: day, defences: 0, last: null };
+  }
 }
 
 /**

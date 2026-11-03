@@ -208,19 +208,27 @@ export const CAUGHT_BOOK_MULT = 0.5;
 // --- Championship rhythm and stability (expansion, balance sheet section 14: PROPOSALS, live) -------
 // Defence frequency and how often titles change hands are separate dials now. The old single rule
 // (no defence within 30 days, a flat 75% planned retain) is kept above for reference.
-export type TitleClass = 'world' | 'secondary' | 'indie' | 'alliance';
+export type TitleClass = 'world' | 'secondary' | 'indie' | 'regional' | 'alliance';
 /** minGap: never defended sooner than this after the last defence or the reign starting. target: the usual gap. */
 export const TITLE_RHYTHM: Record<TitleClass, { minGap: number; target: number }> = {
-  world: { minGap: 21, target: 35 }, secondary: { minGap: 21, target: 35 }, indie: { minGap: 21, target: 35 }, alliance: { minGap: 30, target: 60 },
+  world: { minGap: 21, target: 35 }, secondary: { minGap: 21, target: 35 }, indie: { minGap: 21, target: 35 }, regional: { minGap: 21, target: 42 }, alliance: { minGap: 30, target: 60 },
 };
 /** The chance the booker plans the champion to lose a given defence, by class... */
-export const TITLE_PLANNED_CHANGE: Record<TitleClass, number> = { world: 0.08, secondary: 0.1, indie: 0.12, alliance: 0.15 };
+export const TITLE_PLANNED_CHANGE: Record<TitleClass, number> = { world: 0.08, secondary: 0.1, indie: 0.12, regional: 0.15, alliance: 0.15 };
 /** ...rising this much per year of the reign (long reigns get likelier to end), up to TITLE_CHANGE_MAX. */
 export const TITLE_CHANGE_PER_REIGN_YEAR = 0.08;
 export const TITLE_CHANGE_MAX = 0.35;
 /** Indie titles: once past the minimum gap, the chance an indie champion on a show defends there (overdue: higher). */
 export const INDIE_DEFENCE_CHANCE = 0.2;
 export const INDIE_DEFENCE_OVERDUE = 0.6;
+/** Regional indie titles (section 15): defended on indie shows in their region, at these chances. */
+export const REGIONAL_DEFENCE_CHANCE = 0.25;
+export const REGIONAL_DEFENCE_OVERDUE = 0.9;
+/** Who can challenge for a regional title: whoever's worked this many dates in the region lately (not where they were born). */
+export const REGIONAL_ELIGIBLE_DATES = 3;
+export const REGIONAL_WINDOW_DAYS = 120;
+/** A contender's score: regional popularity, plus this for each recent date in the region. */
+export const REGIONAL_CONTENDER_PER_DATE = 2;
 
 // --- Relationships and promoter memory (expansion, balance sheet section 14: PROPOSALS, live) -------
 export const REL_FRIEND_AT = 40;
