@@ -90,6 +90,7 @@ export function declineLetter(c: Career, l: Letter): void {
 
 /** Ask an indie promoter for a spot on their show. */
 export function askForSpot(c: Career, show: Show): { ok: boolean; text: string } {
+  if (show.done || show.date < c.today) return { ok: false, text: 'That show’s been and gone.' };
   const allowed = indieAllowed(c, show.date);
   if (!allowed.ok) return { ok: false, text: allowed.why ?? 'You can’t make that date.' };
   if (c.indie[show.id]) return { ok: false, text: 'You’re already on it.' };

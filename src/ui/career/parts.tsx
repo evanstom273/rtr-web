@@ -32,14 +32,15 @@ export function tone(w: Wrestler | undefined): 'face' | 'heel' | 'champ' {
 }
 
 /** A name in Lyra's convention: (f)/(h) before, (c) after, coloured face/heel/champion. */
-export function Nm({ id, w: given, cls = 'c-nl' }: { id?: string; w?: Wrestler; cls?: string }) {
+export function Nm({ id, w: given, cls = 'c-nl', name, plain }: { id?: string; w?: Wrestler; cls?: string; name?: string; plain?: boolean }) {
   const w = given ?? (id ? findWrestler(id) : undefined);
-  if (!w) return <span className={cls}>?</span>;
-  const t = tone(w);
+  if (!w) return <span className={`${cls} face`}>{name ?? '?'}</span>;
+  // `plain`: a name from history, where today's (c) would mislead.
+  const t = plain && tone(w) === 'champ' ? (w.disposition === 'HEEL' ? 'heel' : 'face') : tone(w);
   return (
     <span className={`${cls} ${t}`}>
       <span className="c-pre">({w.disposition === 'HEEL' ? 'h' : 'f'}) </span>
-      {w.name}
+      {name ?? w.name}
       {t === 'champ' && <span className="c-pre"> (c)</span>}
     </span>
   );

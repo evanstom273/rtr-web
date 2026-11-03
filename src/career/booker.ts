@@ -98,9 +98,10 @@ export function contenders(c: Career, title: Title, pool: Wrestler[], region: Po
     if (p.contract?.titleShotBy) s += 100;
     return s;
   };
-  return pool
-    .filter((w) => w.id !== title.holder && w.gender === title.gender && !(c.people[w.id]?.titleBanUntil && c.people[w.id]!.titleBanUntil! > day))
-    .sort((a, b) => score(b) - score(a));
+  const eligible = pool.filter((w) => w.id !== title.holder && w.gender === title.gender && !(c.people[w.id]?.titleBanUntil && c.people[w.id]!.titleBanUntil! > day));
+  // Champions don't chase their promotion's other titles, unless there's nobody else.
+  const unheld = eligible.filter((w) => !TITLES.some((t) => t.holder === w.id));
+  return (unheld.length ? unheld : eligible).sort((a, b) => score(b) - score(a));
 }
 
 /** Keep each promotion's feuds going: a title feud for each title and a couple of others. */
