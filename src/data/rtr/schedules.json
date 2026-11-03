@@ -90,5 +90,28 @@
         }
       }
     }
+  ],
+  "SLN": [
+    {
+      "name": "SLN Lunes",
+      "kind": "weekly",
+      "when": {
+        "every": "Monday"
+      }
+    },
+    {
+      "name": "SLN Miércoles",
+      "kind": "weekly",
+      "when": {
+        "every": "Wednesday"
+      }
+    },
+    {
+      "name": "SLN Viernes de Oro",
+      "kind": "flagship",
+      "when": {
+        "every": "Friday"
+      }
+    }
   ]
 }
