@@ -10,6 +10,8 @@ import { addDays, addMonths, daysBetween, fmtDay, type Day } from './dates';
 import { contractFee, indieFee, matchPay, round5 } from './economy';
 import { REGION_LABEL } from './places';
 import type { SimJob, SimOut } from './sim';
+import { activeWorld } from '../world/world';
+import { addEvent, type ArchivedShow } from '../world/history';
 import {
   BOOK_AHEAD_DAYS, CONTRACT_MONTHS, FATIGUE_HARDCORE_EXTRA, FATIGUE_PER_MATCH, FATIGUE_RECOVERY_PER_DAY, FATIGUE_STAMINA_DIVISOR,
   INJURY_BASE_PCT, INJURY_HARDCORE_MULT, INJURY_PER_FATIGUE, INJURY_SEVERITY, MEDICAL_BILL_COVER, MEDICAL_PAY_COVER, MEDICAL_PER_DAY, MERCH_INDIE,
@@ -48,13 +50,22 @@ export function aiContract(rnd: Rng, w: Wrestler, promo: string, start: Day, mon
   return { promo, start, end: addMonths(start, months), fee: contractFee(w, promo), clauses };
 }
 
-export interface StartOptions { player: string; today: Day; seed: number; created?: boolean }
+export interface StartOptions {
+  player: string;
+  today: Day;
+  seed: number;
+  created?: boolean;
+  /** Carrying on in a kept world: its show numbering and irregular schedules. */
+  calendar?: { counters: Record<string, number>; nextIrregular: Record<string, Day> };
+}
+
+const history = () => activeWorld().history;
 
 /** Start a career in the active world (which the caller has just reset to the shipped database). */
 export function startCareer(o: StartOptions): Career {
   const rnd = seededRng(o.seed);
   const c: Career = {
-    v: 1, player: o.player, startedOn: o.today, today: o.today, drawnTo: '', counters: {}, nextIrregular: {}, shows: {},
+    v: 1, player: o.player, startedOn: o.today, today: o.today, drawnTo: '', counters: { ...(o.calendar?.counters ?? {}) }, nextIrregular: { ...(o.calendar?.nextIrregular ?? {}) }, shows: {},
     people: {}, titles: {}, feuds: [], letters: [], offers: [], money: 0, ledger: [], history: [], indie: {}, tryouts: {},
     nextRookie: addDays(o.today, ROOKIE_EVERY_DAYS), seq: 0, seed: o.seed,
   };
@@ -66,7 +77,16 @@ export function startCareer(o: StartOptions): Career {
       p.contract = aiContract(rnd, w, w.promotion, addMonths(o.today, left - months), months);
     }
   }
-  for (const t of TITLES) c.titles[t.id] = { since: o.today, defences: 0, last: null, reigns: t.holder ? [{ holder: t.holder, from: o.today, to: null, defences: 0 }] : [] };
+  const H = history();
+  for (const t of TITLES) {
+    const reigns = (H.reigns[t.id] ??= []);
+    const open = reigns.find((r) => r.to === null);
+    if (open && open.holder !== t.holder) open.to = o.today;
+    if (t.holder && (!open || open.holder !== t.holder)) reigns.push({ holder: t.holder, name: findWrestler(t.holder)?.name ?? t.holder, from: o.today, to: null, defences: 0 });
+    const current = reigns.find((r) => r.to === null);
+    c.titles[t.id] = { since: current?.from ?? o.today, defences: current?.defences ?? 0, last: null };
+  }
+  activeWorld().day = o.today;
   const me = findWrestler(o.player)!;
   c.money = o.created ? START_MONEY_CREATED : START_MONEY_PER_POP * me.popularity.global;
   c.ledger.push({ day: o.today, text: 'Starting money', amount: c.money, kind: 'start' });
@@ -165,23 +185,27 @@ export function applyBout(c: Career, show: Show, index: number, out: SimOut, aIs
   // Titles change hands on a pinfall, submission or the like, not a DQ or count-out.
   if (bout.title && winner) {
     const t = TITLES.find((x) => x.id === bout.title)!;
-    const ts = (c.titles[t.id] ??= { since: show.date, defences: 0, last: null, reigns: [] });
+    const ts = (c.titles[t.id] ??= { since: show.date, defences: 0, last: null });
+    const reigns = (history().reigns[t.id] ??= []);
     const nonTitleFinish = out.finish === 'DISQUALIFICATION' || out.finish === 'COUNT_OUT' || out.finish === 'DOUBLE_COUNT_OUT';
     if (winner !== t.holder && !nonTitleFinish) {
-      const reign = ts.reigns.find((r) => r.to === null);
+      const reign = reigns.find((r) => r.to === null);
       if (reign) reign.to = show.date;
-      ts.reigns.push({ holder: winner, from: show.date, to: null, defences: 0 });
+      const w = findWrestler(winner)!;
+      const before = t.holder ? findWrestler(t.holder) : undefined;
+      reigns.push({ holder: winner, name: w.name, from: show.date, to: null, defences: 0, won: { show: show.name, from: before?.id ?? null, fromName: before?.name ?? null } });
+      addEvent(history(), { day: show.date, kind: 'title', who: winner, name: w.name, promo: show.promo, title: t.id, show: show.name });
       ts.since = show.date; ts.defences = 0;
       t.holder = winner;
       titleChanged = true;
-      const w = findWrestler(winner)!;
+      bout.result.newChamp = true;
       const loser = findWrestler(winner === bout.a ? bout.b : bout.a)!;
       if (show.promo === findWrestler(c.player)?.promotion || show.kind === 'flagship' || PROMOTIONS.find((p) => p.titles[0] === t.id)) {
         letter(c, { kind: 'news', from: 'The news desk', subject: `New ${t.name} champion`, body: [`${w.name} beat ${loser.name} at ${show.name} to win the ${t.name}.`] });
       }
     } else {
       ts.defences++;
-      const reign = ts.reigns.find((r) => r.to === null);
+      const reign = reigns.find((r) => r.to === null);
       if (reign) reign.defences++;
     }
     ts.last = show.date;
@@ -357,8 +381,9 @@ export function endOfDay(c: Career): void {
   if (tomorrow.endsWith('-01')) monthly(c, tomorrow, rnd);
   contractsEnding(c, tomorrow, rnd);
   if (tomorrow >= c.nextRookie) {
-    const rookie = makeRookie(rnd, WRESTLERS, `rookie_${++c.seq}`);
+    const rookie = makeRookie(rnd, WRESTLERS, `rookie_${tomorrow.replace(/-/g, '')}`);
     WRESTLERS.push(rookie);
+    addEvent(history(), { day: tomorrow, kind: 'debut', who: rookie.id, name: rookie.name, promo: 'TIS' });
     c.people[rookie.id] = newPerson(rookie.id, REP_START);
     c.nextRookie = addDays(tomorrow, Math.round(ROOKIE_EVERY_DAYS * (0.6 + rnd() * 0.8)));
     letter(c, { kind: 'news', from: 'The news desk', subject: 'New face on The Indie Scene', body: [`Rookie ${rookie.name} (${rookie.country}) is out of training and taking indie bookings.`] });
@@ -369,14 +394,33 @@ export function endOfDay(c: Career): void {
     const a = findWrestler(f.a), b = findWrestler(f.b);
     if (!pay || pay.done || !a || !b || a.promotion !== f.promo || b.promotion !== f.promo) f.done = true;
   }
+  // The world remembers every show for good; the career only keeps the last month.
+  for (const s of showsOn(c, day)) if (s.card?.some((b) => b.result)) archive(s);
   // Keep the save small: shows more than a month gone, and finished feuds, go.
   const cutoff = addDays(day, -35);
   for (const [id, s] of Object.entries(c.shows)) if (s.date < cutoff) delete c.shows[id];
   c.feuds = c.feuds.filter((f) => !f.done || daysBetween(f.start, day) < 60);
   c.today = tomorrow;
+  activeWorld().day = tomorrow;
   extendCalendar(c);
   bookAhead(c, tomorrow, BOOK_AHEAD_DAYS, WRESTLERS);
   dailyPlayer(c, rnd);
+}
+
+/** Put a finished show into the world's history. */
+function archive(s: Show): void {
+  const H = history();
+  if (H.shows.some((x) => x.id === s.id)) return;
+  const entry: ArchivedShow = {
+    id: s.id, date: s.date, promo: s.promo, ...(s.promos ? { promos: s.promos } : {}), name: s.name, kind: s.kind, city: s.city, country: s.country,
+    bouts: (s.card ?? []).filter((b) => b.result).map((b) => ({
+      a: b.a, b: b.b, an: findWrestler(b.a)?.name ?? b.a, bn: findWrestler(b.b)?.name ?? b.b,
+      ...(b.title ? { title: b.title } : {}), ...(b.stip ? { stip: b.stip } : {}),
+      w: b.result!.winner === null ? null : b.result!.winner === b.a ? 'a' : 'b',
+      finish: b.result!.finish, t: b.result!.t, stars: b.result!.stars, ...(b.result!.move ? { move: b.result!.move } : {}), ...(b.result!.newChamp ? { newChamp: true } : {}),
+    })),
+  };
+  H.shows.push(entry);
 }
 
 /** The first of the month: merch, idle wrestlers fading, roster moves, getting noticed. */
@@ -407,6 +451,7 @@ function monthly(c: Career, day: Day, rnd: Rng): void {
 
 function release(c: Career, w: Wrestler, how: 'released' | 'expired'): void {
   const from = w.promotion;
+  addEvent(history(), { day: c.today, kind: how, who: w.id, name: w.name, promo: from });
   w.promotion = 'TIS';
   c.people[w.id]!.contract = null;
   if (from === findWrestler(c.player)?.promotion) letter(c, { kind: 'news', from: 'The news desk', subject: `${w.name} leaves ${from}`, body: [how === 'released' ? `${from} have released ${w.name}.` : `${w.name}’s contract ran out and they’re a free agent.`] });
@@ -414,6 +459,7 @@ function release(c: Career, w: Wrestler, how: 'released' | 'expired'): void {
 
 function sign(c: Career, w: Wrestler, promo: string, day: Day, rnd: Rng): void {
   const from = w.promotion;
+  addEvent(history(), { day, kind: from === 'TIS' ? 'signed' : 'poached', who: w.id, name: w.name, promo, ...(from !== 'TIS' ? { from } : {}) });
   w.promotion = promo;
   c.people[w.id]!.contract = aiContract(rnd, w, promo, day, CONTRACT_MONTHS[1 + Math.floor(rnd() * 2)]!);
   const myPromo = findWrestler(c.player)?.promotion;
@@ -459,11 +505,13 @@ function playerContractEnds(c: Career, w: Wrestler, day: Day): void {
   if (p.next) {
     p.contract = p.next;
     delete p.next;
+    addEvent(history(), { day, kind: 'signed', who: w.id, name: w.name, promo: p.contract.promo, ...(was !== p.contract.promo ? { from: was } : {}) });
     w.promotion = p.contract.promo;
     letter(c, { kind: 'contract', from: promoName(p.contract.promo), subject: `Welcome to ${p.contract.promo}`, body: [`Your new deal starts today and runs to ${fmtDay(p.contract.end, 'long')}.`] });
   } else {
     p.contract = null;
     w.promotion = 'TIS';
+    addEvent(history(), { day, kind: 'expired', who: w.id, name: w.name, promo: was });
     letter(c, { kind: 'contract', from: promoName(was), subject: 'Your contract has ended', body: ['You’re a free agent on The Indie Scene from today.'] });
   }
   // Their cards no longer have you on them.

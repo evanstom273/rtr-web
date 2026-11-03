@@ -3,7 +3,7 @@ import { WRESTLERS, databaseChanged, type Wrestler } from '../../data/rtr';
 import { finishDay, makeOffer, person, startCareer } from '../../career';
 import { todayReal } from '../../career/dates';
 import { runJobs } from '../../career/runner';
-import { activeWorld, resetWorld, saveWorld } from '../../world/world';
+import { activeWorld, resetCareer, resetWorld, saveWorld } from '../../world/world';
 import { useBackLayer } from '../backStack';
 import { Calendar } from './Calendar';
 import { Contract } from './Contract';
@@ -46,14 +46,18 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
   const home = useCallback(() => setStack(['cal']), []);
   useBackLayer(stack.length > 1, back);
 
-  const begin = async (player: string, extra?: Wrestler) => {
-    const seed = Math.floor(Math.random() * 2 ** 31);
-    const world = await resetWorld(seed);
+  const begin = async (player: string, extra: Wrestler | undefined, fresh: boolean) => {
+    // Fresh: the world as it ships, from today's real date. Kept: carry on where the world got to.
+    if (!fresh && activeWorld().career) await resetCareer();
+    const world = fresh ? await resetWorld(Math.floor(Math.random() * 2 ** 31)) : activeWorld();
     if (extra) {
       WRESTLERS.push(extra);
       databaseChanged();
     }
-    world.career = startCareer({ player, today: todayReal(), seed, created: !!extra });
+    world.career = startCareer({
+      player, today: fresh ? todayReal() : world.day ?? todayReal(), seed: world.seed, created: !!extra,
+      ...(!fresh && world.calendar ? { calendar: world.calendar } : {}),
+    });
     await saveWorld(world);
     commit();
     setStack(['cal']);
@@ -75,9 +79,9 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
     }
   };
 
-  if (screen === 'start') return <Start hasCareer={!!c} onBack={c ? back : onMenu} onPick={(id) => void begin(id)} onCreate={() => go('create')} />;
-  if (screen === 'create') return <Create hasCareer={!!c} onBack={back} onDone={(w) => void begin(w.id, w)} />;
-  if (!c) return <Start hasCareer={false} onBack={onMenu} onPick={(id) => void begin(id)} onCreate={() => go('create')} />;
+  if (screen === 'start') return <Start hasCareer={!!c} onBack={c ? back : onMenu} onPick={(id, fresh) => void begin(id, undefined, fresh)} onCreate={() => go('create')} />;
+  if (screen === 'create') return <Create hasCareer={!!c} onBack={back} onDone={(w, fresh) => void begin(w.id, w, fresh)} />;
+  if (!c) return <Start hasCareer={false} onBack={onMenu} onPick={(id, fresh) => void begin(id, undefined, fresh)} onCreate={() => go('create')} />;
 
   if (typeof screen === 'object') return <Negotiate c={c} offerId={screen.negotiate} onBack={back} onDone={home} />;
   switch (screen) {

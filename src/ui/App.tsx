@@ -21,7 +21,7 @@ import { applyBout, boutRules, promoName, runToday } from '../career';
 import { runJobs } from '../career/runner';
 import { outOf, simOne } from '../career/sim';
 import { hashSeed } from '../career/booker';
-import { activeWorld } from '../world/world';
+import { activeWorld, resetCareer } from '../world/world';
 
 /** A career match being played: which show and which match on its card. */
 interface CareerBout { showId: string; index: number }
@@ -44,7 +44,13 @@ function careerLine(): string | null {
   return `${me.name} · ${me.promotion === 'TIS' ? 'free agent' : promoName(me.promotion)} · day ${Math.round((Date.parse(c.today) - Date.parse(c.startedOn)) / 864e5) + 1}`;
 }
 
+function careerName(): string | null {
+  const c = activeWorld().career;
+  return c ? findWrestler(c.player)?.name ?? null : null;
+}
+
 export function App() {
+  const [, setMenuTick] = useState(0);
   const [builder, setBuilder] = useState<BuilderState>(freshBuilder);
   const [screen, setScreen] = useState<Screen>({ name: 'menu' });
   const [hits, setHits] = useState<Hit[]>(() => loadHits());
@@ -145,7 +151,8 @@ export function App() {
     const best = records?.length ? Math.max(...records.map((r) => r.stars)) : 0;
     body = (
       <Menu latest={latest} count={records?.length ?? 0} best={best} onPlay={() => setScreen({ name: 'setup' })} onArchive={toArchive}
-        onCareer={() => toCareer()} career={careerLine()}
+        onCareer={() => toCareer()} career={careerLine()} careerName={careerName()}
+        onResetCareer={() => void resetCareer().then(() => setMenuTick((n) => n + 1))}
         onSettings={() => setSettings(true)} onOpen={(id) => setScreen({ name: 'record', id })} />
     );
   } else if (screen.name === 'career') {
