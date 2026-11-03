@@ -86,9 +86,8 @@ export function statRows(r: MatchRecord): StatRow[] {
   return [
     { label: 'Moves tried', a: `${a.movesTried}`, b: `${b.movesTried}`, edge: null },
     { label: 'Moves landed', a: `${a.movesLanded} · ${pct(a.movesLanded, a.movesTried)}`, b: `${b.movesLanded} · ${pct(b.movesLanded, b.movesTried)}`, edge: better(a.movesLanded / Math.max(1, a.movesTried), b.movesLanded / Math.max(1, b.movesTried)) },
-    { label: 'Reversed', a: `${a.reversed}`, b: `${b.reversed}`, edge: better(a.reversed, b.reversed, true) },
-    { label: 'Countered', a: `${a.countered}`, b: `${b.countered}`, edge: better(a.countered, b.countered) },
-    { label: 'Reads right', a: `${a.readsRight} of ${a.readsTried}`, b: `${b.readsRight} of ${b.readsTried}`, edge: better(a.readsRight, b.readsRight) },
+    { label: 'Reversals won', a: `${a.reversalWins} of ${a.reversalTries}`, b: `${b.reversalWins} of ${b.reversalTries}`, edge: better(a.reversalWins, b.reversalWins) },
+    { label: 'Braced · rode', a: `${a.braced} · ${a.rode}`, b: `${b.braced} · ${b.rode}`, edge: null },
     { label: 'Signatures hit', a: `${a.sigHit} of ${a.sigTried}`, b: `${b.sigHit} of ${b.sigTried}`, edge: better(a.sigHit, b.sigHit) },
     { label: 'Finishers hit', a: `${a.finHit} of ${a.finTried}`, b: `${b.finHit} of ${b.finTried}`, edge: better(a.finHit, b.finHit) },
     { label: 'Kickouts', a: `${a.kickouts}`, b: `${b.kickouts}`, edge: better(a.kickouts, b.kickouts) },

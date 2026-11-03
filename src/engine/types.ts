@@ -1,6 +1,5 @@
 // Engine types. No DOM, no React.
 import type { ContestRoll, ContestSide } from './dice';
-import type { Read } from './reads';
 import type { LiveRating } from './rating';
 import type {
   Area, BodyPart, Motion, Move, MoveType, Orientation, Part, Position, Wrestler,
@@ -162,7 +161,6 @@ export interface Side {
   recentMoves: string[];
   recentMoveTypes: MoveType[];
   /** What kind of move each recent attempt was, for reads (most recent last). */
-  recentReads: Read[];
   recentSetupPatterns: string[];
   pendingSetupAction: SetupId | null;
   recentTargetParts: BodyPart[];
@@ -212,11 +210,11 @@ export interface SideStats {
   movesLanded: number;
   /** Their own moves the opponent stopped. */
   reversed: number;
-  /** Reversals that came from a right read (and stole the momentum). */
-  countered: number;
-  /** Reads made on defence, and how many were right. */
-  readsTried: number;
-  readsRight: number;
+  /** Defending moves: reversals gone for and won, moves braced, moves ridden out. */
+  reversalTries: number;
+  reversalWins: number;
+  braced: number;
+  rode: number;
   sigTried: number;
   sigHit: number;
   finTried: number;
@@ -273,17 +271,28 @@ export interface ContestSpec {
   chance: number;
   /** Can the player push on this roll (enough momentum, no signature banked)? */
   playerCanPush: boolean;
-  /** Moves only: what kind of move it is, for reads. */
-  category: Read | null;
-  /** The player defends a move: they pick a read, and the move stays hidden until they have. */
-  playerReads: boolean;
-  /** The defender's read, once made, and whether it was right. */
-  read: Read | null;
-  readRight: boolean;
-  /** Was the move telegraphed (smaller read bonus)? */
+  /** Moves only: the defender went for the reversal (the only time a move is rolled for). */
+  defence: 'reverse' | null;
+}
+
+/** The defender's choice before a move: reverse (roll), brace or ride it out. */
+export interface DefendSpec {
+  id: number;
+  attacker: SideKey;
+  defender: SideKey;
+  moveName: string;
+  /** "Grapple", "Strike"… */
+  moveType: string;
+  impact: number;
+  major: 'SIGNATURE' | 'FINISHER' | null;
+  /** Where it'll hit: "head", "left leg"… */
+  aimed: string;
+  /** The defender's chance to reverse it if they go for it (0–100). */
+  reverseChance: number;
   telegraphed: boolean;
-  /** What the defender can see before reading. */
-  tells: string[];
+  /** The contest that's rolled if they go for the reversal. */
+  attack: ContestSide;
+  defend: ContestSide;
 }
 
 /** The player is pinned: hold, release in the gold before three. */
@@ -381,6 +390,7 @@ export type Pending =
   | { kind: 'awaitPlayer' }
   | { kind: 'aiThinking' }
   /** Waiting for the player to roll (and decide whether to push). */
+  | { kind: 'defend'; spec: DefendSpec }
   | { kind: 'contest'; spec: ContestSpec }
   /** Rolled: the UI animates the dice, then calls applyContest(). */
   | { kind: 'contestRoll'; spec: ContestSpec; roll: ContestRoll }

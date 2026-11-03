@@ -1,7 +1,6 @@
 // Port of the parts of MatchSideState the match rules use.
 import type { BodyPart, Move, MoveType, Wrestler } from '../data/rtr/types';
 import { getMove } from '../data/rtr';
-import { readFor } from './reads';
 import { clamp } from './rng';
 import type { SetupId, Side, SideKey, Snapshot } from './types';
 import { BODY_PARTS } from './types';
@@ -21,7 +20,7 @@ export function createSide(w: Wrestler, key: SideKey): Side {
     stamina: maxStamina, maxStamina, fatigue: 0, momentum: 0, signatureReady: false, finisherStock: 0, signatureArmed: true, finisherArmed: true,
     resiliencyEarned: false, resiliencyAvailable: false, resiliencyUsed: false,
     targetFocus: 'NONE',
-    recentMoves: [], recentMoveTypes: [], recentReads: [], recentSetupPatterns: [], pendingSetupAction: null,
+    recentMoves: [], recentMoveTypes: [], recentSetupPatterns: [], pendingSetupAction: null,
     recentTargetParts: [], targetAttackCounts: {}, targetDamageDealt: {}, thresholdsCrossed: {}, repeatedMilestones: {},
     lastBodyCommentaryTime: -1000, moveUseCounts: {},
     lastActionResult: 'NONE', lastMoveLanded: null, lastMoveWasFinisher: false,
@@ -29,7 +28,7 @@ export function createSide(w: Wrestler, key: SideKey): Side {
     recoveryDelayProtected: false, setUp: false, recentSetups: [], announcedLowStamina: false, announcedHighFatigue: false, announcedSpent: false, announcedHeroic: false,
     bleeding: 0, weaponTrips: 0, nextWeaponTripAt: 0, movesLanded: 0, damageDealt: 0, damageTaken: 0, reversals: 0, kickouts: 0, pinAttempts: 0,
     stats: {
-      movesTried: 0, movesLanded: 0, reversed: 0, countered: 0, readsTried: 0, readsRight: 0, sigTried: 0, sigHit: 0,
+      movesTried: 0, movesLanded: 0, reversed: 0, reversalTries: 0, reversalWins: 0, braced: 0, rode: 0, sigTried: 0, sigHit: 0,
       finTried: 0, finHit: 0, kickouts: 0, pinTries: 0, holds: 0, controlSteps: 0,
     },
   };
@@ -145,8 +144,6 @@ export function recordMoveUsed(s: Side, m: Move, landed: boolean): void {
   if (landed) s.movesLanded++;
   s.recentMoves.push(m.id);
   s.recentMoveTypes.push(m.type);
-  s.recentReads.push(readFor(m));
-  while (s.recentReads.length > 8) s.recentReads.shift();
   while (s.recentMoves.length > 8) s.recentMoves.shift();
   while (s.recentMoveTypes.length > 8) s.recentMoveTypes.shift();
   if (s.pendingSetupAction) {

@@ -17,5 +17,5 @@ export { STIPULATIONS, IRON_MAN_MINUTES, rulesEditable, stipulation, type Stipul
 export { heldBy, liveObjects, weaponOf, BLEED_WORDS, WEAPON_MOVES } from './env';
 export { LADDER_PULLS, ladderUnder, armedSpot } from './stip';
 export { WARNING_LIMIT, detectionChance } from './referee';
-export { READS, READ_LABEL, READ_HINT, type Read } from './reads';
+export { DEFENCES, DEFENCE_LABEL, DEFENCE_SHORT, BRACE_DAMAGE, CAUGHT_DAMAGE, RIDE_MOMENTUM, defenceValues, type Defence } from './defence';
 export { topPart } from './rating';

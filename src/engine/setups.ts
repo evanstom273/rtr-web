@@ -143,7 +143,7 @@ export function executeSetup(ctx: Ctx, k: SideKey, id: SetupId, arg?: string): b
   if (id === 'catch_breath') {
     A.catchBreathCooldownUntil = S.t + CATCH_BREATH_COOLDOWN_SECONDS;
     const recovered = recoverStamina(A, catchBreathRecovery(A));
-    say(ctx, LINES.catchBreath, { a: k, vars: { n: recovered.toFixed(1) } }, 'good');
+    say(ctx, LINES.catchBreath, { a: k, vars: { n: String(Math.round(recovered)) } }, 'good');
     crowdObserve(ctx, { type: 'catch_breath' });
     ctx.ai[k].noteSetupExecuted('catch_breath', A);
     A.lastActionResult = 'SETUP_SUCCESS';

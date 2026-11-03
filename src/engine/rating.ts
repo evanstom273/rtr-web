@@ -85,7 +85,10 @@ export function rate(S: MatchState): Rating {
   const W = R.winner ? S[R.winner] : null, L = R.loser ? S[R.loser] : null;
   const finishPart = R.move ? (R.move.parts.find((p) => p !== 'NONE') as BodyPart | undefined) : undefined;
   const lossWork = L ? workedOn(S, L) : { part: 'BODY' as BodyPart, n: 0 };
-  const payoff = c.limbPayoff || (!!finishPart && finishPart === lossWork.part && lossWork.n >= 4);
+  // Limb work pays off when the finish goes after that part, or when the part is wrecked by the end:
+  // a head worked into critical condition is why the loser couldn't fight back, whatever ended it.
+  const wrecked = !!L && lossWork.n >= 4 && L.hp[lossWork.part] < 25;
+  const payoff = c.limbPayoff || wrecked || (!!finishPart && finishPart === lossWork.part && lossWork.n >= 4);
   const { avg, crowd, limb, structure, psych, drama, spots } = components(S, payoff);
   const how = R.finish === 'SUBMISSION' || R.finish === 'I_QUIT' ? 'sub' : R.finish === 'PINFALL' ? 'pin'
     : R.finish === 'COUNT_OUT' || R.finish === 'DOUBLE_COUNT_OUT' ? 'countout' : R.finish === 'DISQUALIFICATION' ? 'dq' : 'stip';

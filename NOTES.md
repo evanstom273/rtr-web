@@ -696,3 +696,26 @@ The game now opens on a main menu (`screens/Menu.tsx`): Play, the archive, the d
 - Old Greatest Hits come across once as summary-only entries, since they never had logs.
 
 **The match record** (`screens/Record.tsx`) shows it all, with download and delete.
+
+## Defending a move: reverse, brace or ride it out (replaces blind reads)
+
+The defender sees the incoming move (name, type, impact, where it's aimed, their own stamina) and picks before any dice (`engine/defence.ts`, `contest.ts` `offerDefence`/`resolveDefence`):
+- **Go for the reversal:** the only time a move is rolled for. Win and it's reversed, and they steal the momentum (`COUNTER_STEAL`). Lose and it lands ×1.25. A telegraphed move (up top, on the apron, running) gives +2 to reverse.
+- **Brace:** no roll. It lands at ×0.6.
+- **Ride it out:** no roll. Full damage, but +6 momentum and +4 stamina back.
+
+The player chooses on `DefendChoice`. The AI weighs the reversal odds against the damage (`defenceValues`, `aiDefence`). Finishers count extra, a beaten wrestler facing a finisher gambles, heels and high-flyers gamble more, and technicians trust their counters. In sims it reverses about 43% of the time (wins about 37% of those), braces about 36% and rides about 21%.
+
+Stats now record reversals tried and won, braced and rode, in place of reads.
+
+**Also in this change:**
+- **Penalty floor:** a contest bonus can't go below −6 (`BONUS_FLOOR`). The roll card shows "Grit" making up the difference.
+- **Spent:** now −3 plus disadvantage (it was −5 plus disadvantage).
+- **Limb work:** counts as paid off when the worked part is wrecked (under 25) at the end, whatever the finish.
+
+**Sim, 300 matches, before → after:**
+- median length 18.7 → 18.7 min
+- 4★ or better 42% → 45%
+- comebacks 45% → 57%
+- reversals 9.5 → 6.9 a match
+- the loser landing nothing in the last 5 minutes 35% → 30%
