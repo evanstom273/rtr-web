@@ -168,7 +168,9 @@ function pledgeDone(c: Career, p: Pledge, then: string): void {
   const a = c.asks?.find((x) => x.id === p.ask);
   if (a) a.then = then;
 }
-function pledgeLater(p: Pledge, show: Show): void {
+function pledgeLater(c: Career, p: Pledge, show: Show): void {
+  // An indie promoter's promise is for their show only: if it can't happen that night, it's gone.
+  if (show.promo === 'TIS') { pledgeDone(c, p, `It couldn’t happen on ${show.name}.`); return; }
   delete p.show;
   p.from = addDays(show.date, 1);
 }
@@ -185,7 +187,10 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
   refreshFeuds(c, show, roster);
   const pledges = c.pledges ?? [];
   // Wrestlers promised to a match on another show that night (a challenge on an indie show) stay free for it.
-  const reserved = new Set(pledges.filter((p) => p.kind === 'match' && p.show && p.show !== show.id && c.shows[p.show]?.date === show.date).map((p) => p.opp!));
+  // Wrestlers promised to a match on another show that night (a challenge on an indie show, or a champion
+  // whose title an indie promoter has promised you) stay free for it.
+  const reserved = new Set(pledges.filter((p) => p.show && p.show !== show.id && c.shows[p.show]?.date === show.date)
+    .map((p) => (p.kind === 'match' ? p.opp : p.kind === 'title' ? TITLES.find((t) => t.id === p.title)?.holder : undefined)).filter((x): x is string => !!x));
 
   let pool = (indie ? roster.filter((w) => w.promotion === 'TIS') : showRoster(show, roster))
     .filter((w) => w.id !== c.player && !busy.has(w.id) && !reserved.has(w.id) && available(c.people[w.id], show.date));
@@ -221,7 +226,7 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
     const pledge = pledges.find((p) => p.kind === 'title' && p.title === t.id);
     const champHere = champ && (champ.id === c.player ? wantMe : pool.some((w) => w.id === champ.id)) && free(champ.id);
     if (pledge && champ?.id === c.player) pledgeDone(c, pledge, 'You won the title another way.');
-    if (!champ || !champHere) { if (pledge?.show === show.id) pledgeLater(pledge, show); continue; }
+    if (!champ || !champHere) { if (pledge?.show === show.id) pledgeLater(c, pledge, show); continue; }
     const feud = c.feuds.find((f) => f.title === t.id && !f.done && f.payoff === show.id);
     // A title is only ever on one unplayed card. Cards are drawn a week out, so a second one could
     // end up with a former champion in it once the first has been wrestled.
@@ -232,7 +237,7 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
         take(champ.id); take(other.id);
         card.push({ a: champ.id, b: other.id, feud: feud.id });
       }
-      if (pledge?.show === show.id) pledgeLater(pledge, show);
+      if (pledge?.show === show.id) pledgeLater(c, pledge, show);
       continue;
     }
     // A shot the booker promised you (Requests).
@@ -243,7 +248,7 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
         pledgeDone(c, pledge, `Booked: ${show.name}, ${champ.name} for the ${t.name}.`);
         continue;
       }
-      if (pledge.show === show.id) pledgeLater(pledge, show);
+      if (pledge.show === show.id) pledgeLater(c, pledge, show);
     }
     const sinceLast = sinceLastDefence(c, t.id, show);
     const feudLive = c.feuds.some((f) => f.title === t.id && !f.done);
@@ -273,7 +278,7 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
       take(me.id); take(opp.id);
       card.push({ a: opp.id, b: me.id, ...(matchPledge.earn ? { earn: matchPledge.earn } : {}) });
       pledgeDone(c, matchPledge, `Booked: ${show.name}, against ${opp.name}.`);
-    } else if (matchPledge.show === show.id) pledgeLater(matchPledge, show);
+    } else if (matchPledge.show === show.id) pledgeLater(c, matchPledge, show);
   }
 
   // Feuds on this promotion: their next match, if both are here.

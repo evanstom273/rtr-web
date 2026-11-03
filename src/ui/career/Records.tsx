@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { PROMOTIONS, TITLES, WRESTLERS, findWrestler, getMove, titlesHeldBy } from '../../data/rtr';
-import { askableTitles, person, promoName, type Career } from '../../career';
+import { askableIndieTitles, askableTitles, person, promoName, type Career } from '../../career';
 import { ATTR_KEYS, ATTR_LONG, CLASS_NAME } from '../../career/create';
 import { daysBetween, fmtDay } from '../../career/dates';
 import { stipulation } from '../../engine';
@@ -199,7 +199,8 @@ export function Records({ c, onBack, onMoveset, onNewCareer, onRequest }: Props)
 
       {top?.k === 'show' && <ShowCard id={top.id} onClose={close} onWrestler={(id) => open({ k: 'wr', id })} />}
       {top?.k === 'title' && <Lineage id={top.id} today={c.today} onClose={close} onWrestler={(id) => open({ k: 'wr', id })}
-        onAsk={askableTitles(c).some((t) => t.id === top.id) ? () => onRequest({ req: 'title', title: top.id }) : undefined} />}
+        onAsk={askableTitles(c).some((t) => t.id === top.id) ? () => onRequest({ req: 'title', title: top.id })
+          : askableIndieTitles(c).some((t) => t.id === top.id) ? () => onRequest({ req: 'title', title: top.id, indie: true }) : undefined} />}
       {top?.k === 'wr' && <File id={top.id} c={c} tab={wtab} setTab={setWtab} onClose={close} onShow={(id) => open({ k: 'show', id })} onTitle={(id) => open({ k: 'title', id })} onMoveset={onMoveset}
         onChallenge={() => onRequest({ req: 'challenge', target: top.id })} />}
     </Screen>

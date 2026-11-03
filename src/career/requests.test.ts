@@ -3,7 +3,8 @@ import { PROMOTIONS, TITLES, WRESTLERS, findWrestler } from '../data/rtr';
 import { freshWorld, setWorld } from '../world/world';
 import { addDays } from './dates';
 import {
-  answerCounter, applyBout, askApproach, askChallenge, askIndieChallenge, askMore, askShow, askTitleShot, askableShows, askableIndieShows,
+  answerCounter, applyBout, askApproach, askChallenge, askIndieChallenge, askIndieTitleShot, askMore, askShow, askTitleShot, askableShows, askableIndieShows,
+  askableIndieTitles,
   finishDay, firstAskable, myBoutToday, patienceOf, showsOn, standingWith, startCareer,
 } from './index';
 import type { SimJob, SimOut } from './sim';
@@ -245,4 +246,41 @@ describe('requests', () => {
     expect(bad).toEqual([]);
     void PROMOTIONS;
   }, 60000);
+
+  it('a free agent can ask an indie promoter for a shot at an indie title: a yes puts you in it on their show', async () => {
+    const c = begin('bishop_blackridge');
+    const me = findWrestler(c.player)!;
+    for (const k of Object.keys(me.popularity) as (keyof typeof me.popularity)[]) me.popularity[k] = 99;
+    const t = askableIndieTitles(c)[0]!;
+    const show = askableIndieShows(c).find((x) => x.date >= addDays(c.titles[t.id]!.since, 30))!;
+    charm(c, `TIS:${show.name}`);
+    const a = askIndieTitleShot(c, t.id, show.id);
+    expect(a.answer, a.said).toBe('yes');
+    expect(c.indie[show.id]).toBeTruthy();
+    const champ = t.holder;
+    while (c.today < show.date) await day(c);
+    const bout = show.card!.find((b) => b.title === t.id);
+    expect(bout, 'title match on the promoter’s show').toBeTruthy();
+    expect([bout!.a, bout!.b]).toContain(c.player);
+    expect([bout!.a, bout!.b]).toContain(champ);
+  }, 60000);
+
+  it('an indie promoter whose champion isn’t free that night offers a different show', () => {
+    const c = begin('bishop_blackridge');
+    const me = findWrestler(c.player)!;
+    for (const k of Object.keys(me.popularity) as (keyof typeof me.popularity)[]) me.popularity[k] = 99;
+    const t = askableIndieTitles(c)[0]!;
+    const show = askableIndieShows(c).find((x) => x.date >= addDays(c.titles[t.id]!.since, 30))!;
+    charm(c, `TIS:${show.name}`);
+    c.people[t.holder!]!.injury = { until: addDays(show.date, 1), what: 'knee' };
+    const a = askIndieTitleShot(c, t.id, show.id);
+    expect(a.answer).toBe('counter');
+    expect(a.counter!.kind).toBe('show');
+    expect(c.shows[a.counter!.pledge!.show!]!.date > show.date).toBe(true);
+  });
+
+  it('indie title shots are for free agents', () => {
+    const c = begin();
+    expect(askableIndieTitles(c)).toEqual([]);
+  });
 });

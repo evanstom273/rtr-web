@@ -175,6 +175,112 @@ export function askTitleShot(c: Career, titleId: string): Ask {
   return record(c, { kind: 'title', to: promo, what, key: 'title', answer: 'no', said: rank > 1 ? `“Not yet. You’re #${rank} in line.”` : '“Not now.”' });
 }
 
+// ------------------------------------------------------------------ indie title shots (free agents)
+
+/** The indie titles a free agent can ask a promoter about: your division's. */
+export function askableIndieTitles(c: Career): Title[] {
+  if (myPromo(c)) return [];
+  const p = PROMOTIONS.find((x) => x.initials === 'TIS');
+  const g = me(c).gender;
+  return p ? p.titles.map((id) => TITLES.find((t) => t.id === id)).filter((t): t is Title => !!t && t.gender === g) : [];
+}
+
+function indieRank(c: Career, t: Title, show: Show): number {
+  const pool = WRESTLERS.filter((w) => w.promotion === 'TIS' && (w.id === c.player || available(c.people[w.id], show.date)));
+  return contenders(c, t, pool, show.region, c.today).findIndex((w) => w.id === c.player) + 1;
+}
+
+/** The day a title can next be defended: 30 days after its last defence (or the reign starting). */
+function titleDueFrom(c: Career, t: Title): Day {
+  const ts = c.titles[t.id];
+  return addDays(ts?.last ?? ts?.since ?? c.today, 30);
+}
+
+/** Why the champion can't be on that show, if they can't. */
+function champBusy(c: Career, t: Title, show: Show): string | null {
+  const champ = t.holder ? findWrestler(t.holder) : undefined;
+  if (!champ) return null;
+  const inj = c.people[champ.id]?.injury;
+  if (inj && inj.until > show.date) return `${champ.name} is injured until ${fmtDay(inj.until, 'dm')}.`;
+  const promised = c.pledges?.find((p) => p.show && p.show !== show.id && c.shows[p.show]?.date === show.date
+    && ((p.kind === 'title' && TITLES.find((x) => x.id === p.title)?.holder === champ.id) || (p.kind === 'match' && p.opp === champ.id)));
+  return promised ? `${champ.name} is promised elsewhere that night.` : null;
+}
+
+/** The next indie show from a day where the champion's free and the title's due: same country first, then region. */
+function indieTitleShow(c: Career, t: Title, from: Day, near: Show): Show | undefined {
+  const due = [from, firstAskable(c), titleDueFrom(c, t)].sort().pop()!;
+  const ok = (s: Show) => s.date >= due && !champBusy(c, t, s) && indieAllowed(c, s.date).ok && !c.asked?.[s.id];
+  const shows = askableIndieShows(c).filter(ok);
+  return shows.find((s) => s.country === near.country) ?? shows.find((s) => s.region === near.region) ?? shows[0];
+}
+
+export function previewIndieTitle(c: Career, titleId: string, showId: string): Preview {
+  const t = TITLES.find((x) => x.id === titleId)!;
+  const show = c.shows[showId];
+  const p = person(c, c.player);
+  const promoter = show ? indieKey(show.name) : '';
+  const rank = show ? indieRank(c, t, show) : 0;
+  const allowed = show ? indieAllowed(c, show.date) : { ok: false, why: '' };
+  const due = titleDueFrom(c, t);
+  const busy = show ? champBusy(c, t, show) : null;
+  const hard = myPromo(c) ? 'Indie title shots are for free agents.'
+    : holdsTitle(c.player) ? 'You already hold a title.'
+      : p.titleBanUntil && p.titleBanUntil > c.today ? `No title matches until ${fmtDay(p.titleBanUntil, 'dm')} (off-script).`
+        : !show || show.date < firstAskable(c) ? 'The next seven days’ cards are set.'
+          : !allowed.ok ? allowed.why ?? 'You can’t take that date.'
+            : c.asked?.[show.id] ? `${show.name} already gave you an answer.`
+              : patienceOf(c, promoter) < PATIENCE_FLOOR ? `${show.name}’s promoter won’t hear it: patience too low.`
+                : c.pledges?.some((x) => (x.kind === 'title' && x.title === t.id) || x.earn === t.id) ? 'You’ve already been promised a shot at this one.'
+                  : !t.holder ? 'The title’s vacant.'
+                    : show.date < due ? `Not due again until ${fmtDay(due, 'dm')}: pick a show from then.`
+                      : !rank || rank > TITLE_ASK_BY_RANK.length ? `You’re not in the picture: ${rank ? `#${rank}` : 'not ranked'} in line.` : null;
+  const chance = (rank ? TITLE_ASK_BY_RANK[rank - 1] ?? 0 : 0) + repPoints(c) + formPoints(c) + patiencePoints(c, promoter);
+  return {
+    hard, chance, nag: cooldownLeft(c, 'title', COOLDOWN_TITLE),
+    stand: [['Contender', rank ? `#${rank}` : '—'], ['Popularity', show ? `${Math.round(regionalPop(me(c), show.region))}` : '—'], ['Reputation', `${Math.round(p.rep)}`],
+      ['Form', formLine(c)], ['Champion’s night', busy ?? 'Free'], ['Title due', show && show.date >= due ? 'Yes' : `From ${fmtDay(due, 'dm')}`]],
+    weigh: [{ t: rank ? `#${rank} contender` : 'Not ranked', s: rank === 1 ? 1 : rank <= 3 ? 0 : -1 }, { t: `Form ${formLine(c)}`, s: Math.sign(formPoints(c)) },
+      { t: `Reputation ${Math.round(p.rep)}`, s: Math.sign(repPoints(c)) }, { t: busy ? 'Champion not free' : 'Champion free', s: busy ? -1 : 1 },
+      { t: `Promoter patience ${Math.round(patienceOf(c, promoter))}`, s: Math.sign(patiencePoints(c, promoter)) }],
+  };
+}
+
+export function askIndieTitleShot(c: Career, titleId: string, showId: string): Ask {
+  const t = TITLES.find((x) => x.id === titleId)!;
+  const show = c.shows[showId]!;
+  const promoter = indieKey(show.name);
+  const what = `Title shot: ${t.name} on ${show.name}`;
+  const pv = previewIndieTitle(c, titleId, showId);
+  if (pv.hard) return record(c, { kind: 'title', to: promoter, what, key: 'title', answer: 'no', said: pv.hard });
+  const chance = nag(c, 'title', COOLDOWN_TITLE, promoter) ? previewIndieTitle(c, titleId, showId).chance : pv.chance;
+  (c.asked ??= {})[show.id] = true;
+  const champ = findWrestler(t.holder!)!;
+  const mine = me(c);
+  const fee = indieFee(mine, show.region), travel = travelCost(mine.country, show.country);
+  const busy = champBusy(c, t, show);
+  const r = busy ? (roll(c, `title:${t.id}:${show.id}`) < chance + ASK_COUNTER_BAND ? 'counter' : 'no') : outcome(chance, roll(c, `title:${t.id}:${show.id}`));
+  if (r === 'yes') {
+    const a = record(c, { kind: 'title', to: promoter, what, key: 'title', answer: 'yes', said: `“You’re on. ${champ.name} for the ${t.name}, ${showLine(show)}: £${fee.toLocaleString('en-GB')}${travel ? `, travel £${travel}` : ''}.”` });
+    joinIndie(c, show, fee, travel);
+    pledge(c, { promo: 'TIS', kind: 'title', title: t.id, show: show.id, ask: a.id });
+    return a;
+  }
+  if (r === 'counter') {
+    if (busy) {
+      const alt = indieTitleShow(c, t, addDays(show.date, 1), show);
+      if (alt) return record(c, { kind: 'title', to: promoter, what, key: 'title', answer: 'counter', said: `“${busy} ${showLine(alt)} in ${alt.city} instead?”`,
+        counter: { kind: 'show', pledge: { promo: 'TIS', kind: 'title', title: t.id, show: alt.id } } });
+    } else if (indieRank(c, t, show) > 1) {
+      const top = contenders(c, t, WRESTLERS.filter((w) => w.promotion === 'TIS' && available(c.people[w.id], show.date)), show.region, c.today).find((w) => w.id !== c.player);
+      if (top) return record(c, { kind: 'title', to: promoter, what, key: 'title', answer: 'counter', said: `“Earn it first. Beat ${top.name} on ${showLine(show)} and the shot’s yours on a later show.”`,
+        counter: { kind: 'earn', pledge: { promo: 'TIS', kind: 'match', opp: top.id, show: show.id, earn: t.id } } });
+    }
+  }
+  const rank = indieRank(c, t, show);
+  return record(c, { kind: 'title', to: promoter, what, key: 'title', answer: 'no', said: rank > 1 ? `“Not on my show. You’re #${rank} in line.”` : '“Not on my show.”' });
+}
+
 const weekdayName = (d: Day): string => ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][weekday(d)]!;
 
 // ------------------------------------------------------------------ challenges
@@ -636,7 +742,16 @@ function afterMine(c: Career, show: Show, bout: Bout, m: PlayerMatch): void {
   if (bout.earn) {
     const t = TITLES.find((x) => x.id === bout.earn);
     const a = c.asks?.find((x) => x.counter?.kind === 'earn' && x.counter.pledge?.earn === bout.earn && x.counter.pledge?.opp === (bout.a === c.player ? bout.b : bout.a));
-    if (m.result === 'win' && t) {
+    if (m.result === 'win' && t && show.promo === 'TIS') {
+      const later = indieTitleShow(c, t, addDays(show.date, 1), show);
+      if (later) {
+        const mine = me(c);
+        joinIndie(c, later, indieFee(mine, later.region), travelCost(mine.country, later.country));
+        pledge(c, { promo: 'TIS', kind: 'title', title: t.id, show: later.id, ...(a ? { ask: a.id } : {}) });
+        letter(c, { kind: 'news', from: show.name, subject: `You’ve earned your ${t.name} shot`, body: [`You beat ${m.oppName}. Your shot: ${showLine(later)} in ${later.city}, ${later.country}.`] });
+        if (a) a.then = `You beat ${m.oppName}: your shot is on ${showLine(later)}.`;
+      } else if (a) a.then = `You beat ${m.oppName}, but there’s no indie show to put the title on yet.`;
+    } else if (m.result === 'win' && t) {
       pledge(c, { promo: show.promo, kind: 'title', title: t.id, from: addDays(show.date, 1), ...(a ? { ask: a.id } : {}) });
       letter(c, { kind: 'contract', from: promoName(show.promo), subject: `You’ve earned your ${t.name} shot`, body: [`You beat ${m.oppName}. The shot’s yours: we’ll book it as soon as the title’s free.`] });
       if (a) a.then = `You beat ${m.oppName}: the shot’s booked when the title’s free.`;
