@@ -310,3 +310,13 @@ export const CHAMP_INJURY_NEWS_DAYS = 30;
 export const INDIE_PROMISE_ROLLS = 3;
 /** A cup winner's shot at the division's top indie title: it waits this long for a show (Lyra's call: a shot as the prize). */
 export const CUP_SHOT_DAYS = 120;
+
+// ------------------------------------------------------------------ 15. Indie scene, traits and bookers (proposals)
+
+/** Traits: a wrestler holds one to this many, any mix of in-ring and backstage. */
+export const TRAIT_MAX = 3;
+/** How many traits shipped and generated wrestlers start with: weights for one, two and three. */
+export const TRAIT_COUNTS_SHIPPED = [0.3, 0.5, 0.2];
+export const TRAIT_COUNTS_GENERATED = [0.45, 0.4, 0.15];
+/** No single trait is held by more than this share of the shipped roster. */
+export const TRAIT_PREVALENCE_CAP = 0.15;

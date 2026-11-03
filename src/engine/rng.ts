@@ -15,6 +15,16 @@ export function seededRng(seed: number): Rng {
 
 export const mathRng: Rng = Math.random;
 
+/** FNV-1a over the parts: a stable 32-bit seed from any mix of strings and numbers. */
+export function hashSeed(...parts: (string | number)[]): number {
+  let h = 2166136261;
+  for (const ch of parts.join('|')) {
+    h ^= ch.charCodeAt(0);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
 export const clamp = (v: number, a: number, b: number): number => Math.max(a, Math.min(b, v));
 export const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
 export const inverseLerp = (a: number, b: number, v: number): number => (a === b ? 0 : (v - a) / (b - a));
