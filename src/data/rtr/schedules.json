@@ -235,6 +235,40 @@
       }
     }
   ],
+  "SSWC": [
+    {
+      "name": "SSWC: Estrellas del Martes por la Noche",
+      "kind": "weekly",
+      "when": {
+        "every": "Tuesday"
+      }
+    },
+    {
+      "name": "SSWC: Relámpagos del Domingo por la Noche",
+      "kind": "weekly",
+      "when": {
+        "every": "Sunday"
+      }
+    },
+    {
+      "name": "SSWC: Corazón de Oro",
+      "kind": "special",
+      "when": {
+        "nth": 1,
+        "day": "Saturday",
+        "month": "March"
+      }
+    },
+    {
+      "name": "SSWC: Río de la Plata",
+      "kind": "special",
+      "when": {
+        "nth": 1,
+        "day": "Saturday",
+        "month": "September"
+      }
+    }
+  ],
   "joint": [
     {
       "name": "ZWA & NWGP: A.R.I.S.E.",
