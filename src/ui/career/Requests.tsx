@@ -2,9 +2,9 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { TITLES, WRESTLERS, findWrestler } from '../../data/rtr';
 import {
   C, PATIENCE_FLOOR, PATIENCE_START, answerCounter, askApproach, askChallenge, askDayOff, askFinish, askIndieChallenge, askMore, askRelease, askReview,
-  askRival, askShow, askSpot, askTitleShot, askTryout, askableIndieShows, askableShows, askableTitles, caughtChance, cooldownLeft, counterLabel,
+  askRival, askShow, askSpot, askTitleShot, askTryout, askIndieTitleShot, askableIndieShows, askableIndieTitles, askableShows, askableTitles, caughtChance, cooldownLeft, counterLabel,
   countersWaiting, exitTerms, finishAskable, firstAskable, myPromo, otherPromotions, patienceOf, person, previewChallenge, previewIndieChallenge,
-  previewMore, previewShow, previewSpot, previewTitle, promoName, standingWith, type Ask, type Career, type Preview, type Show,
+  previewIndieTitle, previewMore, previewShow, previewSpot, previewTitle, promoName, standingWith, type Ask, type Career, type Preview, type Show,
 } from '../../career';
 import { regionalPop } from '../../career/booker';
 import { addDays, daysBetween, fmtDay } from '../../career/dates';
@@ -14,7 +14,7 @@ import { commit, Head, money, Nm, Screen, useWords } from './parts';
 
 /** Where a request starts: the Requests tab, or a shortcut elsewhere (a show sheet, a file, a lineage). */
 export type ReqRoute =
-  | { req: 'title'; title?: string }
+  | { req: 'title'; title?: string; indie?: boolean }
   | { req: 'challenge'; target?: string; show?: string; indie?: boolean }
   | { req: 'book'; tab?: number; show?: string }
   | { req: 'spot'; show?: string }
@@ -163,7 +163,10 @@ export function Requests({ c, tab: start, onBack, onFlow, onNegotiate }: ReqProp
     { t: 'Approach a promotion', d: k ? `Ask about a contract. ${k.promo} might find out.` : 'Ask about a contract.', go: () => onFlow({ req: 'approach', tab: 0 }), tag: k ? 'Risky while signed' : null, tc: 'c-eff bad' },
     { t: 'Ask for a tryout', d: 'One match on their show, judged on the result and the stars.', go: () => onFlow({ req: 'approach', tab: 1 }) },
   ] });
+  const indieTitles = askableIndieTitles(c);
   groups.push({ t: w('The Indie Scene'), items: [
+    ...(indieTitles.length ? [{ t: 'Ask for a title shot', d: `${indieTitles.map((t) => t.name).join(' · ')}. Pick an indie show; its promoter answers.`, go: () => onFlow({ req: 'title', indie: true }),
+      tag: asked('title', COOLDOWN_TITLE), tc: 'c-eff bad' } as Item] : []),
     { t: 'Ask for a spot on an indie show', d: `Indie shows from ${fmtDay(firstAskable(c), 'dm')}.`, go: indieOk ? () => onFlow({ req: 'spot' }) : undefined, tag: indieOk ? null : 'Needs Indie Bookings' },
     { t: 'Challenge someone on an indie show', d: 'Including wrestlers from other promotions.', go: indieOk ? () => onFlow({ req: 'challenge', indie: true }) : undefined, tag: indieOk ? null : 'Needs Indie Bookings' },
   ] });
@@ -298,6 +301,7 @@ export function RequestFlow({ c, route, onBack, onNegotiate, onAnswered }: FlowP
   };
 
   const [i, setI] = useState(0);
+  const [j, setJ] = useState(0);
   const [tab, setTab] = useState('tab' in route ? route.tab ?? 0 : 0);
   const [sel, setSel] = useState<string | null>('show' in route ? route.show ?? null : null);
   const [target, setTarget] = useState<string | null>(route.req === 'challenge' ? route.target ?? null : null);
@@ -323,7 +327,43 @@ export function RequestFlow({ c, route, onBack, onNegotiate, onAnswered }: FlowP
     </>
   );
 
-  if (route.req === 'title') {
+  if (route.req === 'title' && (route.indie || !promo)) {
+    const titles = askableIndieTitles(c);
+    const start = Math.max(0, titles.findIndex((t) => t.id === route.title));
+    const t = titles[(i + start) % Math.max(1, titles.length)];
+    const shows = askableIndieShows(c).slice(0, 60);
+    const s = shows[j % Math.max(1, shows.length)];
+    title = w('Title Shot');
+    who = w(s ? `Asking ${s.name}’s promoter` : 'Asking an indie promoter');
+    booker = s ? `TIS:${s.name}` : null;
+    if (t) {
+      const ts = c.titles[t.id];
+      top = cyc(titles.length, <div className="c-fld mid"><b className="c-big" style={{ fontSize: 18 }}>{t.name}</b><span className="c-hint">{titles.length > 1 ? w('Tap ‹ › for the other title') : w('Your division’s title')}</span></div>);
+      if (s) {
+        pv = previewIndieTitle(c, t.id, s.id);
+        ask = () => askIndieTitleShot(c, t.id, s.id);
+      }
+      nag = nagText('title', COOLDOWN_TITLE, 'for a title shot');
+      notes = ['A yes puts you on that show for the title, at the usual indie fee and travel.'];
+      const when = s ? <div className="c-fld mid"><b className="c-big" style={{ fontSize: 18 }}>{s.name} · {fmtDay(s.date, 'dm')}</b><span className="c-hint">{s.city}, {s.country} · {w('card not drawn yet')}</span></div> : <div className="c-fld mid"><span className="c-hint">No shows to ask about</span></div>;
+      body = (
+        <>
+          <div className="c-ans" style={{ padding: '8px 10px' }}>
+            <span className="c-rowsb"><span className="c-lab">{w('Champion')}</span><span className="c-hint">{ts ? `since ${fmtDay(ts.since, 'dm')} · ${ts.defences} ${ts.defences === 1 ? 'defence' : 'defences'}` : ''}</span></span>
+            <span className="c-vs">{t.holder ? <Nm id={t.holder} /> : 'Vacant'}</span>
+          </div>
+          <span className="c-sec">{w('When')}</span>
+          {shows.length > 0 ? (
+            <div className="c-cyc" style={{ marginTop: 0 }}>
+              <button className="c-stepb" onClick={() => setJ((j + shows.length - 1) % shows.length)} aria-label="Previous show">‹</button>
+              {when}
+              <button className="c-stepb" onClick={() => setJ((j + 1) % shows.length)} aria-label="Next show">›</button>
+            </div>
+          ) : when}
+        </>
+      );
+    }
+  } else if (route.req === 'title') {
     const titles = askableTitles(c);
     const start = Math.max(0, titles.findIndex((t) => t.id === route.title));
     const t = titles[(i + start) % Math.max(1, titles.length)];
