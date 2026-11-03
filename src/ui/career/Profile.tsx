@@ -93,7 +93,7 @@ export function Profile({ c, onBack, onOpen, onShowDay, onHub }: Props) {
         <button onClick={() => onOpen('history')}>{w('Career history', 'History')}</button>
         <button onClick={() => onOpen('finances')}>{w('Finances')}</button>
         <button onClick={() => onOpen('stats')}>{w('Statistics')}</button>
-        <button disabled title="Coming in a later pass">{w('Relationships')}</button>
+        <button onClick={() => onOpen('relationships')}>{w('Relationships')}</button>
         <button onClick={onHub}>{w('The hub', 'Hub')}</button>
       </div>
       <span className="c-hint" style={{ marginTop: 6, textAlign: 'center' }}>{money(c.money)} {w('in the bank')} · {REGION_LABEL[REGIONS.reduce((a, b) => (me.popularity[b] > me.popularity[a] ? b : a))]} {w('is your strongest region')}</span>

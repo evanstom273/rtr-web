@@ -35,8 +35,9 @@ export function ShowDay({ c, onBack, onPlay }: Props) {
     setWorking(true);
     const aIsYou = mine.bout.a === c.player;
     const you = c.player, them = aIsYou ? mine.bout.b : mine.bout.a;
-    const { engine } = simOne({ key: 'mine', seed: hashSeed(c.seed, 'mine', show.id), you, them, rules: boutRules(c, show, mine.bout, you, them, false) });
-    applyBout(c, show, mine.index, outOf('mine', engine), aIsYou);
+    // A simmed match leans towards the booker's plan, as AI matches do; going the other way is an upset, not off-script.
+    const { engine } = simOne({ key: 'mine', seed: hashSeed(c.seed, 'mine', show.id), you, them, rules: boutRules(c, show, mine.bout, you, them, true) });
+    applyBout(c, show, mine.index, outOf('mine', engine), aIsYou, 'simmed');
     await runToday(c, runJobs);
     commit();
     setWorking(false);
@@ -118,7 +119,7 @@ export function ShowDay({ c, onBack, onPlay }: Props) {
             <b className="c-sbig">{result.result === 'win' ? `You beat ${result.oppName}` : result.result === 'loss' ? `${result.oppName} beat you` : `A draw with ${result.oppName}`}</b>
             <span className="c-val">
               {stars(result.stars)}{result.move ? ` · ${result.move}` : ''} · {money(result.fee)}
-              {result.planned === 'off-script' ? ' · you went off-script' : result.planned === 'kept' ? ' · you kept to the plan' : ''}
+              {result.planned === 'off-script' ? ' · you went off-script' : result.planned === 'kept' ? ' · you kept to the plan' : result.planned === 'botched' ? ' · you didn’t deliver the planned finish' : result.planned === 'upset' ? ' · an upset: not the planned finish' : ''}
               {result.wonTitle ? ' · NEW CHAMPION' : ''}
             </span>
           </div>

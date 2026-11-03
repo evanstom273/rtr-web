@@ -221,3 +221,31 @@ export const TITLE_CHANGE_MAX = 0.35;
 /** Indie titles: once past the minimum gap, the chance an indie champion on a show defends there (overdue: higher). */
 export const INDIE_DEFENCE_CHANCE = 0.2;
 export const INDIE_DEFENCE_OVERDUE = 0.6;
+
+// --- Relationships and promoter memory (expansion, balance sheet section 14: PROPOSALS, live) -------
+export const REL_FRIEND_AT = 40;
+export const REL_RIVAL_AT = -40;
+export const REL_GREAT_MATCH = 5;
+export const REL_OFF_SCRIPT_ON = -15;
+export const REL_FEUD = -4;
+/** Trust: 50 to start, then per thing remembered. */
+export const TRUST_START = 50;
+export const TRUST_KEPT = 4;
+export const TRUST_GOOD = 3;
+export const TRUST_FAVOUR = 4;
+export const TRUST_OFF_SCRIPT = -15;
+export const TRUST_NO_SHOW = -20;
+export const TRUST_BOTCHED = -3;
+export const TRUST_SNUB = -3;
+/** Failing to deliver (losing when booked to win): a smaller knock than going off-script. */
+export const PATIENCE_BOTCHED = -5;
+/** Your title matches: a promoter who doesn't trust you (under 35) is likelier to plan the belt off you / not onto you. */
+export const TRUST_LOW = 35;
+export const TRUST_HIGH = 70;
+export const TRUST_RETAIN_SWING_LOW = 0.15;
+export const TRUST_RETAIN_SWING_HIGH = 0.05;
+/** Indie promoters' bookings: trust under TRUST_LOW and they stop writing; over TRUST_HIGH they write more; a champion draws interest. */
+export const INDIE_OFFER_TRUSTED = 1.5;
+export const INDIE_OFFER_CHAMPION = 1.3;
+/** Requests to indie promoters: (trust − 50) ÷ this, in points of yes chance. */
+export const ASK_TRUST_DIVISOR = 5;

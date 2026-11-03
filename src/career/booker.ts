@@ -7,9 +7,11 @@ import { REGION_KEY } from './places';
 import {
   CARD_SIZE, CONTENDER_T1_BONUS, FEUD_WEEKS, INDIE_DEFENCE_CHANCE, INDIE_DEFENCE_OVERDUE, FEUDS_PER_PROMOTION, INTERGENDER_CHANCE,
   CAUGHT_BOOK_MULT, INTERGENDER_CHANCE_INDIE, SCHEDULE_T2_MAX_PER_MONTH, STIP_CHANCE, TITLE_CHANGE_MAX, TITLE_CHANGE_PER_REIGN_YEAR,
-  TITLE_PLANNED_CHANGE, TITLE_RHYTHM, type TitleClass,
+  TITLE_PLANNED_CHANGE, TITLE_RHYTHM, TRUST_HIGH, TRUST_LOW, TRUST_RETAIN_SWING_HIGH, TRUST_RETAIN_SWING_LOW, type TitleClass,
 } from './tuning';
 import type { Bout, Career, Feud, Person, Pledge, PopRegion, Show } from './types';
+import { showBooker } from './patience';
+import { trust } from './relations';
 
 /** Stipulations a booker reaches for, roughly how often. Hardcore ones tire people more. */
 const STIPS: [StipulationId, number][] = [
@@ -105,6 +107,19 @@ export function planRetain(c: Career, titleId: string, day: Day): number {
   const ts = c.titles[titleId];
   const years = ts?.since ? Math.max(0, daysBetween(ts.since, day)) / 365 : 0;
   return 1 - Math.min(TITLE_CHANGE_MAX, TITLE_PLANNED_CHANGE[titleClass(titleId)] + years * TITLE_CHANGE_PER_REIGN_YEAR);
+}
+
+/**
+ * Planned retention when you're in it: a promoter who doesn't trust you would rather the belt went off
+ * you (or not onto you); one who trusts you leans the other way.
+ */
+function planRetainWith(c: Career, titleId: string, show: Show, champ: string, challenger: string): number {
+  let r = planRetain(c, titleId, show.date);
+  if (champ !== c.player && challenger !== c.player) return r;
+  const t = trust(c, showBooker(show));
+  const swing = t < TRUST_LOW ? TRUST_RETAIN_SWING_LOW : t >= TRUST_HIGH ? -TRUST_RETAIN_SWING_HIGH : 0;
+  r += champ === c.player ? -swing : swing;
+  return Math.max(0.05, Math.min(0.98, r));
 }
 
 /** Average days between a promotion's shows around a date (monthly promotions defend at most shows; weekly ones spread it). */
@@ -287,7 +302,7 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
     if (pledge && me && champ.id !== me.id) {
       if (shotHere(pledge) && wantMe && free(me.id) && !feud) {
         take(champ.id); take(me.id);
-        card.push({ a: champ.id, b: me.id, title: t.id, planned: rnd() < planRetain(c, t.id, show.date) ? champ.id : me.id });
+        card.push({ a: champ.id, b: me.id, title: t.id, planned: rnd() < planRetainWith(c, t.id, show, champ.id, me.id) ? champ.id : me.id });
         pledgeDone(c, pledge, `Booked: ${show.name}, ${champ.name} for the ${t.name}.`);
         continue;
       }
@@ -308,7 +323,7 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
     if (!challenger || !free(challenger.id) || (challenger.id !== c.player && !pool.some((w) => w.id === challenger!.id))) continue;
     if (challenger.id === c.player && !wantMe) continue;
     take(champ.id); take(challenger.id);
-    const planned = rnd() < planRetain(c, t.id, show.date) ? champ.id : challenger.id;
+    const planned = rnd() < planRetainWith(c, t.id, show, champ.id, challenger.id) ? champ.id : challenger.id;
     card.push({ a: champ.id, b: challenger.id, title: t.id, planned, ...(feud ? { feud: feud.id } : {}) });
   }
 

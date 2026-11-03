@@ -16,6 +16,7 @@ import { Negotiate } from './Negotiate';
 import { commit, useCareer } from './parts';
 import { Profile, type ProfileLink } from './Profile';
 import { Records } from './Records';
+import { Relationships } from './Relationships';
 import { RequestFlow, Requests, showAnswersNext, type ReqRoute } from './Requests';
 import { ShowDay } from './ShowDay';
 import { Start } from './Start';
@@ -25,7 +26,7 @@ import './career.css';
 import './career-app.css';
 
 export type CareerScreen =
-  | 'cal' | 'show' | 'profile' | 'letters' | 'contract' | 'training' | 'finances' | 'history' | 'stats' | 'records' | 'moveset' | 'start' | 'create' | 'requests'
+  | 'cal' | 'show' | 'profile' | 'letters' | 'contract' | 'training' | 'finances' | 'history' | 'stats' | 'records' | 'moveset' | 'start' | 'create' | 'requests' | 'relationships'
   | { negotiate: string } | { requests: number } | ReqRoute;
 
 interface Props {
@@ -93,7 +94,7 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
   }
   switch (screen) {
     case 'show': return <ShowDay c={c} onBack={home} onPlay={onPlay} />;
-    case 'profile': return <Profile c={c} onBack={back} onShowDay={() => go('show')} onHub={home} onOpen={(s: ProfileLink) => go(s === 'contract' || s === 'history' || s === 'finances' || s === 'stats' ? s : 'profile')} />;
+    case 'profile': return <Profile c={c} onBack={back} onShowDay={() => go('show')} onHub={home} onOpen={(s: ProfileLink) => go(s === 'contract' || s === 'history' || s === 'finances' || s === 'stats' || s === 'relationships' ? s : 'profile')} />;
     case 'letters': return <Letters c={c} onBack={back} onNegotiate={(id) => go({ negotiate: id })} />;
     case 'contract': return <Contract c={c} onBack={back} />;
     case 'training': return <Training c={c} onBack={back} onMoveset={() => go('moveset')} />;
@@ -101,6 +102,7 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
     case 'history': return <History c={c} onBack={back} onStats={() => go('stats')} />;
     case 'stats': return <Stats c={c} onBack={back} onHistory={() => go('history')} />;
     case 'records': return <Records c={c} onBack={back} onMoveset={() => go('moveset')} onNewCareer={() => go('start')} onRequest={(r) => go(r)} />;
+    case 'relationships': return <Relationships c={c} onBack={back} />;
     case 'requests': return <Requests c={c} onBack={back} onFlow={(r) => go(r)} onNegotiate={(id) => go({ negotiate: id })} />;
     case 'moveset': {
       const me = WRESTLERS.find((x) => x.id === c.player)!;

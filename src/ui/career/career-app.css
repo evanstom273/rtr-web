@@ -153,3 +153,8 @@
 .cr .c-tabs4 button:nth-child(5){border-top-color:var(--cr-dim)}
 .cr .c-search{min-height:42px;padding:0 12px;border:1px solid var(--cr-line);background:var(--cr-panel);color:var(--cr-fg);font:inherit;font-size:15px}
 .cr button.c-b1:disabled{opacity:.45}
+/* Relationships: a bar from the middle, green to the right for warmth, red to the left for bad blood. */
+.cr .c-rbar{position:relative;height:10px;display:block;background:var(--cr-panel2)}
+.cr .c-rbar i{position:absolute;top:0;bottom:0;display:block}
+.cr .c-rbar i.pos{background:var(--cr-good)}.cr .c-rbar i.neg{background:var(--cr-bad)}
+.cr .c-rbar b{position:absolute;left:50%;top:-2px;bottom:-2px;width:2px;display:block;background:var(--cr-dim)}

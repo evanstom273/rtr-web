@@ -98,10 +98,10 @@ export function App() {
     setScreen({ name: 'match', engine, career: cb });
   }, [careerSetup]);
   /** Put a finished (or abandoned and simmed) career match into the career, then run the rest of the night. */
-  const settleCareer = useCallback((cb: CareerBout, engine: MatchEngine) => {
+  const settleCareer = useCallback((cb: CareerBout, engine: MatchEngine, how: 'played' | 'simmed' = 'played') => {
     const s = careerSetup(cb);
     if (!s || s.bout.result) return;
-    applyBout(s.c, s.show, cb.index, outOf('mine', engine), s.aIsYou);
+    applyBout(s.c, s.show, cb.index, outOf('mine', engine), s.aIsYou, how);
     commit();
     void runToday(s.c, runJobs).then(commit);
   }, [careerSetup]);
@@ -189,7 +189,8 @@ export function App() {
             // Walking out of a career match: the match still happens, simmed from the bell.
             setLeaving(false);
             const st = careerSetup(cb);
-            if (st) settleCareer(cb, simOne({ key: 'mine', seed: hashSeed(st.c.seed, 'mine', st.show.id), you: st.you, them: st.them, rules: st.rules }).engine);
+            if (st) settleCareer(cb, simOne({ key: 'mine', seed: hashSeed(st.c.seed, 'mine', st.show.id), you: st.you, them: st.them,
+              rules: boutRules(st.c, st.show, st.bout, st.you, st.them, true) }).engine, 'simmed');
             toCareer('show');
           }} />
         )}

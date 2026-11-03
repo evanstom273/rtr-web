@@ -157,7 +157,9 @@ export interface PlayerMatch {
   stars: number;
   title?: string;
   wonTitle?: boolean;
-  planned?: 'kept' | 'off-script' | null;
+  /** Against the booker's plan: off-script (you won when booked to lose, playing it), botched (you lost when booked
+   * to win), upset (a simmed match went the other way). */
+  planned?: 'kept' | 'off-script' | 'botched' | 'upset' | null;
   fee: number;
   indie: boolean;
   /** Totals from the engine's match stats. */
@@ -198,6 +200,10 @@ export interface Career {
   pledges?: Pledge[];
   /** Caught approaching another promotion: your promotion holds it against you until this day. */
   heat?: { promo: string; until: Day };
+  /** Relationships: how wrestlers you've dealt with feel about you. */
+  relations?: Record<string, Relation>;
+  /** Promoter memory: what each booker (promotion, or indie promoter by show name) remembers of you. */
+  bookers?: Record<string, BookerMemory>;
   nextRookie: Day;
   seq: number;
   seed: number;
@@ -249,3 +255,25 @@ export interface Ask {
 }
 
 export interface PatienceLog { day: Day; d: number; t: string }
+
+export type RelKind = 'friend' | 'rival' | 'mentor' | 'protege';
+export interface Relation {
+  /** −100 (can't stand you) to +100. */
+  v: number;
+  kind?: RelKind;
+  met: Day;
+  last: Day;
+  log: PatienceLog[];
+}
+
+export interface BookerMemory {
+  matches: number;
+  kept: number;
+  offScript: number;
+  botched: number;
+  noShows: number;
+  good: number;
+  favours: number;
+  snubs: number;
+  last?: Day;
+}

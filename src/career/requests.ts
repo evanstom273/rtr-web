@@ -11,13 +11,14 @@ import { addDays, daysBetween, fmtDay, weekday, type Day } from './dates';
 import { indieFee, travelCost } from './economy';
 import { dayOff, indieAllowed, joinIndie } from './offers';
 import { indieKey, movePatience, patienceOf, patienceWeek, showBooker } from './patience';
+import { trust, trustLabel } from './relations';
 import {
   ASK_COUNTER_BAND, ASK_FORM_PER_RESULT, ASK_PATIENCE_DIVISOR, ASK_REP_DIVISOR, ASK_SPOT_BASE_PCT, ASK_SPOT_MAX_PCT, BOOK_AHEAD_DAYS,
   CAUGHT_CHANCE, CAUGHT_CHANCE_SAME_REGION, CAUGHT_DAYS, CHALLENGE_BASE, CHALLENGE_CHAMPION, CHALLENGE_IN_FEUD, CHALLENGE_PER_POP_ABOVE,
   COOLDOWN_CHALLENGE, COOLDOWN_MORE, COOLDOWN_PROMOTION, COOLDOWN_TITLE, CREATIVE_T1_CHANGE, CREATIVE_T2_COOLDOWN_DAYS, INDIE_CH_ALLOWED,
   INDIE_CH_PROMOTION, INDIE_T1_APPROVAL, MORE_BASE, MORE_MIN_DATES, PATIENCE_CAUGHT, PATIENCE_DECLINE_COUNTER, PATIENCE_FLOOR,
-  PATIENCE_FOLLOWED_PLAN, PATIENCE_GOOD_MATCH, PATIENCE_GOOD_MATCH_STARS, PATIENCE_NAG, PATIENCE_OFF_SCRIPT, PATIENCE_START,
-  PATIENCE_TOOK_COUNTER, REP_NAG, SHOW_ASK_BONUS, SHOW_ASK_FLAGSHIP, SHOW_ASK_SPECIAL, TITLE_ASK_BY_RANK, TITLE_ASK_CLAUSE,
+  PATIENCE_BOTCHED, PATIENCE_FOLLOWED_PLAN, PATIENCE_GOOD_MATCH, PATIENCE_GOOD_MATCH_STARS, PATIENCE_NAG, PATIENCE_OFF_SCRIPT, PATIENCE_START,
+  PATIENCE_TOOK_COUNTER, REP_NAG, SHOW_ASK_BONUS, SHOW_ASK_FLAGSHIP, SHOW_ASK_SPECIAL, TITLE_ASK_BY_RANK, TITLE_ASK_CLAUSE, ASK_TRUST_DIVISOR,
 } from './tuning';
 import type { Ask, AskKind, Bout, Career, CounterKind, PlayerMatch, Pledge, Show } from './types';
 
@@ -33,6 +34,8 @@ export const repPoints = (c: Career): number => (person(c, c.player).rep - 50) /
 export const formPoints = (c: Career): number =>
   c.history.slice(0, 5).reduce((t, m) => t + (m.result === 'win' ? 1 : m.result === 'loss' ? -1 : 0), 0) * ASK_FORM_PER_RESULT;
 export const patiencePoints = (c: Career, key: string): number => (patienceOf(c, key) - PATIENCE_START) / ASK_PATIENCE_DIVISOR;
+/** Indie promoters remember: (trust − 50) ÷ 5. */
+export const trustPoints = (c: Career, key: string): number => (trust(c, key) - 50) / ASK_TRUST_DIVISOR;
 export const formLine = (c: Career): string => {
   const last = c.history.slice(0, 5);
   const w = last.filter((m) => m.result === 'win').length, l = last.filter((m) => m.result === 'loss').length;
@@ -235,14 +238,14 @@ export function previewIndieTitle(c: Career, titleId: string, showId: string): P
                   : !t.holder ? 'The title’s vacant.'
                     : show.date < due ? `Not due again until ${fmtDay(due, 'dm')}: pick a show from then.`
                       : !rank || rank > TITLE_ASK_BY_RANK.length ? `You’re not in the picture: ${rank ? `#${rank}` : 'not ranked'} in line.` : null;
-  const chance = (rank ? TITLE_ASK_BY_RANK[rank - 1] ?? 0 : 0) + repPoints(c) + formPoints(c) + patiencePoints(c, promoter);
+  const chance = (rank ? TITLE_ASK_BY_RANK[rank - 1] ?? 0 : 0) + repPoints(c) + formPoints(c) + patiencePoints(c, promoter) + trustPoints(c, promoter);
   return {
     hard, chance, nag: cooldownLeft(c, 'title', COOLDOWN_TITLE),
     stand: [['Contender', rank ? `#${rank}` : '—'], ['Popularity', show ? `${Math.round(regionalPop(me(c), show.region))}` : '—'], ['Reputation', `${Math.round(p.rep)}`],
       ['Form', formLine(c)], ['Champion’s night', busy ?? 'Free'], ['Title due', show && show.date >= due ? 'Yes' : `From ${fmtDay(due, 'dm')}`]],
     weigh: [{ t: rank ? `#${rank} contender` : 'Not ranked', s: rank === 1 ? 1 : rank <= 3 ? 0 : -1 }, { t: `Form ${formLine(c)}`, s: Math.sign(formPoints(c)) },
       { t: `Reputation ${Math.round(p.rep)}`, s: Math.sign(repPoints(c)) }, { t: busy ? 'Champion not free' : 'Champion free', s: busy ? -1 : 1 },
-      { t: `Promoter patience ${Math.round(patienceOf(c, promoter))}`, s: Math.sign(patiencePoints(c, promoter)) }],
+      { t: `Promoter patience ${Math.round(patienceOf(c, promoter))}`, s: Math.sign(patiencePoints(c, promoter)) }, { t: trustLabel(trust(c, promoter)), s: Math.sign(trustPoints(c, promoter)) }],
   };
 }
 
@@ -398,7 +401,7 @@ export function askIndieChallenge(c: Career, targetId: string, showId: string): 
   const nagged = nag(c, 'challenge', COOLDOWN_CHALLENGE, promoter);
   (c.asked ??= {})[show.id] = true;
   const mine = me(c);
-  const spot = Math.min(ASK_SPOT_MAX_PCT, ASK_SPOT_BASE_PCT + mine.popularity.global) + patiencePoints(c, promoter);
+  const spot = Math.min(ASK_SPOT_MAX_PCT, ASK_SPOT_BASE_PCT + mine.popularity.global) + patiencePoints(c, promoter) + trustPoints(c, promoter);
   if (roll(c, `spot:${show.id}`) >= spot) return record(c, { kind: 'indieChallenge', to: promoter, what, key: 'challenge', answer: 'no', said: '“We’re full. Maybe next time.”' });
   const side = nagged ? previewIndieChallenge(c, targetId, showId).chance : pv.chance;
   const r = outcome(side, roll(c, `indie-ch:${targetId}:${showId}`));
@@ -581,9 +584,10 @@ export function previewSpot(c: Career, showId: string): Preview {
           : patienceOf(c, promoter) < PATIENCE_FLOOR ? `${show.name}’s promoter won’t hear it: patience too low.` : null;
   const base = Math.min(ASK_SPOT_MAX_PCT, ASK_SPOT_BASE_PCT + me(c).popularity.global);
   return {
-    hard, chance: base + patiencePoints(c, promoter), nag: 0,
+    hard, chance: base + patiencePoints(c, promoter) + trustPoints(c, promoter), nag: 0,
     stand: [['Popularity', `${Math.round(me(c).popularity.global)} (global)`], ['Fee', show ? `£${indieFee(me(c), show.region).toLocaleString('en-GB')}` : '—'], ['Travel', show ? (travelCost(me(c).country, show.country) ? `£${travelCost(me(c).country, show.country)}` : 'None') : '—']],
-    weigh: [{ t: `Popularity ${Math.round(me(c).popularity.global)}`, s: 1 }, { t: `Promoter patience ${Math.round(patienceOf(c, promoter))}`, s: Math.sign(patiencePoints(c, promoter)) }],
+    weigh: [{ t: `Popularity ${Math.round(me(c).popularity.global)}`, s: 1 }, { t: `Promoter patience ${Math.round(patienceOf(c, promoter))}`, s: Math.sign(patiencePoints(c, promoter)) },
+      { t: trustLabel(trust(c, promoter)), s: Math.sign(trustPoints(c, promoter)) }],
   };
 }
 
@@ -737,6 +741,7 @@ function monthly(c: Career): void {
 function afterMine(c: Career, show: Show, bout: Bout, m: PlayerMatch): void {
   const key = showBooker(show);
   if (m.planned === 'off-script') movePatience(c, key, PATIENCE_OFF_SCRIPT, `Went off-script on ${show.name}`);
+  else if (m.planned === 'botched') movePatience(c, key, PATIENCE_BOTCHED, `Didn’t deliver the planned finish on ${show.name}`);
   else if (m.planned === 'kept' && bout.title) movePatience(c, key, PATIENCE_FOLLOWED_PLAN, `Followed the plan on ${show.name}`);
   if (m.stars >= PATIENCE_GOOD_MATCH_STARS) movePatience(c, key, PATIENCE_GOOD_MATCH, `${m.stars}★ on ${show.name}`);
   if (bout.earn) {
