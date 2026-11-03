@@ -707,3 +707,21 @@
 [data-skin=building] .rc-logsec .rc-h{font-family:var(--mono);font-weight:500;font-size:10.5px;letter-spacing:.14em;color:#b99d7a}
 [data-skin=building] .rc-log{border-left:0;padding:0}
 [data-skin=building] .rc-log .ts{color:#8c7a64}
+
+/* ================================================================ defending a move: reverse, brace or ride it out */
+.df-actions{gap:8px}
+.df-actions .pl small{font-family:var(--mono);font-size:.55em;font-weight:600;letter-spacing:.04em;margin-left:8px;vertical-align:.2em;opacity:.9}
+.sc-btn.df-rev{border-color:var(--gold);background:color-mix(in srgb,var(--gold) 12%,var(--panel-2))}
+.sc-btn.df-rev .pl{color:var(--gold)}
+.sc-btn.df-brace{border-color:var(--good)}
+.sc-btn.df-brace .pl{color:var(--good)}
+.sc-btn.df-ride .pl{color:var(--fg)}
+.ov.defend .sc-read{flex-wrap:wrap;gap:6px 16px}
+.ov.defend .sc-note{text-align:center}
+[data-skin=broadcast] .ov.defend .sc-btn{border-radius:0}
+[data-skin=paper] .ov.defend .sc-btn{border-radius:0;border-width:2px;background:var(--ink)}
+[data-skin=paper] .ov.defend .df-rev{background:var(--gold);border-color:var(--fg);box-shadow:3px 3px 0 var(--fg)}
+[data-skin=paper] .ov.defend .df-rev .pl,[data-skin=paper] .ov.defend .df-rev .ps{color:var(--on-gold)}
+[data-skin=building] .ov.defend .sc-btn{border:0;border-radius:14px;box-shadow:inset 0 -5px 0 rgba(0,0,0,.35),inset 0 2px 0 rgba(255,255,255,.1)}
+[data-skin=building] .ov.defend .df-rev{background:var(--gold)}
+[data-skin=building] .ov.defend .df-rev .pl,[data-skin=building] .ov.defend .df-rev .ps{color:var(--on-gold)}

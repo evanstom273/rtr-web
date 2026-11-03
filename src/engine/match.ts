@@ -4,11 +4,11 @@ import { AiBrain, aiTurn } from './ai';
 import { say } from './commentary';
 import type { Ctx, EngineHooks } from './ctx';
 import { finalise, render, runNeutralRecovery, schedule, setControl } from './flow';
-import { aiWantsPush, applyPending, rollPending } from './contest';
+import { aiWantsPush, applyPending, resolveDefence, rollPending } from './contest';
 import { aiWantsConvert, executeMove, isLadderDive, limbLock, moveIsValid, tierLock, resolvePinChoice, resolveSigConvert, submissionAreaOk, validMoves } from './moves';
 import { canPin, completeKickout, pinOdds, pinThree, startPin, useResiliency } from './pin';
 import { mathRng, seededRng, type Rng } from './rng';
-import { aiRead, type Read } from './reads';
+import { aiDefence, type Defence } from './defence';
 import { executeSetup, validSetups } from './setups';
 import { moveMatchesSnapshots } from './setupRules';
 import { canUseMove, FINISHER_MOMENTUM, SIGNATURE_MOMENTUM } from './side';
@@ -241,17 +241,23 @@ export class MatchEngine {
 
   /* ---------- results from the UI's timing interactions ---------- */
 
-  /** Roll the pending contest. push: spend momentum for advantage (if allowed). */
-  rollContest(push = false, read?: Read): boolean {
-    if (this.state.pending.kind !== 'contest') return false;
-    return this.act(() => rollPending(this.ctx, push, read));
+  /** The player's call on an incoming move: go for the reversal, brace, or ride it out. */
+  defend(choice: Defence): boolean {
+    const p = this.state.pending;
+    if (p.kind !== 'defend') return false;
+    return this.act(() => resolveDefence(this.ctx, p.spec, choice));
   }
 
-  /** What the AI would read in the player's shoes (headless play). */
-  autoRead(): Read | undefined {
+  /** What the AI would do defending in the player's shoes (headless play). */
+  autoDefence(): Defence {
     const p = this.state.pending;
-    if (p.kind !== 'contest' || !p.spec.playerReads) return undefined;
-    return aiRead(this.state, 'you', 'them', this.ctx.rnd);
+    return p.kind === 'defend' ? aiDefence(this.state, p.spec, this.ctx.rnd) : 'brace';
+  }
+
+  /** Roll the pending contest. push: spend momentum for advantage (if allowed). */
+  rollContest(push = false): boolean {
+    if (this.state.pending.kind !== 'contest') return false;
+    return this.act(() => rollPending(this.ctx, push));
   }
 
   /** What the AI would do in the player's shoes (headless play). */

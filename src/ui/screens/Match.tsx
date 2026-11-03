@@ -14,6 +14,7 @@ import { RefCount } from '../overlays/RefCount';
 import { Resiliency } from '../overlays/Resiliency';
 import { ContestCard } from '../overlays/ContestCard';
 import { SubChoice } from '../overlays/SubChoice';
+import { DefendChoice } from '../overlays/DefendChoice';
 import { SubmissionTug } from '../overlays/SubmissionTug';
 import { PinChoice } from '../overlays/PinChoice';
 import { SigConvert } from '../overlays/SigConvert';
@@ -96,7 +97,7 @@ export function Match({ engine, onOver }: { engine: MatchEngine; onOver: () => v
   // Android back closes whichever sheet is open.
   useBackLayer(sheet !== 'none', close);
   const joltCls = jolt.n ? ` ${jolt.big ? 'jolt-big' : 'jolt'}${jolt.n % 2}` : '';
-  const ringBusy = p.kind === 'contest' || p.kind === 'contestRoll' || p.kind === 'pinChoice' || p.kind === 'sigConvert' || p.kind === 'subChoice' || p.kind === 'kickout' || p.kind === 'refCount' || p.kind === 'sub' || p.kind === 'tenCount' || p.kind === 'refTen';
+  const ringBusy = p.kind === 'defend' || p.kind === 'contest' || p.kind === 'contestRoll' || p.kind === 'pinChoice' || p.kind === 'sigConvert' || p.kind === 'subChoice' || p.kind === 'kickout' || p.kind === 'refCount' || p.kind === 'sub' || p.kind === 'tenCount' || p.kind === 'refTen';
 
   // Paper keeps the ring as a tap-to-pop thumbnail on phones; broadcast and the building put it centre stage.
   const ring = wide || skin !== 'paper' ? (
@@ -130,6 +131,7 @@ export function Match({ engine, onOver }: { engine: MatchEngine; onOver: () => v
       {(sheet === 'specials-you' || sheet === 'specials-them') && (
         <SpecialsSheet engine={engine} initial={sheet === 'specials-you' ? 'you' : 'them'} onClose={close} />
       )}
+      {p.kind === 'defend' && <DefendChoice key={p.spec.id} engine={engine} spec={p.spec} />}
       {(p.kind === 'contest' || p.kind === 'contestRoll') && <ContestCard key={p.spec.id} engine={engine} />}
       {p.kind === 'kickout' && <KickoutHold key={p.spec.id} engine={engine} spec={p.spec} />}
       {p.kind === 'refCount' && <RefCount key={p.id} engine={engine} kickoutAt={p.kickoutAt} />}

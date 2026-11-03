@@ -53,7 +53,14 @@ export const PUSH_COST = 20;
 /** Dice modifier from a 0–100 attribute: 70 is average (+0), 98 ≈ +4, 35 ≈ −4. */
 export const statMod = (v: number): number => Math.round((v - 70) / 7);
 
-const BAND_PENALTY: Record<ExhaustionBand, number> = { Fresh: 0, Winded: -1, Tired: -2, Exhausted: -3, Spent: -5 };
+// Spent is punished once: it rolls at disadvantage, so its flat penalty is no worse than Exhausted.
+const BAND_PENALTY: Record<ExhaustionBand, number> = { Fresh: 0, Winded: -1, Tired: -2, Exhausted: -3, Spent: -3 };
+
+/**
+ * However beaten up a wrestler is, their bonus can't sink below this: a spent, rattled wrestler is a
+ * big underdog, not a foregone conclusion. Shown on the card as grit making up the difference.
+ */
+export const BONUS_FLOOR = -6;
 
 const ATTACK_STAT: Record<MoveType, keyof Side['w']['stats']> = {
   NONE: 'skill', STRIKE: 'striking', GRAPPLE: 'strength', SUBMISSION: 'skill', AERIAL: 'speed', SPRINGBOARD: 'speed',
@@ -129,7 +136,9 @@ function counterSide(D: Side): Counter {
 const sum = (mods: Mod[]) => mods.reduce((t, m) => t + m.value, 0);
 
 function side(key: SideKey, mods: Mod[], edges: ContestSide['edges']): ContestSide {
-  return { key, mods, bonus: sum(mods), edges, pushed: false };
+  const raw = sum(mods);
+  if (raw < BONUS_FLOOR) mods.push({ label: 'Grit', value: BONUS_FLOOR - raw });
+  return { key, mods, bonus: Math.max(raw, BONUS_FLOOR), edges, pushed: false };
 }
 
 /** Attacker vs defender for a move attempt. */

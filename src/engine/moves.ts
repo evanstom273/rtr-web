@@ -18,9 +18,9 @@ import {
   markCrossedThresholds, markRepeatedTargetMilestone, recordMoveUsed, recordTargetResolution, spendFinisher, spendStamina, totalHp, useSignature,
 } from './side';
 import { resolveTarget } from './targeting';
-import { startContest } from './contest';
+import { offerDefence } from './contest';
 import { limbsUsed, moveContest } from './dice';
-import { BLUNTED_DAMAGE } from './reads';
+import { BRACE_DAMAGE, CAUGHT_DAMAGE, RIDE_MOMENTUM, RIDE_STAMINA, type Defence } from './defence';
 import { gainMomentum } from './momentum';
 import { consumeObject, dropObject, heldBy, isLive, maybeBleed, WEAPON_DAMAGE_PER_IMPACT, weaponForMove, weaponMovesFor, weaponMoveStamina } from './env';
 import { disqualify, refSees, WEAPON_DETECTION } from './referee';
@@ -129,12 +129,12 @@ export function executeMove(ctx: Ctx, k: SideKey, move: Move, target?: TargetRes
   const { attack, defend } = moveContest(A, D, move, tgt);
   A.setUp = false;
   S.txn = { kind: 'move', k, move, target: tgt, chance: 0 };
-  startContest(ctx, { kind: 'move', attacker: k, defender: dk, title: move.name, major, attack, defend, move });
+  offerDefence(ctx, { kind: 'move', attacker: k, defender: dk, title: move.name, major, attack, defend, move, aimed: tgt.fullTag.toLowerCase() });
   return true;
 }
 
 /** The defender's response is in: apply the move and decide what happens next. */
-export function finishMove(ctx: Ctx, k: SideKey, move: Move, reversed: boolean, target: TargetResolution, crit = false, readRight = false): void {
+export function finishMove(ctx: Ctx, k: SideKey, move: Move, reversed: boolean, target: TargetResolution, crit = false, defence: Defence | null = null): void {
   const S = ctx.S, A = S[k], dk = other(k);
   const startedAtZero = A.stamina <= 0;
   const st = A.stats, sig = isSignatureMove(A, move), fin = isFinisherMove(A, move);
@@ -143,14 +143,19 @@ export function finishMove(ctx: Ctx, k: SideKey, move: Move, reversed: boolean, 
   else st.movesLanded++;
   if (sig) { st.sigTried++; if (!reversed) st.sigHit++; }
   if (fin) { st.finTried++; if (!reversed) st.finHit++; }
-  if (readRight) { S[dk].stats.readsRight++; if (reversed) S[dk].stats.countered++; }
+  if (defence === 'reverse' && reversed) S[dk].stats.reversalWins++;
   const result: ActionResult = reversed ? (isHighRisk(move) ? 'HIGH_RISK_CRASH' : 'REVERSAL') : 'CLEAN_SUCCESS';
   const dive = A.state.area === 'LADDER' ? ladderUnder(S, k) : null;
-  applyMoveResult(ctx, k, dk, move, result, target, crit, !!dive, !reversed && readRight ? BLUNTED_DAMAGE : 1);
+  const share = reversed ? 1 : defence === 'brace' ? BRACE_DAMAGE : defence === 'reverse' ? CAUGHT_DAMAGE : 1;
+  applyMoveResult(ctx, k, dk, move, result, target, crit, !!dive, share);
   // A finisher, landed or not, knocks momentum back to 25 (after this move's own momentum).
   if (isFinisherMove(A, move)) dropAfterSpecial(A);
-  if (readRight && reversed) counterAttack(ctx, dk, k, move, result);
-  else if (readRight) say(ctx, LINES.readBlunted, { a: k, d: dk, m: move.name }, 'dim');
+  if (defence === 'reverse' && reversed) counterAttack(ctx, dk, k, move);
+  else if (defence === 'reverse') say(ctx, LINES.defendCaught, { a: k, d: dk, m: move.name }, 'dim');
+  else if (defence === 'ride') {
+    gainMomentum(ctx, dk, RIDE_MOMENTUM);
+    S[dk].stamina = Math.min(S[dk].maxStamina, S[dk].stamina + RIDE_STAMINA);
+  }
   if (dive) {
     // Off the ladder: whatever happened, they come down where it stands.
     A.state = result === 'REVERSAL' ? { position: 'GROUNDED', orientation: 'FACE_UP', area: dive.area, motion: 'STATIONARY' } : { ...A.state, area: dive.area };
@@ -293,35 +298,10 @@ function applyMoveResult(ctx: Ctx, k: SideKey, dk: SideKey, move: Move, result: 
 /** A counter steals the momentum: the reversal's own share plus this makes a landed move's worth. */
 export const COUNTER_STEAL = SUCCESSFUL_MOVE_MOMENTUM - REVERSAL_MOMENTUM;
 
-/**
- * The defender read it and won the roll: they take the attacker's momentum and, if they're both on
- * their feet in the same spot, hit a quick move of their own (Wrestling Spirit's counters).
- */
-function counterAttack(ctx: Ctx, dk: SideKey, k: SideKey, move: Move, result: ActionResult): void {
-  const S = ctx.S, D = S[dk], A = S[k];
+/** They went for the reversal and got it: the momentum is theirs. */
+function counterAttack(ctx: Ctx, dk: SideKey, k: SideKey, move: Move): void {
   gainMomentum(ctx, dk, COUNTER_STEAL);
-  const c = result === 'REVERSAL' ? pickCounter(S, dk) : null;
-  if (!c) {
-    say(ctx, LINES.readCounter, { a: dk, d: k, m: move.name }, 'hl');
-    return;
-  }
-  const tgt = resolveTarget(c, D.targetFocus, A.hp);
-  applyDamage(ctx, dk, k, c, 'CLEAN_SUCCESS', tgt, false);
-  applyPositions(D, A, c, 'CLEAN_SUCCESS');
-  D.movesLanded++;
-  say(ctx, LINES.readCounterMove, { a: dk, d: k, m: move.name, vars: { c: c.name } }, 'hl');
-  flash(ctx, 'Countered!', true);
-  ring(ctx, 'move_landed', dk, c.name);
-  crowdObserve(ctx, { type: 'spot', amount: 10 });
-}
-
-/** A quick move the counterer can hit from where they both stand: their best strike or grapple up to impact 6. */
-function pickCounter(S: MatchState, dk: SideKey): Move | null {
-  const D = S[dk], A = S[other(dk)];
-  if (D.state.position !== 'STANDING' || A.state.position !== 'STANDING' || D.state.area !== A.state.area) return null;
-  const options = D.regular.filter((m) => !m.submission && !m.flashPin && !m.pinningCombo && !m.finisher && m.impact >= 3 && m.impact <= 6
-    && (m.type === 'STRIKE' || m.type === 'GRAPPLE') && moveMatchesSnapshots(m, { ...D.state, motion: 'STATIONARY' }, { ...A.state, motion: 'STATIONARY' }));
-  return options.sort((a, b) => b.impact - a.impact)[0] ?? null;
+  say(ctx, LINES.readCounter, { a: dk, d: k, m: move.name }, 'hl');
 }
 
 /**

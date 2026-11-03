@@ -1,12 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { canConvert, convertSignature, finishMove, limbLock, moveIsValid, submissionAreaOk, SUCCESSFUL_MOVE_MOMENTUM, tierLock } from '../moves';
-import { applyRead } from '../contest';
-import { readFor, READ_BONUS, WRONG_READ } from '../reads';
+import type { Defence } from '../defence';
 import { autoRecovery, validSetups } from '../setups';
-import type { ContestSpec } from '../types';
 import { MOVES, WRESTLERS, getMove } from '../../data/rtr';
 import { exhaustionBand, moveDemand, staminaCostMultiplier } from '../exhaustion';
-import { canPush, edgeOf, judge, landChance, moveContest } from '../dice';
+import { BONUS_FLOOR, canPush, edgeOf, judge, landChance, moveContest } from '../dice';
 import { MatchEngine } from '../match';
 import { lateMatchProfile, pinProfile, submissionContext } from '../interaction';
 import * as ix from '../interactions';
@@ -318,56 +316,70 @@ describe('cashing in a signature', () => {
   });
 });
 
-describe('reads, counters and momentum tiers', () => {
+describe('defence, reversals and momentum tiers', () => {
   const engineWith = (rnd?: () => number) => {
     const e = new MatchEngine({ you: WRESTLERS[0]!.id, them: WRESTLERS[1]!.id, seed: 11, ...(rnd ? { rng: rnd } : {}) });
     return { e, S: e.state, ctx: (e as unknown as { ctx: Parameters<typeof convertSignature>[0] }).ctx };
   };
 
-  it('sorts moves into what you would read them as', () => {
-    expect(readFor({ ...getMove('powerbomb') })).toBe('brace');
-    const strike = WRESTLERS[0]!.moves.map(getMove).find((m) => m.type === 'STRIKE');
-    if (strike) expect(readFor(strike)).toBe('block');
-    const dive = MOVES.find((m) => m.type === 'AERIAL')!;
-    expect(readFor(dive)).toBe('duck');
-  });
-
-  it('a right read is a big defensive bonus, smaller when the move was telegraphed; a wrong one costs a little', () => {
-    const { S } = engineWith();
-    const move = S.you.all.find((m) => readFor(m) === 'brace')!;
-    const base = moveContest(S.you, S.them, move, resolveTarget(move, 'NONE', S.them.hp));
-    const spec = { ...base, kind: 'move', category: 'brace', telegraphed: false } as unknown as ContestSpec;
-    applyRead(spec, 'brace');
-    expect(spec.readRight).toBe(true);
-    expect(spec.defend.bonus - base.defend.bonus).toBe(READ_BONUS);
-    const wrong = { ...base, kind: 'move', category: 'brace', telegraphed: false } as unknown as ContestSpec;
-    applyRead(wrong, 'block');
-    expect(wrong.defend.bonus - base.defend.bonus).toBe(WRONG_READ);
-  });
-
-  it('a read that wins the roll is a counter: the defender steals the momentum and lands a move of their own', () => {
+  it('a reversal that comes off steals the momentum', () => {
     const { S, ctx } = engineWith(() => 0.5);
-    const move = S.you.all.find((m) => readFor(m) === 'brace' && m.req.a.position === 'STANDING' && m.req.t.position === 'STANDING' && m.impact <= 6)!;
-    const before = totalHp(S.you);
-    finishMove(ctx, 'you', move, true, resolveTarget(move, 'NONE', S.them.hp), false, true);
+    const move = S.you.all.find((m) => m.req.a.position === 'STANDING' && m.req.t.position === 'STANDING' && m.impact <= 6 && !m.submission)!;
+    finishMove(ctx, 'you', move, true, resolveTarget(move, 'NONE', S.them.hp), false, 'reverse');
     expect(S.them.momentum).toBe(SUCCESSFUL_MOVE_MOMENTUM);
-    expect(totalHp(S.you)).toBeLessThan(before);
+    expect(S.them.stats.reversalWins).toBe(1);
   });
 
-  it('a read that loses the roll still takes the sting out of it', () => {
-    const hit = (readRight: boolean) => {
+  it('bracing softens a move, getting caught going for the reversal makes it worse', () => {
+    const hit = (d: Defence | null) => {
       const { S, ctx } = engineWith(() => 0.5);
       const move = S.you.all.find((m) => m.impact >= 5 && m.impact <= 6 && m.req.a.position === 'STANDING' && m.req.t.position === 'STANDING' && !m.submission)!;
       const before = totalHp(S.them);
-      finishMove(ctx, 'you', move, false, resolveTarget(move, 'NONE', S.them.hp), false, readRight);
+      finishMove(ctx, 'you', move, false, resolveTarget(move, 'NONE', S.them.hp), false, d);
       return before - totalHp(S.them);
     };
-    expect(hit(true)).toBeLessThan(hit(false));
+    expect(hit('brace')).toBeLessThan(hit('ride'));
+    expect(hit('reverse')).toBeGreaterThan(hit('ride'));
+  });
+
+  it('the player sees the move and chooses; the AI chooses for itself', () => {
+    const { e, S } = engineWith();
+    let saw = false;
+    for (let i = 0; i < 400 && !S.over; i++) {
+      const p = S.pending;
+      if (p.kind === 'defend') {
+        saw = true;
+        expect(p.spec.defender).toBe('you');
+        expect(p.spec.reverseChance).toBeGreaterThan(0);
+        e.defend('brace');
+        expect(S.pending.kind).not.toBe('contest');
+        break;
+      }
+      if (p.kind === 'contest' && p.spec.kind === 'move') expect(p.spec.defence).toBe('reverse');
+      if (p.kind === 'awaitPlayer') e.autoPlayer();
+      else if (p.kind === 'contest') e.rollContest(false);
+      else if (p.kind === 'contestRoll') e.applyContest();
+      else if (p.kind === 'continue' || p.kind === 'aiThinking') e.advance();
+      else break;
+    }
+    expect(saw).toBe(true);
+  });
+
+  it('stacked penalties bottom out, and the card shows the grit making up the difference', () => {
+    const { S } = engineWith();
+    const move = S.you.all.find((m) => m.impact <= 6 && !m.submission)!;
+    for (const p of ['HEAD', 'BODY', 'LEFT_ARM', 'RIGHT_ARM', 'LEFT_LEG', 'RIGHT_LEG'] as const) S.them.hp[p] = 5;
+    S.them.stamina = 0;
+    S.them.fatigue = 100;
+    S.them.bleeding = 3;
+    const { defend } = moveContest(S.you, S.them, move, resolveTarget(move, 'NONE', S.them.hp));
+    expect(defend.bonus).toBeGreaterThanOrEqual(BONUS_FLOOR);
+    expect(defend.bonus).toBe(defend.mods.reduce((t, m) => t + m.value, 0));
   });
 
   it('big moves wait for momentum or a worn-down opponent', () => {
     const { S } = engineWith();
-    const big = MOVES.find((m) => m.impact >= 9 && !m.finisher && readFor(m) === 'brace')!;
+    const big = MOVES.find((m) => m.impact >= 9 && !m.finisher && (m.type === 'GRAPPLE' || m.type === 'SUBMISSION'))!;
     expect(tierLock(S, 'you', big)).not.toBeNull();
     S.you.momentum = 60;
     expect(tierLock(S, 'you', big)).toBeNull();

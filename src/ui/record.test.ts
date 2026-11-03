@@ -20,9 +20,10 @@ describe('match records', () => {
     expect(a.movesLanded + a.reversed).toBe(a.movesTried);
     expect(b.movesLanded + b.reversed).toBe(b.movesTried);
     expect(a.movesTried + b.movesTried).toBeGreaterThan(0);
-    expect(a.readsRight).toBeLessThanOrEqual(a.readsTried);
+    expect(a.reversalWins).toBeLessThanOrEqual(a.reversalTries);
+    expect(b.reversed).toBe(a.reversalWins);
     expect(a.controlSteps + b.controlSteps).toBeLessThanOrEqual(r.heat.line.length);
-    expect(statRows(r)).toHaveLength(14);
+    expect(statRows(r)).toHaveLength(13);
     const text = recordText(r);
     expect(text).toContain('BY THE NUMBERS');
     expect(text).toContain('THE COMMENTARY');
