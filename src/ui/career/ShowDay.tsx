@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { findWrestler, TITLES } from '../../data/rtr';
-import { applyBout, boutRules, C, matchPay, myBoutToday, person, runToday, showsOn, type Career } from '../../career';
+import { applyBout, boutRules, C, matchPay, myBoutToday, person, roundName, runToday, showsOn, type Career } from '../../career';
 import { fmtDay } from '../../career/dates';
 import { runJobs } from '../../career/runner';
 import { outOf, simOne } from '../../career/sim';
@@ -83,6 +83,8 @@ export function ShowDay({ c, onBack, onPlay }: Props) {
             b.stip ? { t: stipulation(b.stip).name, c: 'c-eff' } : null,
             b.feud ? { t: 'Feud', c: 'c-eff' } : null,
             b.tryout ? { t: 'Tryout', c: 'c-eff gold' } : null,
+            b.tourney ? { t: `Cup ${roundName(b.tourney.round).toLowerCase()}`, c: 'c-eff gold' } : null,
+            b.farewell ? { t: 'Farewell match', c: 'c-eff gold' } : null,
             minehere ? { t: 'You', c: 'c-eff up' } : null,
           ].filter((x): x is { t: string; c: string } => !!x);
           const res = b.result ? `${b.result.winner ? `${findWrestler(b.result.winner)?.name} wins` : 'Draw'} · ${b.result.finish.toLowerCase().replace(/_/g, ' ')} · ${Math.floor(b.result.t / 60)}:${String(b.result.t % 60).padStart(2, '0')} · ${stars(b.result.stars)}` : null;

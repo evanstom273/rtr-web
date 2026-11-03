@@ -269,3 +269,40 @@ export const EVENT_EXPIRES_DAYS = 5;
 export const EVENT_BLOCKED_MULT = 0.25;
 /** Outside Appearances Tier 1: management approves this often. */
 export const OUTSIDE_T1_APPROVAL = 0.6;
+
+// --- One-off shows and the living world (expansion stage 4, balance sheet section 14: PROPOSALS, live) ------
+/** Days between new one-offs anywhere, and how far ahead they're announced. */
+export const SPECIAL_MIN_GAP = 7;
+export const SPECIAL_LEAD: [number, number] = [21, 42];
+/** Once its own gap has passed, the daily chance a kind of one-off is announced. */
+export const SPECIAL_DAILY = 1 / 14;
+/** Days between one-offs of the same kind (tributes and benefits are also once per person). */
+export const SPECIAL_GAP = { charity: 30, benefit: 45, tribute: 30, crossover: 120, tournament: 75, farewell: 0 } as const;
+/** A benefit night: for someone this popular, out at least this long. */
+export const BENEFIT_MIN_INJURY_DAYS = 28;
+export const BENEFIT_MIN_POP = 30;
+/** A tribute: for someone this popular, 30–90 days after they retire. */
+export const TRIBUTE_MIN_POP = 45;
+/** Cups: a fortnight between rounds; the winner's prize is this many times your indie fee. */
+export const CUP_ROUND_GAP = 14;
+export const CUP_PRIZE_MULT = 5;
+export const CUP_WIN_POP = 3;
+export const CUP_WIN_REP = 2;
+/** Wrestling on a charity or benefit night: reputation after the show (for free; for a fee). */
+export const CHARITY_REP_FREE = 1.5;
+export const CHARITY_REP_PAID = 0.5;
+/** Retirement: from this age, a monthly chance that grows each year past it. Champions carry on. */
+export const RETIRE_AGE_MIN = 38;
+export const RETIRE_MONTHLY_BASE = 0.006;
+export const RETIRE_MONTHLY_PER_YEAR = 0.003;
+/** Comebacks: someone popular, retired at least this long, now and then comes back. */
+export const RETURN_MIN_DAYS = 180;
+export const RETURN_MIN_POP = 45;
+export const RETURN_MONTHLY = 0.015;
+/** A rookie whose popularity reaches this has broken through. */
+export const BREAKTHROUGH_POP = 20;
+/** Reign lengths and career match counts the world notices. */
+export const REIGN_MILESTONES = [180, 365, 730];
+export const CAREER_MILESTONES = [50, 100, 250, 500, 1000];
+/** A champion out at least this long makes the news. */
+export const CHAMP_INJURY_NEWS_DAYS = 30;

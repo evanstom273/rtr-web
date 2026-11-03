@@ -28,6 +28,20 @@ type Overlay = { k: 'show'; id: string } | { k: 'title'; id: string } | { k: 'wr
  * Records (the database): today's rosters, and the world's history: every show, every title's lineage,
  * every promotion's story, and any wrestler's file. Read only, except your own moveset.
  */
+/** The newer world events (retirements, cups, milestones...), worded to follow a name. */
+function otherEvent(e: WorldEvent): { k: string; c: string; t: string } {
+  const title = e.title ? TITLES.find((t) => t.id === e.title)?.name ?? e.title : '';
+  switch (e.kind) {
+    case 'retired': return { k: 'Retired', c: 'c-eff', t: `retired${e.what ? `, ${e.what}` : ''}` };
+    case 'returned': return { k: 'Returned', c: 'c-eff up', t: 'came out of retirement' };
+    case 'milestone': return { k: 'Milestone', c: 'c-eff gold', t: `reached a milestone: ${e.what ?? ''}` };
+    case 'tournament': return { k: 'Cup', c: 'c-eff gold', t: `won ${e.what ?? 'a cup'}` };
+    case 'breakthrough': return { k: 'Breakthrough', c: 'c-eff up', t: 'broke through, not long out of training' };
+    case 'injured': return { k: 'Injured', c: 'c-eff dn', t: `injured as ${title} champion${e.what ? `, ${e.what}` : ''}` };
+    default: return { k: 'Debut', c: 'c-eff', t: 'debuted on The Indie Scene' };
+  }
+}
+
 export function Records({ c, onBack, onMoveset, onNewCareer, onRequest }: Props) {
   const { skin, w } = useWords();
   const H = activeWorld().history;
@@ -47,7 +61,7 @@ export function Records({ c, onBack, onMoveset, onNewCareer, onRequest }: Props)
 
   // ---- Rosters (as the world stands today) ----
   const promo = PROMOTIONS.find((p) => p.initials === ORDER[pi])!;
-  const roster = useMemo(() => WRESTLERS.filter((x) => x.promotion === promo.initials)
+  const roster = useMemo(() => WRESTLERS.filter((x) => x.promotion === promo.initials && !c.people[x.id]?.retired)
     .sort((a, b) => Number(titlesHeldBy(b).length > 0) - Number(titlesHeldBy(a).length > 0) || b.popularity.global - a.popularity.global), [promo, c.today]);
   const champs = promo.titles.map((id) => TITLES.find((t) => t.id === id)).filter((t) => t?.holder);
 
@@ -69,7 +83,7 @@ export function Records({ c, onBack, onMoveset, onNewCareer, onRequest }: Props)
       case 'poached': return { k: 'Arrived', c: 'c-eff up', t: e.promo === prKey ? `${e.name} arrived from ${e.from}` : `${e.name} left for ${e.promo}` };
       case 'released': return { k: 'Released', c: 'c-eff dn', t: `${e.name} left ${e.promo}` };
       case 'expired': return { k: 'Left', c: 'c-eff dn', t: `${e.name}’s contract with ${e.promo} ran out` };
-      default: return { k: 'Debut', c: 'c-eff', t: `${e.name} debuted on The Indie Scene` };
+      default: { const m = otherEvent(e); return { k: m.k, c: m.c, t: `${e.name} ${m.t}` }; }
     }
   };
 
@@ -81,7 +95,7 @@ export function Records({ c, onBack, onMoveset, onNewCareer, onRequest }: Props)
       <button key={s.id} className="c-ans" onClick={() => open({ k: 'show', id: s.id })} style={{ padding: '8px 10px' }}>
         <span className="c-rowsb">
           <span className="c-lab">{fmtDay(s.date, 'dm')} {s.date.slice(0, 4)} · {s.promo === 'TIS' ? 'INDIE' : s.promo} · {s.city}</span>
-          <span className="c-effs">{(s.kind === 'special' || s.kind === 'flagship') && <span className="c-eff gold">{w(s.kind)}</span>}<span className="c-hint">{w('Best')} {best}★</span></span>
+          <span className="c-effs">{s.tag ? <span className="c-eff gold">{s.tag.split(':')[0]}</span> : (s.kind === 'special' || s.kind === 'flagship') && <span className="c-eff gold">{w(s.kind)}</span>}<span className="c-hint">{w('Best')} {best}★</span></span>
         </span>
         <b className="c-at">{s.name}</b>
         <span className="c-vs"><span className="c-hint">{w('Main event:')}</span><Nm id={main.a} name={main.an} plain /><span className="c-vsx">{vs}</span><Nm id={main.b} name={main.bn} plain /></span>
@@ -167,7 +181,7 @@ export function Records({ c, onBack, onMoveset, onNewCareer, onRequest }: Props)
           </div>
           <div className="c-body">
             <div className="c-statg">
-              {[[prShows.length, 'Shows'], [story.filter((e) => e.kind === 'title').length, 'Title changes'], [story.filter((e) => e.kind !== 'title' && e.kind !== 'debut').length, 'Roster moves']].map(([v, l]) => (
+              {[[prShows.length, 'Shows'], [story.filter((e) => e.kind === 'title').length, 'Title changes'], [story.filter((e) => ['signed', 'poached', 'released', 'expired', 'retired', 'returned'].includes(e.kind)).length, 'Roster moves']].map(([v, l]) => (
                 <div key={l} className="c-statc"><b className="c-sbig" style={{ fontSize: 22 }}>{v}</b><span className="c-lab">{w(String(l))}</span></div>
               ))}
             </div>
@@ -309,7 +323,7 @@ function File({ id, c, tab, setTab, onClose, onShow, onTitle, onMoveset, onChall
           <span className="c-tag">{x.disposition} · {x.classes.map((k) => CLASS_NAME[k]).join(' · ')}</span>
           <Nm w={x} cls="c-nm" />
           <span className="c-sub"><i>{x.gimmick}</i> · {x.age} · {x.country}</span>
-          <span className="c-status">{x.promotion === 'TIS' ? 'Free agent' : `Signed to ${x.promotion}${p.contract ? ` to ${fmtDay(p.contract.end, 'dm')} ${p.contract.end.slice(0, 4)}` : ''}`}{p.injury ? ` · injured to ${fmtDay(p.injury.until, 'dm')}` : ''} · {matches.length} matches on file</span>
+          <span className="c-status">{p.retired ? `Retired${p.retiredOn ? ` ${fmtDay(p.retiredOn, 'dm')} ${p.retiredOn.slice(0, 4)}` : ''}` : p.retiring ? `Retiring after ${fmtDay(p.retiring, 'dm')}` : x.promotion === 'TIS' ? 'Free agent' : `Signed to ${x.promotion}${p.contract ? ` to ${fmtDay(p.contract.end, 'dm')} ${p.contract.end.slice(0, 4)}` : ''}`}{p.injury ? ` · injured to ${fmtDay(p.injury.until, 'dm')}` : ''} · {matches.length} matches on file</span>
         </div>
       </div>
       <div className="c-statg" style={{ marginTop: 8 }}>
@@ -341,7 +355,7 @@ function File({ id, c, tab, setTab, onClose, onShow, onTitle, onMoveset, onChall
         {tab === 2 && (moves.length ? moves.map((e, i) => (
           <div key={i} className="c-led" style={{ gridTemplateColumns: '54px minmax(0, 1fr)' }}>
             <span className="c-hint">{fmtDay(e.day, 'dm')}</span>
-            <span className="c-val">{e.kind === 'signed' ? `Signed with ${e.promo}${e.from ? ` from ${e.from}` : ''}` : e.kind === 'poached' ? `Moved from ${e.from} to ${e.promo}` : e.kind === 'released' ? `Left ${e.promo}` : e.kind === 'expired' ? `Contract with ${e.promo} ran out` : 'Debuted on The Indie Scene'}</span>
+            <span className="c-val">{e.kind === 'signed' ? `Signed with ${e.promo}${e.from ? ` from ${e.from}` : ''}` : e.kind === 'poached' ? `Moved from ${e.from} to ${e.promo}` : e.kind === 'released' ? `Left ${e.promo}` : e.kind === 'expired' ? `Contract with ${e.promo} ran out` : (() => { const t = otherEvent(e).t; return t[0]!.toUpperCase() + t.slice(1); })()}</span>
           </div>
         )) : <span className="c-note">No moves since records began.</span>)}
         {tab === 3 && (

@@ -159,7 +159,8 @@ describe('career events', () => {
     };
     const { c, maxOpen } = await run(7);
     const log = [...c.events!.log].reverse();
-    const fired = c.letters.filter((l) => l.kind === 'event');
+    // Invitations to one-offs (stage 4) arrive when the show's announced, outside the random pacing.
+    const fired = c.letters.filter((l) => l.kind === 'event' && !(l.action?.type === 'event' && l.action.event.startsWith('invite_')));
     expect(maxOpen).toBeLessThanOrEqual(EVENT_MAX_OPEN);
     expect(fired.length).toBeGreaterThanOrEqual(20);
     expect(fired.length).toBeLessThanOrEqual(80);
@@ -176,7 +177,7 @@ describe('career events', () => {
     expect(log.length).toBeGreaterThan(0);
     // Same seed, same story.
     const again = await run(7);
-    expect(again.c.letters.filter((l) => l.kind === 'event').map((l) => l.subject)).toEqual(fired.map((l) => l.subject));
+    expect(again.c.letters.filter((l) => l.kind === 'event' && !(l.action?.type === 'event' && l.action.event.startsWith('invite_'))).map((l) => l.subject)).toEqual(fired.map((l) => l.subject));
     if (process.env.EVENT_STATS) {
       const count: Record<string, number> = {};
       for (const l of fired) { const id = l.action?.type === 'event' ? l.action.event : '?'; count[id] = (count[id] ?? 0) + 1; }

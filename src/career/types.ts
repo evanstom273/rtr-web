@@ -24,6 +24,42 @@ export interface Show {
   n?: number;
   /** Irregular schedules: the schedule this show came from. */
   irregular?: string;
+  /** A one-off: charity, benefit, tribute, crossover, a cup night, a farewell (career expansion, stage 4). */
+  special?: ShowSpecial;
+}
+
+export type SpecialKind = 'charity' | 'benefit' | 'tribute' | 'crossover' | 'tournament' | 'farewell';
+export interface ShowSpecial {
+  kind: SpecialKind;
+  /** What the calendar and Records call it: "Charity show", "Farewell: Name". */
+  tag: string;
+  /** Who it's for or about (benefit, tribute, farewell). */
+  for?: string;
+  /** No titles on the line (crossover showcases, cup nights). */
+  noTitles?: boolean;
+  /** Cup nights: the tournament and which round (0 = quarter-finals). */
+  tourney?: string;
+  round?: number;
+}
+
+/** A one-night-a-fortnight cup: eight in, quarter-finals, semi-finals, final, each on its own show. */
+export interface Tourney {
+  id: string;
+  name: string;
+  /** The three shows, quarter-finals first. */
+  shows: string[];
+  /** Bracket order, set when the quarter-final card is drawn. */
+  entrants: string[];
+  /** Winners by round and slot (null: not decided yet). */
+  won: (string | null)[][];
+  winner?: string;
+  /** You're entered (you took the invitation). */
+  player?: boolean;
+  /** Your fee each round, and the prize for winning it. */
+  fee: number;
+  prize: number;
+  /** Rounds whose results are in. */
+  settled?: number;
 }
 
 export interface Bout {
@@ -37,6 +73,10 @@ export interface Bout {
   tryout?: boolean;
   /** Requests ("earn it first"): win this and you've earned a shot at this title. */
   earn?: string;
+  /** A cup match: which cup, round and bracket slot. */
+  tourney?: { id: string; round: number; slot: number };
+  /** Someone's last match before retiring. */
+  farewell?: boolean;
   result?: BoutResult;
 }
 
@@ -85,6 +125,9 @@ export interface Person {
   next?: Contract;
   /** Retired: no longer wrestles (their history stays). */
   retired?: boolean;
+  retiredOn?: Day;
+  /** Retirement announced: the farewell is on or before this day. */
+  retiring?: Day;
   /** Creative Control: the last time Protected Booking was used, and shows you've already asked about. */
   creativeUsed?: Day;
   creativeAsked?: string[];
@@ -212,6 +255,10 @@ export interface Career {
   /** Promoter memory: what each booker (promotion, or indie promoter by show name) remembers of you. */
   bookers?: Record<string, BookerMemory>;
   /** Career events: when each last happened, what you chose, follow-ups still to land, and ones waiting on you. */
+  /** Cups (tournaments) running or finished recently. */
+  tourneys?: Tourney[];
+  /** The living world: when each kind of one-off last went on, and what's already been noticed (milestones, retirements). */
+  world?: { last: Partial<Record<SpecialKind, Day>>; seen: Record<string, Day> };
   events?: {
     seen: Record<string, Day>;
     lastAt?: Day;

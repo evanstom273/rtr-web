@@ -519,7 +519,7 @@ export function RequestFlow({ c, route, onBack, onNegotiate, onAnswered }: FlowP
     if (route.req !== 'challenge') return [];
     const them = indie || !promo ? WRESTLERS : WRESTLERS.filter((x) => x.promotion === promo);
     const needle = q.trim().toLowerCase();
-    return them.filter((x) => x.id !== c.player && (!needle || x.name.toLowerCase().includes(needle)))
+    return them.filter((x) => x.id !== c.player && !c.people[x.id]?.retired && (!needle || x.name.toLowerCase().includes(needle)))
       .sort((a, b) => b.popularity.global - a.popularity.global).slice(0, 60);
   }, [route.req, indie, promo, q, c.player]);
 

@@ -464,7 +464,7 @@ function archive(s: Show): void {
   const H = history();
   if (H.shows.some((x) => x.id === s.id)) return;
   const entry: ArchivedShow = {
-    id: s.id, date: s.date, promo: s.promo, ...(s.promos ? { promos: s.promos } : {}), name: s.name, kind: s.kind, city: s.city, country: s.country,
+    id: s.id, date: s.date, promo: s.promo, ...(s.promos ? { promos: s.promos } : {}), ...(s.special ? { tag: s.special.tag } : {}), name: s.name, kind: s.kind, city: s.city, country: s.country,
     bouts: (s.card ?? []).filter((b) => b.result).map((b) => ({
       a: b.a, b: b.b, an: findWrestler(b.a)?.name ?? b.a, bn: findWrestler(b.b)?.name ?? b.b,
       ...(b.title ? { title: b.title } : {}), ...(b.stip ? { stip: b.stip } : {}),
@@ -524,7 +524,7 @@ function topUpRosters(c: Career, day: Day, rnd: Rng): void {
     let n = WRESTLERS.filter((w) => w.promotion === p.initials).length;
     const region = promoRegion(p.initials);
     while (n < ROSTER_SIGN_BELOW) {
-      const best = WRESTLERS.filter((w) => w.promotion === 'TIS' && w.id !== c.player && !TITLES.some((t) => t.holder === w.id))
+      const best = WRESTLERS.filter((w) => w.promotion === 'TIS' && w.id !== c.player && !c.people[w.id]?.retired && !c.people[w.id]?.retiring && !TITLES.some((t) => t.holder === w.id))
         .sort((a, b) => regionalPop(b, region) - regionalPop(a, region))[0];
       if (!best) break;
       sign(c, best, p.initials, day, rnd);

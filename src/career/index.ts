@@ -4,6 +4,8 @@ import './requests';
 import './relations';
 import './events';
 import './eventLibrary';
+import './specials';
+import './worldEvents';
 
 export * from './career';
 export * from './contracts';
@@ -12,6 +14,8 @@ export * from './requests';
 export * from './relations';
 export { answerEvent, eventChoices, eventLibrary, eligible, eventChance, fire, ctxFor } from './events';
 export { EVENT_IDS } from './eventLibrary';
+export { arrangeFarewell, cupLabel, makeSpecial } from './specials';
+export { roundName, tourneyOf, tourneyPairs } from './tourney';
 export { patienceOf, indieKey, showBooker } from './patience';
 export * from './types';
 export { drawCalendar } from './calendar';

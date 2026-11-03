@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { WRESTLERS, databaseChanged, type Wrestler } from '../../data/rtr';
-import { ctxFor, eventLibrary, finishDay, fire, makeOffer, person, startCareer } from '../../career';
+import { ctxFor, eventLibrary, finishDay, fire, makeOffer, makeSpecial, person, startCareer } from '../../career';
 import { todayReal } from '../../career/dates';
 import { runJobs } from '../../career/runner';
 import { activeWorld, resetCareer, resetWorld, saveWorld } from '../../world/world';
@@ -42,7 +42,8 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
   if (import.meta.env.DEV) {
     // Dev only: poke the world from the console (and from browser checks), e.g. __career.event('podcast').
     const event = (id: string) => { const c = activeWorld().career!; const l = fire(ctxFor(c), eventLibrary().find((d) => d.id === id)!); commit(); return l?.id; };
-    (window as unknown as { __career: unknown }).__career = { world: activeWorld, commit, makeOffer, event };
+    const special = (kind: Parameters<typeof makeSpecial>[1]) => { const ok = makeSpecial(activeWorld().career!, kind, String(Date.now())); commit(); return ok; };
+    (window as unknown as { __career: unknown }).__career = { world: activeWorld, commit, makeOffer, event, special };
   }
   const [stack, setStack] = useState<CareerScreen[]>(() => [c ? initial ?? 'cal' : 'start']);
   const [busy, setBusy] = useState<number | null>(null);
