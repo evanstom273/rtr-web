@@ -5,8 +5,9 @@ import { seededRng, type Rng } from '../engine/rng';
 import { addDays, daysBetween, type Day } from './dates';
 import { REGION_KEY } from './places';
 import {
-  CARD_SIZE, CONTENDER_T1_BONUS, DEFENCE_CHANCE, DEFENCE_GAP_DAYS, FEUD_WEEKS, FEUDS_PER_PROMOTION, INTERGENDER_CHANCE,
-  CAUGHT_BOOK_MULT, INTERGENDER_CHANCE_INDIE, PLANNED_RETAIN, SCHEDULE_T2_MAX_PER_MONTH, STIP_CHANCE, TITLE_DEFENCE_EVERY_DAYS,
+  CARD_SIZE, CONTENDER_T1_BONUS, FEUD_WEEKS, INDIE_DEFENCE_CHANCE, INDIE_DEFENCE_OVERDUE, FEUDS_PER_PROMOTION, INTERGENDER_CHANCE,
+  CAUGHT_BOOK_MULT, INTERGENDER_CHANCE_INDIE, SCHEDULE_T2_MAX_PER_MONTH, STIP_CHANCE, TITLE_CHANGE_MAX, TITLE_CHANGE_PER_REIGN_YEAR,
+  TITLE_PLANNED_CHANGE, TITLE_RHYTHM, type TitleClass,
 } from './tuning';
 import type { Bout, Career, Feud, Person, Pledge, PopRegion, Show } from './types';
 
@@ -87,6 +88,32 @@ function weightedPick<T>(rnd: Rng, xs: T[], w: (x: T) => number): T | undefined 
   return xs[xs.length - 1];
 }
 
+/**
+ * A title's class sets its rhythm and stability: a promotion's first title is its world title, the
+ * rest secondary; the Indie Scene's are indie; A.R.I.S.E.'s are the alliance's (joint shows only).
+ */
+export function titleClass(id: string): TitleClass {
+  if (id.startsWith('ARISE_')) return 'alliance';
+  const p = PROMOTIONS.find((x) => x.titles.includes(id));
+  if (p?.initials === 'TIS') return 'indie';
+  return p?.titles[0] === id ? 'world' : 'secondary';
+}
+export const titleMinGap = (id: string): number => TITLE_RHYTHM[titleClass(id)].minGap;
+
+/** The booker's chance of planning the champion to retain this defence: by class, less likely the longer the reign. */
+export function planRetain(c: Career, titleId: string, day: Day): number {
+  const ts = c.titles[titleId];
+  const years = ts?.since ? Math.max(0, daysBetween(ts.since, day)) / 365 : 0;
+  return 1 - Math.min(TITLE_CHANGE_MAX, TITLE_PLANNED_CHANGE[titleClass(titleId)] + years * TITLE_CHANGE_PER_REIGN_YEAR);
+}
+
+/** Average days between a promotion's shows around a date (monthly promotions defend at most shows; weekly ones spread it). */
+function promoSpacing(c: Career, show: Show): number {
+  const from = addDays(show.date, -30), to = addDays(show.date, 30);
+  const n = Object.values(c.shows).filter((s) => s.date >= from && s.date <= to && s.promo !== 'TIS' && (s.promos ?? [s.promo]).some((x) => (show.promos ?? [show.promo]).includes(x))).length;
+  return 61 / Math.max(1, n);
+}
+
 /** The Indie Scene's titles (World Independent, Open-Challenge, Women's Grand Prix). */
 export const isIndieTitle = (id: string): boolean => !!PROMOTIONS.find((p) => p.initials === 'TIS')?.titles.includes(id);
 
@@ -126,10 +153,12 @@ export function refreshFeuds(c: Career, show: Show, roster: readonly Wrestler[])
     ?? upcoming.find((s) => daysBetween(show.date, s.date) >= minDays);
   for (const t of showTitles(show)) {
     if (!t.holder || live.some((f) => f.title === t.id) || c.pledges?.some((p) => p.kind === 'title' && p.title === t.id)) continue;
-    // A title feud starts only when its payoff would land about when the title's next due.
+    // Title feuds build to world-title defences; secondary titles get regular defences against varied
+    // challengers. A feud starts only when its payoff would land about when the title's next due.
+    if (titleClass(t.id) !== 'world') continue;
     const ts = c.titles[t.id];
     const since = ts?.last ?? ts?.since;
-    if (since && daysBetween(since, show.date) < TITLE_DEFENCE_EVERY_DAYS - FEUD_WEEKS[1] * 7) continue;
+    if (since && daysBetween(since, show.date) < TITLE_RHYTHM.world.target - FEUD_WEEKS[1] * 7) continue;
     const champ = findWrestler(t.holder);
     if (!champ) continue;
     const top = contenders(c, t, pool, region, show.date).find((w) => !busy.has(w.id) && !(w.id === c.player && heated(c, show)));
@@ -212,7 +241,7 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
   const hot = heated(c, show);
   const titles = showTitles(show);
   const shotHere = (p: Pledge) => p.kind === 'title' && !hot && titles.some((t) => t.id === p.title) && !titlePending(c, p.title!, show)
-    && (p.show === show.id || (!p.show && !!p.from && show.date >= p.from && sinceLastDefence(c, p.title!, show) >= DEFENCE_GAP_DAYS && !c.feuds.some((f) => f.title === p.title && !f.done)));
+    && (p.show === show.id || (!p.show && !!p.from && show.date >= p.from && sinceLastDefence(c, p.title!, show) >= titleMinGap(p.title!) && !c.feuds.some((f) => f.title === p.title && !f.done)));
   const matchPledge = pledges.find((p) => p.kind === 'match' && (p.show === show.id || (!p.show && !!p.from && show.date >= p.from && (show.promos ?? [show.promo]).includes(p.promo))));
   const datesPledge = pledges.find((p) => p.kind === 'dates' && (show.promos ?? [show.promo]).includes(p.promo) && show.date.startsWith(p.month!));
   const promised = pledges.some((p) => (p.kind === 'show' && p.show === show.id) || shotHere(p)) || !!matchPledge
@@ -258,7 +287,7 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
     if (pledge && me && champ.id !== me.id) {
       if (shotHere(pledge) && wantMe && free(me.id) && !feud) {
         take(champ.id); take(me.id);
-        card.push({ a: champ.id, b: me.id, title: t.id, planned: rnd() < PLANNED_RETAIN ? champ.id : me.id });
+        card.push({ a: champ.id, b: me.id, title: t.id, planned: rnd() < planRetain(c, t.id, show.date) ? champ.id : me.id });
         pledgeDone(c, pledge, `Booked: ${show.name}, ${champ.name} for the ${t.name}.`);
         continue;
       }
@@ -272,14 +301,14 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
     // Otherwise a defence when it's due, unless a title feud is already building to one (or you've been promised it).
     // Joint shows (A.R.I.S.E.) always put their titles on the line: it's the only place they're defended.
     // A title gone past its usual spacing is overdue: certain on a big show, likelier on any other.
-    else if (!pledge && sinceLast >= DEFENCE_GAP_DAYS && !feudLive && (show.promos?.length ? true : rnd() < defenceChance(show, sinceLast))) {
+    else if (!pledge && sinceLast >= titleMinGap(t.id) && !feudLive && (show.promos?.length ? true : rnd() < defenceChance(c, show, t.id, sinceLast))) {
       const cands = contenders(c, t, [...pool, ...(wantMe && me && !hot ? [me] : [])], region, show.date).filter((w) => free(w.id));
       challenger = owedShot && wantMe && !hot ? me : cands[0];
     }
     if (!challenger || !free(challenger.id) || (challenger.id !== c.player && !pool.some((w) => w.id === challenger!.id))) continue;
     if (challenger.id === c.player && !wantMe) continue;
     take(champ.id); take(challenger.id);
-    const planned = rnd() < PLANNED_RETAIN ? champ.id : challenger.id;
+    const planned = rnd() < planRetain(c, t.id, show.date) ? champ.id : challenger.id;
     card.push({ a: champ.id, b: challenger.id, title: t.id, planned, ...(feud ? { feud: feud.id } : {}) });
   }
 
@@ -341,10 +370,20 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
   return card;
 }
 
-function defenceChance(show: Show, sinceLast: number): number {
-  const base = DEFENCE_CHANCE[show.kind];
-  if (sinceLast < TITLE_DEFENCE_EVERY_DAYS) return base;
-  return show.kind === 'special' || show.kind === 'flagship' ? 1 : Math.min(1, base * 4);
+/**
+ * Once a title's past its minimum gap, the chance it's defended on this show. Promotions: set by how
+ * often they run, so the usual gap comes out near the class target; big shows count double; overdue
+ * titles are certain on a big show. Indie titles: a champion on the card usually puts it on the line.
+ */
+function defenceChance(c: Career, show: Show, titleId: string, sinceLast: number): number {
+  const cls = titleClass(titleId);
+  const { minGap, target } = TITLE_RHYTHM[cls];
+  if (sinceLast < minGap) return 0;
+  if (cls === 'indie') return sinceLast >= target ? INDIE_DEFENCE_OVERDUE : INDIE_DEFENCE_CHANCE;
+  const big = show.kind === 'special' || show.kind === 'flagship';
+  const p = Math.min(1, promoSpacing(c, show) / Math.max(1, target - minGap));
+  if (sinceLast >= target) return big ? 1 : Math.min(1, p * 3);
+  return Math.min(1, big ? p * 2 : p);
 }
 
 function pickStip(rnd: Rng): StipulationId {

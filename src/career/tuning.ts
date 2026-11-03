@@ -93,7 +93,7 @@ export const PLANNED_NUDGE = 2;
  * AI title matches that go against the plan are re-run up to this many times (each a fresh match),
  * so the plan usually holds (~90% at 2) but upsets still happen. The nudge alone only reached ~60%.
  */
-export const PLANNED_RETRIES = 2;
+export const PLANNED_RETRIES = 3;
 export const OFF_SCRIPT_TITLE_BAN_DAYS = 60;
 /** Cards are drawn up this many days ahead so you can see them on the calendar. */
 export const BOOK_AHEAD_DAYS = 7;
@@ -204,3 +204,20 @@ export const CAUGHT_CHANCE = 0.25;
 export const CAUGHT_CHANCE_SAME_REGION = 0.4;
 export const CAUGHT_DAYS = 30;
 export const CAUGHT_BOOK_MULT = 0.5;
+
+// --- Championship rhythm and stability (expansion, balance sheet section 14: PROPOSALS, live) -------
+// Defence frequency and how often titles change hands are separate dials now. The old single rule
+// (no defence within 30 days, a flat 75% planned retain) is kept above for reference.
+export type TitleClass = 'world' | 'secondary' | 'indie' | 'alliance';
+/** minGap: never defended sooner than this after the last defence or the reign starting. target: the usual gap. */
+export const TITLE_RHYTHM: Record<TitleClass, { minGap: number; target: number }> = {
+  world: { minGap: 21, target: 35 }, secondary: { minGap: 21, target: 35 }, indie: { minGap: 21, target: 35 }, alliance: { minGap: 30, target: 60 },
+};
+/** The chance the booker plans the champion to lose a given defence, by class... */
+export const TITLE_PLANNED_CHANGE: Record<TitleClass, number> = { world: 0.08, secondary: 0.1, indie: 0.12, alliance: 0.15 };
+/** ...rising this much per year of the reign (long reigns get likelier to end), up to TITLE_CHANGE_MAX. */
+export const TITLE_CHANGE_PER_REIGN_YEAR = 0.08;
+export const TITLE_CHANGE_MAX = 0.35;
+/** Indie titles: once past the minimum gap, the chance an indie champion on a show defends there (overdue: higher). */
+export const INDIE_DEFENCE_CHANCE = 0.2;
+export const INDIE_DEFENCE_OVERDUE = 0.6;

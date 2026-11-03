@@ -3,7 +3,7 @@
 // and day. Under the yes chance: yes. In the next band: a counter. Anything else: no.
 import { PROMOTIONS, TITLES, WRESTLERS, findWrestler, type Title, type Wrestler } from '../data/rtr';
 import { seededRng } from '../engine/rng';
-import { available, bookChance, contenders, datesThisMonth, hashSeed, isIndieTitle, playerBookable, promoRegion, regionalPop } from './booker';
+import { available, bookChance, contenders, datesThisMonth, hashSeed, isIndieTitle, playerBookable, promoRegion, regionalPop, titleMinGap } from './booker';
 import { letter, makeOffer, myBoutToday, person, promoName, setCareerHooks, spend } from './career';
 import { C } from './clauses';
 import { leaveContract, matchRival, payReview } from './contracts';
@@ -102,7 +102,7 @@ function titleRank(c: Career, t: Title): number {
 function titleShowFrom(c: Career, t: Title): Day {
   const ts = c.titles[t.id];
   const last = ts?.last ?? ts?.since ?? c.today;
-  let from = [firstAskable(c), addDays(last, 30)].sort().pop()!;
+  let from = [firstAskable(c), addDays(last, titleMinGap(t.id))].sort().pop()!;
   const feud = c.feuds.find((f) => f.title === t.id && !f.done);
   const payoff = feud?.payoff ? c.shows[feud.payoff]?.date : undefined;
   if (payoff && payoff >= from) from = addDays(payoff, 1);
@@ -193,7 +193,7 @@ function indieRank(c: Career, t: Title, show: Show): number {
 /** The day a title can next be defended: 30 days after its last defence (or the reign starting). */
 function titleDueFrom(c: Career, t: Title): Day {
   const ts = c.titles[t.id];
-  return addDays(ts?.last ?? ts?.since ?? c.today, 30);
+  return addDays(ts?.last ?? ts?.since ?? c.today, titleMinGap(t.id));
 }
 
 /** Why the champion can't be on that show, if they can't. */
