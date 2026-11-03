@@ -89,6 +89,7 @@ export function applyPending(ctx: Ctx): boolean {
   S.txn = null;
   const { roll } = p;
   if (roll.crit === 'attacker1' && txn.kind !== 'sub') say(ctx, LINES.botch, { a: txn.k }, 'bad');
+  if (txn.kind === 'move' && p.spec.read) S[txn.k === 'you' ? 'them' : 'you'].stats.readsTried++;
   if (txn.kind === 'move') finishMove(ctx, txn.k, txn.move, !roll.landed, txn.target, roll.crit === 'attackerTop', p.spec.readRight);
   else if (txn.kind === 'setup') finishContestedSetup(ctx, txn.k, txn.action, !roll.landed);
   return true;

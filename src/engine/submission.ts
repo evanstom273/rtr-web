@@ -60,6 +60,7 @@ export function holdCanWin(S: MatchState, k: SideKey): boolean {
 /** A hold has landed. The player chooses; the AI decides on the spot. */
 export function beginSubmission(ctx: Ctx, k: SideKey, move: Move, target: TargetResolution): void {
   const S = ctx.S, A = S[k], D = S[other(k)];
+  A.stats.holds++;
   // Holds on the ropes, in the corner or from the apron (Tarantula, rope-hung armbars) can't win:
   // the referee forces the break. They're all damage.
   if (!holdCanWin(S, k)) return workTheHold(ctx, k, move, target, S.rules.subs);

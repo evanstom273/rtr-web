@@ -28,6 +28,10 @@ export function createSide(w: Wrestler, key: SideKey): Side {
     tauntCooldownUntil: 0, catchBreathCooldownUntil: 0, consecutiveNeutralResets: 0, consecutiveSetupActions: 0,
     recoveryDelayProtected: false, setUp: false, recentSetups: [], announcedLowStamina: false, announcedHighFatigue: false, announcedSpent: false, announcedHeroic: false,
     bleeding: 0, weaponTrips: 0, nextWeaponTripAt: 0, movesLanded: 0, damageDealt: 0, damageTaken: 0, reversals: 0, kickouts: 0, pinAttempts: 0,
+    stats: {
+      movesTried: 0, movesLanded: 0, reversed: 0, countered: 0, readsTried: 0, readsRight: 0, sigTried: 0, sigHit: 0,
+      finTried: 0, finHit: 0, kickouts: 0, pinTries: 0, holds: 0, controlSteps: 0,
+    },
   };
 }
 

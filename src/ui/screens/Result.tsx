@@ -11,10 +11,11 @@ interface Props {
   hits: Hit[];
   onRematch: () => void;
   onNewMatch: () => void;
+  onMenu: () => void;
 }
 
 /** The match report. One model (the result, the rating, the headline), three dresses. */
-export function Result({ S, rating, hits, onRematch, onNewMatch }: Props) {
+export function Result({ S, rating, hits, onRematch, onNewMatch, onMenu }: Props) {
   const skin = useSkin();
   const r = report(S, rating);
   if (!r) return null;
@@ -29,6 +30,9 @@ export function Result({ S, rating, hits, onRematch, onNewMatch }: Props) {
           </button>
           <button className="ghost" onClick={onNewMatch}>
             New match
+          </button>
+          <button className="ghost" onClick={onMenu}>
+            Main menu
           </button>
         </div>
         <div className="hits">
