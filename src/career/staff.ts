@@ -173,7 +173,7 @@ function openBrand(c: Career, region: PopRegion, rnd: Rng): void {
   const every = INDIE_BRAND_EVERY[0] + Math.floor(rnd() * (INDIE_BRAND_EVERY[1] - INDIE_BRAND_EVERY[0] + 1));
   let r = rnd(), dow = 5;
   for (let d = 0; d < 7; d++) { r -= INDIE_DOW[d]!; if (r <= 0) { dow = d; break; } }
-  P.brands[id] = { id, name, country, region, every, dow, promoter: null, from: c.today };
+  P.brands[id] = { id, name, country, city, region, every, dow, promoter: null, from: c.today };
   // Sometimes someone between jobs, or a retired wrestler, starts it; otherwise a new promoter.
   const free = Object.values(P.staff).filter((s) => !s.job && !s.retired && REGION_OF[s.country] === region);
   const founder = free.length && rnd() < 0.4 ? pick(rnd, free) : undefined;

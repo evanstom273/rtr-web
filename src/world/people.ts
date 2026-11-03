@@ -16,6 +16,8 @@ export interface Brand {
   name: string;
   country: string;
   region: PopRegion;
+  /** Its home city (most of its shows are there). */
+  city?: string;
   /** Runs a show about every this many days, usually on this weekday (0 = Monday). */
   every: number;
   dow: number;

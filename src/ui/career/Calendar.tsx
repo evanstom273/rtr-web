@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { activeWorld } from '../../world/world';
 import { findWrestler, TITLES } from '../../data/rtr';
 import { countersWaiting, cupLabel, firstAskable, myBoutToday, promoName, roundName, showsOn, type Career, type Show } from '../../career';
 import type { ReqRoute } from './Requests';
@@ -28,6 +29,15 @@ function mineOn(c: Career, day: string): { show: Show; indie: boolean } | null {
 }
 
 /** The career home: the month, today's shows, and the way forward. */
+/** An indie show's brand and the promoter putting it on. */
+function brandLine(s: Show): string {
+  const P = activeWorld().people;
+  const b = s.brand ? P?.brands[s.brand] : undefined;
+  if (!b) return 'The Indie Scene';
+  const who = b.promoter ? P!.staff[b.promoter]?.name : undefined;
+  return who ? `${b.name} · ${who}` : b.name;
+}
+
 export function Calendar({ c, busy, onAdvance, onShowDay, onOpen, onAsk, onNegotiate }: Props) {
   const { skin, w } = useWords();
   const [view, setView] = useState(() => ({ y: yearOf(c.today), m: monthOf(c.today) }));
@@ -168,7 +178,7 @@ export function Calendar({ c, busy, onAdvance, onShowDay, onOpen, onAsk, onNegot
           <div>
             <div className="c-sh">
               <div>
-                <span>{sheet.special?.kind === 'crossover' && sheet.promos ? sheet.promos.map(promoName).join(' × ') : sheet.promo === 'TIS' ? 'The Indie Scene' : promoName(sheet.promo)} · {fmtDay(sheet.date, 'dm')} · {sheet.city}, {sheet.country}</span>
+                <span>{sheet.special?.kind === 'crossover' && sheet.promos ? sheet.promos.map(promoName).join(' × ') : sheet.promo === 'TIS' ? brandLine(sheet) : promoName(sheet.promo)} · {fmtDay(sheet.date, 'dm')} · {sheet.city}, {sheet.country}</span>
                 <b>{sheet.name}</b>
                 {tagOf(sheet) && <span className="c-hot">{tagOf(sheet)}{sheet.special?.noTitles ? ' · no titles on the line' : ''}</span>}
               </div>

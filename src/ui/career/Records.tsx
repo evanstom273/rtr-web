@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react';
+import { REGION_KEY, REGION_LABEL } from '../../career/places';
+import { TraitChips } from './Traits';
 import { PROMOTIONS, TITLES, WRESTLERS, findWrestler, getMove, titlesHeldBy } from '../../data/rtr';
 import { askableIndieTitles, askableTitles, person, promoName, type Career } from '../../career';
 import { ATTR_KEYS, ATTR_LONG, CLASS_NAME } from '../../career/create';
@@ -12,6 +14,7 @@ import type { ReqRoute } from './Requests';
 interface Props { c: Career; onBack: () => void; onMoveset: () => void; onNewCareer: () => void; onRequest: (r: ReqRoute) => void }
 
 const ORDER = ['VWF', 'TCG', 'NWGP', 'ZWA', 'SLN', 'END', 'IVW', 'SSWC', 'UFC', 'AAWA', 'TIS'];
+const REGION_ORDER = ['NORTH_AMERICA', 'SOUTH_AMERICA', 'EUROPE', 'ASIA', 'AFRICA', 'OCEANIA'];
 const FINISH: Record<string, string> = {
   PINFALL: 'pinfall', SUBMISSION: 'submission', COUNT_OUT: 'count-out', DOUBLE_COUNT_OUT: 'double count-out', DISQUALIFICATION: 'DQ', TABLES: 'through a table',
   LADDER: 'ladder', CAGE_ESCAPE: 'escaped the cage', TEN_COUNT: 'ten count', I_QUIT: 'I quit', TIME_DECISION: 'time limit',
@@ -153,19 +156,26 @@ export function Records({ c, onBack, onMoveset, onNewCareer, onRequest }: Props)
           {ORDER.map((p) => {
             const ts = TITLES.filter((t) => (PROMOTIONS.find((x) => x.id === t.promotionId)?.initials ?? '') === p);
             if (!ts.length) return null;
+            // The indie scene's: the worldwide titles, then each region's two.
+            const groups: [string | null, typeof ts][] = p === 'TIS'
+              ? [[null, ts.filter((t) => !t.region)], ...REGION_ORDER.map((r): [string, typeof ts] => [REGION_LABEL[REGION_KEY[r]!], ts.filter((t) => t.region === r)])]
+              : [[null, ts]];
             return (
               <div key={p} style={{ display: 'contents' }}>
                 <span className="c-sec">{promoLabel(p)}</span>
-                {ts.map((t) => {
+                {groups.map(([label, list]) => (<div key={label ?? 'all'} style={{ display: 'contents' }}>
+                {label && <span className="c-lab" style={{ marginTop: 6 }}>{w(label)}</span>}
+                {list.map((t) => {
                   const line = titleLineage(H, t.id);
                   const cur = line[0];
                   return (
                     <button key={t.id} className="c-ans" onClick={() => open({ k: 'title', id: t.id })} style={{ padding: '7px 10px' }}>
                       <span className="c-rowsb"><b className="c-at" style={{ fontSize: 15 }}>{t.name}</b><span className="c-hint">{line.length} {line.length === 1 ? 'reign' : 'reigns'}</span></span>
-                      <span className="c-vs">{t.holder ? <Nm id={t.holder} /> : <span className="c-nl">Vacant</span>}{cur && <span className="c-hint">since {fmtDay(cur.from, 'dm')} · {daysBetween(cur.from, c.today)} days</span>}</span>
+                      <span className="c-vs">{t.holder ? <Nm id={t.holder} /> : <span className="c-nl">Vacant</span>}{cur && <span className="c-hint">since {fmtDay(cur.from, 'dm')} · {daysBetween(cur.from, c.today)} {daysBetween(cur.from, c.today) === 1 ? 'day' : 'days'}</span>}</span>
                     </button>
                   );
                 })}
+                </div>))}
               </div>
             );
           })}
@@ -323,6 +333,7 @@ function File({ id, c, tab, setTab, onClose, onShow, onTitle, onMoveset, onChall
           <span className="c-tag">{x.disposition} · {x.classes.map((k) => CLASS_NAME[k]).join(' · ')}</span>
           <Nm w={x} cls="c-nm" />
           <span className="c-sub"><i>{x.gimmick}</i> · {x.age} · {x.country}</span>
+          <TraitChips traits={x.traits} />
           <span className="c-status">{p.retired ? `Retired${p.retiredOn ? ` ${fmtDay(p.retiredOn, 'dm')} ${p.retiredOn.slice(0, 4)}` : ''}` : p.retiring ? `Retiring after ${fmtDay(p.retiring, 'dm')}` : x.promotion === 'TIS' ? 'Free agent' : `Signed to ${x.promotion}${p.contract ? ` to ${fmtDay(p.contract.end, 'dm')} ${p.contract.end.slice(0, 4)}` : ''}`}{p.injury ? ` · injured to ${fmtDay(p.injury.until, 'dm')}` : ''} · {matches.length} matches on file</span>
         </div>
       </div>

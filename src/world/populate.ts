@@ -151,7 +151,7 @@ export function makeBrands(rnd: Rng, P: People, indies: readonly Wrestler[], pre
       const city = pick(rnd, CITIES[country]!);
       const id = `${prefix}b${++n}`;
       const b: Brand = {
-        id, name: brandName(rnd, country, city, taken), country, region: r, every: between(rnd, INDIE_BRAND_EVERY),
+        id, name: brandName(rnd, country, city, taken), country, city, region: r, every: between(rnd, INDIE_BRAND_EVERY),
         dow: weighted(rnd, [0, 1, 2, 3, 4, 5, 6], (d) => INDIE_DOW[d]!), promoter: null, from: `${between(rnd, [2006, 2025])}-${String(between(rnd, [1, 12])).padStart(2, '0')}-01`,
       };
       P.brands[id] = b;
