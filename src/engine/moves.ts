@@ -14,7 +14,7 @@ import { isHighRisk } from './interaction';
 import { resolvedAttackerArea, resolvedTargetArea } from './areaRules';
 import { moveMatchesSnapshots } from './setupRules';
 import {
-  addFatigue, canUseMove, MAX_FINISHER_STOCK, damagePart, grantFinisherStock, isFinisherMove, isSignatureMove,
+  addFatigue, canUseMove, dropAfterSpecial, MAX_FINISHER_STOCK, damagePart, grantFinisherStock, isFinisherMove, isSignatureMove,
   markCrossedThresholds, markRepeatedTargetMilestone, recordMoveUsed, recordTargetResolution, spendFinisher, spendStamina, totalHp, useSignature,
 } from './side';
 import { resolveTarget } from './targeting';
@@ -30,8 +30,6 @@ import type { ActionResult, MatchState, Move, Side, SideKey, TargetResolution } 
 export const SUCCESSFUL_MOVE_MOMENTUM = 15;
 /** Landing a taunt (unchanged when moves went to 15). */
 export const TAUNT_MOMENTUM = 10;
-/** Momentum a landed signature can be cashed in for, for a finisher. */
-export const CONVERT_COST = 50;
 export const REVERSAL_MOMENTUM = 5;
 
 const isInRing = (s: Side) => s.state.area === 'IN_RING';
@@ -142,6 +140,8 @@ export function finishMove(ctx: Ctx, k: SideKey, move: Move, reversed: boolean, 
   const result: ActionResult = reversed ? (isHighRisk(move) ? 'HIGH_RISK_CRASH' : 'REVERSAL') : 'CLEAN_SUCCESS';
   const dive = A.state.area === 'LADDER' ? ladderUnder(S, k) : null;
   applyMoveResult(ctx, k, dk, move, result, target, crit, !!dive, !reversed && readRight ? BLUNTED_DAMAGE : 1);
+  // A finisher, landed or not, knocks momentum back to 25 (after this move's own momentum).
+  if (isFinisherMove(A, move)) dropAfterSpecial(A);
   if (readRight && reversed) counterAttack(ctx, dk, k, move, result);
   else if (readRight) say(ctx, LINES.readBlunted, { a: k, d: dk, m: move.name }, 'dim');
   if (dive) {
@@ -166,7 +166,7 @@ export function finishMove(ctx: Ctx, k: SideKey, move: Move, reversed: boolean, 
   exhaustionCommentary(ctx, k);
   render(ctx);
   if (result === 'CLEAN_SUCCESS' && isSignatureMove(A, move) && canConvert(A)) {
-    // Web addition: a landed signature can cash in 50 momentum for a finisher.
+    // Web addition: a landed signature can cash in the rest of the momentum for a finisher.
     if (k === 'you') {
       S.pending = { kind: 'sigConvert', spec: { id: ++S.seq, moveId: move.id, moveName: move.name, momentum: A.momentum, stock: A.finisherStock, target } };
       render(ctx);
@@ -177,20 +177,21 @@ export function finishMove(ctx: Ctx, k: SideKey, move: Move, reversed: boolean, 
   continueAfterMove(ctx, k, move, target, result, embedded);
 }
 
-/** Momentum to cash in, and room for another finisher. */
-export const canConvert = (A: Side): boolean => A.momentum >= CONVERT_COST && A.finisherStock < MAX_FINISHER_STOCK;
+/** Room for another finisher (cashing in a landed signature takes their momentum to 0). */
+export const canConvert = (A: Side): boolean => A.finisherStock < MAX_FINISHER_STOCK;
 /** The AI (and the headless player) cash in when they have no finisher banked. */
 export const aiWantsConvert = (A: Side): boolean => A.finisherStock === 0;
 
 export function convertSignature(ctx: Ctx, k: SideKey): void {
   const A = ctx.S[k];
-  gainMomentum(ctx, k, -CONVERT_COST);
+  // The signature already dropped them to 25; cashing in takes the rest.
+  gainMomentum(ctx, k, -A.momentum);
   grantFinisherStock(A);
   say(ctx, LINES.signatureConverted, { a: k, vars: { n: A.finisherStock } }, 'hl');
   flash(ctx, 'Finisher banked');
 }
 
-/** The player's call after landing a signature: cash in 50 momentum for a finisher, or keep it. */
+/** The player's call after landing a signature: cash in the rest of the momentum for a finisher, or keep it. */
 export function resolveSigConvert(ctx: Ctx, move: Move, target: TargetResolution, convert: boolean): void {
   if (convert) convertSignature(ctx, 'you');
   const embedded = shouldStartEmbeddedPin(ctx.S, 'you', 'them', move, 'CLEAN_SUCCESS');
