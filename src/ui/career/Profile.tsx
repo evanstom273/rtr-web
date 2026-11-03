@@ -7,13 +7,13 @@ import type { PopRegion } from '../../career/types';
 import { Head, money, Nm, Screen, useWords } from './parts';
 
 export type ProfileLink = 'contract' | 'history' | 'finances' | 'stats' | 'reputation' | 'relationships' | 'achievements';
-interface Props { c: Career; onBack: () => void; onOpen: (s: ProfileLink) => void; onShowDay: () => void; onMenu: () => void }
+interface Props { c: Career; onBack: () => void; onOpen: (s: ProfileLink) => void; onShowDay: () => void; onHub: () => void }
 
 const REGIONS: PopRegion[] = ['northAmerica', 'southAmerica', 'europe', 'asia', 'africa', 'oceania'];
 const SHORT: Record<PopRegion, string> = { northAmerica: 'N AMER', southAmerica: 'S AMER', europe: 'EUROPE', asia: 'ASIA', africa: 'AFRICA', oceania: 'OCEANIA' };
 
 /** Career → you: who you are, where you stand, your deal, and the way into everything else. */
-export function Profile({ c, onBack, onOpen, onShowDay, onMenu }: Props) {
+export function Profile({ c, onBack, onOpen, onShowDay, onHub }: Props) {
   const { skin, w } = useWords();
   const me = findWrestler(c.player)!;
   const p = person(c, c.player);
@@ -90,7 +90,7 @@ export function Profile({ c, onBack, onOpen, onShowDay, onMenu }: Props) {
         <button onClick={() => onOpen('finances')}>{w('Finances')}</button>
         <button onClick={() => onOpen('stats')}>{w('Statistics')}</button>
         <button disabled title="Coming in a later pass">{w('Relationships')}</button>
-        <button onClick={onMenu}>{w('Main menu')}</button>
+        <button onClick={onHub}>{w('The hub', 'Hub')}</button>
       </div>
       <span className="c-hint" style={{ marginTop: 6, textAlign: 'center' }}>{money(c.money)} {w('in the bank')} · {REGION_LABEL[REGIONS.reduce((a, b) => (me.popularity[b] > me.popularity[a] ? b : a))]} {w('is your strongest region')}</span>
     </Screen>
