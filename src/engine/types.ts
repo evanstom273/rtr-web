@@ -32,7 +32,7 @@ export type SetupId =
   | 'place_opponent_on_apron_back' | 'set_opponent_on_top_rope_front' | 'set_opponent_on_top_rope_back'
   | 'send_opponent_outside' | 'call_opponent_outside' | 'exit_ring' | 'take_fight_outside' | 'fight_up_ramp'
   | 'return_from_ramp' | 'bring_match_back_to_ring' | 'pull_opponent_from_corner' | 'pull_opponent_from_ropes'
-  | 'bring_opponent_into_ring' | 'catch_opponent_running' | 'call_opponent_running' | 'regain_composure'
+  | 'bring_opponent_into_ring' | 'catch_opponent_running' | 'call_opponent_running' | 'regain_composure' | 'turn_around'
   | 'press_advantage' | 'wait_for_count'
   // Weapons and objects
   | 'retrieve_weapon' | 'pick_up_weapon' | 'drop_weapon'
