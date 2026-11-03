@@ -6,7 +6,7 @@ import {
   countersWaiting, exitTerms, finishAskable, firstAskable, myPromo, otherPromotions, patienceOf, person, previewChallenge, previewIndieChallenge,
   previewIndieTitle, previewMore, previewShow, previewSpot, previewTitle, promoName, standingWith, type Ask, type Career, type Preview, type Show,
 } from '../../career';
-import { regionalPop } from '../../career/booker';
+import { regionalPop, titleMinGap } from '../../career/booker';
 import { addDays, daysBetween, fmtDay } from '../../career/dates';
 import { REGION_LABEL } from '../../career/places';
 import { COOLDOWN_CHALLENGE, COOLDOWN_MORE, COOLDOWN_PROMOTION, COOLDOWN_TITLE, PATIENCE_DECLINE_COUNTER, PATIENCE_TOOK_COUNTER } from '../../career/tuning';
@@ -375,12 +375,12 @@ export function RequestFlow({ c, route, onBack, onNegotiate, onAnswered }: FlowP
       pv = previewTitle(c, t.id);
       ask = () => askTitleShot(c, t.id);
       nag = nagText('title', COOLDOWN_TITLE, `${promo} for a title shot`);
-      notes = ['A yes books you on the first show after the title’s 30-day gap and beyond the drawn week.'];
+      notes = [`A yes books you on the first show after the title’s ${titleMinGap(t.id)}-day gap and beyond the drawn week.`];
       body = (
         <div className="c-ans" style={{ padding: '8px 10px' }}>
           <span className="c-rowsb"><span className="c-lab">{w('Champion')}</span><span className="c-hint">{ts ? `since ${fmtDay(ts.since, 'dm')} · ${ts.defences} ${ts.defences === 1 ? 'defence' : 'defences'}` : ''}</span></span>
           <span className="c-vs">{t.holder ? <Nm id={t.holder} /> : 'Vacant'}</span>
-          <span className="c-ad">{last ? (daysBetween(last, c.today) >= 30 ? `Last defended ${fmtDay(last, 'dm')}. Due now.` : `Last defended ${fmtDay(last, 'dm')}. Not due again until ${fmtDay(addDays(last, 30), 'dm')}.`) : ''}</span>
+          <span className="c-ad">{last ? (daysBetween(last, c.today) >= titleMinGap(t.id) ? `Last defended ${fmtDay(last, 'dm')}. Due now.` : `Last defended ${fmtDay(last, 'dm')}. Not due again until ${fmtDay(addDays(last, titleMinGap(t.id)), 'dm')}.`) : ''}</span>
         </div>
       );
     }

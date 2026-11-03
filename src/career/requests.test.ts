@@ -101,6 +101,8 @@ describe('requests', () => {
     const c = begin();
     (c.patience ??= {}).VWF = { v: 20, log: [] };
     expect(askMore(c).said).toMatch(/patience too low/);
+    // Out injured, so no matches (and no off-script or no-show) muddy the weekly recovery.
+    c.people[c.player]!.injury = { until: addDays(c.today, 60), what: 'test' };
     for (let i = 0; i < 21; i++) await day(c);
     expect(patienceOf(c, 'VWF')).toBe(26);
     (c.patience.VWF = { v: 69, log: [] });

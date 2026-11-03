@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TITLES, findWrestler } from '../data/rtr';
+import { PROMOTIONS, TITLES, findWrestler } from '../data/rtr';
 import { freshWorld, setWorld } from '../world/world';
 import { acceptLetter, applyBout, finishDay, myBoutToday, runToday, showsOn, startCareer } from './index';
 import type { SimJob, SimOut } from './sim';
@@ -81,4 +81,32 @@ describe('title matches', () => {
     expect(show.card!.at(-1)!.result!.newChamp).toBeUndefined();
     expect(c.letters.length).toBe(news);
   });
+
+  it('defend regularly without changing hands constantly: a year, by title class', async () => {
+    const w = setWorld(freshWorld(19));
+    const c = startCareer({ player: 'jamie_mercer', today: '2026-11-03', seed: 19 });
+    w.career = c;
+    const cls = (id: string) => (id.startsWith('ARISE_') ? 'alliance' : PROMOTIONS.find((p) => p.titles.includes(id))?.initials === 'TIS' ? 'indie'
+      : PROMOTIONS.find((p) => p.titles[0] === id) ? 'world' : 'secondary');
+    const n: Record<string, { bouts: number; changes: number }> = {};
+    for (let i = 0; i < 365; i++) {
+      const shows = showsOn(c, c.today);
+      const mine = myBoutToday(c);
+      if (mine) applyBout(c, mine.show, mine.index, (await quick([{ key: 'mine', seed: i, you: mine.bout.a, them: mine.bout.b, rules: {} }]))[0]!, true);
+      await finishDay(c, quick);
+      for (const b of shows.flatMap((s) => s.card ?? [])) if (b.title && b.result) {
+        const g = (n[cls(b.title)] ??= { bouts: 0, changes: 0 });
+        g.bouts++;
+        if (b.result.newChamp) g.changes++;
+      }
+    }
+    const per = (k: string, count: number) => ({ defences: n[k]!.bouts / count, changes: n[k]!.changes / count });
+    const titles = (k: string) => TITLES.filter((t) => cls(t.id) === k).length;
+    const world = per('world', titles('world')), secondary = per('secondary', titles('secondary'));
+    // World titles: a defence every month or so, about one change a year. Secondary: busier, still steady.
+    expect(world.defences).toBeGreaterThan(5);
+    expect(world.changes).toBeLessThan(1.6);
+    expect(secondary.defences).toBeGreaterThan(7);
+    expect(secondary.changes / secondary.defences).toBeLessThan(0.25);
+  }, 60000);
 });
