@@ -7,11 +7,12 @@ import {
 import { REGION_OF } from '../../career/places';
 import { MovesetEditor, type Kit } from './MovesetEditor';
 import { Screen, useWords } from './parts';
+import { needsWorldChoice, WorldChoice } from './WorldChoice';
 
 interface Props {
   hasCareer: boolean;
   onBack: () => void;
-  onDone: (w: Wrestler) => void;
+  onDone: (w: Wrestler, fresh: boolean) => void;
 }
 
 const COUNTRIES = [...new Set(WRESTLERS.map((w) => w.country))].filter((c) => c && c !== 'Other').sort();
@@ -80,7 +81,7 @@ export function Create({ hasCareer, onBack, onDone }: Props) {
   };
   const next = () => {
     if (step === 2 && q < 4) return setQ(q + 1);
-    if (step === 4) return hasCareer ? setConfirm(true) : onDone(build());
+    if (step === 4) return needsWorldChoice(hasCareer) ? setConfirm(true) : onDone(build(), false);
     setStep(step + 1);
   };
   const back = () => {
@@ -272,15 +273,7 @@ export function Create({ hasCareer, onBack, onDone }: Props) {
         <button className="c-b2" onClick={back}>{step === 0 ? w('Tear it up', 'Cancel') : step === 2 && q > 0 ? w('‹ Last question', '‹ Previous') : w('‹ Previous page', '‹ Back')}</button>
         <button className="c-b1" onClick={next} disabled={step === 4 && !ready}>{step === 4 ? w('Go to press', 'Start career') : step === 2 && q < 4 ? w('Next question ›') : w('Turn the page ›', 'Next ›')}</button>
       </div>
-      {confirm && (
-        <div className="c-sheet">
-          <div>
-            <div className="c-sh"><div><span>{w('New career')}</span><b>Start again?</b></div></div>
-            <p className="c-note">This replaces your current career and puts the whole world back as it started.</p>
-            <div className="c-nav"><button className="c-b2" onClick={() => setConfirm(false)}>{w('Keep my career')}</button><button className="c-b1" onClick={() => onDone(build())}>{w('Start again')}</button></div>
-          </div>
-        </div>
-      )}
+      {confirm && <WorldChoice hasCareer={hasCareer} onCancel={() => setConfirm(false)} onGo={(fresh) => onDone(build(), fresh)} />}
     </Screen>
   );
 }

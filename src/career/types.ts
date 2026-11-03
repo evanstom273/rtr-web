@@ -19,6 +19,11 @@ export interface Show {
   region: PopRegion;
   card: Bout[] | null;
   done: boolean;
+  /** Numbered shows: the series and this show's number (so a kept world's numbering carries on). */
+  series?: string;
+  n?: number;
+  /** Irregular schedules: the schedule this show came from. */
+  irregular?: string;
 }
 
 export interface Bout {
@@ -41,6 +46,8 @@ export interface BoutResult {
   stars: number;
   /** The finishing move's name, if any. */
   move?: string;
+  /** The title changed hands. */
+  newChamp?: boolean;
 }
 
 export interface Contract {
@@ -79,8 +86,8 @@ export interface Person {
   creativeAsked?: string[];
 }
 
-export interface Reign { holder: string; from: Day; to: Day | null; defences: number }
-export interface TitleState { since: Day; defences: number; last: Day | null; reigns: Reign[] }
+/** The booker's view of a title: when it was won, how often defended, when last. Reigns live in the world history. */
+export interface TitleState { since: Day; defences: number; last: Day | null }
 
 export interface Feud {
   id: string;

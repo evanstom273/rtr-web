@@ -2,6 +2,7 @@ import type { MatchRecord } from '../record';
 import { fmtWhen, recordTitle } from '../record';
 import { useSkin } from '../skin';
 import { starText } from '../model';
+import { useState } from 'react';
 import { fmtClock } from '../../engine';
 
 interface Props {
@@ -11,25 +12,30 @@ interface Props {
   onPlay: () => void;
   onCareer: () => void;
   career: string | null;
+  /** The career wrestler's name, when there's a career to reset. */
+  careerName: string | null;
+  onResetCareer: () => void;
   onArchive: () => void;
   onSettings: () => void;
   onOpen: (id: string) => void;
 }
 
 const LABELS = {
-  paper: { career: 'The career', play: 'Make a match', archive: 'The archive', db: 'The records office', settings: 'Settings' },
-  broadcast: { career: 'Career', play: 'Play a match', archive: 'Match archive', db: 'Database', settings: 'Settings' },
-  building: { career: 'Career', play: 'Play a match', archive: 'Archive', db: 'Database', settings: 'Settings' },
+  paper: { reset: 'Reset the career', career: 'The career', play: 'Make a match', archive: 'The archive', db: 'The records office', settings: 'Settings' },
+  broadcast: { reset: 'Reset career', career: 'Career', play: 'Play a match', archive: 'Match archive', db: 'Database', settings: 'Settings' },
+  building: { reset: 'Reset career', career: 'Career', play: 'Play a match', archive: 'Archive', db: 'Database', settings: 'Settings' },
 };
 
 /** The front door. One menu, dressed per skin: a front page, an opening title card, the big screen. */
-export function Menu({ latest, count, best, onPlay, onCareer, career, onArchive, onSettings, onOpen }: Props) {
+export function Menu({ latest, count, best, onPlay, onCareer, career, careerName, onResetCareer, onArchive, onSettings, onOpen }: Props) {
   const skin = useSkin();
+  const [confirmReset, setConfirmReset] = useState(false);
   const L = LABELS[skin];
   const archiveSub = count ? `${count} ${count === 1 ? 'match' : 'matches'}${best ? ` · best ${best}★` : ''}` : 'Nothing on file yet';
   const lastLine = latest ? `${latest.how}${latest.t ? `, ${fmtClock(latest.t)}` : ''}${latest.venue ? ` · ${latest.venue}` : ''}` : '';
   const items = [
     { id: 'career', label: L.career, sub: career ?? 'Pick a wrestler or create one, and start on the calendar', page: 'P. 1', on: onCareer },
+    ...(careerName ? [{ id: 'reset', label: L.reset, sub: `End ${careerName}’s career. The world stays as it is.`, page: 'P. 1', on: () => setConfirmReset(true) }] : []),
     { id: 'play', label: L.play, sub: 'Pick two, pick the rules, ring the bell', page: 'P. 2', on: onPlay },
     { id: 'archive', label: L.archive, sub: archiveSub, page: 'P. 3', on: onArchive },
     { id: 'db', label: L.db, sub: 'Coming soon: wrestlers, moves, titles, promotions', page: 'P. 4', on: undefined },
@@ -119,6 +125,23 @@ export function Menu({ latest, count, best, onPlay, onCareer, career, onArchive,
         )}
         {skin === 'paper' && <p className="mn-foot">All the news that's fit to pin</p>}
       </div>
+      {confirmReset && careerName && (
+        <section className="cr" style={{ background: 'transparent', zIndex: 30 }}>
+          <div className="c-sheet" onClick={(e) => e.target === e.currentTarget && setConfirmReset(false)}>
+            <div>
+              <div className="c-sh">
+                <div><span>{L.reset}</span><b>End {careerName}’s career?</b></div>
+                <button onClick={() => setConfirmReset(false)} aria-label="Cancel">✕</button>
+              </div>
+              <p className="c-note">The career ends here: your contract, money, letters and record go. The world stays exactly as it is, with its champions, rosters and history, and your next career can carry on in it.</p>
+              <div className="c-nav">
+                <button className="c-b2" onClick={() => setConfirmReset(false)}>{skin === 'paper' ? 'Keep it' : 'KEEP IT'}</button>
+                <button className="c-b1" onClick={() => { setConfirmReset(false); onResetCareer(); }}>{skin === 'paper' ? 'End the career' : 'END CAREER'}</button>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
     </section>
   );
 }

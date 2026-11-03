@@ -92,3 +92,43 @@ describe('a career', () => {
     console.log(`real engine: ${n} matches over 3 days, ${per.toFixed(0)} ms each`);
   }, 120000);
 });
+
+describe('world history', () => {
+  it('remembers every show, every reign and every move, and keeps them through a career reset', async () => {
+    const { activeWorld, resetCareer } = await import('../world/world');
+    const { titleLineage, wrestlerHistory } = await import('../world/history');
+    const c = begin('jamie_mercer', 11);
+    for (let i = 0; i < 120; i++) await day(c);
+    const H = activeWorld().history;
+    expect(H.shows.length).toBeGreaterThan(200);
+    expect(H.shows.every((s) => s.bouts.length > 0 && s.date < c.today)).toBe(true);
+    // Each title's lineage ends with today's champion.
+    for (const t of TITLES) {
+      const line = titleLineage(H, t.id);
+      expect(line[0]!.holder, t.id).toBe(t.holder);
+      expect(line[0]!.to).toBeNull();
+    }
+    expect(H.events.some((e) => e.kind === 'title')).toBe(true);
+    expect(H.events.some((e) => e.kind === 'debut')).toBe(true);
+    const wh = wrestlerHistory(H, 'jamie_mercer');
+    const missing = c.history.filter((m) => !wh.some((x) => x.showId === m.show));
+    expect(missing.map((m) => `${m.day} ${m.showName} ${m.show}`)).toEqual([]);
+
+    // Reset the career: the world and its history stay.
+    const shows = H.shows.length, roster = WRESTLERS.length, today = c.today;
+    await resetCareer();
+    expect(activeWorld().career).toBeNull();
+    expect(activeWorld().history.shows.length).toBe(shows);
+    expect(WRESTLERS.length).toBe(roster);
+    expect(activeWorld().day).toBe(today);
+
+    // A new career in the kept world carries on from that day, numbering and all.
+    const w = activeWorld();
+    const c2 = startCareer({ player: 'ray_hollis', today: w.day!, seed: w.seed, calendar: w.calendar });
+    w.career = c2;
+    expect(c2.today).toBe(today);
+    const chapters = H.shows.filter((s) => s.name.startsWith('ZWA：'));
+    const nextZwa = Object.values(c2.shows).filter((s) => s.name.startsWith('ZWA：') && s.date > chapters.at(-1)!.date).sort((a, b) => (a.date < b.date ? -1 : 1))[0]!;
+    expect(nextZwa.n).toBe(chapters.length + 1);
+  }, 120000);
+});

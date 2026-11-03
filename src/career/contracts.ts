@@ -7,6 +7,8 @@ import { letter, person, promoName, spend } from './career';
 import { addDays, addMonths, daysBetween, fmtDay } from './dates';
 import { round5 } from './economy';
 import { startTitlePromise } from './offers';
+import { activeWorld } from '../world/world';
+import { addEvent } from '../world/history';
 import {
   ATTITUDE_MULT, BUYOUT_SHARE, CLAUSE_COST, FEE_BASE, FEE_PER_POP, NEGO_ACCEPT, NEGO_COUNTER, NEGO_FORM_SWING, NEGO_GATE_POP_RESIST_T2,
   NEGO_GATE_POP_RESIST_T3, NEGO_GATE_REP_T3, NEGO_REGION_WEIGHT, NEGO_REP_SWING, NEGO_RIVAL_LIFT, NOTICE_DAYS, RELEASE_GRANT_ABOVE_MEDIAN,
@@ -108,6 +110,7 @@ export function signOffer(c: Career, o: Offer): void {
   for (const x of c.offers) if (x.status === 'open') x.status = 'declined';
   const me = findWrestler(c.player)!;
   if (start <= c.today) {
+    addEvent(activeWorld().history, { day: c.today, kind: me.promotion === 'TIS' ? 'signed' : 'poached', who: me.id, name: me.name, promo: o.promo, ...(me.promotion !== 'TIS' ? { from: me.promotion } : {}) });
     p.contract = k;
     me.promotion = o.promo;
     for (const s of Object.values(c.shows)) if (!s.done && s.date > c.today && s.promo === o.promo) s.card = null;
@@ -169,6 +172,7 @@ export function leaveContract(c: Career): string {
   const t = exitTerms(c);
   const me = findWrestler(c.player)!;
   const out = () => {
+    addEvent(activeWorld().history, { day: c.today, kind: 'released', who: me.id, name: me.name, promo: k.promo });
     p.contract = null;
     me.promotion = 'TIS';
     for (const s of Object.values(c.shows)) if (!s.done && s.date > c.today && s.card) s.card = s.card.filter((b) => b.a !== c.player && b.b !== c.player);

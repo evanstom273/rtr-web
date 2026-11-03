@@ -1,5 +1,7 @@
 import type { Career, PlayerMatch } from '../../career';
 import { fmtDay } from '../../career/dates';
+import { activeWorld } from '../../world/world';
+import { reignsOf } from '../../world/history';
 import { Head, Screen, stars, useWords } from './parts';
 
 interface Props { c: Career; onBack: () => void; onHistory: () => void }
@@ -12,7 +14,7 @@ export function Stats({ c, onBack, onHistory }: Props) {
   const H = c.history;
   const W = H.filter((m) => m.result === 'win').length, L = H.filter((m) => m.result === 'loss').length;
   const avg = H.length ? H.reduce((t, m) => t + m.stars, 0) / H.length : 0;
-  const titles = Object.values(c.titles).flatMap((t) => t.reigns.filter((r) => r.holder === c.player)).length;
+  const titles = reignsOf(activeWorld().history, c.player).filter((r) => r.from >= c.startedOn).length;
   const by = (f: (m: PlayerMatch) => boolean) => {
     const xs = H.filter(f);
     return `${xs.filter((m) => m.result === 'win').length}–${xs.filter((m) => m.result === 'loss').length}${xs.length ? ` · ${stars(Math.round((xs.reduce((t, m) => t + m.stars, 0) / xs.length) * 4) / 4)}` : ''}`;

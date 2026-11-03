@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { TITLES, findWrestler } from '../../data/rtr';
 import { promoName, type Career } from '../../career';
 import { fmtDay } from '../../career/dates';
+import { activeWorld } from '../../world/world';
+import { reignsOf } from '../../world/history';
 import { Head, Nm, Screen, stars, useWords } from './parts';
 
 interface Props { c: Career; onBack: () => void; onStats: () => void }
@@ -11,7 +13,7 @@ export function History({ c, onBack, onStats }: Props) {
   const { skin, w } = useWords();
   const [tab, setTab] = useState(0);
   const tabs = ['Matches', 'Titles', 'Promotions'];
-  const reigns = Object.entries(c.titles).flatMap(([id, t]) => t.reigns.filter((r) => r.holder === c.player).map((r) => ({ id, ...r })));
+  const reigns = reignsOf(activeWorld().history, c.player).map((r) => ({ id: r.title, ...r }));
   const titleMatches = c.history.filter((m) => m.title);
   // Promotions you've worked for, in order, from your matches (plus where you are now).
   const stints: { promo: string; from: string; to: string }[] = [];

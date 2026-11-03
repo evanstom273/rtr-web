@@ -2,11 +2,12 @@ import { useMemo, useState } from 'react';
 import { PROMOTIONS, TITLES, WRESTLERS, type Wrestler } from '../../data/rtr';
 import { ATTR_KEYS, ATTR_SHORT, CLASS_NAME } from '../../career/create';
 import { Head, Nm, Screen, useWords } from './parts';
+import { needsWorldChoice, WorldChoice } from './WorldChoice';
 
 interface Props {
   hasCareer: boolean;
   onBack: () => void;
-  onPick: (id: string) => void;
+  onPick: (id: string, fresh: boolean) => void;
   onCreate: () => void;
 }
 
@@ -70,19 +71,11 @@ export function Start({ hasCareer, onBack, onPick, onCreate }: Props) {
       )}
       <div className="c-nav">
         <button className="c-b2" onClick={onCreate}>{skin === 'paper' ? 'Write your own' : 'CREATE YOUR OWN'}</button>
-        <button className="c-b1" disabled={!picked} onClick={() => (hasCareer ? setConfirm(true) : picked && onPick(picked.id))}>
+        <button className="c-b1" disabled={!picked} onClick={() => (needsWorldChoice(hasCareer) ? setConfirm(true) : picked && onPick(picked.id, false))}>
           {picked ? w(`Begin as ${surname}`, `Start as ${surname}`) : w('Choose someone', 'Pick someone')}
         </button>
       </div>
-      {confirm && picked && (
-        <div className="c-sheet">
-          <div>
-            <div className="c-sh"><div><span>{w('New career')}</span><b>Start again?</b></div></div>
-            <p className="c-note">This replaces your current career and puts the whole world back as it started: rosters, champions, everything.</p>
-            <div className="c-nav"><button className="c-b2" onClick={() => setConfirm(false)}>{w('Keep my career')}</button><button className="c-b1" onClick={() => onPick(picked.id)}>{w('Start again')}</button></div>
-          </div>
-        </div>
-      )}
+      {confirm && picked && <WorldChoice hasCareer={hasCareer} onCancel={() => setConfirm(false)} onGo={(fresh) => onPick(picked.id, fresh)} />}
     </Screen>
   );
 }

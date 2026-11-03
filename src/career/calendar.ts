@@ -78,7 +78,7 @@ function showName(rule: Rule, date: Day, n: number): string {
     .replace('{month}', MONTHS[monthOf(date)]!);
 }
 
-interface Draft { date: Day; promo: string; rule: Rule; country?: string; name?: string; promos?: string[] }
+interface Draft { date: Day; promo: string; rule: Rule; country?: string; name?: string; promos?: string[]; irregular?: string }
 
 /** Every date in [from, to] with the given weekday. */
 function weekdaysIn(from: Day, to: Day, wd: number): Day[] {
@@ -127,7 +127,7 @@ function draftWeek(state: CalendarState, ws: Day): Draft[] {
           if (w.irregular.day) next = addDays(next, (weekdayIndex(w.irregular.day) - weekday(next) + 7) % 7);
         }
         while (next <= we) {
-          if (next >= ws) out.push({ date: next, promo, rule });
+          if (next >= ws) out.push({ date: next, promo, rule, irregular: key });
           const rr = rngFor(state.seed, key, next);
           let n = addDays(next, randInt(rr, w.irregular.minGapDays, w.irregular.maxGapDays));
           if (w.irregular.day) n = addDays(n, (weekdayIndex(w.irregular.day) - weekday(n) + 7) % 7);
@@ -190,10 +190,12 @@ export function drawWeek(state: CalendarState, ws: Day): Show[] {
   const shows: Show[] = [];
   drafts.forEach((d, i) => {
     let name = d.name ?? d.rule.name;
+    let series: { series: string; n: number } | null = null;
     if (d.rule.numbered) {
       const key = d.rule.numberingResets === 'month' ? `${d.promo}:${d.rule.name}:${d.date.slice(0, 7)}` : `${d.promo}:${d.rule.name}`;
       const n = (state.counters[key] ?? 0) + 1;
       state.counters[key] = n;
+      series = { series: key, n };
       name = showName(d.rule, d.date, n);
     } else if (!d.name) {
       name = showName(d.rule, d.date, 0);
@@ -214,6 +216,8 @@ export function drawWeek(state: CalendarState, ws: Day): Show[] {
       region: regionOfCountry(country),
       card: null,
       done: false,
+      ...(series ?? {}),
+      ...(d.irregular ? { irregular: d.irregular } : {}),
     });
   });
   return shows;
