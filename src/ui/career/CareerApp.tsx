@@ -86,7 +86,7 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
   if (typeof screen === 'object') return <Negotiate c={c} offerId={screen.negotiate} onBack={back} onDone={home} />;
   switch (screen) {
     case 'show': return <ShowDay c={c} onBack={home} onPlay={onPlay} />;
-    case 'profile': return <Profile c={c} onBack={back} onShowDay={() => go('show')} onMenu={onMenu} onOpen={(s: ProfileLink) => go(s === 'contract' || s === 'history' || s === 'finances' || s === 'stats' ? s : 'profile')} />;
+    case 'profile': return <Profile c={c} onBack={back} onShowDay={() => go('show')} onHub={home} onOpen={(s: ProfileLink) => go(s === 'contract' || s === 'history' || s === 'finances' || s === 'stats' ? s : 'profile')} />;
     case 'letters': return <Letters c={c} onBack={back} onNegotiate={(id) => go({ negotiate: id })} />;
     case 'contract': return <Contract c={c} onBack={back} />;
     case 'training': return <Training c={c} onBack={back} onMoveset={() => go('moveset')} />;
