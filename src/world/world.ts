@@ -11,7 +11,7 @@ import { bookerOf, freshPeople, pairKey, type Bond, type People } from './people
 import { crownIndies, populateIndies } from './populate';
 
 /** The world save's revision: each step in `upgrade` runs once, in order, on older saves. */
-export const WORLD_REV = 4;
+export const WORLD_REV = 5;
 
 export interface World {
   v: 1;
@@ -71,6 +71,11 @@ function upgrade(w: World): void {
   w.rev = WORLD_REV;
   ensurePopulation(w);
   if (rev < 4) addRegionalTitles(w);
+  // Rev 5: promises know who made them (the promotion's booker now) and have a status.
+  if (rev < 5 && w.career) for (const p of w.career.pledges ?? []) {
+    p.status ??= 'open';
+    if (!p.by && p.promo !== 'TIS') p.by = bookerOf(w.people!, p.promo)?.id;
+  }
 }
 
 /**

@@ -4,6 +4,7 @@
 // (friend, rival, mentor, protégé) that events and matches give it. Promoters: each booker (a
 // promotion's, or each indie promoter, by show name) remembers how you've worked for them, and that
 // memory sets how much they trust you. Patience is short-term (requests); trust is the long memory.
+import { trustWeights } from './bookerLeans';
 import { playerHas, relationMult } from './leans';
 import { findWrestler } from '../data/rtr';
 import { activeWorld } from '../world/world';
@@ -85,11 +86,13 @@ export function trust(c: Career, key: string): number {
   if (!m) return TRUST_START + (playerHas(c, 'reliable') ? TRAIT_BACKSTAGE.reliable.trustStart : 0);
   // Your personality: Reliable starts a step ahead, Professional's kept plans count more, a Politician's
   // favours count double, and trust in a Mercenary builds more slowly.
-  const kept = TRUST_KEPT + (playerHas(c, 'professional') ? TRAIT_BACKSTAGE.professional.keptTrust : 0);
+  // ...and the booker's: a professional cares most about the plan, a rebellious one least.
+  const bw = trustWeights(key);
+  const kept = (TRUST_KEPT + (playerHas(c, 'professional') ? TRAIT_BACKSTAGE.professional.keptTrust : 0)) * bw.kept;
   const favour = TRUST_FAVOUR * (playerHas(c, 'politician') ? TRAIT_BACKSTAGE.politician.favourTrust : 1);
-  const gains = (m.kept * kept + m.good * TRUST_GOOD + m.favours * favour) * (playerHas(c, 'mercenary') ? TRAIT_BACKSTAGE.mercenary.trustGain : 1);
+  const gains = (m.kept * kept + m.good * TRUST_GOOD + m.favours * favour) * (playerHas(c, 'mercenary') ? TRAIT_BACKSTAGE.mercenary.trustGain : 1) * bw.gains;
   const t = TRUST_START + (playerHas(c, 'reliable') ? TRAIT_BACKSTAGE.reliable.trustStart : 0) + gains
-    + m.offScript * TRUST_OFF_SCRIPT + m.noShows * TRUST_NO_SHOW + m.botched * TRUST_BOTCHED + m.snubs * TRUST_SNUB;
+    + m.offScript * TRUST_OFF_SCRIPT * bw.offScript + m.noShows * TRUST_NO_SHOW + m.botched * TRUST_BOTCHED + m.snubs * TRUST_SNUB;
   return Math.max(0, Math.min(100, Math.round(t)));
 }
 

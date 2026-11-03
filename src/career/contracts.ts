@@ -1,4 +1,5 @@
 // Negotiating contracts clause by clause, signing, pay reviews and getting out of a deal.
+import { roundsAdjust, willingnessMult } from './bookerLeans';
 import { leanFrom, playerHas } from './leans';
 import { WRESTLERS, findWrestler } from '../data/rtr';
 import { seededRng } from '../engine/rng';
@@ -34,6 +35,8 @@ export function willingness(c: Career, promo: string, excludeOffer?: string): nu
   }
   // Personality: a Loyal wrestler re-signing is worth a little more to them; a Mercenary plays rival offers harder.
   if (playerHas(c, 'loyal') && p.contract?.promo === promo) base *= TRAIT_BACKSTAGE.loyal.ownRenewal;
+  // ...and the booker's: a mercenary one pays less, an ambitious one pays for stars.
+  base *= willingnessMult(promo, me, WRESTLERS.filter((w) => w.promotion === promo));
   const rival = c.offers.filter((o) => o.status === 'open' && o.promo !== promo && o.id !== excludeOffer).reduce((m, o) => Math.max(m, o.fee), 0);
   return round5(Math.max(base, rival * (playerHas(c, 'mercenary') ? TRAIT_BACKSTAGE.mercenary.rivalLift : NEGO_RIVAL_LIFT)));
 }
@@ -66,7 +69,9 @@ export function mood(c: Career, o: Offer, p: Proposal): Mood {
   return r <= 0.9 ? 'keen' : r <= 1 ? 'happy' : r <= NEGO_COUNTER / NEGO_ACCEPT ? 'hesitant' : 'losing';
 }
 
-export const roundsLeft = (o: Offer): number => Math.max(0, patience(o.promo) - o.rounds);
+/** How many rounds they'll haggle: by budget, a round fewer with a hot-headed booker. */
+const rounds = (promo: string): number => Math.max(1, patience(promo) + roundsAdjust(promo));
+export const roundsLeft = (o: Offer): number => Math.max(0, rounds(o.promo) - o.rounds);
 
 /** Put your terms to them: they accept, counter, or walk. */
 export function propose(c: Career, o: Offer, p: Proposal): 'accept' | 'counter' | 'walk' {
@@ -83,7 +88,7 @@ export function propose(c: Career, o: Offer, p: Proposal): 'accept' | 'counter' 
     o.said = '“Done. We’ll draw it up.”';
     return 'accept';
   }
-  if (ask > base * NEGO_COUNTER || o.rounds >= patience(o.promo)) {
+  if (ask > base * NEGO_COUNTER || o.rounds >= rounds(o.promo)) {
     o.status = 'walked';
     o.said = '“We’re done here.” They’ve walked away.';
     return 'walk';

@@ -270,6 +270,8 @@ export interface Career {
   patience?: Record<string, { v: number; log: PatienceLog[] }>;
   /** What bookers have agreed to; honoured when they draw the cards. */
   pledges?: Pledge[];
+  /** Promises settled, newest first: kept, lapsed, or refused by a new booker (Lyra's call: kept on record). */
+  pledgeLog?: Pledge[];
   /** Caught approaching another promotion: your promotion holds it against you until this day. */
   heat?: { promo: string; until: Day };
   /** Relationships: how wrestlers you've dealt with feel about you. */
@@ -323,6 +325,14 @@ export interface Pledge {
   rolls?: number;
   /** The request it came from. */
   ask?: string;
+  /** Who made the promise (a booker's or promoter's person id). */
+  by?: string;
+  /** How it ended (the promise log keeps it): kept, lapsed, or refused by a successor. */
+  status?: 'open' | 'kept' | 'lapsed' | 'refused';
+  /** Settled on this day, by whom, and what happened. */
+  settled?: Day;
+  settledBy?: string;
+  then?: string;
 }
 
 /** A request and its answer. */

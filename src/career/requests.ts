@@ -1,6 +1,7 @@
 // Requests: what you can ask bookers and promotions for, and how they answer (balance sheet section 13).
 // Every answer: hard noes first, then a yes chance from the request's factors and one roll, fixed per request
 // and day. Under the yes chance: yes. In the next band: a counter. Anything else: no.
+import { askLean, likesLine, promiseRollsBonus } from './bookerLeans';
 import { leanFrom, playerHas } from './leans';
 import { PROMOTIONS, TITLES, WRESTLERS, findWrestler, type Title, type Wrestler } from '../data/rtr';
 import { seededRng } from '../engine/rng';
@@ -13,7 +14,7 @@ import { leaveContract, matchRival, payReview } from './contracts';
 import { addDays, daysBetween, fmtDay, weekday, type Day } from './dates';
 import { indieFee, travelCost } from './economy';
 import { dayOff, indieAllowed, joinIndie } from './offers';
-import { movePatience, patienceOf, patienceWeek, showBooker } from './patience';
+import { bookerKey, movePatience, patienceOf, patienceWeek, showBooker } from './patience';
 import { trust, trustLabel } from './relations';
 import {
   INDIE_PROMISE_ROLLS, REGIONAL_ELIGIBLE_DATES, REGIONAL_WINDOW_DAYS, TRAIT_BACKSTAGE,
@@ -94,7 +95,10 @@ function nag(c: Career, key: string, days: number, booker: string): boolean {
 }
 
 function pledge(c: Career, p: Omit<Pledge, 'id'>): Pledge {
-  const full: Pledge = { id: `p${++c.seq}`, ...p };
+  // Who promised it: the promoter of that show, or the promotion's booker.
+  const show = p.show ? c.shows[p.show] : undefined;
+  const by = show ? (show.promo === 'TIS' ? showBooker(show) : bookerKey(show.promo)) : bookerKey(p.promo);
+  const full: Pledge = { id: `p${++c.seq}`, by, status: 'open', ...p };
   (c.pledges ??= []).push(full);
   return full;
 }
@@ -151,14 +155,15 @@ export function previewTitle(c: Career, titleId: string): Preview {
             : !t.holder ? 'The title’s vacant.'
               : !rank || rank > TITLE_ASK_BY_RANK.length ? `You’re not in the picture: ${rank ? `#${rank}` : 'not ranked'} in line.` : null;
   const base = rank ? TITLE_ASK_BY_RANK[rank - 1] ?? 0 : 0;
-  const chance = base + repPoints(c) + formPoints(c) + (TITLE_ASK_CLAUSE[tier] ?? 0) + (promo ? patiencePoints(c, promo) : 0) + titleLean(c);
+  const chance = base + repPoints(c) + formPoints(c) + (TITLE_ASK_CLAUSE[tier] ?? 0) + (promo ? patiencePoints(c, promo) + askLean(c, promo, 'title', `title:${titleId}`) : 0) + titleLean(c);
   return {
     hard, chance, nag: cooldownLeft(c, 'title', COOLDOWN_TITLE),
     stand: [['Contender', rank ? `#${rank}` : '—'], ['Popularity', `${Math.round(regionalPop(me(c), promoRegion(promo ?? 'VWF')))}`], ['Reputation', `${Math.round(p.rep)}`],
       ['Form', formLine(c)], ['Title feud', feud ? `${findWrestler(feud.a)?.name} v ${findWrestler(feud.b)?.name}` : 'None running'], ['Your clause', tier ? `Championship Opportunities T${tier}` : 'None']],
     weigh: [{ t: rank ? `#${rank} contender` : 'Not ranked', s: rank === 1 ? 1 : rank <= 3 ? 0 : -1 }, { t: `Form ${formLine(c)}`, s: Math.sign(formPoints(c)) },
       { t: feud ? 'Title feud running' : 'No title feud', s: feud ? -1 : 1 }, { t: `Reputation ${Math.round(p.rep)}`, s: Math.sign(repPoints(c)) },
-      { t: tier ? `Clause T${tier}` : 'No clause', s: tier ? 1 : 0 }, { t: `Patience ${Math.round(promo ? patienceOf(c, promo) : PATIENCE_START)}`, s: Math.sign(promo ? patiencePoints(c, promo) : 0) }],
+      { t: tier ? `Clause T${tier}` : 'No clause', s: tier ? 1 : 0 }, { t: `Patience ${Math.round(promo ? patienceOf(c, promo) : PATIENCE_START)}`, s: Math.sign(promo ? patiencePoints(c, promo) : 0) },
+      ...(promo && likesLine(c, promo) ? [likesLine(c, promo)!] : [])],
   };
 }
 
@@ -268,14 +273,16 @@ export function previewIndieTitle(c: Career, titleId: string, showId: string): P
                   : !t.holder ? 'The title’s vacant.'
                     : show.date < due ? `Not due again until ${fmtDay(due, 'dm')}: pick a show from then.`
                       : !rank || rank > TITLE_ASK_BY_RANK.length ? `You’re not in the picture: ${rank ? `#${rank}` : 'not ranked'} in line.` : null;
-  const chance = (rank ? TITLE_ASK_BY_RANK[rank - 1] ?? 0 : 0) + repPoints(c) + formPoints(c) + patiencePoints(c, promoter) + trustPoints(c, promoter) + titleLean(c);
+  const chance = (rank ? TITLE_ASK_BY_RANK[rank - 1] ?? 0 : 0) + repPoints(c) + formPoints(c) + patiencePoints(c, promoter) + trustPoints(c, promoter) + titleLean(c)
+    + (promoter ? askLean(c, promoter, 'title', `title:${titleId}`) : 0);
   return {
     hard, chance, nag: cooldownLeft(c, 'title', COOLDOWN_TITLE),
     stand: [['Contender', rank ? `#${rank}` : '—'], ['Popularity', show ? `${Math.round(regionalPop(me(c), show.region))}` : '—'], ['Reputation', `${Math.round(p.rep)}`],
       ['Form', formLine(c)], ['Champion’s night', busy ?? 'Free'], ['Title due', show && show.date >= due ? 'Yes' : `From ${fmtDay(due, 'dm')}`]],
     weigh: [{ t: rank ? `#${rank} contender` : 'Not ranked', s: rank === 1 ? 1 : rank <= 3 ? 0 : -1 }, { t: `Form ${formLine(c)}`, s: Math.sign(formPoints(c)) },
       { t: `Reputation ${Math.round(p.rep)}`, s: Math.sign(repPoints(c)) }, { t: busy ? 'Champion not free' : 'Champion free', s: busy ? -1 : 1 },
-      { t: `Promoter patience ${Math.round(patienceOf(c, promoter))}`, s: Math.sign(patiencePoints(c, promoter)) }, { t: trustLabel(trust(c, promoter)), s: Math.sign(trustPoints(c, promoter)) }],
+      { t: `Promoter patience ${Math.round(patienceOf(c, promoter))}`, s: Math.sign(patiencePoints(c, promoter)) }, { t: trustLabel(trust(c, promoter)), s: Math.sign(trustPoints(c, promoter)) },
+      ...(promoter && likesLine(c, promoter) ? [likesLine(c, promoter)!] : [])],
   };
 }
 
@@ -339,7 +346,7 @@ export function previewChallenge(c: Career, targetId: string, showId: string): P
           : busyThatNight(c, show.date) ? 'You’re not free that night.'
             : patienceOf(c, promo) < PATIENCE_FLOOR ? `${promo}’s booker won’t hear it: patience too low.`
               : c.people[them.id]?.injury && c.people[them.id]!.injury!.until > (show?.date ?? c.today) ? `${them.name} is injured.` : null;
-  const chance = CHALLENGE_BASE - CHALLENGE_PER_POP_ABOVE * Math.max(0, gap) + repPoints(c) + formPoints(c) + (promo ? patiencePoints(c, promo) : 0)
+  const chance = CHALLENGE_BASE - CHALLENGE_PER_POP_ABOVE * Math.max(0, gap) + repPoints(c) + formPoints(c) + (promo ? patiencePoints(c, promo) + askLean(c, promo, 'challenge', `ch:${targetId}`) : 0)
     + (champ ? CHALLENGE_CHAMPION : 0) + (feud ? CHALLENGE_IN_FEUD : 0);
   const nightLine = [champ ? 'champion' : 'not a champion', feud ? `in a feud with ${findWrestler(feud.a === targetId ? feud.b : feud.a)?.name}` : 'no feud'].join(' · ');
   return {
@@ -806,7 +813,7 @@ export { PATIENCE_FLOOR, PATIENCE_START };
 /** Lyra's call: an indie promise that can't happen on the night rolls on to that promoter's next show (same brand),
  * booking you on it, up to INDIE_PROMISE_ROLLS times. */
 function rollIndiePromise(c: Career, p: Pledge, show: Show): boolean {
-  if ((p.rolls ?? 0) >= INDIE_PROMISE_ROLLS) return false;
+  if ((p.rolls ?? 0) >= INDIE_PROMISE_ROLLS + promiseRollsBonus(showBooker(show))) return false;
   const next = Object.values(c.shows).filter((s) => s.promo === 'TIS' && (show.brand ? s.brand === show.brand : s.name === show.name) && s.date > show.date && !s.card && !s.done)
     .sort((a, b) => (a.date < b.date ? -1 : 1)).find((s) => indieAllowed(c, s.date).ok);
   if (!next) return false;

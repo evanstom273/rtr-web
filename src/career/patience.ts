@@ -2,7 +2,7 @@
 import { patienceMult } from './leans';
 import { activeWorld } from '../world/world';
 import { bookerOf, isPromotionKey } from '../world/people';
-import { PATIENCE_PER_WEEK, PATIENCE_START } from './tuning';
+import { BOOKER_FX, PATIENCE_PER_WEEK, PATIENCE_START } from './tuning';
 import type { Career, Show } from './types';
 
 /**
@@ -42,12 +42,18 @@ export function patienceOf(c: Career, key: string): number {
   return c.patience?.[bookerKey(key)]?.v ?? PATIENCE_START;
 }
 
+/** A hot-headed booker loses patience faster (their own traits; see bookerLeans for the rest). */
+function bookerLossMult(key: string): number {
+  const s = activeWorld().people?.staff[bookerKey(key)];
+  return s?.traits.includes('hot_headed') ? BOOKER_FX.hot_headed.patienceLoss : 1;
+}
+
 /** A booker's patience log (newest first). */
 export const patienceLog = (c: Career, key: string) => c.patience?.[bookerKey(key)]?.log ?? [];
 
 export function movePatience(c: Career, key: string, d: number, why: string): void {
   if (!d) return;
-  d = Math.round(d * patienceMult(c, d) * 10) / 10;
+  d = Math.round(d * patienceMult(c, d) * (d < 0 ? bookerLossMult(key) : 1) * 10) / 10;
   const p = ((c.patience ??= {})[bookerKey(key)] ??= { v: PATIENCE_START, log: [] });
   p.v = Math.max(0, Math.min(100, Math.round((p.v + d) * 10) / 10));
   p.log.unshift({ day: c.today, d, t: why });

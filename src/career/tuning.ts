@@ -442,3 +442,40 @@ export const TRAIT_DRIFT = {
   egoReign: { days: 365, p: 0.15 },
   youngStar: { age: 24, days: 60, p: 0.15 },
 };
+
+/** Bookers and promoters as people (section 15h/i): how their traits shift their decisions. */
+export const BOOKER_FX = {
+  /** Personal feeling counts in requests, capped: a booker who likes you is a little more open (affinity ÷ this). */
+  affinityDivisor: 5, affinityCap: 6,
+  egotistical: { asks: -10, offScript: 1.25 },
+  professional: { offScript: 1.25, kept: 1.25 },
+  rebellious: { offScript: 0.75, change: 0.03 },
+  unpredictable: { jitter: 10, change: 0.06, stips: 1.5 },
+  hot_headed: { patienceLoss: 1.5, rounds: -1, fired: 1.5 },
+  politician: { favouritism: 5, fired: 0.6 },
+  mentor: { youth: 5, youthAge: 25 },
+  loyal: { tenure: 3, quit: 0.5 },
+  mercenary: { willingness: 0.95, quit: 1.5 },
+  ambitious: { starPay: 1.05, quit: 1.5 },
+  team_player: { gains: 1.1 },
+  reliable: { promiseRolls: 1 },
+};
+/** Bookers' careers, a month at a time. */
+export const BOOKER_FIRE_MONTHLY = 0.006;
+export const BOOKER_FIRE_BAD = 0.01;
+export const BOOKER_BAD_STARS = 0.3;
+export const BOOKER_QUIT_MONTHLY = 0.004;
+export const BOOKER_RETIRE_AGE = 62;
+export const BOOKER_RETIRE_BASE = 0.01;
+export const BOOKER_RETIRE_PER_YEAR = 0.005;
+export const BOOKER_RETURN_DAYS = 180;
+export const BOOKER_RETURN_MAX_AGE = 70;
+export const PROMOTER_CLOSE_MONTHLY = 0.012;
+export const PROMOTER_PROMOTE_MIN_REP = 55;
+export const STAFF_REP_PER_YEAR = 2;
+/** Succession (Lyra's call): the office's files, not feelings. A new booker's memory of your work starts at this share of the last one's. */
+export const TRUST_INHERIT = 0.25;
+/** A successor honours each open promise this often (Reliable or Professional more, Egotistical or Unpredictable less). */
+export const PLEDGE_HONOUR_BASE = 0.7;
+export const PLEDGE_HONOUR_SWING = 0.2;
+export const PLEDGE_LOG_MAX = 50;
