@@ -1,12 +1,80 @@
 {
   "VWF": [
-    { "name": "Loaded", "kind": "weekly", "when": { "every": "Monday" } },
-    { "name": "Defiance", "kind": "weekly", "when": { "every": "Thursday" } },
-    { "name": "Ignition", "kind": "special", "when": { "nth": 1, "day": "Saturday", "month": "February" } },
-    { "name": "Uprising", "kind": "flagship", "when": { "nth": 1, "day": "Saturday", "month": "April" } },
-    { "name": "Resurrection", "kind": "special", "when": { "nth": 1, "day": "Saturday", "month": "June" } },
-    { "name": "Deadlock", "kind": "special", "when": { "nth": 1, "day": "Saturday", "month": "August" } },
-    { "name": "Unstoppable", "kind": "special", "when": { "nth": 1, "day": "Saturday", "month": "October" } },
-    { "name": "Anniversary", "kind": "special", "when": { "date": 7, "month": "December" } }
+    {
+      "name": "Loaded",
+      "kind": "weekly",
+      "when": {
+        "every": "Monday"
+      }
+    },
+    {
+      "name": "Defiance",
+      "kind": "weekly",
+      "when": {
+        "every": "Thursday"
+      }
+    },
+    {
+      "name": "Ignition",
+      "kind": "special",
+      "when": {
+        "nth": 1,
+        "day": "Saturday",
+        "month": "February"
+      }
+    },
+    {
+      "name": "Uprising",
+      "kind": "flagship",
+      "when": {
+        "nth": 1,
+        "day": "Saturday",
+        "month": "April"
+      }
+    },
+    {
+      "name": "Resurrection",
+      "kind": "special",
+      "when": {
+        "nth": 1,
+        "day": "Saturday",
+        "month": "June"
+      }
+    },
+    {
+      "name": "Deadlock",
+      "kind": "special",
+      "when": {
+        "nth": 1,
+        "day": "Saturday",
+        "month": "August"
+      }
+    },
+    {
+      "name": "Unstoppable",
+      "kind": "special",
+      "when": {
+        "nth": 1,
+        "day": "Saturday",
+        "month": "October"
+      }
+    },
+    {
+      "name": "Anniversary",
+      "kind": "special",
+      "when": {
+        "date": 7,
+        "month": "December"
+      }
+    }
+  ],
+  "TCG": [
+    {
+      "name": "TCG Saturday Night",
+      "kind": "weekly",
+      "when": {
+        "every": "Saturday"
+      }
+    }
   ]
 }
