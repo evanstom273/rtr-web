@@ -1,6 +1,6 @@
 // The career loop: starting one, a day at a time, and what every match changes in the world.
 import { poachMult, renewLean, retryAdjust } from './leans';
-import { PROMOTIONS, TITLES, WRESTLERS, databaseChanged, findWrestler, hasTrait, type Wrestler } from '../data/rtr';
+import { PROMOTIONS, TITLES, WRESTLERS, databaseChanged, findWrestler, hasTrait, shippedWomenShare, type Wrestler } from '../data/rtr';
 import { seededRng, type Rng } from '../engine/rng';
 import type { MatchRulesConfig } from '../engine/types';
 import { HARDCORE_STIPS, available, bookAhead, hashSeed, heated, isIndieTitle, promoRegion, regionalDates, regionalPop, titleRegion } from './booker';
@@ -21,7 +21,7 @@ import {
   INJURY_BASE_PCT, INJURY_HARDCORE_MULT, INJURY_PER_FATIGUE, INJURY_SEVERITY, MEDICAL_BILL_COVER, MEDICAL_PAY_COVER, MEDICAL_PER_DAY, MERCH_INDIE,
   MERCH_SHARE, MERCH_SIGNED, OFF_SCRIPT_TITLE_BAN_DAYS, PLANNED_NUDGE, PLANNED_RETRIES, POACH_CHANCE, POP_CEILING, POP_GLOBAL_SHARE, POP_IDLE_DAYS,
   POP_IDLE_DECAY, POP_LOSS, POP_PER_STAR, POP_STAR_PIVOT, POP_TITLE_WIN, POP_WIN, RELEASE_MONTHLY_BOTTOM, RENEW_CHANCE_REST,
-  CIRCUIT_KEEP, TRAIT_BACKSTAGE, TRAIT_FX, RENEW_CHANCE_TOP, REP_FOUR_STAR, REP_OFF_SCRIPT, REP_PER_DATE, REP_START, ROOKIE_EVERY_DAYS, ROSTER_MAX, ROSTER_SIGN_BELOW,
+  CIRCUIT_KEEP, TRAIT_BACKSTAGE, TRAIT_FX, RENEW_CHANCE_TOP, REP_FOUR_STAR, REP_OFF_SCRIPT, REP_PER_DATE, REP_START, ROOKIE_EVERY_DAYS, ROSTER_FLOOR, ROSTER_SCOUT_DAYS, ROSTER_TARGET,
   START_CONTRACT_MONTHS_LEFT, START_MONEY_CREATED, START_MONEY_PER_POP, TRYOUT_MIN_STARS, PATIENCE_NO_SHOW,
 } from './tuning';
 import type { Bout, Career, Contract, Letter, Person, PlayerMatch, PopRegion, Show } from './types';
@@ -484,6 +484,8 @@ export function endOfDay(c: Career): void {
   extendCalendar(c);
   bookAhead(c, tomorrow, BOOK_AHEAD_DAYS, WRESTLERS);
   dailyPlayer(c, rnd);
+  // Last thing at night, after every way someone can leave (retirements included): rosters back to 38–40.
+  scoutRosters(c, tomorrow);
 }
 
 /** Put a finished show into the world's history. */
@@ -533,7 +535,6 @@ function monthly(c: Career, day: Day, rnd: Rng): void {
       if (rnd() < RELEASE_MONTHLY_BOTTOM) release(c, w, 'released');
     }
   }
-  topUpRosters(c, day, rnd);
   noticePlayer(c, rnd);
   for (const f of hooks.monthly) f(c, rnd);
 }
@@ -550,8 +551,8 @@ function sign(c: Career, w: Wrestler, promo: string, day: Day, rnd: Rng): void {
   const from = w.promotion;
   addEvent(history(), { day, kind: from === 'TIS' ? 'signed' : 'poached', who: w.id, name: w.name, promo, ...(from !== 'TIS' ? { from } : {}) });
   w.promotion = promo;
-  c.people[w.id]!.contract = aiContract(rnd, w, promo, day, CONTRACT_MONTHS[1 + Math.floor(rnd() * 2)]!);
-  const pp = c.people[w.id]!;
+  const pp = person(c, w.id);
+  pp.contract = aiContract(rnd, w, promo, day, CONTRACT_MONTHS[1 + Math.floor(rnd() * 2)]!);
   pp.moves = [...(pp.moves ?? []), day].slice(-4);
   pp.renewals = 0;
   // Indie dates already on the cards are honoured, but not with an indie title on the line: they're signed now.
@@ -563,19 +564,48 @@ function sign(c: Career, w: Wrestler, promo: string, day: Day, rnd: Rng): void {
   if (promo === myPromo || (from === myPromo && from !== 'TIS')) letter(c, { kind: 'news', from: 'The news desk', subject: `${w.name} signs with ${promo}`, body: [from === 'TIS' ? `${promo} have signed ${w.name} from The Indie Scene.` : `${w.name} leaves ${from} for ${promo}.`] });
 }
 
-function topUpRosters(c: Career, day: Day, rnd: Rng): void {
+/**
+ * Rosters stay 38–40 (Lyra's call). Someone leaves and the promotion goes scouting: the replacement
+ * signs from the indie scene a week to three later. Under 38 they sign straight away. The division
+ * that's short against how the promotion ships gets the signing, so neither one drains away.
+ * Rolls with its own seed.
+ */
+function scoutRosters(c: Career, day: Day): void {
+  const rnd = seededRng(hashSeed(c.seed, 'scout', day));
+  const scouting = (c.scouting ??= {});
+  let pool: Wrestler[] | null = null;
   for (const p of PROMOTIONS.filter((x) => !x.indie)) {
-    let n = WRESTLERS.filter((w) => w.promotion === p.initials).length;
+    const roster = WRESTLERS.filter((w) => w.promotion === p.initials);
+    let n = roster.length;
+    if (n >= ROSTER_TARGET) { delete scouting[p.initials]; continue; }
+    const due = (scouting[p.initials] ??= addDays(day, between(rnd, ROSTER_SCOUT_DAYS)));
+    const want = due <= day ? Math.max(ROSTER_FLOOR, n + 1) : ROSTER_FLOOR;
+    if (n >= want) continue;
+    pool ??= WRESTLERS.filter((w) => {
+      const q = c.people[w.id];
+      return w.promotion === 'TIS' && w.id !== c.player && !q?.retired && !q?.retiring && !q?.injury && !TITLES.some((t) => t.holder === w.id);
+    });
     const region = promoRegion(p.initials);
-    while (n < ROSTER_SIGN_BELOW) {
-      const best = WRESTLERS.filter((w) => w.promotion === 'TIS' && w.id !== c.player && !c.people[w.id]?.retired && !c.people[w.id]?.retiring && !TITLES.some((t) => t.holder === w.id))
-        .sort((a, b) => regionalPop(b, region) - regionalPop(a, region))[0];
+    const wantWomen = Math.round(ROSTER_TARGET * shippedWomenShare(p.initials));
+    let women = roster.filter((w) => w.gender === 'FEMALE').length;
+    while (n < want) {
+      const free = pool.filter((w) => w.promotion === 'TIS');
+      const short = women / Math.max(1, wantWomen) < (n - women) / Math.max(1, ROSTER_TARGET - wantWomen) ? 'FEMALE' : 'MALE';
+      const fits = free.some((w) => w.gender === short) ? free.filter((w) => w.gender === short) : free;
+      const best = fits.sort((a, b) => regionalPop(b, region) - regionalPop(a, region) || (a.id < b.id ? -1 : 1))[0];
       if (!best) break;
       sign(c, best, p.initials, day, rnd);
       n++;
+      if (best.gender === 'FEMALE') women++;
+    }
+    if (due <= day) {
+      if (n < ROSTER_TARGET) scouting[p.initials] = addDays(day, between(rnd, ROSTER_SCOUT_DAYS));
+      else delete scouting[p.initials];
     }
   }
 }
+
+const between = (rnd: Rng, [lo, hi]: readonly [number, number]) => lo + Math.floor(rnd() * (hi - lo + 1));
 
 function contractsEnding(c: Career, day: Day, rnd: Rng): void {
   for (const w of [...WRESTLERS]) {
@@ -594,7 +624,7 @@ function contractsEnding(c: Career, day: Day, rnd: Rng): void {
       p.renewals = (p.renewals ?? 0) + 1;
       continue;
     }
-    const others = PROMOTIONS.filter((x) => !x.indie && x.initials !== w.promotion && WRESTLERS.filter((y) => y.promotion === x.initials).length < ROSTER_MAX);
+    const others = PROMOTIONS.filter((x) => !x.indie && x.initials !== w.promotion && WRESTLERS.filter((y) => y.promotion === x.initials).length < ROSTER_TARGET);
     if (others.length && rnd() < Math.min(0.95, POACH_CHANCE * poachMult(w))) sign(c, w, others[Math.floor(rnd() * others.length)]!.initials, day, rnd);
     else release(c, w, 'expired');
   }

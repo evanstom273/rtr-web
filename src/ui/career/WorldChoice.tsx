@@ -4,7 +4,7 @@ import { useWords } from './parts';
 
 interface Props { hasCareer: boolean; onCancel: () => void; onGo: (fresh: boolean) => void }
 
-/** Starting a career in a world that's been played in: keep it as it is, or put it back as it ships. */
+/** Before picking anyone (Lyra's call): keep the world that's been played in, or start a fresh one. */
 export function WorldChoice({ hasCareer, onCancel, onGo }: Props) {
   const { w } = useWords();
   const world = activeWorld();
@@ -16,7 +16,7 @@ export function WorldChoice({ hasCareer, onCancel, onGo }: Props) {
         <p className="c-note">
           {hasCareer ? 'This replaces your current career. ' : ''}
           Keep this world and carry on from {world.day ? fmtDay(world.day, 'long') : 'today'}: champions, rosters, rookies and its history ({shows} shows) stay.
-          Or put the world back as it ships and start on today’s date.
+          Or start a fresh world, as it ships, on today’s date. Then pick or create your wrestler from it.
         </p>
         <div className="c-nav">
           <button className="c-b2" onClick={() => onGo(true)}>{w('Fresh world')}</button>

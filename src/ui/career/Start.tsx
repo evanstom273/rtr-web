@@ -1,13 +1,16 @@
 import { useMemo, useState } from 'react';
 import { PROMOTIONS, TITLES, WRESTLERS, type Wrestler } from '../../data/rtr';
 import { ATTR_KEYS, ATTR_SHORT, CLASS_NAME } from '../../career/create';
+import { fmtDay } from '../../career/dates';
+import { activeWorld } from '../../world/world';
 import { Head, Nm, Screen, useWords } from './parts';
-import { needsWorldChoice, WorldChoice } from './WorldChoice';
 
 interface Props {
   hasCareer: boolean;
+  /** Picking from a fresh world (the one shown), rather than carrying on in this one. */
+  fresh: boolean;
   onBack: () => void;
-  onPick: (id: string, fresh: boolean) => void;
+  onPick: (id: string) => void;
   onCreate: () => void;
 }
 
@@ -15,11 +18,10 @@ const ORDER = ['VWF', 'TCG', 'NWGP', 'ZWA', 'SLN', 'END', 'IVW', 'SSWC', 'UFC', 
 const overall = (w: Wrestler) => Math.round(ATTR_KEYS.reduce((t, k) => t + w.stats[k], 0) / 6);
 
 /** New career: cycle through the promotions and pick anyone, or create your own. */
-export function Start({ hasCareer, onBack, onPick, onCreate }: Props) {
+export function Start({ hasCareer, fresh, onBack, onPick, onCreate }: Props) {
   const { skin, w } = useWords();
   const [pi, setPi] = useState(0);
   const [sel, setSel] = useState<string | null>(null);
-  const [confirm, setConfirm] = useState(false);
   const promo = PROMOTIONS.find((p) => p.initials === ORDER[pi])!;
   const roster = useMemo(() => WRESTLERS.filter((x) => x.promotion === promo.initials)
     .sort((a, b) => Number(TITLES.some((t) => t.holder === b.id)) - Number(TITLES.some((t) => t.holder === a.id)) || b.popularity.global - a.popularity.global), [promo]);
@@ -27,12 +29,17 @@ export function Start({ hasCareer, onBack, onPick, onCreate }: Props) {
   const ranked = [...roster].sort((a, b) => overall(b) - overall(a));
   const move = (d: number) => { setPi((pi + d + ORDER.length) % ORDER.length); setSel(null); };
   const tis = promo.initials === 'TIS';
+  const day = activeWorld().day;
   const surname = picked ? picked.name.replace(/"[^"]*"\s*/g, '').split(' ').pop() : '';
 
   return (
     <Screen>
       <Head title={skin === 'paper' ? 'A New Career' : 'NEW CAREER'} onBack={onBack} />
-      <p className="c-note" style={{ margin: '8px 0 0' }}>Pick a wrestler from any promotion, or create your own. Starting a new career replaces your current one.</p>
+      <p className="c-note" style={{ margin: '8px 0 0' }}>
+        Pick a wrestler from any promotion, or create your own.{' '}
+        {fresh ? 'A fresh world, as it ships, starting today.' : day ? `This world, carrying on from ${fmtDay(day, 'long')}.` : ''}
+        {hasCareer ? ' Starting replaces your current career.' : ''}
+      </p>
       <div className="c-cyc" style={{ marginTop: 10 }}>
         <button className="c-stepb" onClick={() => move(-1)} aria-label="Previous promotion" style={{ minHeight: 52 }}>‹</button>
         <div className="c-fld mid" style={{ minHeight: 52 }}>
@@ -71,11 +78,10 @@ export function Start({ hasCareer, onBack, onPick, onCreate }: Props) {
       )}
       <div className="c-nav">
         <button className="c-b2" onClick={onCreate}>{skin === 'paper' ? 'Write your own' : 'CREATE YOUR OWN'}</button>
-        <button className="c-b1" disabled={!picked} onClick={() => (needsWorldChoice(hasCareer) ? setConfirm(true) : picked && onPick(picked.id, false))}>
+        <button className="c-b1" disabled={!picked} onClick={() => picked && onPick(picked.id)}>
           {picked ? w(`Begin as ${surname}`, `Start as ${surname}`) : w('Choose someone', 'Pick someone')}
         </button>
       </div>
-      {confirm && picked && <WorldChoice hasCareer={hasCareer} onCancel={() => setConfirm(false)} onGo={(fresh) => onPick(picked.id, fresh)} />}
     </Screen>
   );
 }

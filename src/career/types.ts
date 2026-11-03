@@ -294,6 +294,8 @@ export interface Career {
     tally?: Record<string, number>;
   };
   nextRookie: Day;
+  /** A promotion short of its roster target, and the day its scouted replacement signs. */
+  scouting?: Record<string, Day>;
   seq: number;
   seed: number;
   /** The indie calendar: each brand's last show, and each region's (so quiet regions get a show). */

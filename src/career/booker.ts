@@ -113,11 +113,12 @@ export function regionFactor(c: Career, w: Wrestler, region: PopRegion, day: Day
 /**
  * Who's around for an indie show tonight: each indie by how near they are; champions travel more. An
  * indie champion who signed with a promotion that allows indie dates still defends on the indies.
+ * Someone the promoter has promised you tonight (a champion, a challenge) is flown in.
  */
-function indiePool(c: Career, show: Show, roster: readonly Wrestler[], rnd: Rng): Wrestler[] {
+function indiePool(c: Career, show: Show, roster: readonly Wrestler[], rnd: Rng, promised: ReadonlySet<string>): Wrestler[] {
   const champs = new Set(TITLES.filter((t) => isIndieTitle(t.id) && t.holder).map((t) => t.holder!));
   const indie = (w: Wrestler) => w.promotion === 'TIS' || (champs.has(w.id) && (c.people[w.id]?.contract?.clauses[1] ?? 0) >= 1);
-  return roster.filter((w) => w.id !== c.player && indie(w) && rnd() < Math.min(1, regionFactor(c, w, show.region, show.date) * (champs.has(w.id) ? INDIE_CHAMP_DRAW : 1)));
+  return roster.filter((w) => w.id !== c.player && indie(w) && (rnd() < Math.min(1, regionFactor(c, w, show.region, show.date) * (champs.has(w.id) ? INDIE_CHAMP_DRAW : 1)) || promised.has(w.id)));
 }
 
 /**
@@ -193,12 +194,12 @@ export function contenders(c: Career, title: Title, pool: Wrestler[], region: Po
   // The booker's thumb on the scale: politicians favour their friends, mentors the young, the loyal those who stay.
   const booker = titleBooker(title.id);
   const score = (w: Wrestler) => {
-    const p = c.people[w.id]!;
-    const form = (p.recent ?? []).reduce((a, b) => a + b, 0);
+    const p = c.people[w.id];
+    const form = (p?.recent ?? []).reduce((a, b) => a + b, 0);
     let s = regionalPop(w, home ?? region) + form * 4 + (home ? regionalDates(c, w.id, home, day) * REGIONAL_CONTENDER_PER_DATE : 0) + (w.id === c.player ? 0 : contenderLean(w)) + contenderBias(c, booker, w);
-    const tier = w.id === c.player ? p.contract?.clauses[5] ?? 0 : 0;
+    const tier = w.id === c.player ? p?.contract?.clauses[5] ?? 0 : 0;
     if (tier >= 1) s += CONTENDER_T1_BONUS;
-    if (p.contract?.titleShotBy) s += 100;
+    if (p?.contract?.titleShotBy) s += 100;
     return s;
   };
   const eligible = pool.filter((w) => w.id !== title.holder && w.gender === title.gender && !(c.people[w.id]?.titleBanUntil && c.people[w.id]!.titleBanUntil! > day)
@@ -310,7 +311,9 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
   const reserved = new Set(pledges.filter((p) => p.show && p.show !== show.id && c.shows[p.show]?.date === show.date)
     .map((p) => (p.kind === 'match' ? p.opp : p.kind === 'title' ? TITLES.find((t) => t.id === p.title)?.holder : undefined)).filter((x): x is string => !!x));
 
-  let pool = (indie ? indiePool(c, show, roster, rnd) : showRoster(show, roster))
+  const promisedHere = new Set(pledges.filter((p) => p.show === show.id)
+    .map((p) => (p.kind === 'match' ? p.opp : p.kind === 'title' ? TITLES.find((t) => t.id === p.title)?.holder : undefined)).filter((x): x is string => !!x));
+  let pool = (indie ? indiePool(c, show, roster, rnd, promisedHere) : showRoster(show, roster))
     .filter((w) => w.id !== c.player && !busy.has(w.id) && !reserved.has(w.id) && available(c.people[w.id], show.date));
   const card: Bout[] = [];
   const used = new Set<string>();

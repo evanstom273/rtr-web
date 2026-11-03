@@ -145,8 +145,9 @@ export function makeBrands(rnd: Rng, P: People, indies: readonly Wrestler[], pre
   for (const r of REGIONS) {
     const share = indies.filter((w) => w.region === REGION_DATA[r]).length / Math.max(1, indies.length);
     const want = target * BRAND_SPARE * share;
-    let capacity = 0;
-    for (let i = 0; i < 2 || capacity < want; i++) {
+    const open = Object.values(P.brands).filter((b) => b.region === r && !b.closed);
+    let capacity = open.reduce((t, b) => t + 7 / b.every, 0);
+    for (let i = open.length; i < 2 || capacity < want; i++) {
       const country = pick(rnd, countriesIn(r));
       const city = pick(rnd, CITIES[country]!);
       const id = `${prefix}b${++n}`;
@@ -196,13 +197,13 @@ export function crownIndies(titles: Title[], indieTitleIds: readonly string[], r
 export interface PopulateResult { generated: number; brands: number; crowned: [string, string][] }
 
 /**
- * Fill a world's indie scene: a fresh world gets 100–200 indies, brands and its indie champions; a
- * world that's been played is only topped up to the minimum. Rolls from the world's seed.
+ * Fill a world's indie scene: a fresh world gets its 200 indies, brands and its indie champions; a
+ * world that's been played is topped up to 200. Rolls from the world's seed.
  */
 export function populateIndies(o: { seed: number; played: boolean; wrestlers: Wrestler[]; titles: Title[]; indieTitles: readonly string[]; people: People; retired: (id: string) => boolean }): PopulateResult {
   const rnd = seededRng(hashSeed(o.seed, 'indies'));
   const active = o.wrestlers.filter((w) => w.promotion === 'TIS' && !o.retired(w.id)).length;
-  const goal = o.played ? INDIE_POOL_MIN : between(rnd, INDIE_GENERATED);
+  const goal = o.played ? INDIE_POOL_MIN : INDIE_GENERATED;
   const tag = (o.seed >>> 0).toString(36);
   let made = 0;
   for (let i = 0; active + made < goal; i++) {
@@ -218,4 +219,23 @@ export function populateIndies(o: { seed: number; played: boolean; wrestlers: Wr
   }
   const crowned = o.played ? [] : crownIndies(o.titles, o.indieTitles, o.wrestlers);
   return { generated: made, brands, crowned };
+}
+
+/**
+ * Rev 6 (Lyra's call, a straight 200): an older world's scene, generated at 100–200 or topped up to
+ * 120, grows to 200, with brands enough to book them. Rolls from the world's seed.
+ */
+export function growIndies(o: { seed: number; wrestlers: Wrestler[]; people: People; retired: (id: string) => boolean }): number {
+  const rnd = seededRng(hashSeed(o.seed, 'indies-200'));
+  const free = () => o.wrestlers.filter((w) => w.promotion === 'TIS' && !o.retired(w.id));
+  const tag = (o.seed >>> 0).toString(36);
+  let made = 0;
+  for (let i = 0; free().length < INDIE_POOL_MIN; i++) {
+    const id = `ind_${tag}_g${i}`;
+    if (o.wrestlers.some((w) => w.id === id)) continue;
+    o.wrestlers.push(makeIndie(rnd, o.wrestlers, id));
+    made++;
+  }
+  makeBrands(rnd, o.people, free(), `${tag}_g`);
+  return made;
 }
