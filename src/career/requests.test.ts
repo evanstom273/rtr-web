@@ -4,7 +4,7 @@ import { freshWorld, setWorld } from '../world/world';
 import { addDays } from './dates';
 import {
   answerCounter, applyBout, askApproach, askChallenge, askIndieChallenge, askIndieTitleShot, askMore, askShow, askTitleShot, askableShows, askableIndieShows,
-  askableIndieTitles,
+  askableIndieTitles, makeOffer, previewTitle, signOffer,
   finishDay, firstAskable, myBoutToday, patienceOf, showsOn, standingWith, startCareer,
 } from './index';
 import type { SimJob, SimOut } from './sim';
@@ -282,5 +282,31 @@ describe('requests', () => {
   it('indie title shots are for free agents', () => {
     const c = begin();
     expect(askableIndieTitles(c)).toEqual([]);
+  });
+
+  it('signing without Indie Bookings vacates your indie title, and the indie scene crowns someone new', async () => {
+    const c = begin('bishop_blackridge');
+    const t = TITLES.find((x) => x.id === 'WORLD_INDEPENDENT_CHAMPIONSHIP')!;
+    t.holder = c.player;
+    makeOffer(c, 'TCG', 'test');
+    signOffer(c, c.offers.find((o) => o.promo === 'TCG' && o.status === 'open')!);
+    expect(t.holder).toBeNull();
+    expect(c.letters.some((l) => l.subject.includes('vacated'))).toBe(true);
+    for (let i = 0; i < 30 && !t.holder; i++) await day(c);
+    expect(t.holder, 'a new champion within a month').toBeTruthy();
+    expect(t.holder).not.toBe(c.player);
+  }, 60000);
+
+  it('signing with Indie Bookings keeps it, and it doesn’t stop you going for your promotion’s titles', () => {
+    const c = begin('bishop_blackridge');
+    const t = TITLES.find((x) => x.id === 'WORLD_INDEPENDENT_CHAMPIONSHIP')!;
+    t.holder = c.player;
+    makeOffer(c, 'TCG', 'test');
+    const o = c.offers.find((x) => x.promo === 'TCG' && x.status === 'open')!;
+    o.clauses[1] = 2;
+    signOffer(c, o);
+    expect(t.holder).toBe(c.player);
+    const tcg = TITLES.find((x) => x.id.startsWith('TCG_') && x.gender === findWrestler(c.player)!.gender)!;
+    expect(previewTitle(c, tcg.id).hard ?? '').not.toMatch(/already hold/);
   });
 });

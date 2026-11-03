@@ -3,7 +3,7 @@
 // and day. Under the yes chance: yes. In the next band: a counter. Anything else: no.
 import { PROMOTIONS, TITLES, WRESTLERS, findWrestler, type Title, type Wrestler } from '../data/rtr';
 import { seededRng } from '../engine/rng';
-import { available, bookChance, contenders, datesThisMonth, hashSeed, playerBookable, promoRegion, regionalPop } from './booker';
+import { available, bookChance, contenders, datesThisMonth, hashSeed, isIndieTitle, playerBookable, promoRegion, regionalPop } from './booker';
 import { letter, makeOffer, myBoutToday, person, promoName, setCareerHooks, spend } from './career';
 import { C } from './clauses';
 import { leaveContract, matchRival, payReview } from './contracts';
@@ -117,7 +117,7 @@ export function previewTitle(c: Career, titleId: string): Preview {
   const rank = promo ? titleRank(c, t) : 0;
   const feud = c.feuds.find((f) => f.title === t.id && !f.done);
   const hard = !promo ? 'You’re not signed anywhere.'
-    : holdsTitle(c.player) ? 'You already hold a title.'
+    : TITLES.some((x) => x.holder === c.player && !isIndieTitle(x.id)) ? 'You already hold a title.'
       : p.titleBanUntil && p.titleBanUntil > c.today ? `No title matches until ${fmtDay(p.titleBanUntil, 'dm')} (off-script).`
         : patienceOf(c, promo) < PATIENCE_FLOOR ? `${promo}’s booker won’t hear it: patience too low.`
           : c.pledges?.some((x) => (x.kind === 'title' && x.title === t.id) || x.earn === t.id) ? 'You’ve already been promised a shot at this one.'
