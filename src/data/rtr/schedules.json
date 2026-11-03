@@ -210,8 +210,7 @@
       "numbered": true,
       "numberingNeverResets": true,
       "when": {
-        "every": null,
-        "tbd": "day of the week"
+        "every": "Wednesday"
       }
     }
   ],
@@ -229,9 +228,13 @@
             2,
             3
           ],
-          "days": null
-        },
-        "tbd": "start month and weekdays (January start is only the default, from the examples)"
+          "days": [
+            "Thursday",
+            "Saturday",
+            "Friday"
+          ],
+          "note": "2-3 shows a week: Thursday and Saturday every touring week, Friday added some weeks"
+        }
       }
     }
   ],
@@ -320,7 +323,17 @@
         "ARISE_BATTLE_CHAMPIONSHIP"
       ],
       "when": {
-        "tbd": "dates"
+        "dates": [
+          {
+            "date": 5,
+            "month": "May"
+          },
+          {
+            "date": 3,
+            "month": "November",
+            "optional": true
+          }
+        ]
       }
     }
   ]
