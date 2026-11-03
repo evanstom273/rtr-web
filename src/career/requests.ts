@@ -3,7 +3,7 @@
 // and day. Under the yes chance: yes. In the next band: a counter. Anything else: no.
 import { PROMOTIONS, TITLES, WRESTLERS, findWrestler, type Title, type Wrestler } from '../data/rtr';
 import { seededRng } from '../engine/rng';
-import { available, bookChance, contenders, datesThisMonth, hashSeed, isIndieTitle, playerBookable, promoRegion, regionalPop, titleMinGap } from './booker';
+import { available, bookChance, contenders, datesThisMonth, hashSeed, isIndieTitle, playerBookable, promoRegion, regionalPop, setIndieRoll, titleMinGap } from './booker';
 import { letter, makeOffer, myBoutToday, person, promoName, setCareerHooks, spend } from './career';
 import { C } from './clauses';
 import { leaveContract, matchRival, payReview } from './contracts';
@@ -13,6 +13,7 @@ import { dayOff, indieAllowed, joinIndie } from './offers';
 import { indieKey, movePatience, patienceOf, patienceWeek, showBooker } from './patience';
 import { trust, trustLabel } from './relations';
 import {
+  INDIE_PROMISE_ROLLS,
   ASK_COUNTER_BAND, ASK_FORM_PER_RESULT, ASK_PATIENCE_DIVISOR, ASK_REP_DIVISOR, ASK_SPOT_BASE_PCT, ASK_SPOT_MAX_PCT, BOOK_AHEAD_DAYS,
   CAUGHT_CHANCE, CAUGHT_CHANCE_SAME_REGION, CAUGHT_DAYS, CHALLENGE_BASE, CHALLENGE_CHAMPION, CHALLENGE_IN_FEUD, CHALLENGE_PER_POP_ABOVE,
   COOLDOWN_CHALLENGE, COOLDOWN_MORE, COOLDOWN_PROMOTION, COOLDOWN_TITLE, CREATIVE_T1_CHANGE, CREATIVE_T2_COOLDOWN_DAYS, INDIE_CH_ALLOWED,
@@ -211,7 +212,7 @@ function champBusy(c: Career, t: Title, show: Show): string | null {
 }
 
 /** The next indie show from a day where the champion's free and the title's due: same country first, then region. */
-function indieTitleShow(c: Career, t: Title, from: Day, near: Show): Show | undefined {
+export function indieTitleShow(c: Career, t: Title, from: Day, near: Show): Show | undefined {
   const due = [from, firstAskable(c), titleDueFrom(c, t)].sort().pop()!;
   const ok = (s: Show) => s.date >= due && !champBusy(c, t, s) && indieAllowed(c, s.date).ok && !c.asked?.[s.id];
   const shows = askableIndieShows(c).filter(ok);
@@ -768,3 +769,21 @@ setCareerHooks({ daily, monthly, mine: afterMine });
 
 export const ASK_KINDS: AskKind[] = ['title', 'challenge', 'indieChallenge', 'show', 'more', 'approach', 'tryout', 'spot', 'review', 'rival', 'release', 'dayoff', 'finish'];
 export { PATIENCE_FLOOR, PATIENCE_START };
+
+/** Lyra's call: an indie promise that can't happen on the night rolls on to that promoter's next show (same name),
+ * booking you on it, up to INDIE_PROMISE_ROLLS times. */
+function rollIndiePromise(c: Career, p: Pledge, show: Show): boolean {
+  if ((p.rolls ?? 0) >= INDIE_PROMISE_ROLLS) return false;
+  const next = Object.values(c.shows).filter((s) => s.promo === 'TIS' && s.name === show.name && s.date > show.date && !s.card && !s.done)
+    .sort((a, b) => (a.date < b.date ? -1 : 1)).find((s) => indieAllowed(c, s.date).ok);
+  if (!next) return false;
+  const mine = me(c);
+  joinIndie(c, next, c.indie[show.id]?.fee ?? indieFee(mine, next.region), travelCost(mine.country, next.country));
+  p.show = next.id;
+  p.rolls = (p.rolls ?? 0) + 1;
+  const a = c.asks?.find((x) => x.id === p.ask);
+  if (a) a.then = `Moved to ${next.name}, ${fmtDay(next.date, 'dm')}.`;
+  letter(c, { kind: 'news', from: show.name, subject: 'Same promise, next show', body: [`It can’t happen on ${show.name} on ${fmtDay(show.date, 'dm')}. We’ll do it at our next show instead: ${fmtDay(next.date, 'long')}, ${next.city}. You’re booked.`] });
+  return true;
+}
+setIndieRoll(rollIndiePromise);

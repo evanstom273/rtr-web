@@ -2,7 +2,7 @@
 // retired ones, crossover showcases between two promotions, cups over three fortnightly shows, and
 // farewells. They're announced weeks ahead, go on the calendar like any other show, and are booked by the
 // same booker (see the special handling in bookShow). You hear about the ones in reach and can take part.
-import { PROMOTIONS, WRESTLERS, findWrestler, type Wrestler } from '../data/rtr';
+import { PROMOTIONS, TITLES, WRESTLERS, findWrestler, type Title, type Wrestler } from '../data/rtr';
 import { seededRng, type Rng } from '../engine/rng';
 import { activeWorld } from '../world/world';
 import { addEvent } from '../world/history';
@@ -14,9 +14,10 @@ import { indieFee, travelCost } from './economy';
 import { type EvCtx, type EvData, type EventDef, type FollowDef, ctxFor, fire, fx, homeRegion, join, money, registerEvents, round5 } from './events';
 import { indieAllowed, joinIndie } from './offers';
 import { CITIES, PROMO_COUNTRIES, REGION_KEY, REGION_OF } from './places';
+import { indieTitleShow } from './requests';
 import { roundName, tourneyPairs } from './tourney';
 import {
-  BENEFIT_MIN_INJURY_DAYS, BENEFIT_MIN_POP, CHARITY_REP_FREE, CHARITY_REP_PAID, CUP_PRIZE_MULT, CUP_ROUND_GAP, CUP_WIN_POP, CUP_WIN_REP,
+  BENEFIT_MIN_INJURY_DAYS, BENEFIT_MIN_POP, CHARITY_REP_FREE, CUP_SHOT_DAYS, CHARITY_REP_PAID, CUP_PRIZE_MULT, CUP_ROUND_GAP, CUP_WIN_POP, CUP_WIN_REP,
   INDIE_T1_APPROVAL, SPECIAL_DAILY, SPECIAL_GAP, SPECIAL_LEAD, SPECIAL_MIN_GAP, TRIBUTE_MIN_POP,
 } from './tuning';
 import type { Career, PopRegion, Show, SpecialKind, Tourney } from './types';
@@ -239,7 +240,10 @@ function tournament(c: Career, rnd: Rng): boolean {
   const used = (c.tourneys ?? []).some((t) => t.name.startsWith(base)) || activeWorld().history.events.some((e) => e.kind === 'tournament' && e.what?.startsWith(base));
   const name = used ? `${base} ${c.today.slice(0, 4)}` : base;
   const d1 = addDays(c.today, between(rnd, SPECIAL_LEAD));
-  const t: Tourney = { id: `cup${++c.seq}`, name, shows: [], entrants: [], won: [], fee: 0, prize: 0 };
+  const me0 = findWrestler(c.player)!;
+  // One division per cup: yours when it's near you (so you can enter), otherwise either.
+  const gender = near(c, v.region) || me0.popularity.global >= 45 ? me0.gender : rnd() < 0.6 ? 'MALE' : 'FEMALE';
+  const t: Tourney = { id: `cup${++c.seq}`, name, shows: [], entrants: [], won: [], fee: 0, prize: 0, gender };
   for (let r = 0; r < 3; r++) {
     const s = addShow(c, { promo: 'TIS', name: `${name}: ${['Quarter-finals', 'Semi-finals', 'Final'][r]}`, kind: 'indie', date: addDays(d1, r * CUP_ROUND_GAP), ...v, special: { kind: 'tournament', tag: `Cup ${['quarter-finals', 'semi-finals', 'final'][r]}`, noTitles: true, tourney: t.id, round: r } });
     t.shows.push(s.id);
@@ -247,7 +251,7 @@ function tournament(c: Career, rnd: Rng): boolean {
   (c.tourneys ??= []).push(t);
   const me = findWrestler(c.player)!;
   t.prize = round5(indieFee(me, v.region) * CUP_PRIZE_MULT);
-  if (!indieShut(c) && (near(c, v.region) || me.popularity.global >= 45)) {
+  if (!indieShut(c) && gender === me.gender && (near(c, v.region) || me.popularity.global >= 45)) {
     invite(c, 'invite_cup', { tourney: t.id, show: t.shows[0]!, name, city: v.city, date: d1, d2: addDays(d1, CUP_ROUND_GAP), d3: addDays(d1, 2 * CUP_ROUND_GAP), fee: indieFee(me, v.region), travel: travelCost(me.country, v.country), prize: t.prize });
   }
   return true;
@@ -324,11 +328,34 @@ function cupLetters(c: Career, t: Tourney, r: number): void {
   });
 }
 
+/** The cup winner's prize shot: the top indie title in their division (not one they hold). */
+function cupTitle(w: Wrestler): Title | undefined {
+  const ids = PROMOTIONS.find((p) => p.initials === 'TIS')?.titles ?? [];
+  const order = ['WORLD_INDEPENDENT_CHAMPIONSHIP', ...ids];
+  return order.map((id) => TITLES.find((t) => t.id === id)).find((t): t is Title => !!t && ids.includes(t.id) && t.gender === w.gender && !!t.holder && t.holder !== w.id);
+}
+
 function crown(c: Career, t: Tourney, id: string, final: Show): void {
   t.winner = id;
   const w = findWrestler(id);
   if (!w) return;
   addEvent(activeWorld().history, { day: c.today, kind: 'tournament', who: id, name: w.name, promo: 'TIS', show: final.name, what: t.name });
+  // The prize includes a shot at the division's top indie title.
+  const title = cupTitle(w);
+  let shotLine = '';
+  if (title && id === c.player) {
+    const s = indieTitleShow(c, title, addDays(c.today, 1), final);
+    if (s) {
+      joinIndie(c, s, indieFee(w, s.region), travelCost(w.country, s.country));
+      (c.pledges ??= []).push({ id: `p${++c.seq}`, promo: 'TIS', kind: 'title', title: title.id, show: s.id });
+      shotLine = ` And your shot at the ${title.name}: ${s.name}, ${fmtDay(s.date, 'long')}.`;
+    } else {
+      (c.pledges ??= []).push({ id: `p${++c.seq}`, promo: 'TIS', kind: 'title', title: title.id, from: addDays(c.today, 1) });
+      shotLine = ` And a shot at the ${title.name} on the next indie show you’re on when it’s due.`;
+    }
+  } else if (title) {
+    (c.cupShots ??= []).push({ title: title.id, who: id, until: addDays(c.today, CUP_SHOT_DAYS) });
+  }
   if (id === c.player) {
     spend(c, t.prize, `Winning ${t.name}`, 'bonus');
     const p = person(c, id);
@@ -336,9 +363,9 @@ function crown(c: Career, t: Tourney, id: string, final: Show): void {
     w.popularity.global = Math.min(100, Math.round((w.popularity.global + CUP_WIN_POP * 0.5) * 10) / 10);
     const r = final.region;
     w.popularity[r] = Math.min(100, Math.round(((w.popularity[r] ?? 0) + CUP_WIN_POP) * 10) / 10);
-    letter(c, { kind: 'result', from: t.name, subject: `You won ${t.name}!`, body: [`Three rounds, three wins. ${money(t.prize)} prize money, and the trophy’s yours.`], terms: [['Prize', money(t.prize)], ['Popularity', `+${CUP_WIN_POP} ${r}`], ['Reputation', `+${CUP_WIN_REP}`]] });
+    letter(c, { kind: 'result', from: t.name, subject: `You won ${t.name}!`, body: [`Three rounds, three wins. ${money(t.prize)} prize money, and the trophy’s yours.${shotLine}`], terms: [['Prize', money(t.prize)], ['Popularity', `+${CUP_WIN_POP} ${r}`], ['Reputation', `+${CUP_WIN_REP}`]] });
   } else if (t.player || near(c, final.region)) {
-    letter(c, { kind: 'news', from: 'The news desk', subject: `${w.name} wins ${t.name}`, body: [`${w.name} won ${t.name} in ${final.city}.`] });
+    letter(c, { kind: 'news', from: 'The news desk', subject: `${w.name} wins ${t.name}`, body: [`${w.name} won ${t.name} in ${final.city}${title ? `, and a shot at the ${title.name}` : ''}.`] });
   }
 }
 
@@ -348,6 +375,7 @@ const MAKERS: Record<Exclude<SpecialKind, 'farewell'>, (c: Career, rnd: Rng) => 
 
 function daily(c: Career): void {
   settleCups(c);
+  if (c.cupShots?.length) c.cupShots = c.cupShots.filter((x) => x.until >= c.today);
   if (person(c, c.player).retired) return;
   const w = world(c);
   const rnd = seededRng(hashSeed(c.seed, 'specials', c.today));

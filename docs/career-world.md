@@ -146,7 +146,7 @@ show. The same booker draws their cards.
 | Benefit | someone popular out 28+ days | "A Night for Name"; once per injury; donate if you can't go |
 | Tribute | 30–90 days after a popular wrestler retires | "Thank You, Name"; once per person |
 | Crossover | about three a year | two promotions in the same region, never ZWA with NWGP; no titles; the rosters against each other |
-| Cup | every couple of months | eight in; quarter-finals, semi-finals and final a fortnight apart; walkovers; prize money; the winner in Records |
+| Cup | every couple of months | eight in, one division; quarter-finals, semi-finals and final a fortnight apart; walkovers; prize money and a shot at the division's top indie title; the winner in Records |
 | Farewell | when someone retires | their promotion's next big show, or an indie send-off; their last match is the main event |
 
 **Invitations** are event letters, sent for the one-offs in reach: your region, or anywhere if you're
@@ -155,7 +155,14 @@ their last opponent. Indie Bookings rules apply, and if your deal has none you'r
 indie ones.
 
 **In a cup**, winning a round books you for the next one (if you can make the date). Losing, or not
-being able to make it, sends your opponent through.
+being able to make it, sends your opponent through. The winner gets a shot at their division's top
+indie title (Lyra's call):
+- If you win, it's booked for you on an indie show where the champion's free.
+- An AI winner is first in line the next time that title's defended (for up to 120 days).
+
+**Indie promises roll on** (Lyra's call). If an indie promoter's promise can't happen on the night
+(a title shot, a challenge), it moves to that promoter's next show and books you on it. That happens
+up to three times; promotion promises already worked like this.
 
 ## The living world
 

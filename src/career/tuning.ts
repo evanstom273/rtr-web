@@ -306,3 +306,7 @@ export const REIGN_MILESTONES = [180, 365, 730];
 export const CAREER_MILESTONES = [50, 100, 250, 500, 1000];
 /** A champion out at least this long makes the news. */
 export const CHAMP_INJURY_NEWS_DAYS = 30;
+/** An indie promise that can't happen rolls on to the promoter's next show at most this many times (Lyra's call). */
+export const INDIE_PROMISE_ROLLS = 3;
+/** A cup winner's shot at the division's top indie title: it waits this long for a show (Lyra's call: a shot as the prize). */
+export const CUP_SHOT_DAYS = 120;

@@ -7,6 +7,8 @@ import { activeWorld, freshWorld, setWorld } from '../world/world';
 import { addDays } from './dates';
 import { answerEvent, applyBout, arrangeFarewell, finishDay, makeSpecial, myBoutToday, startCareer, tourneyPairs } from './index';
 import { seededRng } from '../engine/rng';
+import { bookShow } from './booker';
+import type { Show } from './types';
 import type { SimJob, SimOut } from './sim';
 import type { Career } from './types';
 
@@ -120,6 +122,67 @@ describe('one-off shows', () => {
     const s = Object.values(c.shows).find((x) => x.special?.kind === 'benefit')!;
     expect(s.special!.for).toBe(w.id);
     expect(makeSpecial(c, 'benefit', 'again')).toBe(false); // once per injury
+  });
+
+  it('a cup is one division: every entrant the same gender', async () => {
+    const c = begin();
+    makeSpecial(c, 'tournament');
+    const t = c.tourneys![0]!;
+    await days(c, Math.ceil((Date.parse(c.shows[t.shows[0]!]!.date) - Date.parse(c.today)) / 864e5) + 1);
+    const genders = new Set(t.entrants.filter(Boolean).map((id) => findWrestler(id)!.gender));
+    expect(genders.size).toBe(1);
+    expect([...genders][0]).toBe(t.gender);
+  }, 60000);
+
+  it('winning a cup: prize money and a booked shot at your division’s top indie title (AI winners go on the list)', async () => {
+    const c = begin();
+    makeSpecial(c, 'tournament');
+    const t = c.tourneys![0]!;
+    const others = WRESTLERS.filter((w) => w.promotion === 'TIS' && w.id !== c.player).slice(0, 7).map((w) => w.id);
+    t.player = true;
+    t.entrants = [c.player, ...others];
+    t.won = [[c.player, others[2]!, others[4]!, others[6]!], [c.player, others[4]!], [c.player]];
+    for (const id of t.shows) c.shows[id]!.done = true;
+    const money = c.money;
+    await days(c, 1);
+    expect(t.winner).toBe(c.player);
+    expect(c.money).toBeGreaterThan(money);
+    const shot = c.pledges?.find((p) => p.kind === 'title' && p.promo === 'TIS');
+    expect(shot?.title).toBe('WORLD_INDEPENDENT_CHAMPIONSHIP');
+    if (shot?.show) expect(c.indie[shot.show]).toBeTruthy();
+
+    const d = begin('jamie_mercer', 3);
+    makeSpecial(d, 'tournament');
+    const u = d.tourneys![0]!;
+    const men = WRESTLERS.filter((w) => w.promotion === 'TIS' && w.gender === 'MALE' && !TITLES.some((x) => x.holder === w.id)).slice(0, 8).map((w) => w.id);
+    u.entrants = men;
+    u.won = [[men[0]!, men[2]!, men[4]!, men[6]!], [men[0]!, men[4]!], [men[0]!]];
+    for (const id of u.shows) d.shows[id]!.done = true;
+    await days(d, 1);
+    expect(d.cupShots?.some((x) => x.who === men[0] && x.title === 'WORLD_INDEPENDENT_CHAMPIONSHIP')).toBe(true);
+  }, 60000);
+
+  it('an indie promise that can’t happen rolls on to the promoter’s next show, three times at most', () => {
+    const c = begin();
+    const opp = WRESTLERS.find((w) => w.promotion === 'TIS' && w.id !== c.player)!;
+    c.people[opp.id]!.injury = { until: addDays(c.today, 200), what: 'knee' } as never;
+    const mk = (n: number): Show => {
+      const s: Show = { id: `roll${n}`, promo: 'TIS', name: 'Rolling Thunder', kind: 'indie', date: addDays(c.today, 9 + 14 * n), country: 'UK', city: 'Leeds', region: 'europe', card: null, done: false };
+      c.shows[s.id] = s;
+      return s;
+    };
+    const shows = [0, 1, 2, 3, 4].map(mk);
+    c.indie[shows[0]!.id] = { fee: 100, travel: 0 };
+    const p = { id: 'p-roll', promo: 'TIS', kind: 'match' as const, show: shows[0]!.id, opp: opp.id };
+    c.pledges = [p];
+    for (let i = 0; i < 3; i++) {
+      shows[i]!.card = bookShow(c, shows[i]!, WRESTLERS);
+      expect(p.show).toBe(shows[i + 1]!.id);
+      expect(c.indie[shows[i + 1]!.id]).toBeTruthy();
+    }
+    expect(c.letters.filter((l) => l.subject === 'Same promise, next show')).toHaveLength(3);
+    shows[3]!.card = bookShow(c, shows[3]!, WRESTLERS);
+    expect(c.pledges).toHaveLength(0);
   });
 
   it('a save from before the expansion (no events, cups or world state) carries on', async () => {
