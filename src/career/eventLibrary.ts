@@ -14,8 +14,8 @@ import {
 } from './events';
 import { indieAllowed, joinIndie } from './offers';
 import { indieKey, patienceOf, showBooker } from './patience';
-import { relationsList, trust } from './relations';
-import { askChallenge, askableIndieShows, askableShows, maybeCaught, myPromo, standingWith } from './requests';
+import { affinity, relationOf, relationsList, trust } from './relations';
+import { askChallenge, askableIndieShows, askableShows, bookerName, maybeCaught, myPromo, standingWith } from './requests';
 import type { Show } from './types';
 
 // ------------------------------------------------------------------ who and where
@@ -27,7 +27,7 @@ const booker = (x: EvCtx): string => x.k?.promo ?? 'TIS';
 const fee = (x: EvCtx, m: number): number => round5(feeBase(x) * m);
 const stated = (_x: EvCtx, d: EvData) => `${money(Number(d.amount))}`;
 const healthy = (w: Wrestler, x: EvCtx) => !(x.c.people[w.id]?.injury && x.c.people[w.id]!.injury!.until > x.day) && !x.c.people[w.id]?.retired;
-const veteran = (x: EvCtx) => scene(x).filter((w) => w.age >= 35 && healthy(w, x) && !(x.c.relations?.[w.id]?.kind === 'mentor'));
+const veteran = (x: EvCtx) => scene(x).filter((w) => w.age >= 35 && healthy(w, x) && !(relationOf(x.c, w.id)?.kind === 'mentor'));
 const youngster = (x: EvCtx) => scene(x).filter((w) => w.age <= 24 && w.popularity.global < x.me.popularity.global - 3 && healthy(w, x));
 const colleague = (x: EvCtx) => scene(x).filter((w) => healthy(w, x));
 const rivals = (x: EvCtx) => relationsList(x.c).filter((r) => r.r.v <= -25 || r.r.kind === 'rival').map((r) => findWrestler(r.id)!).filter((w) => w && healthy(w, x));
@@ -382,8 +382,8 @@ const BACKSTAGE: EventDef[] = [
     ],
   },
   {
-    id: 'alliance', cat: 'backstage', weight: 1.5, cooldown: 90, when: (x) => colleague(x).some((w) => (x.c.relations?.[w.id]?.v ?? 0) >= 0),
-    setup: (x) => { const w = pick(x.rnd, colleague(x).filter((y) => (x.c.relations?.[y.id]?.v ?? 0) >= 0)); return w ? { who: w.id } : null; },
+    id: 'alliance', cat: 'backstage', weight: 1.5, cooldown: 90, when: (x) => colleague(x).some((w) => affinity(x.c, w.id) >= 0),
+    setup: (x) => { const w = pick(x.rnd, colleague(x).filter((y) => affinity(x.c, y.id) >= 0)); return w ? { who: w.id } : null; },
     from: (_x, d) => nameOf(d), subject: () => 'We should look out for each other',
     body: (_x, d) => [`${first(d)} reckons the two of you should stick together back here: share rides, watch each other’s backs, put each other forward.`],
     options: [
@@ -452,8 +452,8 @@ const BACKSTAGE: EventDef[] = [
     id: 'olive_branch', cat: 'backstage', weight: 3, cooldown: 90,
     when: (x) => Object.keys(x.c.bookers ?? {}).some((k) => trust(x.c, k) < 45 || patienceOf(x.c, k) < 50),
     setup: (x) => { const k = pick(x.rnd, Object.keys(x.c.bookers ?? {}).filter((y) => trust(x.c, y) < 45 || patienceOf(x.c, y) < 50)); return k ? { key: k } : null; },
-    from: (_x, d) => (String(d.key).startsWith('TIS:') ? String(d.key).slice(4) : promoName(String(d.key))), subject: () => 'Water under the bridge?',
-    body: (_x, d) => [`Things haven’t been great between you and ${String(d.key).startsWith('TIS:') ? `the promoter of ${String(d.key).slice(4)}` : promoName(String(d.key))}. They’d like to put it behind you both.`],
+    from: (_x, d) => bookerName(String(d.key)), subject: () => 'Water under the bridge?',
+    body: (_x, d) => [`Things haven’t been great between you and ${String(d.key).startsWith('TIS:') ? `the promoter of ${String(d.key).slice(4)}` : bookerName(String(d.key))}. They’d like to put it behind you both.`],
     options: [
       { id: 'yes', label: 'Accept the olive branch', run: (x, d) => join('Handshake, fresh start', fx.patience(x, String(d.key), 15, 'Made peace'), fx.favour(x, String(d.key))) },
       { id: 'no', label: 'Hold the grudge', decline: true, run: (x, d) => join('You’re not ready to forget', fx.patience(x, String(d.key), -5, 'Rejected their olive branch')) },
@@ -721,7 +721,7 @@ const PERSONAL: EventDef[] = [
 const FOLLOWS: FollowDef[] = [
   { id: 'mentor_lesson', run: (x, d) => {
     const w = who(d);
-    if (!w || x.c.relations?.[w.id]?.kind !== 'mentor') return;
+    if (!w || relationOf(x.c, w.id)?.kind !== 'mentor') return;
     const said = join(fx.stat(x, randomAttr(x), 1), fx.rel(x, w.id, 5, 'Another lesson'));
     x.c.letters.unshift({ id: `l${++x.c.seq}`, day: x.day, read: false, kind: 'news', from: w.name, subject: 'Same time next month?', body: [`${w.name.split(' ')[0]} spent another afternoon on your mistakes. ${said}.`] });
   } },

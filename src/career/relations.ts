@@ -5,9 +5,11 @@
 // promotion's, or each indie promoter, by show name) remembers how you've worked for them, and that
 // memory sets how much they trust you. Patience is short-term (requests); trust is the long memory.
 import { findWrestler } from '../data/rtr';
+import { activeWorld } from '../world/world';
+import { bondOf, bondsOf, freshPeople, moveBond, type Bond, type BondKind, type People } from '../world/people';
 import { setCareerHooks } from './career';
 import type { Day } from './dates';
-import { showBooker } from './patience';
+import { bookerKey, showBooker } from './patience';
 import {
   REL_FEUD, REL_FRIEND_AT, REL_GREAT_MATCH, REL_OFF_SCRIPT_ON, REL_RIVAL_AT, TRUST_BOTCHED, TRUST_FAVOUR, TRUST_GOOD, TRUST_KEPT, TRUST_NO_SHOW,
   TRUST_OFF_SCRIPT, TRUST_SNUB, TRUST_START,
@@ -16,29 +18,35 @@ import type { Bout, BookerMemory, Career, PlayerMatch, RelKind, Relation, Show }
 
 // ------------------------------------------------------------------ wrestlers
 
-export const relationOf = (c: Career, id: string): Relation | undefined => c.relations?.[id];
-export const affinity = (c: Career, id: string): number => c.relations?.[id]?.v ?? 0;
+// Your relationships are the world's bonds with you at one end (world/people.ts), seen from your side.
+
+const people = (): People => (activeWorld().people ??= freshPeople());
+
+/** A bond, as your relationship with the other person: their mentorship of you, or yours of them. */
+function asRelation(b: Bond, other: string): Relation {
+  const kind: RelKind | undefined = b.kind === 'mentor' ? (b.mentor === other ? 'mentor' : 'protege')
+    : b.kind === 'friend' || b.kind === 'best_friend' ? 'friend'
+      : b.kind === 'rival' || b.kind === 'enemy' ? 'rival' : undefined;
+  return { v: b.v, met: b.met, last: b.last, log: b.log, ...(kind ? { kind } : {}) };
+}
+
+export const relationOf = (c: Career, id: string): Relation | undefined => {
+  const b = bondOf(people(), c.player, id);
+  return b ? asRelation(b, id) : undefined;
+};
+export const affinity = (c: Career, id: string): number => bondOf(people(), c.player, id)?.v ?? 0;
 
 /** Move how someone feels about you, and say why (the last few reasons are kept). */
 export function moveRelation(c: Career, id: string, d: number, why: string, kind?: RelKind): Relation | undefined {
   if (!id || id === c.player || !findWrestler(id)) return undefined;
-  const r = ((c.relations ??= {})[id] ??= { v: 0, met: c.today, last: c.today, log: [] });
-  r.v = Math.max(-100, Math.min(100, Math.round(r.v + d)));
-  r.last = c.today;
-  if (kind) r.kind = kind;
-  // A friendship gone sour isn't a friendship; a rivalry made up isn't a rivalry.
-  if (r.kind === 'friend' && r.v < 0) delete r.kind;
-  if (r.kind === 'rival' && r.v > 0) delete r.kind;
-  if (d) {
-    r.log.unshift({ day: c.today, d, t: why });
-    if (r.log.length > 5) r.log.length = 5;
-  }
-  return r;
+  const k: BondKind | undefined = kind === 'protege' ? 'mentor' : kind;
+  const b = moveBond(people(), c.player, id, d, why, c.today, k, kind === 'mentor' ? id : kind === 'protege' ? c.player : undefined);
+  return asRelation(b, id);
 }
 
 /** How a relationship reads: an explicit kind first, then how strong the feeling is. */
 export function relLabel(c: Career, id: string): string {
-  const r = c.relations?.[id];
+  const r = relationOf(c, id);
   if (!r) return 'Stranger';
   if (r.kind === 'mentor') return 'Mentor';
   if (r.kind === 'protege') return 'Protégé';
@@ -51,17 +59,17 @@ export function relLabel(c: Career, id: string): string {
 
 /** People you know, closest (or most hostile) first. */
 export function relationsList(c: Career): { id: string; r: Relation }[] {
-  return Object.entries(c.relations ?? {}).map(([id, r]) => ({ id, r })).filter((x) => !!findWrestler(x.id))
+  return bondsOf(people(), c.player).filter((x) => !!findWrestler(x.other)).map((x) => ({ id: x.other, r: asRelation(x.bond, x.other) }))
     .sort((a, b) => Math.abs(b.r.v) - Math.abs(a.r.v) || (a.r.last < b.r.last ? 1 : -1));
 }
 
 // ------------------------------------------------------------------ promoters
 
 const blank = (): BookerMemory => ({ matches: 0, kept: 0, offScript: 0, botched: 0, noShows: 0, good: 0, favours: 0, snubs: 0 });
-export const memoryOf = (c: Career, key: string): BookerMemory => c.bookers?.[key] ?? blank();
+export const memoryOf = (c: Career, key: string): BookerMemory => c.bookers?.[bookerKey(key)] ?? blank();
 
 export function remember(c: Career, key: string, field: keyof Omit<BookerMemory, 'last'>, n = 1): void {
-  const m = ((c.bookers ??= {})[key] ??= blank());
+  const m = ((c.bookers ??= {})[bookerKey(key)] ??= blank());
   m[field] += n;
   m.last = c.today;
 }
@@ -71,7 +79,7 @@ export function remember(c: Career, key: string, field: keyof Omit<BookerMemory,
  * and favours; lost by going off-script, no-shows, failing to deliver and turning them down.
  */
 export function trust(c: Career, key: string): number {
-  const m = c.bookers?.[key];
+  const m = c.bookers?.[bookerKey(key)];
   if (!m) return TRUST_START;
   const t = TRUST_START + m.kept * TRUST_KEPT + m.good * TRUST_GOOD + m.favours * TRUST_FAVOUR
     + m.offScript * TRUST_OFF_SCRIPT + m.noShows * TRUST_NO_SHOW + m.botched * TRUST_BOTCHED + m.snubs * TRUST_SNUB;

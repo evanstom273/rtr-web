@@ -7,9 +7,10 @@ import { tx } from '../storage/db';
 import type { Career } from '../career/types';
 import { weekStart, type Day } from '../career/dates';
 import { emptyHistory, type WorldHistory } from './history';
+import { bookerOf, freshPeople, pairKey, type Bond, type People } from './people';
 
 /** The world save's revision: each step in `upgrade` runs once, in order, on older saves. */
-export const WORLD_REV = 2;
+export const WORLD_REV = 3;
 
 export interface World {
   v: 1;
@@ -27,6 +28,8 @@ export interface World {
   day: Day | null;
   /** Show numbering and irregular schedules, kept when a career ends so the next one carries on. */
   calendar?: { counters: Record<string, number>; nextIrregular: Record<string, Day> };
+  /** Bookers, indie brands and promoters, and everyone's relationships (rev 3). */
+  people?: People;
 }
 
 const KEY = 'current';
@@ -34,7 +37,7 @@ let active: World | null = null;
 let persistent = true;
 
 export function freshWorld(seed = Math.floor(Math.random() * 2 ** 31)): World {
-  return { v: 1, rev: WORLD_REV, seed, createdAt: Date.now(), db: shippedDatabase(), career: null, history: emptyHistory(), day: null };
+  return { v: 1, rev: WORLD_REV, seed, createdAt: Date.now(), db: shippedDatabase(), career: null, history: emptyHistory(), day: null, people: freshPeople() };
 }
 
 /** Make `w` the active world. Its database becomes the live one everything reads. */
@@ -60,7 +63,47 @@ function upgrade(w: World): void {
   if (w.day === undefined) w.day = w.career?.today ?? null;
   const rev = w.rev ?? 1;
   if (rev < 2) giveTraits(w);
+  if (rev < 3) meetThePeople(w);
+  w.people ??= freshPeople();
   w.rev = WORLD_REV;
+}
+
+/**
+ * Rev 3: bookers become people. A promotion's patience and memory of the player move to its booker,
+ * and the career's relationships become the world's bonds. Indie promoters' keys stay as they were.
+ */
+export function meetThePeople(w: World): void {
+  const P = (w.people ??= freshPeople());
+  const c = w.career;
+  if (!c) return;
+  for (const p of w.db.promotions) {
+    if (p.indie) continue;
+    const b = bookerOf(P, p.initials);
+    if (!b) continue;
+    const pat = c.patience?.[p.initials];
+    if (pat && c.patience) {
+      const now = c.patience[b.id];
+      c.patience[b.id] = now ? { v: Math.min(now.v, pat.v), log: [...now.log, ...pat.log].slice(0, 6) } : pat;
+      delete c.patience[p.initials];
+    }
+    const mem = c.bookers?.[p.initials];
+    if (mem && c.bookers) {
+      const now = c.bookers[b.id];
+      if (now) for (const k of Object.keys(mem) as (keyof typeof mem)[]) { if (k !== 'last') (now[k] as number) += mem[k] as number; }
+      else c.bookers[b.id] = mem;
+      if (now && mem.last && (!now.last || mem.last > now.last)) now.last = mem.last;
+      delete c.bookers[p.initials];
+    }
+  }
+  for (const [id, r] of Object.entries(c.relations ?? {})) {
+    const k = pairKey(c.player, id);
+    const bond: Bond = { a: c.player < id ? c.player : id, b: c.player < id ? id : c.player, v: r.v, met: r.met, last: r.last, log: r.log };
+    if (r.kind === 'mentor') { bond.kind = 'mentor'; bond.mentor = id; }
+    else if (r.kind === 'protege') { bond.kind = 'mentor'; bond.mentor = c.player; }
+    else if (r.kind) bond.kind = r.kind;
+    P.bonds[k] = bond;
+  }
+  delete c.relations;
 }
 
 /**
