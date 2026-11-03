@@ -15,15 +15,34 @@ import { Result } from './screens/Result';
 import { Tape } from './screens/Tape';
 import { Settings } from './Settings';
 import { freshBuilder, type BuilderState } from './builder/state';
+import { CareerApp, type CareerScreen } from './career/CareerApp';
+import { commit } from './career/parts';
+import { applyBout, boutRules, promoName, runToday } from '../career';
+import { runJobs } from '../career/runner';
+import { outOf, simOne } from '../career/sim';
+import { hashSeed } from '../career/booker';
+import { activeWorld } from '../world/world';
+
+/** A career match being played: which show and which match on its card. */
+interface CareerBout { showId: string; index: number }
 
 type Screen =
   | { name: 'menu' }
   | { name: 'setup' }
-  | { name: 'tape' }
-  | { name: 'match'; engine: MatchEngine }
-  | { name: 'result'; engine: MatchEngine }
+  | { name: 'career'; initial?: CareerScreen }
+  | { name: 'tape'; career?: CareerBout }
+  | { name: 'match'; engine: MatchEngine; career?: CareerBout }
+  | { name: 'result'; engine: MatchEngine; career?: CareerBout }
   | { name: 'archive' }
   | { name: 'record'; id: string };
+
+/** The menu's career line: who you are and what day it is. */
+function careerLine(): string | null {
+  const c = activeWorld().career;
+  const me = c ? findWrestler(c.player) : undefined;
+  if (!c || !me) return null;
+  return `${me.name} · ${me.promotion === 'TIS' ? 'free agent' : promoName(me.promotion)} · day ${Math.round((Date.parse(c.today) - Date.parse(c.startedOn)) / 864e5) + 1}`;
+}
 
 export function App() {
   const [builder, setBuilder] = useState<BuilderState>(freshBuilder);
@@ -56,6 +75,32 @@ export function App() {
     setScreen({ name: 'match', engine });
   }, [builder]);
 
+  /** Your career match: you against your opponent, with the show's own name, venue and stakes. */
+  const careerSetup = useCallback((cb: CareerBout) => {
+    const c = activeWorld().career;
+    const show = c?.shows[cb.showId];
+    const bout = show?.card?.[cb.index];
+    if (!c || !show || !bout) return null;
+    const them = bout.a === c.player ? bout.b : bout.a;
+    return { c, show, bout, you: c.player, them, aIsYou: bout.a === c.player, rules: boutRules(c, show, bout, c.player, them, false) };
+  }, []);
+  const startCareerMatch = useCallback((cb: CareerBout) => {
+    const s = careerSetup(cb);
+    if (!s) return;
+    const engine = new MatchEngine({ you: s.you, them: s.them, rules: s.rules });
+    if (import.meta.env.DEV) (window as unknown as { __rtr: MatchEngine }).__rtr = engine;
+    setScreen({ name: 'match', engine, career: cb });
+  }, [careerSetup]);
+  /** Put a finished (or abandoned and simmed) career match into the career, then run the rest of the night. */
+  const settleCareer = useCallback((cb: CareerBout, engine: MatchEngine) => {
+    const s = careerSetup(cb);
+    if (!s || s.bout.result) return;
+    applyBout(s.c, s.show, cb.index, outOf('mine', engine), s.aIsYou);
+    commit();
+    void runToday(s.c, runJobs).then(commit);
+  }, [careerSetup]);
+  const toCareer = useCallback((initial?: CareerScreen) => setScreen({ name: 'career', initial }), []);
+
   const engine = screen.name === 'match' || screen.name === 'result' ? screen.engine : null;
 
   const [leaving, setLeaving] = useState(false);
@@ -73,6 +118,7 @@ export function App() {
       return true;
     }
     if (screen.name === 'record') return toArchive();
+    if ((screen.name === 'result' || screen.name === 'tape') && screen.career) return toCareer('show');
     if (screen.name === 'result' || screen.name === 'tape') return toRoster();
     toMenu();
   });
@@ -88,8 +134,10 @@ export function App() {
       const rec = buildRecord(S);
       if (rec) void saveRecord(rec).then(reload);
     }
-    window.setTimeout(() => setScreen({ name: 'result', engine }), 1400);
-  }, [engine, reload]);
+    const cb = screen.name === 'match' ? screen.career : undefined;
+    if (cb) settleCareer(cb, engine);
+    window.setTimeout(() => setScreen({ name: 'result', engine, career: cb }), 1400);
+  }, [engine, reload, screen, settleCareer]);
 
   let body: JSX.Element | null = null;
   if (screen.name === 'menu') {
@@ -97,8 +145,19 @@ export function App() {
     const best = records?.length ? Math.max(...records.map((r) => r.stars)) : 0;
     body = (
       <Menu latest={latest} count={records?.length ?? 0} best={best} onPlay={() => setScreen({ name: 'setup' })} onArchive={toArchive}
+        onCareer={() => toCareer()} career={careerLine()}
         onSettings={() => setSettings(true)} onOpen={(id) => setScreen({ name: 'record', id })} />
     );
+  } else if (screen.name === 'career') {
+    body = <CareerApp initial={screen.initial} onMenu={toMenu} onPlay={(showId, index) => setScreen({ name: 'tape', career: { showId, index } })} />;
+  } else if (screen.name === 'tape' && screen.career) {
+    const s = careerSetup(screen.career);
+    const you = s ? findWrestler(s.you) : undefined, them = s ? findWrestler(s.them) : undefined;
+    if (s && you && them) {
+      const cb = screen.career;
+      const line = [s.show.name, s.bout.title ? 'Title match' : '', stipulation(s.bout.stip ?? 'standard').name].filter(Boolean).join(' · ');
+      body = <Tape you={you} them={them} rules={line} onBack={() => toCareer('show')} onBell={() => startCareerMatch(cb)} />;
+    }
   } else if (screen.name === 'setup') {
     body = <Builder state={builder} hits={hits} onChange={setBuilder} onStart={() => setScreen({ name: 'tape' })} onMenu={toMenu} />;
   } else if (screen.name === 'tape') {
@@ -116,12 +175,23 @@ export function App() {
     body = (
       <>
         <Match key={screen.engine.state.id} engine={screen.engine} onOver={onOver} />
-        {leaving && <LeavePrompt onStay={() => setLeaving(false)} onLeave={toRoster} />}
+        {leaving && (
+          <LeavePrompt onStay={() => setLeaving(false)} onLeave={() => {
+            const cb = screen.career;
+            if (!cb) return toRoster();
+            // Walking out of a career match: the match still happens, simmed from the bell.
+            setLeaving(false);
+            const st = careerSetup(cb);
+            if (st) settleCareer(cb, simOne({ key: 'mine', seed: hashSeed(st.c.seed, 'mine', st.show.id), you: st.you, them: st.them, rules: st.rules }).engine);
+            toCareer('show');
+          }} />
+        )}
       </>
     );
   } else if (screen.name === 'result') {
     const S = screen.engine.state;
-    body = S.rating ? <Result S={S} rating={S.rating} hits={hits} onRematch={startMatch} onNewMatch={toRoster} onMenu={toMenu} /> : null;
+    const cb = screen.career;
+    body = S.rating ? <Result S={S} rating={S.rating} hits={hits} onRematch={startMatch} onNewMatch={toRoster} onMenu={toMenu} onCareer={cb ? () => toCareer('show') : undefined} /> : null;
   } else if (screen.name === 'archive') {
     body = <Archive records={records} temporary={archiveIsTemporary()} onBack={toMenu} onOpen={(id) => setScreen({ name: 'record', id })} />;
   } else {
