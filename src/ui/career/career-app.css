@@ -158,3 +158,6 @@
 .cr .c-rbar i{position:absolute;top:0;bottom:0;display:block}
 .cr .c-rbar i.pos{background:var(--cr-good)}.cr .c-rbar i.neg{background:var(--cr-bad)}
 .cr .c-rbar b{position:absolute;left:50%;top:-2px;bottom:-2px;width:2px;display:block;background:var(--cr-dim)}
+/* Career events: a choice your contract or bank balance rules out says why, in the warning colour. */
+.cr .c-ad.c-why{color:var(--cr-bad)}
+.cr .c-ans:disabled{cursor:not-allowed}

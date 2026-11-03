@@ -516,7 +516,7 @@ export function caughtChance(c: Career, promo: string): number {
   return promoRegion(promo) === promoRegion(mine) ? CAUGHT_CHANCE_SAME_REGION : CAUGHT_CHANCE;
 }
 
-function maybeCaught(c: Career, promo: string): boolean {
+export function maybeCaught(c: Career, promo: string): boolean {
   const mine = myPromo(c);
   if (!mine) return false;
   if (seededRng(hashSeed(c.seed, 'caught', promo, c.today))() >= caughtChance(c, promo)) return false;

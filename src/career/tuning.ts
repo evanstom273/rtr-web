@@ -249,3 +249,23 @@ export const INDIE_OFFER_TRUSTED = 1.5;
 export const INDIE_OFFER_CHAMPION = 1.3;
 /** Requests to indie promoters: (trust − 50) ÷ this, in points of yes chance. */
 export const ASK_TRUST_DIVISOR = 5;
+
+// --- Career events (expansion, balance sheet section 14: PROPOSALS, live) ----------------------------
+/** The chance of a career event on a given day, before your situation shapes it (about one a week). */
+export const EVENT_DAILY_BASE = 0.12;
+/** Quiet spell (no match in 7 days): more; busy (4+ matches in 10 days): fewer. */
+export const EVENT_QUIET_MULT = 1.5;
+export const EVENT_BUSY_MULT = 0.6;
+export const EVENT_FREE_AGENT_MULT = 1.15;
+export const EVENT_CHAMP_MULT = 1.2;
+/** Popular (60+ global): more; unknown (under 15): fewer. */
+export const EVENT_STAR_MULT = 1.15;
+export const EVENT_UNKNOWN_MULT = 0.7;
+/** At least this many days between events, at most this many waiting on you, and days to answer. */
+export const EVENT_MIN_GAP = 3;
+export const EVENT_MAX_OPEN = 2;
+export const EVENT_EXPIRES_DAYS = 5;
+/** An event where your contract rules out every choice but saying no comes round this much as often. */
+export const EVENT_BLOCKED_MULT = 0.25;
+/** Outside Appearances Tier 1: management approves this often. */
+export const OUTSIDE_T1_APPROVAL = 0.6;

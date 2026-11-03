@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { acceptLetter, declineLetter, type Career, type Letter } from '../../career';
+import { acceptLetter, answerEvent, declineLetter, eventChoices, type Career, type Letter } from '../../career';
 import { fmtDay } from '../../career/dates';
 import { commit, Head, Screen, useToast, useWords } from './parts';
 
@@ -7,9 +7,10 @@ interface Props { c: Career; onBack: () => void; onNegotiate: (offerId: string) 
 
 const KIND: Record<Letter['kind'], [string, string]> = {
   offer: ['Offer', 'c-eff gold'], result: ['Result', 'c-eff up'], news: ['News', 'c-eff'], injury: ['Injury', 'c-eff bad'], contract: ['Contract', 'c-eff gold'],
+  event: ['Your call', 'c-eff gold'],
 };
 const TABS: { label: string; kinds: Letter['kind'][] | null }[] = [
-  { label: 'All', kinds: null }, { label: 'Offers', kinds: ['offer', 'contract'] }, { label: 'Results', kinds: ['result'] }, { label: 'News', kinds: ['news', 'injury'] },
+  { label: 'All', kinds: null }, { label: 'Offers', kinds: ['offer', 'contract', 'event'] }, { label: 'Results', kinds: ['result'] }, { label: 'News', kinds: ['news', 'injury'] },
 ];
 
 /** Letters (mail): offers to act on, your results, the world's news. */
@@ -17,6 +18,7 @@ export function Letters({ c, onBack, onNegotiate }: Props) {
   const { skin, w } = useWords();
   const [tab, setTab] = useState(0);
   const [open, setOpen] = useState<string | null>(null);
+  const [choice, setChoice] = useState<string | null>(null);
   const [toast, say] = useToast();
   const kinds = TABS[tab]!.kinds;
   const list = c.letters.filter((l) => !kinds || kinds.includes(l.kind));
@@ -25,7 +27,17 @@ export function Letters({ c, onBack, onNegotiate }: Props) {
   const openLetter = (x: Letter) => {
     x.read = true;
     commit();
+    setChoice(null);
     setOpen(x.id);
+  };
+  const ev = l?.action?.type === 'event' ? l.action : null;
+  const choices = ev && l && !l.done ? eventChoices(c, l.id) : [];
+  const choose = () => {
+    if (!l || !choice) return;
+    const msg = answerEvent(c, l.id, choice);
+    commit();
+    setChoice(null);
+    if (!l.done && msg) say(msg);
   };
   const yes = () => {
     if (!l?.action) return setOpen(null);
@@ -54,7 +66,7 @@ export function Letters({ c, onBack, onNegotiate }: Props) {
           <button key={x.id} className={!x.read ? 'c-ans on' : 'c-ans'} onClick={() => openLetter(x)}>
             <span className="c-rowsb"><span className="c-lab">{x.from}</span><span className="c-effs"><span className={KIND[x.kind][1]}>{w(KIND[x.kind][0])}</span><span className="c-hint">{fmtDay(x.day, 'dm')}</span></span></span>
             <b className="c-at">{x.subject}</b>
-            <span className="c-ad">{x.done ? `${x.done[0]!.toUpperCase()}${x.done.slice(1)}. ` : ''}{x.body[0]}</span>
+            <span className="c-ad">{x.picked ? `${x.picked}. ` : x.done ? `${x.done === 'expired' && x.kind === 'event' ? 'No answer' : `${x.done[0]!.toUpperCase()}${x.done.slice(1)}`}. ` : x.kind === 'event' ? 'Waiting on you. ' : ''}{x.body[0]}</span>
           </button>
         ))}
       </div>
@@ -72,10 +84,33 @@ export function Letters({ c, onBack, onNegotiate }: Props) {
             {l.body.map((p, i) => <span key={i} className="c-ad" style={{ fontSize: 15 }}>{p}</span>)}
             {l.terms && <div className="c-kv">{l.terms.map(([a, b]) => <span key={a} style={{ display: 'contents' }}><span className="c-lab">{w(a)}</span><span className="c-val">{b}</span></span>)}</div>}
             {l.note && <span className="c-note">{l.note}</span>}
-            {l.done && <span className="c-note">{l.done === 'accepted' ? 'You accepted this.' : l.done === 'declined' ? 'You turned this down.' : 'This has lapsed.'}</span>}
+            {ev && !l.done && (
+              <>
+                <span className="c-hint">{w('Your call')} · {w('answer by')} {fmtDay(ev.expires, 'dm')}</span>
+                {choices.map((o) => (
+                  <button key={o.id} className={o.blocked ? 'c-ans dis' : o.id === choice ? 'c-ans on' : 'c-ans'} disabled={!!o.blocked} onClick={() => setChoice(o.id)}>
+                    <b className="c-at">{o.label}</b>
+                    {(o.blocked || o.detail) && <span className={o.blocked ? 'c-ad c-why' : 'c-ad'}>{o.blocked ?? o.detail}</span>}
+                  </button>
+                ))}
+              </>
+            )}
+            {ev && l.done && (
+              <div className="c-ans on" style={{ cursor: 'default' }}>
+                <span className="c-lab">{l.picked ? w('You chose') : w('No answer')}</span>
+                {l.picked && <b className="c-at">{l.picked}</b>}
+                <span className="c-ad">{l.outcome ?? (l.done === 'expired' ? 'You didn’t answer in time. Nothing came of it.' : '')}</span>
+              </div>
+            )}
+            {!ev && l.done && <span className="c-note">{l.done === 'accepted' ? 'You accepted this.' : l.done === 'declined' ? 'You turned this down.' : 'This has lapsed.'}</span>}
           </div>
           <div className="c-nav">
-            {l.action && !l.done && offerOpen ? (
+            {ev && !l.done ? (
+              <>
+                <button className="c-b2" onClick={() => setOpen(null)}>{w('Later')}</button>
+                <button className="c-b1" disabled={!choice} onClick={choose}>{w('Choose ›')}</button>
+              </>
+            ) : l.action && !l.done && offerOpen ? (
               <>
                 <button className="c-b2" onClick={no}>{w('Decline')}</button>
                 <button className="c-b1" onClick={yes}>{l.action.type === 'negotiate' ? w('Negotiate ›') : w('Accept')}</button>
