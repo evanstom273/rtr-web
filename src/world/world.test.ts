@@ -59,15 +59,14 @@ describe('the world (shared database)', () => {
     expect(WRESTLERS.filter((x) => x.promotion !== 'TIS')).toHaveLength(400);
   });
 
-  it('ten promotions of 40 (the shipped indies signed up), and an indie scene of 100–200 generated for each world', () => {
+  it('ten promotions of 40 (the shipped indies signed up), and an indie scene of a straight 200 generated for each world', () => {
     const shipped = freshWorld(6).db.wrestlers;
     expect(shipped).toHaveLength(400);
     expect(shipped.filter((x) => x.promotion === 'TIS')).toHaveLength(0);
     for (const p of PROMOTIONS.filter((x) => !x.indie)) expect(shipped.filter((x) => x.promotion === p.initials), p.initials).toHaveLength(40);
     const a = setWorld(freshWorld(6));
     const indies = WRESTLERS.filter((x) => x.promotion === 'TIS');
-    expect(indies.length).toBeGreaterThanOrEqual(100);
-    expect(indies.length).toBeLessThanOrEqual(200);
+    expect(indies).toHaveLength(200);
     expect(a.indies!.generated).toBe(indies.length);
     // Every region has a scene, and the same world always gets the same one.
     for (const r of ['NORTH_AMERICA', 'SOUTH_AMERICA', 'EUROPE', 'ASIA', 'AFRICA', 'OCEANIA']) expect(indies.filter((x) => x.region === r).length, r).toBeGreaterThan(5);

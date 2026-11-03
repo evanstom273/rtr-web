@@ -8,10 +8,10 @@ import type { Career } from '../career/types';
 import { weekStart, type Day } from '../career/dates';
 import { emptyHistory, type WorldHistory } from './history';
 import { bookerOf, freshPeople, pairKey, type Bond, type People } from './people';
-import { crownIndies, populateIndies } from './populate';
+import { crownIndies, growIndies, populateIndies } from './populate';
 
 /** The world save's revision: each step in `upgrade` runs once, in order, on older saves. */
-export const WORLD_REV = 5;
+export const WORLD_REV = 6;
 
 export interface World {
   v: 1;
@@ -76,6 +76,8 @@ function upgrade(w: World): void {
     p.status ??= 'open';
     if (!p.by && p.promo !== 'TIS') p.by = bookerOf(w.people!, p.promo)?.id;
   }
+  // Rev 6: the indie scene is a straight 200 (Lyra's call), so an older one grows to it.
+  if (rev < 6 && w.indies) w.indies.generated += growIndies({ seed: w.seed, wrestlers: w.db.wrestlers, people: w.people, retired: (id) => !!w.career?.people[id]?.retired });
 }
 
 /**
@@ -103,8 +105,8 @@ export function addRegionalTitles(w: World): void {
 }
 
 /**
- * The indie scene (Lyra's call): a fresh world generates 100–200 indies, their brands and promoters,
- * and crowns its indie champions; a world played before the scene existed is topped up. Once per world.
+ * The indie scene (Lyra's call): a fresh world generates 200 indies, their brands and promoters,
+ * and crowns its indie champions; a world played before the scene existed is topped up to 200. Once per world.
  */
 export function ensurePopulation(w: World): void {
   if (w.indies) return;

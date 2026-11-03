@@ -41,6 +41,14 @@ const shippedIds = new Set(shippedById.keys());
 /** A shipped wrestler as the game ships them (read-only), for migrations. */
 export const shippedWrestler = (id: string): Readonly<Wrestler> | undefined => shippedById.get(id);
 
+/** Each promotion's share of women as the game ships it, so signings keep both divisions in shape. */
+const womenShare = new Map<string, number>();
+for (const p of new Set((wrestlersJson as Wrestler[]).map((w) => w.promotion))) {
+  const roster = (wrestlersJson as Wrestler[]).filter((w) => w.promotion === p);
+  womenShare.set(p, roster.filter((w) => w.gender === 'FEMALE').length / Math.max(1, roster.length));
+}
+export const shippedWomenShare = (promo: string): number => womenShare.get(promo) ?? 0.35;
+
 /** The promotions' bookers as the game ships them (a fresh copy). */
 export const shippedStaff = (): Staffer[] => structuredClone(bookersJson as Staffer[]);
 /** Ships with the game (so a fresh world has them); generated and created wrestlers don't. */

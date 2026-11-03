@@ -6,7 +6,7 @@ import { leanFrom, playerHas } from './leans';
 import { PROMOTIONS, TITLES, WRESTLERS, findWrestler, type Title, type Wrestler } from '../data/rtr';
 import { seededRng } from '../engine/rng';
 import { activeWorld } from '../world/world';
-import { available, bookChance, contenders, datesThisMonth, hashSeed, isIndieTitle, playerBookable, promoRegion, regionalEligible, regionalPop, setIndieRoll, titleMinGap, titleRegion } from './booker';
+import { available, bookChance, contenders, datesThisMonth, hashSeed, isIndieTitle, playerBookable, promoRegion, regionalEligible, regionalPop, setIndieRoll, showTitles, titleMinGap, titleRegion } from './booker';
 import { REGION_LABEL } from './places';
 import { letter, makeOffer, myBoutToday, person, promoName, setCareerHooks, spend } from './career';
 import { C } from './clauses';
@@ -814,7 +814,9 @@ export { PATIENCE_FLOOR, PATIENCE_START };
  * booking you on it, up to INDIE_PROMISE_ROLLS times. */
 function rollIndiePromise(c: Career, p: Pledge, show: Show): boolean {
   if ((p.rolls ?? 0) >= INDIE_PROMISE_ROLLS + promiseRollsBonus(showBooker(show))) return false;
-  const next = Object.values(c.shows).filter((s) => s.promo === 'TIS' && (show.brand ? s.brand === show.brand : s.name === show.name) && s.date > show.date && !s.card && !s.done)
+  // A title shot only rolls on to a night the title can be on (not a cup night, say).
+  const next = Object.values(c.shows).filter((s) => s.promo === 'TIS' && (show.brand ? s.brand === show.brand : s.name === show.name) && s.date > show.date && !s.card && !s.done
+    && (p.kind !== 'title' || showTitles(s).some((t) => t.id === p.title)))
     .sort((a, b) => (a.date < b.date ? -1 : 1)).find((s) => indieAllowed(c, s.date).ok);
   if (!next) return false;
   const mine = me(c);

@@ -106,9 +106,14 @@ export const START_CONTRACT_MONTHS_LEFT: [number, number] = [3, 18];
 export const RENEW_CHANCE_TOP = 0.7;
 export const RENEW_CHANCE_REST = 0.4;
 export const RELEASE_MONTHLY_BOTTOM = 0.01;
-export const ROSTER_MIN = 36;
-export const ROSTER_MAX = 44;
-export const ROSTER_SIGN_BELOW = 38;
+/**
+ * Rosters (Lyra's call): every major promotion aims for 38–40. Lose someone and they scout a
+ * replacement, signed after this many days; below the floor they sign straight away. Nobody signs or
+ * poaches past the target (your own signing can take a roster to 41).
+ */
+export const ROSTER_TARGET = 40;
+export const ROSTER_FLOOR = 38;
+export const ROSTER_SCOUT_DAYS: [number, number] = [7, 21];
 /** On expiry and not renewed: chance another promotion signs them straight away. */
 export const POACH_CHANCE = 0.5;
 export const ROOKIE_EVERY_DAYS = 21;
@@ -329,10 +334,10 @@ export const TRAIT_COUNTS_GENERATED = [0.45, 0.4, 0.15];
 /** No single trait is held by more than this share of the shipped roster. */
 export const TRAIT_PREVALENCE_CAP = 0.15;
 
-/** The indie scene: generated for every new world (Lyra's call), between these many wrestlers. */
-export const INDIE_GENERATED: [number, number] = [100, 200];
-/** A kept world is topped up to the minimum; above the maximum, idle unknowns drift out of the business. */
-export const INDIE_POOL_MIN = 120;
+/** The indie scene (Lyra's call): a straight 200 generated for every new world. */
+export const INDIE_GENERATED = 200;
+/** Kept at about 200: a kept world is topped up to it, and new faces debut when it's under; above the maximum, idle unknowns drift out of the business. */
+export const INDIE_POOL_MIN = 200;
 export const INDIE_POOL_MAX = 220;
 /** Generated indies: who they are. Share of the scene, age range and popularity in their home region. */
 export const INDIE_ARCHETYPES = {

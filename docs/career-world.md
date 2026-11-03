@@ -215,10 +215,10 @@ Lyra's calls set its shape:
 - **Every new world generates its own indie scene** (`world/populate.ts`).
 
 **The generated scene:**
-- **100–200 wrestlers**, built by the same rules as rookies and created wrestlers. Each is a prospect, journeyman or veteran, with a home region and country. Names and gimmicks come from `data/rtr/names.ts`; each gets traits.
+- **A straight 200 wrestlers** (Lyra's call), built by the same rules as rookies and created wrestlers. Each is a prospect, journeyman or veteran, with a home region and country. Names and gimmicks come from `data/rtr/names.ts`; each gets traits.
 - **Indie brands with named promoters.** Each brand runs a show about every 7–21 days, mostly at weekends. A region's brands are in proportion to its share of the scene, at least two everywhere.
 - **All 15 indie titles** go to the best generated indies when the world starts.
-- **Older saves:** a world played before the scene existed is topped up to 120 instead.
+- **Older saves:** a world played before the scene existed is topped up to 200. A scene from before the straight 200 grows to it (world rev 6), with new brands so the extra wrestlers have somewhere to work.
 
 **The calendar:**
 - Each week the brands most due a show run one.
@@ -231,16 +231,17 @@ Lyra's calls set its shape:
 **Who gets booked:**
 - Who's around for an indie show depends on how near they are: home 1, a region they've worked lately 0.5, next door 0.2, anywhere else 0.05. Champions are three times as likely to travel.
 - The promoter then picks by popularity, reputation and how they feel about the wrestler, less if they're tired.
+- Someone the promoter has promised you that night (the champion for a title shot, a challenge opponent) is always flown in.
 - There's no quota, so the least popular struggle for dates (Lyra's call). The tests still check that nobody available is ever locked out by a bug.
 - **At most two title matches on an indie card, one on a short card.** Promised shots go first, then the most overdue.
 
 **Promoters and promises:**
 - Indie promoters are people now. Their patience and memory of you go with them; older saves keep their show-name keys as they were.
-- Indie promises roll on to the same brand's next show.
+- Indie promises roll on to the same brand's next show. A title shot only rolls on to a night the title can be on (never a cup night).
 
 **Monthly upkeep:**
 - When the scene is over 220, idle unknowns (90 days without a match, popularity under 10) quietly leave the business.
-- When it's under 120, a few new faces debut.
+- When it's under 200, a few new faces debut (up to four a month).
 
 The `LONG=1` harness reports, each year:
 - indie dates a month (p10, median, p90);
@@ -248,14 +249,36 @@ The `LONG=1` harness reports, each year:
 - signed wrestlers' dates;
 - indie shows a week and by region.
 
-After the scene went in (3 seeds, a year):
+With the straight 200 (3 seeds, three years; the scene drifts up to about 230 as promotions release people):
 
-| Measure | Value |
-| --- | --- |
-| Indie dates a month | median 1.8–2.0, p10 0.6–0.8, p90 2.8–3.0 |
-| No match in 120 days | 1–2% overall; 4–8% of the least popular quarter |
-| Indie shows a week | median 7–9, never more than 10 |
-| Engine time a day | about 0.8 s (unchanged) |
+| Measure | Year 1 | Year 3 |
+| --- | --- | --- |
+| Indie dates a month | median 1.6–1.7, p10 0.7, p90 2.7–2.8 | median 1.3–1.4, p10 0.4, p90 2.5 |
+| No match in 120 days | 1% overall; 2–6% of the least popular quarter | 3–5% overall; 9–14% of the least popular quarter |
+| Indie shows a week | median 10 (at the cap), never more | the same |
+| Engine time a day | about 0.8–0.95 s median, 1.7 s p95 | |
+
+At 100–200 it was a median of 1.8–2.0 dates a month and 1–2% idle. Fewer dates each is the price of a
+bigger scene: the weekly cap of 10 shows doesn't move, so 200 wrestlers share the same slots.
+
+## Rosters (Lyra's call: 38–40)
+
+Every major promotion aims for 38–40 wrestlers (`career.ts: scoutRosters`, last thing every night):
+- **Someone leaves** (released, contract up, poached, retired) and the promotion goes scouting. The
+  replacement signs from the indie scene 7–21 days later (`ROSTER_SCOUT_DAYS`), one at a time, until
+  they're back to 40.
+- **Under 38** they sign straight away, back to 38, and carry on scouting to 40.
+- **Nobody signs or poaches past 40.** Your own signing can take a roster to 41.
+- **Like for like:** the division that's short against how the promotion ships gets the signing, so
+  neither the men's nor the women's division drains away. Within it, the best popularity in the
+  promotion's region. Indie champions aren't signed while they hold a belt.
+
+## Starting a career: the universe first (Lyra's call)
+
+When there's a career or a world that's been played, New career asks first: keep this world, or a
+fresh one. Then you pick or create your wrestler from that world, so the rosters you see are the ones
+you'll play. A fresh world is only a look until you start: back out and the world you had comes back
+exactly as it was, and nothing's saved until you begin.
 
 ## Regional indie titles
 

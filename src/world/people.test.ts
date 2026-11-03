@@ -4,6 +4,7 @@ import { startCareer } from '../career/index';
 import { bookerKey, movePatience, patienceOf } from '../career/patience';
 import { memoryOf, moveRelation, relLabel, relationOf, relationsList, remember, trust } from '../career/relations';
 import { WORLD_REV, activeWorld, freshWorld, setWorld } from './world';
+import { WRESTLERS } from '../data/rtr';
 import { bondOf, bookerOf, moveBond, pairKey, takeJob, leaveJob, type People } from './people';
 
 function begin(seed = 7) {
@@ -96,6 +97,31 @@ describe('people', () => {
     expect(bondOf(P, 'ray_hollis', 'jamie_mercer')!.mentor).toBe('ray_hollis');
     const once = JSON.stringify(saved);
     setWorld(saved);
+    expect(JSON.stringify(activeWorld())).toBe(once);
+  });
+
+  it('an older save: a smaller indie scene grows to 200, with brands enough to book them, and only once', () => {
+    const w = freshWorld(4);
+    setWorld(w);
+    const c = startCareer({ player: 'jamie_mercer', today: '2026-11-03', seed: 4 });
+    w.career = c;
+    // How a rev-5 save with a scene of 120 looked.
+    const old = structuredClone(w);
+    old.rev = 5;
+    const keep = new Set(old.db.wrestlers.filter((x) => x.promotion === 'TIS').slice(0, 120).map((x) => x.id));
+    old.db.wrestlers = old.db.wrestlers.filter((x) => x.promotion !== 'TIS' || keep.has(x.id) || old.db.titles.some((t) => t.holder === x.id));
+    const before = old.db.wrestlers.filter((x) => x.promotion === 'TIS').length;
+    for (const id of Object.keys(old.people!.brands).slice(8)) delete old.people!.brands[id];
+    setWorld(old);
+    expect(before).toBeLessThan(200);
+    expect(old.rev).toBe(WORLD_REV);
+    expect(WRESTLERS.filter((x) => x.promotion === 'TIS')).toHaveLength(200);
+    expect(new Set(WRESTLERS.map((x) => x.name)).size).toBe(WRESTLERS.length);
+    const brands = Object.values(old.people!.brands);
+    expect(brands.length).toBeGreaterThan(8);
+    for (const b of brands) expect(b.promoter, b.name).toBeTruthy();
+    const once = JSON.stringify(old);
+    setWorld(old);
     expect(JSON.stringify(activeWorld())).toBe(once);
   });
 });

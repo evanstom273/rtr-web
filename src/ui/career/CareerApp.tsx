@@ -1,9 +1,9 @@
-import { useCallback, useState } from 'react';
-import { WRESTLERS, databaseChanged, findWrestler, isShippedWrestler, type Wrestler } from '../../data/rtr';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { WRESTLERS, databaseChanged, type Wrestler } from '../../data/rtr';
 import { ctxFor, eventLibrary, finishDay, fire, makeOffer, makeSpecial, person, startCareer } from '../../career';
 import { todayReal } from '../../career/dates';
 import { runJobs } from '../../career/runner';
-import { activeWorld, resetCareer, resetWorld, saveWorld } from '../../world/world';
+import { activeWorld, freshWorld, resetCareer, saveWorld, setWorld, type World } from '../../world/world';
 import { useBackLayer } from '../backStack';
 import { Calendar } from './Calendar';
 import { Contract } from './Contract';
@@ -13,7 +13,7 @@ import { History } from './History';
 import { Letters } from './Letters';
 import { MovesetEditor } from './MovesetEditor';
 import { Negotiate } from './Negotiate';
-import { commit, useCareer } from './parts';
+import { commit, Head, Screen, useCareer, useWords } from './parts';
 import { Profile, type ProfileLink } from './Profile';
 import { Records } from './Records';
 import { Relationships } from './Relationships';
@@ -22,6 +22,7 @@ import { ShowDay } from './ShowDay';
 import { Start } from './Start';
 import { Stats } from './Stats';
 import { Training } from './Training';
+import { needsWorldChoice, WorldChoice } from './WorldChoice';
 import './career.css';
 import './career-app.css';
 
@@ -53,16 +54,47 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
   const home = useCallback(() => setStack(['cal']), []);
   useBackLayer(stack.length > 1, back);
 
-  const begin = async (player: string, extra: Wrestler | undefined, fresh: boolean) => {
-    // Fresh: the world as it ships, from today's real date. Kept: carry on where the world got to.
+  // The universe comes first (Lyra's call): keep this one, or a fresh one, and then pick someone from it.
+  // A fresh one is only a look until you start: back out and the world you had comes back as it was.
+  const { skin } = useWords();
+  const [universe, setUniverse] = useState<'keep' | 'fresh' | null>(null);
+  const kept = useRef<World | null>(null);
+  const hadCareer = !!(kept.current?.career ?? c);
+  const restore = useCallback(() => {
+    if (kept.current) {
+      setWorld(kept.current);
+      kept.current = null;
+      databaseChanged();
+    }
+    setUniverse(null);
+  }, []);
+  const choose = (fresh: boolean) => {
+    if (fresh) {
+      kept.current = structuredClone(activeWorld());
+      setWorld(freshWorld());
+      databaseChanged();
+    }
+    setUniverse(fresh ? 'fresh' : 'keep');
+  };
+  const leaveStart = () => {
+    restore();
+    if (stack.length > 1) back();
+    else onMenu();
+  };
+  // Anywhere else (the phone's back button, say), or out of career mode: put the world back.
+  const choosing = screen === 'start' || screen === 'create';
+  useEffect(() => { if (!choosing) restore(); }, [choosing, restore]);
+  useEffect(() => restore, [restore]);
+
+  const begin = async (player: string, extra?: Wrestler) => {
+    // Fresh: the world you've been looking at, from today's real date. Kept: carry on where the world got to.
+    const fresh = universe === 'fresh';
     if (!fresh && activeWorld().career) await resetCareer();
-    // Someone who doesn't ship with the game (a rookie, a generated indie) comes with you into a fresh world, as a free agent.
-    const old = fresh && !extra && !isShippedWrestler(player) ? findWrestler(player) : undefined;
-    const carried = old ? { ...structuredClone(old), promotion: 'TIS' } : undefined;
-    const world = fresh ? await resetWorld(Math.floor(Math.random() * 2 ** 31)) : activeWorld();
-    const join = extra ?? carried;
-    if (join) {
-      WRESTLERS.push(join);
+    const world = activeWorld();
+    kept.current = null;
+    setUniverse(null);
+    if (extra) {
+      WRESTLERS.push(extra);
       databaseChanged();
     }
     world.career = startCareer({
@@ -90,9 +122,20 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
     }
   };
 
-  if (screen === 'start') return <Start hasCareer={!!c} onBack={c ? back : onMenu} onPick={(id, fresh) => void begin(id, undefined, fresh)} onCreate={() => go('create')} />;
-  if (screen === 'create') return <Create hasCareer={!!c} onBack={back} onDone={(w, fresh) => void begin(w.id, w, fresh)} />;
-  if (!c) return <Start hasCareer={false} onBack={onMenu} onPick={(id, fresh) => void begin(id, undefined, fresh)} onCreate={() => go('create')} />;
+  const startScreen = (s: 'start' | 'create') => {
+    if (universe === null && needsWorldChoice(hadCareer)) {
+      return (
+        <Screen>
+          <Head title={skin === 'paper' ? 'A New Career' : 'NEW CAREER'} onBack={leaveStart} />
+          <WorldChoice hasCareer={hadCareer} onCancel={leaveStart} onGo={choose} />
+        </Screen>
+      );
+    }
+    if (s === 'create') return <Create hasCareer={hadCareer} onBack={back} onDone={(w) => void begin(w.id, w)} />;
+    return <Start hasCareer={hadCareer} fresh={universe === 'fresh'} onBack={leaveStart} onPick={(id) => void begin(id)} onCreate={() => go('create')} />;
+  };
+  if (screen === 'start' || screen === 'create') return startScreen(screen);
+  if (!c) return startScreen('start');
 
   if (typeof screen === 'object') {
     if ('negotiate' in screen) return <Negotiate c={c} offerId={screen.negotiate} onBack={back} onDone={home} />;

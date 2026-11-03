@@ -9,12 +9,11 @@ import {
 import { REGION_OF } from '../../career/places';
 import { MovesetEditor, type Kit } from './MovesetEditor';
 import { Screen, useWords } from './parts';
-import { needsWorldChoice, WorldChoice } from './WorldChoice';
 
 interface Props {
   hasCareer: boolean;
   onBack: () => void;
-  onDone: (w: Wrestler, fresh: boolean) => void;
+  onDone: (w: Wrestler) => void;
 }
 
 const COUNTRIES = [...new Set(WRESTLERS.map((w) => w.country))].filter((c) => c && c !== 'Other').sort();
@@ -48,7 +47,6 @@ export function Create({ hasCareer, onBack, onDone }: Props) {
   const [copyFrom, setCopyFrom] = useState<string | null>(null);
   const [custom, setCustom] = useState<Kit | null>(null);
   const [editing, setEditing] = useState(false);
-  const [confirm, setConfirm] = useState(false);
 
   const country = COUNTRIES[ci]!;
   const region = REGION_OF[country] ?? 'europe';
@@ -84,7 +82,7 @@ export function Create({ hasCareer, onBack, onDone }: Props) {
   };
   const next = () => {
     if (step === 2 && q < 4) return setQ(q + 1);
-    if (step === 4) return needsWorldChoice(hasCareer) ? setConfirm(true) : onDone(build(), false);
+    if (step === 4) return onDone(build());
     setStep(step + 1);
   };
   const back = () => {
@@ -280,7 +278,6 @@ export function Create({ hasCareer, onBack, onDone }: Props) {
         <button className="c-b2" onClick={back}>{step === 0 ? w('Tear it up', 'Cancel') : step === 2 && q > 0 ? w('‹ Last question', '‹ Previous') : w('‹ Previous page', '‹ Back')}</button>
         <button className="c-b1" onClick={next} disabled={step === 4 && !ready}>{step === 4 ? w('Go to press', 'Start career') : step === 2 && q < 4 ? w('Next question ›') : w('Turn the page ›', 'Next ›')}</button>
       </div>
-      {confirm && <WorldChoice hasCareer={hasCareer} onCancel={() => setConfirm(false)} onGo={(fresh) => onDone(build(), fresh)} />}
     </Screen>
   );
 }
