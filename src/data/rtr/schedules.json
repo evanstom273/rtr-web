@@ -76,5 +76,19 @@
         "every": "Saturday"
       }
     }
+  ],
+  "END": [
+    {
+      "name": "ENDEAVOUR: Chapter {n}",
+      "kind": "special",
+      "numbered": true,
+      "when": {
+        "irregular": {
+          "minGapDays": 21,
+          "maxGapDays": 49,
+          "day": "Sunday"
+        }
+      }
+    }
   ]
 }
