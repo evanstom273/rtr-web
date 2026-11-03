@@ -1,4 +1,5 @@
 // Negotiating contracts clause by clause, signing, pay reviews and getting out of a deal.
+import { leanFrom, playerHas } from './leans';
 import { WRESTLERS, findWrestler } from '../data/rtr';
 import { seededRng } from '../engine/rng';
 import { hashSeed, promoRegion, regionalPop } from './booker';
@@ -12,7 +13,7 @@ import { addEvent } from '../world/history';
 import {
   ATTITUDE_MULT, BUYOUT_SHARE, CLAUSE_COST, FEE_BASE, FEE_PER_POP, NEGO_ACCEPT, NEGO_COUNTER, NEGO_FORM_SWING, NEGO_GATE_POP_RESIST_T2,
   NEGO_GATE_POP_RESIST_T3, NEGO_GATE_REP_T3, NEGO_REGION_WEIGHT, NEGO_REP_SWING, NEGO_RIVAL_LIFT, NOTICE_DAYS, RELEASE_GRANT_ABOVE_MEDIAN,
-  RELEASE_GRANT_BELOW_MEDIAN, REP_ASK_RELEASE, SHOW_MULT, WAGE_MATCH_T2_MAX, WAGE_REVIEW_MONTHS, WAGE_REVIEW_POP_BAND,
+  RELEASE_GRANT_BELOW_MEDIAN, REP_ASK_RELEASE, SHOW_MULT, WAGE_MATCH_T2_MAX, WAGE_REVIEW_MONTHS, WAGE_REVIEW_POP_BAND, TRAIT_BACKSTAGE,
 } from './tuning';
 import type { Career, Contract, Offer } from './types';
 
@@ -31,8 +32,10 @@ export function willingness(c: Career, promo: string, excludeOffer?: string): nu
     const avg = last.reduce((t, m) => t + m.stars, 0) / last.length;
     base *= 1 + Math.max(-1, Math.min(1, (avg - 3) / 2)) * NEGO_FORM_SWING;
   }
+  // Personality: a Loyal wrestler re-signing is worth a little more to them; a Mercenary plays rival offers harder.
+  if (playerHas(c, 'loyal') && p.contract?.promo === promo) base *= TRAIT_BACKSTAGE.loyal.ownRenewal;
   const rival = c.offers.filter((o) => o.status === 'open' && o.promo !== promo && o.id !== excludeOffer).reduce((m, o) => Math.max(m, o.fee), 0);
-  return round5(Math.max(base, rival * NEGO_RIVAL_LIFT));
+  return round5(Math.max(base, rival * (playerHas(c, 'mercenary') ? TRAIT_BACKSTAGE.mercenary.rivalLift : NEGO_RIVAL_LIFT)));
 }
 
 export function clauseCost(promo: string, base: number, i: number, tier: number): number {
@@ -108,6 +111,9 @@ export function signOffer(c: Career, o: Offer): void {
   const k: Contract = { promo: o.promo, start, end: addMonths(start, o.months), fee: o.fee, clauses: [...o.clauses] };
   o.status = 'signed';
   for (const x of c.offers) if (x.status === 'open') x.status = 'declined';
+  // What it says about you: re-signing with them, or moving on for the money.
+  if (p.contract?.promo === o.promo) leanFrom(c, 'renewed');
+  else if (p.contract && o.fee >= p.contract.fee * 1.15) leanFrom(c, 'moved_for_money');
   const me = findWrestler(c.player)!;
   if (start <= c.today) {
     addEvent(activeWorld().history, { day: c.today, kind: me.promotion === 'TIS' ? 'signed' : 'poached', who: me.id, name: me.name, promo: o.promo, ...(me.promotion !== 'TIS' ? { from: me.promotion } : {}) });

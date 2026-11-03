@@ -1,4 +1,5 @@
 // Booker patience (Requests): one meter per promotion's booker and per indie promoter.
+import { patienceMult } from './leans';
 import { activeWorld } from '../world/world';
 import { bookerOf, isPromotionKey } from '../world/people';
 import { PATIENCE_PER_WEEK, PATIENCE_START } from './tuning';
@@ -46,6 +47,7 @@ export const patienceLog = (c: Career, key: string) => c.patience?.[bookerKey(ke
 
 export function movePatience(c: Career, key: string, d: number, why: string): void {
   if (!d) return;
+  d = Math.round(d * patienceMult(c, d) * 10) / 10;
   const p = ((c.patience ??= {})[bookerKey(key)] ??= { v: PATIENCE_START, log: [] });
   p.v = Math.max(0, Math.min(100, Math.round((p.v + d) * 10) / 10));
   p.log.unshift({ day: c.today, d, t: why });

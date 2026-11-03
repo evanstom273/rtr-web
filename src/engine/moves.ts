@@ -121,6 +121,7 @@ export function executeMove(ctx: Ctx, k: SideKey, move: Move, target?: TargetRes
   if (isFinisherMove(A, move) && !spendFinisher(A)) return false;
   // Last Man Standing: hitting another move instead of making the referee count waives it.
   if (S.obj.lmsFor === dk) S.obj.lmsFor = null;
+  if (isHighRisk(move)) A.stats.highTried++;
   crowdObserve(ctx, { type: 'move_attempt', k, move, signatureOrFinisher: isSignatureMove(A, move) || isFinisherMove(A, move), uses: (A.moveUseCounts[move.id] ?? 0) + 1 });
   advanceClock(ctx);
   ring(ctx, 'move_started', k, move.name);
@@ -346,7 +347,7 @@ function weaponAfterSwing(ctx: Ctx, k: SideKey, move: Move, result: ActionResult
     S.crowd.weaponHits++;
     crowdObserve(ctx, { type: 'spot', amount: 10 });
     maybeBleed(ctx, dk, w, move.impact, target.storyPart);
-    if (S.rules.dq && w.illegal && refSees(ctx, WEAPON_DETECTION, A.state.area)) {
+    if (S.rules.dq && w.illegal && refSees(ctx, WEAPON_DETECTION, A.state.area, k)) {
       disqualify(ctx, k, format(LINES.whatWeapon, { w: w.name.toLowerCase() }));
     }
   } else if (held.durability > 0) {

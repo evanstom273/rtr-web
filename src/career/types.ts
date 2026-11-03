@@ -2,6 +2,7 @@
 import type { FinishType, StipulationId } from '../engine/types';
 import type { Day } from './dates';
 import type { Gender } from '../data/rtr/types';
+import type { TraitId } from '../data/rtr/traits';
 
 export type ShowKind = 'weekly' | 'special' | 'flagship' | 'tour' | 'indie';
 /** Popularity keys (Wrestler['popularity'] minus global). */
@@ -135,6 +136,16 @@ export interface Person {
   retiring?: Day;
   /** Where they've worked lately (newest first): regional titles and who's around for indie shows. */
   circuit?: { r: PopRegion; d: Day }[];
+  /** Personality: the last time their traits changed; renewals in a row at one promotion; the days they changed promotion; a breakthrough or first title. */
+  traitAt?: Day;
+  renewals?: number;
+  moves?: Day[];
+  breakthrough?: Day;
+  /** You: points towards traits from how you've played, traits you've turned down (and when), the last offer, and the last one you bought. */
+  leanings?: Partial<Record<TraitId, number>>;
+  declined?: Partial<Record<TraitId, Day>>;
+  lastOfferAt?: Day;
+  boughtAt?: Day;
   /** Creative Control: the last time Protected Booking was used, and shows you've already asked about. */
   creativeUsed?: Day;
   creativeAsked?: string[];
@@ -219,8 +230,12 @@ export interface PlayerMatch {
   planned?: 'kept' | 'off-script' | 'botched' | 'upset' | null;
   fee: number;
   indie: boolean;
+  /** You played it (rather than letting the game sim it): only these say anything about your in-ring personality. */
+  played?: boolean;
   /** Totals from the engine's match stats. */
-  stats?: { movesTried: number; movesLanded: number; finTried: number; finHit: number; sigTried: number; sigHit: number; reversalTries: number; reversalWins: number; kickouts: number; pinTries: number };
+  stats?: { movesTried: number; movesLanded: number; finTried: number; finHit: number; sigTried: number; sigHit: number; reversalTries: number; reversalWins: number; kickouts: number; pinTries: number;
+    /** For personality: high-risk tries, taunts, dirty tactics, rests, kickouts after a finisher, holds. */
+    highTried?: number; taunts?: number; dirty?: number; rests?: number; fk?: number; holds?: number };
   move?: string;
 }
 

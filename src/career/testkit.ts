@@ -40,12 +40,12 @@ export function begin(player: string, seed = 7, today = '2026-11-03'): Career {
   return c;
 }
 
-/** Play out a day the way the game does: your match first (simmed here), then the world. */
-export async function day(c: Career, run: Runner = quick): Promise<void> {
+/** Play out a day the way the game does: your match first (as if you played it, unless `how` says simmed), then the world. */
+export async function day(c: Career, run: Runner = quick, how: 'played' | 'simmed' = 'played'): Promise<void> {
   const mine = myBoutToday(c);
   if (mine) {
     const [out] = await run([{ key: 'mine', seed: 1, you: mine.bout.a, them: mine.bout.b, rules: {} }]);
-    applyBout(c, mine.show, mine.index, out!, true);
+    applyBout(c, mine.show, mine.index, out!, true, how);
   }
   await finishDay(c, run);
 }

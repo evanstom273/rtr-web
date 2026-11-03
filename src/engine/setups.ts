@@ -144,6 +144,7 @@ export function executeSetup(ctx: Ctx, k: SideKey, id: SetupId, arg?: string): b
     A.catchBreathCooldownUntil = S.t + CATCH_BREATH_COOLDOWN_SECONDS;
     const recovered = recoverStamina(A, catchBreathRecovery(A));
     say(ctx, LINES.catchBreath, { a: k, vars: { n: String(Math.round(recovered)) } }, 'good');
+    A.stats.rests++;
     crowdObserve(ctx, { type: 'catch_breath' });
     ctx.ai[k].noteSetupExecuted('catch_breath', A);
     A.lastActionResult = 'SETUP_SUCCESS';
@@ -232,6 +233,7 @@ export function finishContestedSetup(ctx: Ctx, k: SideKey, id: SetupId, reversed
     if (isTaunt) {
       applySuccessfulTaunt(ctx, A);
       say(ctx, tauntLine(ctx, A, D), { a: k }, 'good');
+      A.stats.taunts++;
       crowdObserve(ctx, { type: 'taunt', k, charisma: A.w.stats.charisma });
     } else {
       noteSetupAction(A, id);

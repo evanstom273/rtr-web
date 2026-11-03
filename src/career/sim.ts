@@ -12,7 +12,8 @@ export interface SimJob {
   rules: Partial<MatchRulesConfig>;
 }
 
-export type StatLine = Pick<SideStats, 'movesTried' | 'movesLanded' | 'finTried' | 'finHit' | 'sigTried' | 'sigHit' | 'reversalTries' | 'reversalWins' | 'kickouts' | 'pinTries'>;
+export type StatLine = Pick<SideStats, 'movesTried' | 'movesLanded' | 'finTried' | 'finHit' | 'sigTried' | 'sigHit' | 'reversalTries' | 'reversalWins' | 'kickouts' | 'pinTries'>
+  & Partial<Pick<SideStats, 'highTried' | 'taunts' | 'dirty' | 'rests' | 'fk' | 'holds'>>;
 
 export interface SimOut {
   key: string;
@@ -27,6 +28,7 @@ export interface SimOut {
 const line = (s: SideStats): StatLine => ({
   movesTried: s.movesTried, movesLanded: s.movesLanded, finTried: s.finTried, finHit: s.finHit, sigTried: s.sigTried, sigHit: s.sigHit,
   reversalTries: s.reversalTries, reversalWins: s.reversalWins, kickouts: s.kickouts, pinTries: s.pinTries,
+  highTried: s.highTried, taunts: s.taunts, dirty: s.dirty, rests: s.rests, fk: s.fk, holds: s.holds,
 });
 
 /** The engine's own summary of a finished match. */

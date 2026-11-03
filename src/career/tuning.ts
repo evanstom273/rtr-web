@@ -380,3 +380,65 @@ export const INDIE_IDLE_LEAVE_POP = 10;
 export const INDIE_IDLE_LEAVE_MONTHLY = 0.03;
 /** Indie promoters' standing in the business when a world starts. */
 export const PROMOTER_REP: [number, number] = [25, 55];
+
+/**
+ * What each trait does, in numbers (section 15f/g). In-ring: `ai*` shift the AI's choices (simulated
+ * matches, and the AI side of yours); the rest apply to both sides, so they count in matches you play.
+ */
+export const TRAIT_FX = {
+  risk_taker: { aiHighRisk: 12, aiClimb: 10, legPenaltyShare: 0.5, highRiskDice: -1, heat: 1.2 },
+  methodical: { aiFocus: 10, aiBasic: 4, temperature: 0.5, wornDice: 1, wornBelow: 50 },
+  showboat: { aiTaunt: 18, tauntHeat: 1.5, tauntDice: 1, interruptedHeat: 2 },
+  aggressive: { aiStrike: 6, aiRest: -15, earlyDice: 1, earlyMoves: 8, stamina: 1.04 },
+  defensive: { counterDice: 1, aiRest: 10, aiHighRisk: -6, momentum: 0.95 },
+  resilient: { kickout: 6, window: 1.15, escape: 6, injury: 1.1 },
+  opportunist: { aiCover: 0.15, flash: 5, aiPinAfterReversal: 10 },
+  dirty_fighter: { aiDirty: 25, aiDistract: 20, seen: 0.8 },
+  big_match: { dice: 2, stars: 0.1 },
+  inconsistent: { form: [-2, -1, 0, 1, 2], weights: [0.15, 0.2, 0.3, 0.2, 0.15], temperature: 2.5 },
+  submission_specialist: { aiHold: 10, pressure: 8, holdDamage: 1.2, tapHp: 50, tapCondition: 55 },
+  crowd_pleaser: { heat: 1.15, popPerMatch: 0.2, merch: 1.1 },
+  hot_headed: { aiStrike: 4, aiRest: -8, aiDirty: 8 },
+  unpredictable: { temperature: 2.5 },
+  reliable: { injury: 0.9 },
+} as const;
+
+/** Backstage traits (section 15g): contracts, plans, patience, relationships, mentorship. */
+export const TRAIT_BACKSTAGE = {
+  loyal: { renew: 0.15, poach: 0.5, ownRenewal: 1.05, caught: 1.5 },
+  mercenary: { renew: -0.15, poach: 1.5, rivalLift: 1.1, trustGain: 0.8 },
+  ambitious: { contender: 6, leave: 0.25, titleAsk: 5, refused: -3 },
+  professional: { retries: 1, followedPlan: 1.5, keptTrust: 1 },
+  rebellious: { retries: -2, offScriptPop: 1.5 },
+  politician: { favourTrust: 2, patienceGain: 1.25 },
+  team_player: { retriesLosing: 1, tookCounter: 2, relationGain: 1.25 },
+  egotistical: { retriesLosing: -1, contender: 4, titleAsk: 5, relationGain: 0.75, patienceLoss: 1.2 },
+  mentor: { minAge: 30, protegeMaxAge: 25, monthly: 0.3, gain: 1, max: 4, eventMult: 2 },
+  hot_headed: { patienceLoss: 1.25, eventMult: 2 },
+  reliable: { trustStart: 5, datesPerPatience: 5 },
+  unpredictable: { askJitter: 8 },
+} as const;
+
+/** Getting traits (Lyra's calls: always confirmed, about 1–2 a year at most, a declined one doesn't come back for a year). */
+export const TRAIT_PRICE = 12000;
+export const TRAIT_PRICE_PREMIUM = 15000;
+export const TRAIT_BUY_COOLDOWN = 90;
+export const TRAIT_OFFER_AT = 100;
+/** The bar rises with each trait you hold: 100, 150, 200, 250. */
+export const TRAIT_OFFER_PER_HELD = 0.5;
+export const TRAIT_LEAN_DECAY = 0.85;
+export const TRAIT_LEAN_CAP = 300;
+export const TRAIT_OFFER_GAP_DAYS = 180;
+export const TRAIT_DECLINE_COOLDOWN = 365;
+export const TRAIT_OFFER_EXPIRES = 10;
+/** AI personalities change slowly, from what happens to them: about 1 in 6 checked a month, a change at most once a year. */
+export const TRAIT_DRIFT_CHECK = 1 / 4;
+export const TRAIT_DRIFT_MIN_DAYS = 365;
+export const TRAIT_DRIFT = {
+  ageMethodical: { age: 33, p: 0.25 },
+  ageMentor: { age: 34, p: 0.15 },
+  loyalRenewals: { n: 2, p: 0.2 },
+  mercenaryMoves: { n: 2, days: 1095, p: 0.2 },
+  egoReign: { days: 365, p: 0.15 },
+  youngStar: { age: 24, days: 60, p: 0.15 },
+};

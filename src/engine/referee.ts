@@ -1,6 +1,8 @@
 // The referee's eyes (MatchRefereeState), disqualifications and the rule-breaking catalogue
 // (MatchRulebreakingCatalogue). In a match with DQs a spotted weapon shot is an instant DQ; dirty
 // tactics earn warning points and four points is a DQ. Without DQs the referee only admonishes.
+import { TRAIT_FX as FX } from '../career/tuning';
+import { has } from './traits';
 import { LINES } from '../data/commentary';
 import type { Ctx } from './ctx';
 import { flash, other, say } from './commentary';
@@ -43,7 +45,9 @@ export function detectionChance(ctx: Ctx, base: number, area: Area): number {
   return clamp(base * REF_AWARENESS * quality * attention * zone, 0.05, 0.98);
 }
 
-export const refSees = (ctx: Ctx, base: number, area: Area): boolean => ctx.rnd() < detectionChance(ctx, base, area);
+/** Does the referee see it? A Dirty Fighter (the offender) gets away with more. */
+export const refSees = (ctx: Ctx, base: number, area: Area, offender?: SideKey): boolean =>
+  ctx.rnd() < detectionChance(ctx, base, area) * (offender && has(ctx.S[offender], 'dirty_fighter') ? FX.dirty_fighter.seen : 1);
 
 /** After every action: the referee follows the fight and gets their attention back. */
 export function refereeAfterAction(ctx: Ctx): void {

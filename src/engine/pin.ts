@@ -1,5 +1,7 @@
 // Pinfalls. Port of start_pin_sequence, _build_pin_context, _pin_pressure_and_resistance,
 // resolve_pin_count, the player's hold-release kickout and Resiliency.
+import { TRAIT_FX as FX } from '../career/tuning';
+import { has } from './traits';
 import { COUNT_PHRASE, LINES } from '../data/commentary';
 import { observePhase, advanceClock } from './clock';
 import type { Ctx } from './ctx';
@@ -60,11 +62,13 @@ function pinContextBase(S: MatchState, k: SideKey, embedded: boolean): PinContex
 
 function buildPinContext(ctx: Ctx, k: SideKey, embedded: boolean): PinContext {
   const pc = pinContextBase(ctx.S, k, embedded);
-  pc.flashSuccess = pc.flashQualified && ctx.rnd() * 100 < flashFinishChance(ctx.S.t);
+  pc.flashSuccess = pc.flashQualified && ctx.rnd() * 100 < flashFinishChance(ctx.S.t) + flashEdge(ctx.S[k]);
   return pc;
 }
 
 const AI_KICKOUT_BASES = [32, 22, 12];
+/** Opportunists catch people more often with a flash pin. */
+const flashEdge = (A: Side) => (has(A, 'opportunist') ? FX.opportunist.flash : 0);
 
 /** Chance (0–100) the AI stays down for three when k covers it now, before any Resiliency. */
 export function pinOdds(S: MatchState, k: SideKey, embedded: boolean): number {
@@ -74,7 +78,7 @@ export function pinOdds(S: MatchState, k: SideKey, embedded: boolean): number {
     return p * (1 - pinProfile(b, pressure, resistance, i + 1, D).aiChance / 100);
   }, 1);
   if (!base.flashQualified) return stays(base) * 100;
-  const f = flashFinishChance(S.t) / 100;
+  const f = (flashFinishChance(S.t) + flashEdge(S[k])) / 100;
   return (f * stays({ ...base, flashSuccess: true }) + (1 - f) * stays(base)) * 100;
 }
 
@@ -188,6 +192,7 @@ export function completeKickout(ctx: Ctx, k: SideKey, count: KickoutCount): void
     if (count === 2) say(ctx, LINES.nearlyHadIt, { a: k }, 'dim');
     observePhase(ctx, 'kickout');
   }
+  if (count >= 2 && pc?.lastMoveWasFinisher) S[dk].stats.fk++;
   crowdObserve(ctx, {
     type: 'kickout', k: dk, count,
     afterFinisher: !!pc?.lastMoveWasFinisher,

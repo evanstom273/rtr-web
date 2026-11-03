@@ -1,4 +1,5 @@
 // The AI bookers: who wrestles on each card, title defences, feuds and planned finishes.
+import { contenderLean } from './leans';
 import { PROMOTIONS, TITLES, findWrestler, type Title, type Wrestler } from '../data/rtr';
 import type { StipulationId } from '../engine/types';
 import { hashSeed, seededRng, type Rng } from '../engine/rng';
@@ -190,7 +191,7 @@ export function contenders(c: Career, title: Title, pool: Wrestler[], region: Po
   const score = (w: Wrestler) => {
     const p = c.people[w.id]!;
     const form = (p.recent ?? []).reduce((a, b) => a + b, 0);
-    let s = regionalPop(w, home ?? region) + form * 4 + (home ? regionalDates(c, w.id, home, day) * REGIONAL_CONTENDER_PER_DATE : 0);
+    let s = regionalPop(w, home ?? region) + form * 4 + (home ? regionalDates(c, w.id, home, day) * REGIONAL_CONTENDER_PER_DATE : 0) + (w.id === c.player ? 0 : contenderLean(w));
     const tier = w.id === c.player ? p.contract?.clauses[5] ?? 0 : 0;
     if (tier >= 1) s += CONTENDER_T1_BONUS;
     if (p.contract?.titleShotBy) s += 100;

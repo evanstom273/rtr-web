@@ -4,6 +4,7 @@
 // (friend, rival, mentor, protégé) that events and matches give it. Promoters: each booker (a
 // promotion's, or each indie promoter, by show name) remembers how you've worked for them, and that
 // memory sets how much they trust you. Patience is short-term (requests); trust is the long memory.
+import { playerHas, relationMult } from './leans';
 import { findWrestler } from '../data/rtr';
 import { activeWorld } from '../world/world';
 import { bondOf, bondsOf, freshPeople, moveBond, type Bond, type BondKind, type People } from '../world/people';
@@ -12,7 +13,7 @@ import type { Day } from './dates';
 import { bookerKey, showBooker } from './patience';
 import {
   REL_FEUD, REL_FRIEND_AT, REL_GREAT_MATCH, REL_OFF_SCRIPT_ON, REL_RIVAL_AT, TRUST_BOTCHED, TRUST_FAVOUR, TRUST_GOOD, TRUST_KEPT, TRUST_NO_SHOW,
-  TRUST_OFF_SCRIPT, TRUST_SNUB, TRUST_START,
+  TRAIT_BACKSTAGE, TRUST_OFF_SCRIPT, TRUST_SNUB, TRUST_START,
 } from './tuning';
 import type { Bout, BookerMemory, Career, PlayerMatch, RelKind, Relation, Show } from './types';
 
@@ -40,6 +41,7 @@ export const affinity = (c: Career, id: string): number => bondOf(people(), c.pl
 export function moveRelation(c: Career, id: string, d: number, why: string, kind?: RelKind): Relation | undefined {
   if (!id || id === c.player || !findWrestler(id)) return undefined;
   const k: BondKind | undefined = kind === 'protege' ? 'mentor' : kind;
+  d = Math.round(d * relationMult(c, d));
   const b = moveBond(people(), c.player, id, d, why, c.today, k, kind === 'mentor' ? id : kind === 'protege' ? c.player : undefined);
   return asRelation(b, id);
 }
@@ -80,8 +82,13 @@ export function remember(c: Career, key: string, field: keyof Omit<BookerMemory,
  */
 export function trust(c: Career, key: string): number {
   const m = c.bookers?.[bookerKey(key)];
-  if (!m) return TRUST_START;
-  const t = TRUST_START + m.kept * TRUST_KEPT + m.good * TRUST_GOOD + m.favours * TRUST_FAVOUR
+  if (!m) return TRUST_START + (playerHas(c, 'reliable') ? TRAIT_BACKSTAGE.reliable.trustStart : 0);
+  // Your personality: Reliable starts a step ahead, Professional's kept plans count more, a Politician's
+  // favours count double, and trust in a Mercenary builds more slowly.
+  const kept = TRUST_KEPT + (playerHas(c, 'professional') ? TRAIT_BACKSTAGE.professional.keptTrust : 0);
+  const favour = TRUST_FAVOUR * (playerHas(c, 'politician') ? TRAIT_BACKSTAGE.politician.favourTrust : 1);
+  const gains = (m.kept * kept + m.good * TRUST_GOOD + m.favours * favour) * (playerHas(c, 'mercenary') ? TRAIT_BACKSTAGE.mercenary.trustGain : 1);
+  const t = TRUST_START + (playerHas(c, 'reliable') ? TRAIT_BACKSTAGE.reliable.trustStart : 0) + gains
     + m.offScript * TRUST_OFF_SCRIPT + m.noShows * TRUST_NO_SHOW + m.botched * TRUST_BOTCHED + m.snubs * TRUST_SNUB;
   return Math.max(0, Math.min(100, Math.round(t)));
 }
