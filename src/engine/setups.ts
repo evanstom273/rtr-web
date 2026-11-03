@@ -24,6 +24,11 @@ import type { MatchState, SetupId, Side, SideKey } from './types';
 
 export const TAUNT_COOLDOWN_SECONDS = 120;
 
+/** Actions that leave everyone where they are: on their own they can't get a stalled wrestler going again. */
+const GOES_NOWHERE: ReadonlySet<SetupId> = new Set<SetupId>([
+  'taunt', 'catch_breath', 'eye_rake', 'hair_pull', 'closed_fist', 'illegal_choke', 'distract_referee', 'remove_turnbuckle_pad', 'exposed_turnbuckle',
+]);
+
 /** get_valid_setup_actions: recoveries, taunt/breath when eligible, and first steps toward a real follow-up. */
 export function validSetups(S: MatchState, k: SideKey): SetupId[] {
   const A = S[k], D = S[other(k)];
@@ -46,7 +51,10 @@ export function validSetups(S: MatchState, k: SideKey): SetupId[] {
     out.push('wait_for_count');
   }
   for (const id of extraSetups(S, k)) if (!out.includes(id)) out.push(id);
-  if (!out.length) out.push('reset_stance');
+  // The safety net: nothing to hit and nothing that changes where anyone stands (only showboating,
+  // cheating, or catching a breath) is a dead end, however many of those there are. Without this a
+  // wrestler with no moves could cheat and taunt forever and the fallback never came up.
+  if (!out.some((id) => !GOES_NOWHERE.has(id)) && !validMoves(S, k).length) out.push('reset_stance');
   return out;
 }
 
@@ -56,7 +64,7 @@ export function objectiveReady(S: MatchState, kind: 'LADDER' | 'TABLE'): boolean
 }
 
 /** Getting up, or steadying yourself, when there's nothing else you could do: done for the player automatically. */
-const SELF_RECOVERIES: readonly SetupId[] = ['stand_up', 'regain_footing', 'regain_composure'];
+const SELF_RECOVERIES: readonly SetupId[] = ['stand_up', 'regain_footing', 'regain_composure', 'turn_around'];
 export function autoRecovery(S: MatchState): SetupId | null {
   if (validMoves(S, 'you').length) return null;
   const setups = validSetups(S, 'you');
@@ -82,7 +90,7 @@ export function setupTitle(s: Side, id: SetupId): string {
   return id === 'taunt' ? tauntTitle(s.state.area) : SETUP_TEXT[id].title;
 }
 
-const DELAYABLE: ReadonlySet<SetupId> = new Set<SetupId>(['stand_up', 'stop_running', 'regain_footing', 'regain_composure']);
+const DELAYABLE: ReadonlySet<SetupId> = new Set<SetupId>(['stand_up', 'stop_running', 'regain_footing', 'regain_composure', 'turn_around']);
 
 export function executeSetup(ctx: Ctx, k: SideKey, id: SetupId, arg?: string): boolean {
   const S = ctx.S, A = S[k], dk = other(k), D = S[dk];

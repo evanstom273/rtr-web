@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { canConvert, convertSignature, finishMove, limbLock, moveIsValid, submissionAreaOk, SUCCESSFUL_MOVE_MOMENTUM, tierLock } from '../moves';
 import { applyRead } from '../contest';
 import { readFor, READ_BONUS, WRONG_READ } from '../reads';
-import { autoRecovery } from '../setups';
+import { autoRecovery, validSetups } from '../setups';
 import type { ContestSpec } from '../types';
 import { MOVES, WRESTLERS, getMove } from '../../data/rtr';
 import { exhaustionBand, moveDemand, staminaCostMultiplier } from '../exhaustion';
@@ -390,5 +390,22 @@ describe('reads, counters and momentum tiers', () => {
     S.you.state = { position: 'GROUNDED', orientation: 'FACE_UP', area: 'IN_RING', motion: 'STATIONARY' };
     S.them.state = { position: 'STANDING', orientation: 'FRONT', area: 'IN_RING', motion: 'STATIONARY' };
     expect(autoRecovery(S)).toBe('stand_up');
+  });
+});
+
+describe('dead ends', () => {
+  // Kofi Asante v Empress Wu: Wu took over with her back turned, had no moves, and only ever had
+  // taunts and cheating on offer, so the reset fallback never came up. She cheated for 15 minutes.
+  it('a wrestler with their back turned can turn round, and never gets stuck cheating', () => {
+    const e = new MatchEngine({ you: 'kofi_asante', them: 'empress_wu', seed: 1 });
+    const S = e.state as MatchState;
+    S.them.state = { position: 'STANDING', orientation: 'BACK', area: 'IN_RING', motion: 'STATIONARY' };
+    S.you.state = { position: 'SEATED', orientation: 'FRONT', area: 'IN_RING', motion: 'STATIONARY' };
+    const setups = validSetups(S, 'them');
+    expect(setups).toContain('turn_around');
+    // And for the player it happens on its own.
+    S.you.state = { ...S.them.state };
+    S.them.state = { position: 'SEATED', orientation: 'FRONT', area: 'IN_RING', motion: 'STATIONARY' };
+    expect(autoRecovery(S)).toBe('turn_around');
   });
 });

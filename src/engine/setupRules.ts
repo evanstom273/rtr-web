@@ -54,6 +54,8 @@ export function candidateActions(actor: Snapshot, target: Snapshot): SetupId[] {
   if (am === 'RUNNING') add('stop_running');
   if (am === 'ROPE_REBOUND') add('regain_footing');
   if (TRANSIENT_MOTIONS.includes(am)) add('regain_composure');
+  // Back turned (someone got behind you, then you took over): nothing works until you face them.
+  if (ap === 'STANDING' && ao === 'BACK') add('turn_around');
   if (tm === 'RISING') add('press_advantage');
   if (aa === 'CORNER') add('leave_corner');
   if (aa === 'TOP_ROPE') add('climb_down');
@@ -130,6 +132,7 @@ export function projectAction(id: SetupId, attacker: Snapshot, target: Snapshot)
   switch (id) {
     case 'stand_up': set(a, 'STANDING', 'FRONT', a.area, 'STATIONARY'); break;
     case 'stop_running': case 'regain_footing': case 'regain_composure': a.motion = 'STATIONARY'; break;
+    case 'turn_around': a.orientation = 'FRONT'; break;
     case 'press_advantage': t.motion = 'STATIONARY'; break;
     case 'leave_corner': case 'climb_down': case 'return_to_ring': case 'leave_ropes': set(a, 'STANDING', 'FRONT', 'IN_RING', 'STATIONARY'); break;
     case 'start_running': set(a, 'STANDING', 'FRONT', a.area, 'RUNNING'); break;
@@ -185,7 +188,7 @@ const CONTESTED: ReadonlySet<SetupId> = new Set<SetupId>([
 ]);
 
 const RECOVERY: ReadonlySet<SetupId> = new Set<SetupId>([
-  'stand_up', 'stop_running', 'regain_footing', 'regain_composure', 'press_advantage', 'leave_corner', 'climb_down',
+  'stand_up', 'stop_running', 'regain_footing', 'regain_composure', 'turn_around', 'press_advantage', 'leave_corner', 'climb_down',
   'return_to_ring', 'leave_ropes', 'return_from_ramp', 'bring_match_back_to_ring', 'pull_opponent_from_corner',
   'pull_opponent_from_ropes', 'bring_opponent_into_ring', 'catch_opponent_running', 'reset_stance',
 ]);

@@ -323,7 +323,7 @@ export class AiBrain {
   }
   private bestRecovery(cs: Candidate[]): Candidate {
     const priority: SetupId[] = [
-      'stand_up', 'regain_composure', 'press_advantage', 'regain_footing', 'leave_corner', 'leave_ropes', 'return_to_ring',
+      'stand_up', 'regain_composure', 'turn_around', 'press_advantage', 'regain_footing', 'leave_corner', 'leave_ropes', 'return_to_ring',
       'return_from_ramp', 'pull_opponent_from_corner', 'pull_opponent_from_ropes', 'bring_opponent_into_ring',
       'catch_opponent_running', 'bring_match_back_to_ring', 'climb_down', 'stop_running', 'reset_stance',
     ];
@@ -650,7 +650,7 @@ export class AiBrain {
   }
 
   private isMandatoryRecovery(id: SetupId, moves: Move[]): boolean {
-    if (id === 'stand_up' || id === 'regain_footing' || id === 'regain_composure' || id === 'press_advantage' || id === 'reset_stance') return true;
+    if (id === 'stand_up' || id === 'regain_footing' || id === 'regain_composure' || id === 'turn_around' || id === 'press_advantage' || id === 'reset_stance') return true;
     return isRecovery(id) ? !moves.length : false;
   }
 
@@ -940,6 +940,8 @@ function specialStateRecovery(S: MatchState, k: SideKey, moves: Move[], setups: 
   if (ap.motion === 'RUNNING' && has('stop_running')) return 'stop_running';
   if (ap.motion === 'ROPE_REBOUND' && has('regain_footing')) return 'regain_footing';
   if (ap.motion === 'RISING' && has('regain_composure')) return 'regain_composure';
+  if (ap.orientation === 'BACK' && has('turn_around')) return 'turn_around';
+  if (has('reset_stance')) return 'reset_stance';
   if (dp.motion === 'RISING' && has('press_advantage')) return 'press_advantage';
   if ((dp.motion === 'RUNNING' || dp.motion === 'ROPE_REBOUND') && has('catch_opponent_running')) return 'catch_opponent_running';
   if (dp.area === 'CORNER' && has('pull_opponent_from_corner')) return 'pull_opponent_from_corner';

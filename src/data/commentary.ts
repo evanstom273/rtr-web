@@ -155,6 +155,7 @@ const SETUP_LOG: Partial<Record<SetupId, string>> = {
   leave_corner: '{a} steps out of the corner.',
   regain_footing: '{a} comes off the ropes and regains their footing.',
   regain_composure: '{a} takes a moment to regain their composure.',
+  turn_around: '{a} turns back round to face {d}.',
   press_advantage: '{a} closes in as {d} steadies themselves.',
   step_to_ropes: '{a} steps onto the ropes and measures the distance to the floor.',
   leave_ropes: '{a} steps away from the ropes and returns inside.',
@@ -234,6 +235,7 @@ export const SETUP_TEXT: Record<SetupId, SetupText> = {
   stop_running: { title: 'STOP RUNNING / RESET STANCE', description: 'Slow down without leaving the current area.' },
   regain_footing: { title: 'REGAIN FOOTING', description: 'Recover from the forced rope rebound.' },
   regain_composure: { title: 'REGAIN COMPOSURE', description: 'Shake off the transient motion state.' },
+  turn_around: { title: 'TURN AROUND', description: 'Back turned: face your opponent again.' },
   press_advantage: { title: 'CLOSE IN ON OPPONENT', description: 'Use one action while the opponent finishes rising.' },
   climb_top_rope: { title: 'CLIMB TOP ROPE', description: 'Perch on the top rope for an aerial attack.' },
   climb_down: { title: 'CLIMB DOWN', description: 'Return to a standing in-ring position.' },
@@ -351,7 +353,7 @@ export function setupGroup(id: SetupId): SetupGroup {
       return 'RING POSITION';
     case 'taunt': case 'catch_breath':
       return 'SHOWBOAT';
-    case 'stand_up': case 'stop_running': case 'regain_footing': case 'regain_composure': case 'leave_corner':
+    case 'stand_up': case 'stop_running': case 'regain_footing': case 'regain_composure': case 'turn_around': case 'leave_corner':
     case 'climb_down': case 'return_to_ring': case 'leave_ropes': case 'bring_match_back_to_ring': case 'reset_stance':
       return 'RECOVERY';
     default:
