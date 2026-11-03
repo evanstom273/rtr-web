@@ -302,7 +302,7 @@
           "sameDayAllowed": true
         }
       },
-      "notes": "Not an employer: a worldwide pool of one-off bookings. Names come from src/career/indieEvents.ts. A wrestler can't be booked on two shows the same day."
+      "notes": "Not an employer: TIS is where a wrestler is when they're not signed anywhere. Released wrestlers go here; the wrestlers listed under TIS at the start are the opening free agents. A worldwide pool of one-off bookings; names come from src/career/indieEvents.ts. A wrestler can't be booked on two shows the same day. The three TIS titles (World Independent Championship, Independent Women's Grand Prix, Open-Challenge Title) stay: held by free agents and defended on indie shows."
     }
   ],
   "joint": [
