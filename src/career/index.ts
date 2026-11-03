@@ -6,6 +6,7 @@ import './events';
 import './eventLibrary';
 import './specials';
 import './worldEvents';
+import './indieScene';
 
 export * from './career';
 export * from './contracts';

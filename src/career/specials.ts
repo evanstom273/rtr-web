@@ -9,7 +9,7 @@ import { addEvent } from '../world/history';
 import { hashSeed } from './booker';
 import { letter, person, setCareerHooks, spend } from './career';
 import { C } from './clauses';
-import { addDays, daysBetween, fmtDay, type Day } from './dates';
+import { addDays, daysBetween, fmtDay, weekStart, type Day } from './dates';
 import { indieFee, travelCost } from './economy';
 import { type EvCtx, type EvData, type EventDef, type FollowDef, ctxFor, fire, fx, homeRegion, join, money, registerEvents, round5 } from './events';
 import { indieAllowed, joinIndie } from './offers';
@@ -19,7 +19,7 @@ import { indieTitleShow } from './requests';
 import { roundName, tourneyPairs } from './tourney';
 import {
   BENEFIT_MIN_INJURY_DAYS, BENEFIT_MIN_POP, CHARITY_REP_FREE, CUP_SHOT_DAYS, CHARITY_REP_PAID, CUP_PRIZE_MULT, CUP_ROUND_GAP, CUP_WIN_POP, CUP_WIN_REP,
-  INDIE_T1_APPROVAL, SPECIAL_DAILY, SPECIAL_GAP, SPECIAL_LEAD, SPECIAL_MIN_GAP, TRIBUTE_MIN_POP,
+  INDIE_SHOWS_MAX_WEEK, INDIE_T1_APPROVAL, SPECIAL_DAILY, SPECIAL_GAP, SPECIAL_LEAD, SPECIAL_MIN_GAP, TRIBUTE_MIN_POP,
 } from './tuning';
 import type { Career, PopRegion, Show, SpecialKind, Tourney } from './types';
 
@@ -38,8 +38,45 @@ function venue(rnd: Rng, where: { country?: string; region?: PopRegion }): { cit
 
 function addShow(c: Career, s: Omit<Show, 'id' | 'card' | 'done'>): Show {
   const show: Show = { id: `sp${++c.seq}`, card: null, done: false, ...s };
+  // An indie one-off is put on by a local brand (its promoter books it): the same country if there's one.
+  if (show.promo === 'TIS' && !show.promos && !show.brand) {
+    const brands = Object.values(activeWorld().people?.brands ?? {}).filter((b) => !b.closed && b.region === show.region);
+    const here = brands.filter((b) => b.country === show.country);
+    const pickFrom = here.length ? here : brands;
+    if (pickFrom.length) show.brand = pickFrom[hashSeed(c.seed, show.id) % pickFrom.length]!.id;
+  }
   c.shows[show.id] = show;
   return show;
+}
+
+const indieWeek = (c: Career, ws: Day) => Object.values(c.shows).filter((s) => s.promo === 'TIS' && !s.promos && weekStart(s.date) === ws);
+/** A regular indie show in that week a one-off could take the place of: not drawn up, nobody's counting on it. */
+function spareIn(c: Career, ws: Day, region: PopRegion): Show | undefined {
+  return indieWeek(c, ws).filter((s) => !s.special && !s.card && !s.done && s.date > c.today && !c.indie[s.id] && !c.asked?.[s.id] && !(c.pledges ?? []).some((p) => p.show === s.id))
+    .sort((a, b) => Number(b.region === region) - Number(a.region === region) || (a.date < b.date ? -1 : 1))[0];
+}
+const roomIn = (c: Career, ws: Day, region: PopRegion) => indieWeek(c, ws).length < INDIE_SHOWS_MAX_WEEK || !!spareIn(c, ws, region);
+/** Make room in a week: if it's full, the spare regular show gives way to the one-off. */
+function makeRoom(c: Career, ws: Day, region: PopRegion): void {
+  if (indieWeek(c, ws).length < INDIE_SHOWS_MAX_WEEK) return;
+  const spare = spareIn(c, ws, region);
+  if (spare) delete c.shows[spare.id];
+}
+
+/**
+ * Lyra's call: never more than INDIE_SHOWS_MAX_WEEK indie shows in a calendar week, one-offs and cups
+ * included. The first date from `date` (a week later each time) where every night in `offsets` fits:
+ * a full week gives up a regular show; if it can't, the one-off moves on a week.
+ */
+export function indieDates(c: Career, date: Day, region: PopRegion, offsets: number[] = [0]): Day[] | null {
+  for (let wk = 0; wk < 12; wk++) {
+    const d0 = addDays(date, wk * 7);
+    const days = offsets.map((o) => addDays(d0, o));
+    if (!days.every((d) => roomIn(c, weekStart(d), region))) continue;
+    for (const d of days) makeRoom(c, weekStart(d), region);
+    return days;
+  }
+  return null;
 }
 
 /** Your region, more often than not: the one-offs you'd plausibly hear about. */
@@ -164,7 +201,9 @@ function charity(c: Career, rnd: Rng): boolean {
   const v = venue(rnd, { region: regionFor(c, rnd) });
   const [cause, short] = pickOf(rnd, CAUSES)!;
   const name = pickOf(rnd, CHARITY_NAMES)!;
-  const s = addShow(c, { promo: 'TIS', name, kind: 'indie', date: addDays(c.today, between(rnd, SPECIAL_LEAD)), ...v, special: { kind: 'charity', tag: `Charity: ${short}` } });
+  const date = indieDates(c, addDays(c.today, between(rnd, SPECIAL_LEAD)), v.region)?.[0];
+  if (!date) return false;
+  const s = addShow(c, { promo: 'TIS', name, kind: 'indie', date, ...v, special: { kind: 'charity', tag: `Charity: ${short}` } });
   const me = findWrestler(c.player)!;
   if (!indieShut(c) && (near(c, v.region) || me.popularity.global >= 45) && rnd() < 0.7) {
     invite(c, 'invite_charity', { show: s.id, name, cause, city: s.city, date: s.date, fee: indieFee(me, s.region), travel: travelCost(me.country, s.country) });
@@ -182,7 +221,9 @@ function benefit(c: Career, rnd: Rng): boolean {
   w.seen[`benefit:${who.id}`] = c.today;
   const v = venue(rnd, { country: who.country });
   const name = `A Night for ${first(who.name)}`;
-  const s = addShow(c, { promo: 'TIS', name, kind: 'indie', date: addDays(c.today, between(rnd, SPECIAL_LEAD)), ...v, special: { kind: 'benefit', tag: `Benefit: ${who.name}`, for: who.id } });
+  const date = indieDates(c, addDays(c.today, between(rnd, SPECIAL_LEAD)), v.region)?.[0];
+  if (!date) return false;
+  const s = addShow(c, { promo: 'TIS', name, kind: 'indie', date, ...v, special: { kind: 'benefit', tag: `Benefit: ${who.name}`, for: who.id } });
   const me = findWrestler(c.player)!;
   if (relOf(c, who.id) >= 10 || (near(c, v.region) && rnd() < 0.6)) {
     invite(c, 'invite_benefit', { show: s.id, name, who: who.id, whoName: who.name, what: c.people[who.id]!.injury!.what, city: s.city, date: s.date, travel: travelCost(me.country, s.country), amount: round5(indieFee(me, s.region) * 0.5) });
@@ -201,7 +242,9 @@ function tribute(c: Career, rnd: Rng): boolean {
   w.seen[`tribute:${who.id}`] = c.today;
   const v = venue(rnd, { country: who.country });
   const name = `Thank You, ${first(who.name)}`;
-  const s = addShow(c, { promo: 'TIS', name, kind: 'indie', date: addDays(c.today, between(rnd, SPECIAL_LEAD)), ...v, special: { kind: 'tribute', tag: `Tribute: ${who.name}`, for: who.id } });
+  const date = indieDates(c, addDays(c.today, between(rnd, SPECIAL_LEAD)), v.region)?.[0];
+  if (!date) return false;
+  const s = addShow(c, { promo: 'TIS', name, kind: 'indie', date, ...v, special: { kind: 'tribute', tag: `Tribute: ${who.name}`, for: who.id } });
   const me = findWrestler(c.player)!;
   if (relOf(c, who.id) >= 10 || (near(c, v.region) && rnd() < 0.5)) {
     invite(c, 'invite_tribute', { show: s.id, name, who: who.id, whoName: who.name, city: s.city, date: s.date, fee: indieFee(me, s.region), travel: travelCost(me.country, s.country) });
@@ -240,7 +283,9 @@ function tournament(c: Career, rnd: Rng): boolean {
   const base = `The ${v.city} Cup`;
   const used = (c.tourneys ?? []).some((t) => t.name.startsWith(base)) || activeWorld().history.events.some((e) => e.kind === 'tournament' && e.what?.startsWith(base));
   const name = used ? `${base} ${c.today.slice(0, 4)}` : base;
-  const d1 = addDays(c.today, between(rnd, SPECIAL_LEAD));
+  const nights = indieDates(c, addDays(c.today, between(rnd, SPECIAL_LEAD)), v.region, [0, CUP_ROUND_GAP, 2 * CUP_ROUND_GAP]);
+  if (!nights) return false;
+  const d1 = nights[0]!;
   const me0 = findWrestler(c.player)!;
   // One division per cup: yours when it's near you (so you can enter), otherwise either.
   const gender = near(c, v.region) || me0.popularity.global >= 45 ? me0.gender : rnd() < 0.6 ? 'MALE' : 'FEMALE';
@@ -269,7 +314,9 @@ export function arrangeFarewell(c: Career, w: Wrestler, rnd: Rng): Day {
   if (s) s.special = { kind: 'farewell', tag: `Farewell: ${w.name}`, for: w.id };
   else {
     const v = venue(rnd, { country: w.country });
-    s = addShow(c, { promo: 'TIS', name: `${first(w.name)}: One Last Time`, kind: 'indie', date: addDays(c.today, between(rnd, [21, 35])), ...v, special: { kind: 'farewell', tag: `Farewell: ${w.name}`, for: w.id } });
+    const want = addDays(c.today, between(rnd, [21, 35]));
+    const date = indieDates(c, want, v.region)?.[0] ?? want;
+    s = addShow(c, { promo: 'TIS', name: `${first(w.name)}: One Last Time`, kind: 'indie', date, ...v, special: { kind: 'farewell', tag: `Farewell: ${w.name}`, for: w.id } });
   }
   world(c).last.farewell = c.today;
   // Someone close to you wants you there.

@@ -11,7 +11,7 @@ import { leaveContract, matchRival, payReview } from './contracts';
 import { addDays, daysBetween, fmtDay, weekday, type Day } from './dates';
 import { indieFee, travelCost } from './economy';
 import { dayOff, indieAllowed, joinIndie } from './offers';
-import { indieKey, movePatience, patienceOf, patienceWeek, showBooker } from './patience';
+import { movePatience, patienceOf, patienceWeek, showBooker } from './patience';
 import { trust, trustLabel } from './relations';
 import {
   INDIE_PROMISE_ROLLS,
@@ -50,8 +50,9 @@ const outcome = (chance: number, r: number): 'yes' | 'counter' | 'no' => (r < ch
 /** Who a booker key is, for people: a booker's name and promotion, an indie promoter's show, or a promotion. */
 export const bookerName = (key: string): string => {
   if (key.startsWith('TIS:')) return key.slice(4);
-  const s = activeWorld().people?.staff[key];
-  if (s) return s.job?.kind === 'booker' ? `${s.name} (${s.job.promo})` : s.name;
+  const P = activeWorld().people;
+  const s = P?.staff[key];
+  if (s) return s.job?.kind === 'booker' ? `${s.name} (${s.job.promo})` : s.job?.kind === 'promoter' ? `${s.name} (${P!.brands[s.job.brand]?.name ?? 'indie'})` : s.name;
   return promoName(key);
 };
 
@@ -230,7 +231,7 @@ export function previewIndieTitle(c: Career, titleId: string, showId: string): P
   const t = TITLES.find((x) => x.id === titleId)!;
   const show = c.shows[showId];
   const p = person(c, c.player);
-  const promoter = show ? indieKey(show.name) : '';
+  const promoter = show ? showBooker(show) : '';
   const rank = show ? indieRank(c, t, show) : 0;
   const allowed = show ? indieAllowed(c, show.date) : { ok: false, why: '' };
   const due = titleDueFrom(c, t);
@@ -260,7 +261,7 @@ export function previewIndieTitle(c: Career, titleId: string, showId: string): P
 export function askIndieTitleShot(c: Career, titleId: string, showId: string): Ask {
   const t = TITLES.find((x) => x.id === titleId)!;
   const show = c.shows[showId]!;
-  const promoter = indieKey(show.name);
+  const promoter = showBooker(show);
   const what = `Title shot: ${t.name} on ${show.name}`;
   const pv = previewIndieTitle(c, titleId, showId);
   if (pv.hard) return record(c, { kind: 'title', to: promoter, what, key: 'title', answer: 'no', said: pv.hard });
@@ -383,7 +384,7 @@ export function previewIndieChallenge(c: Career, targetId: string, showId: strin
   const clauseOk = !k || ((k.clauses[C.indie] ?? 0) >= 1 && (!theirClash || (k.clauses[C.indie] ?? 0) >= 3));
   const side = clauseOk ? INDIE_CH_ALLOWED - CHALLENGE_PER_POP_ABOVE * Math.max(0, gap) + repPoints(c)
     : INDIE_CH_PROMOTION - CHALLENGE_PER_POP_ABOVE * Math.max(0, gap) + repPoints(c) + patiencePoints(c, k!.promo);
-  const promoter = show ? indieKey(show.name) : '';
+  const promoter = show ? showBooker(show) : '';
   const hard = !them || them.id === c.player ? 'Pick someone to challenge.'
     : !show || show.date < firstAskable(c) ? 'The next seven days’ cards are set.'
       : !allowed.ok ? allowed.why ?? 'You can’t take that date.'
@@ -402,7 +403,7 @@ export function previewIndieChallenge(c: Career, targetId: string, showId: strin
 export function askIndieChallenge(c: Career, targetId: string, showId: string): Ask {
   const show = c.shows[showId]!;
   const them = findWrestler(targetId)!;
-  const promoter = indieKey(show.name);
+  const promoter = showBooker(show);
   const what = `Challenge ${them.name} on ${show.name}`;
   const pv = previewIndieChallenge(c, targetId, showId);
   if (pv.hard) return record(c, { kind: 'indieChallenge', to: promoter, what, key: 'challenge', answer: 'no', said: pv.hard });
@@ -583,7 +584,7 @@ export function askTryout(c: Career, promo: string): Ask {
 
 export function previewSpot(c: Career, showId: string): Preview {
   const show = c.shows[showId];
-  const promoter = show ? indieKey(show.name) : '';
+  const promoter = show ? showBooker(show) : '';
   const allowed = show ? indieAllowed(c, show.date) : { ok: false, why: '' };
   const hard = !show || show.date < firstAskable(c) ? 'The next seven days’ cards are set.'
     : !allowed.ok ? allowed.why ?? 'You can’t take that date.'
@@ -601,7 +602,7 @@ export function previewSpot(c: Career, showId: string): Preview {
 
 export function askSpot(c: Career, showId: string): Ask {
   const show = c.shows[showId]!;
-  const promoter = indieKey(show.name);
+  const promoter = showBooker(show);
   const what = `A spot on ${show.name} (${fmtDay(show.date, 'dm')})`;
   const pv = previewSpot(c, showId);
   if (pv.hard) return record(c, { kind: 'spot', to: promoter, what, key: `spot:${showId}`, answer: 'no', said: pv.hard });
@@ -777,11 +778,11 @@ setCareerHooks({ daily, monthly, mine: afterMine });
 export const ASK_KINDS: AskKind[] = ['title', 'challenge', 'indieChallenge', 'show', 'more', 'approach', 'tryout', 'spot', 'review', 'rival', 'release', 'dayoff', 'finish'];
 export { PATIENCE_FLOOR, PATIENCE_START };
 
-/** Lyra's call: an indie promise that can't happen on the night rolls on to that promoter's next show (same name),
+/** Lyra's call: an indie promise that can't happen on the night rolls on to that promoter's next show (same brand),
  * booking you on it, up to INDIE_PROMISE_ROLLS times. */
 function rollIndiePromise(c: Career, p: Pledge, show: Show): boolean {
   if ((p.rolls ?? 0) >= INDIE_PROMISE_ROLLS) return false;
-  const next = Object.values(c.shows).filter((s) => s.promo === 'TIS' && s.name === show.name && s.date > show.date && !s.card && !s.done)
+  const next = Object.values(c.shows).filter((s) => s.promo === 'TIS' && (show.brand ? s.brand === show.brand : s.name === show.name) && s.date > show.date && !s.card && !s.done)
     .sort((a, b) => (a.date < b.date ? -1 : 1)).find((s) => indieAllowed(c, s.date).ok);
   if (!next) return false;
   const mine = me(c);

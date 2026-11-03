@@ -3,9 +3,11 @@ import { PROMOTIONS, TITLES, findWrestler, type Title, type Wrestler } from '../
 import type { StipulationId } from '../engine/types';
 import { hashSeed, seededRng, type Rng } from '../engine/rng';
 import { addDays, daysBetween, type Day } from './dates';
-import { REGION_KEY } from './places';
+import { NEIGHBOURS, REGION_KEY } from './places';
+import { activeWorld } from '../world/world';
+import { bondOf } from '../world/people';
 import {
-  CARD_SIZE, CONTENDER_T1_BONUS, FEUD_WEEKS, INDIE_DEFENCE_CHANCE, INDIE_DEFENCE_OVERDUE, FEUDS_PER_PROMOTION, INTERGENDER_CHANCE,
+  CARD_SIZE, CIRCUIT_DAYS, CONTENDER_T1_BONUS, INDIE_CHAMP_DRAW, INDIE_PICK_BOND_WEIGHT, INDIE_PICK_REP_WEIGHT, INDIE_REGION_WEIGHT, INDIE_TITLE_BOUTS_MAX, FEUD_WEEKS, INDIE_DEFENCE_CHANCE, INDIE_DEFENCE_OVERDUE, FEUDS_PER_PROMOTION, INTERGENDER_CHANCE,
   CAUGHT_BOOK_MULT, INTERGENDER_CHANCE_INDIE, SCHEDULE_T2_MAX_PER_MONTH, STIP_CHANCE, TITLE_CHANGE_MAX, TITLE_CHANGE_PER_REIGN_YEAR,
   TITLE_PLANNED_CHANGE, TITLE_RHYTHM, TRUST_HIGH, TRUST_LOW, TRUST_RETAIN_SWING_HIGH, TRUST_RETAIN_SWING_LOW, type TitleClass,
 } from './tuning';
@@ -74,6 +76,37 @@ export function playerBookable(c: Career, show: Show): boolean {
   if (sched >= 2 && datesThisMonth(c, c.player, show.date) >= SCHEDULE_T2_MAX_PER_MONTH) return false;
   if (me.daysOff?.includes(show.date)) return false;
   return true;
+}
+
+/**
+ * How likely an indie wrestler is to be around for a show in `region`: at home, in a region they've
+ * worked lately, next door, or anywhere else. Never zero: anyone can turn up anywhere now and then.
+ */
+export function regionFactor(c: Career, w: Wrestler, region: PopRegion, day: Day): number {
+  const home = REGION_KEY[w.region] ?? 'europe';
+  if (home === region) return INDIE_REGION_WEIGHT.home;
+  if (c.people[w.id]?.circuit?.some((x) => x.r === region && daysBetween(x.d, day) <= CIRCUIT_DAYS)) return INDIE_REGION_WEIGHT.circuit;
+  if (NEIGHBOURS[home].includes(region)) return INDIE_REGION_WEIGHT.neighbour;
+  return INDIE_REGION_WEIGHT.elsewhere;
+}
+
+/** Who's around for an indie show tonight: each indie by how near they are; champions travel more. */
+function indiePool(c: Career, show: Show, roster: readonly Wrestler[], rnd: Rng): Wrestler[] {
+  const champs = new Set(TITLES.filter((t) => isIndieTitle(t.id) && t.holder).map((t) => t.holder!));
+  return roster.filter((w) => w.promotion === 'TIS' && rnd() < Math.min(1, regionFactor(c, w, show.region, show.date) * (champs.has(w.id) ? INDIE_CHAMP_DRAW : 1)));
+}
+
+/**
+ * An indie promoter filling a spot: popularity first, then reputation and how they feel about the
+ * wrestler, less if they're worn out. Nobody's quota is guaranteed (Lyra's call): some struggle for dates.
+ */
+export function indieWeight(c: Career, w: Wrestler, show: Show, promoter: string): number {
+  const p = c.people[w.id];
+  const rep = 1 + (((p?.rep ?? 50) - 50) / 50) * INDIE_PICK_REP_WEIGHT;
+  const P = activeWorld().people;
+  const bond = P ? 1 + ((bondOf(P, promoter, w.id)?.v ?? 0) / 100) * INDIE_PICK_BOND_WEIGHT : 1;
+  const tired = Math.max(0.2, 1 - (p?.fatigue ?? 0) / 100);
+  return Math.max(0.01, (1 + regionalPop(w, show.region) / 10) * rep * bond * tired);
 }
 
 function weightedPick<T>(rnd: Rng, xs: T[], w: (x: T) => number): T | undefined {
@@ -245,7 +278,7 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
   const reserved = new Set(pledges.filter((p) => p.show && p.show !== show.id && c.shows[p.show]?.date === show.date)
     .map((p) => (p.kind === 'match' ? p.opp : p.kind === 'title' ? TITLES.find((t) => t.id === p.title)?.holder : undefined)).filter((x): x is string => !!x));
 
-  let pool = (indie ? roster.filter((w) => w.promotion === 'TIS') : showRoster(show, roster))
+  let pool = (indie ? indiePool(c, show, roster, rnd) : showRoster(show, roster))
     .filter((w) => w.id !== c.player && !busy.has(w.id) && !reserved.has(w.id) && available(c.people[w.id], show.date));
   const card: Bout[] = [];
   const used = new Set<string>();
@@ -315,7 +348,13 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
   }
 
   // Title matches: a promised shot, a feud paying off tonight, or a defence if the title's due one.
-  for (const t of titles) {
+  // An indie card has room for two at most (one on a short card): promised shots first, then the most overdue.
+  const titleCap = indie ? (size <= 4 ? 1 : INDIE_TITLE_BOUTS_MAX) : Infinity;
+  const titleBouts = () => card.filter((b) => b.title).length;
+  const ordered = indie ? [...titles].sort((x, y) => Number(!pledges.some((p) => p.title === y.id)) - Number(!pledges.some((p) => p.title === x.id))
+    || sinceLastDefence(c, y.id, show) - sinceLastDefence(c, x.id, show)) : titles;
+  for (const t of ordered) {
+    if (titleBouts() >= titleCap) break;
     if (!t.holder) {
       // Vacant (its champion signed away without Indie Bookings): the top two contenders wrestle for it.
       if (titlePending(c, t.id, show)) continue;
@@ -430,8 +469,9 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
 
   // Everyone else: people of similar standing, mostly within a division.
   pool = pool.filter((w) => free(w.id)).sort((a, b) => regionalPop(b, region) - regionalPop(a, region));
+  const promoter = indie ? showBooker(show) : '';
   while (card.length < size && pool.length >= 2) {
-    const a = weightedPick(rnd, pool, (w) => 1 + regionalPop(w, region) / 10 - (c.people[w.id]?.fatigue ?? 0) / 25)!;
+    const a = weightedPick(rnd, pool, (w) => (indie ? indieWeight(c, w, show, promoter) : 1 + regionalPop(w, region) / 10 - (c.people[w.id]?.fatigue ?? 0) / 25))!;
     pool.splice(pool.indexOf(a), 1);
     const b = opponentFor(rnd, a, crossPool(a, pool), region, indie);
     if (!b) continue;

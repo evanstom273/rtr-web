@@ -27,6 +27,8 @@ export interface Show {
   irregular?: string;
   /** A one-off: charity, benefit, tribute, crossover, a cup night, a farewell (career expansion, stage 4). */
   special?: ShowSpecial;
+  /** Indie shows: the brand putting it on (world people); its promoter books it. */
+  brand?: string;
 }
 
 export type SpecialKind = 'charity' | 'benefit' | 'tribute' | 'crossover' | 'tournament' | 'farewell';
@@ -131,6 +133,8 @@ export interface Person {
   retiredOn?: Day;
   /** Retirement announced: the farewell is on or before this day. */
   retiring?: Day;
+  /** Where they've worked lately (newest first): regional titles and who's around for indie shows. */
+  circuit?: { r: PopRegion; d: Day }[];
   /** Creative Control: the last time Protected Booking was used, and shows you've already asked about. */
   creativeUsed?: Day;
   creativeAsked?: string[];
@@ -275,6 +279,9 @@ export interface Career {
   nextRookie: Day;
   seq: number;
   seed: number;
+  /** The indie calendar: each brand's last show, and each region's (so quiet regions get a show). */
+  brandLast?: Record<string, Day>;
+  regionLast?: Partial<Record<PopRegion, Day>>;
 }
 
 export type AskKind = 'title' | 'challenge' | 'indieChallenge' | 'show' | 'more' | 'approach' | 'tryout' | 'spot' | 'review' | 'rival' | 'release' | 'dayoff' | 'finish';

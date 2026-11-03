@@ -4,10 +4,11 @@ import { freshWorld, setWorld } from '../world/world';
 import { C, NO_CLAUSES } from './clauses';
 import { acceptLetter, askForSpot, dayOff, exitTerms, gate, leaveContract, makeOffer, matchPay, mood, propose, signOffer, startCareer, willingness } from './index';
 import type { Career } from './types';
+import { who } from './testkit';
 
 function begin(player = 'jamie_mercer'): Career {
   const w = setWorld(freshWorld(5));
-  const c = startCareer({ player, today: '2026-11-03', seed: 5 });
+  const c = startCareer({ player: who(player), today: '2026-11-03', seed: 5 });
   w.career = c;
   return c;
 }
@@ -60,22 +61,22 @@ describe('contracts', () => {
   });
 
   it('signing as a free agent starts today; Contract Exit tiers decide how you leave', () => {
-    const c = begin('knox_vale');
-    expect(findWrestler('knox_vale')!.promotion).toBe('TIS');
+    const c = begin('@champ');
+    expect(findWrestler(c.player)!.promotion).toBe('TIS');
     makeOffer(c, 'END', 'Test');
     const o = c.offers.at(-1)!;
     o.clauses[C.exit] = 2;
     signOffer(c, o);
-    expect(findWrestler('knox_vale')!.promotion).toBe('END');
+    expect(findWrestler(c.player)!.promotion).toBe('END');
     expect(exitTerms(c).tier).toBe(2);
     expect(leaveContract(c)).toMatch(/Notice given/);
     c.people[c.player]!.contract!.clauses[C.exit] = 3;
     expect(leaveContract(c)).toMatch(/free agent/);
-    expect(findWrestler('knox_vale')!.promotion).toBe('TIS');
+    expect(findWrestler(c.player)!.promotion).toBe('TIS');
   });
 
   it('a free agent can ask for a spot on an indie show', () => {
-    const c = begin('knox_vale');
+    const c = begin('@champ');
     const shows = Object.values(c.shows).filter((s) => s.promo === 'TIS' && s.date > c.today);
     const results = shows.slice(0, 12).map((s) => askForSpot(c, s));
     expect(results.some((r) => r.ok)).toBe(true);

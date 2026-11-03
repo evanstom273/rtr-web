@@ -3,8 +3,8 @@ import { PROMOTIONS, TITLES, WRESTLERS, findWrestler, getPromotion, getWrestler,
 import { activeWorld, commitWorld, freshWorld, resetWorld, setWorld } from './world';
 
 describe('the world (shared database)', () => {
-  it('ships with every title held, nobody holding two, and Jamie Mercer holding none', () => {
-    const w = freshWorld(1);
+  it('a new world has every title held (the indie ones by its generated indies), nobody holding two, and Jamie Mercer holding none', () => {
+    const w = setWorld(freshWorld(1));
     const holders = w.db.titles.map((t) => t.holder);
     expect(holders.every(Boolean)).toBe(true);
     expect(new Set(holders).size).toBe(holders.length);
@@ -13,7 +13,7 @@ describe('the world (shared database)', () => {
   });
 
   it('every champion belongs to the promotion and division of their title', () => {
-    const w = freshWorld(1);
+    const w = setWorld(freshWorld(1));
     for (const t of w.db.titles) {
       const champ = w.db.wrestlers.find((x) => x.id === t.holder)!;
       const promo = w.db.promotions.find((p) => p.id === t.promotionId)!;
@@ -56,6 +56,28 @@ describe('the world (shared database)', () => {
     await resetWorld(5);
     expect(TITLES.find((t) => t.id === 'VWF_CHAMPIONSHIP')!.holder).not.toBeNull();
     expect(findWrestler('gone_after_reset')).toBeUndefined();
-    expect(WRESTLERS).toHaveLength(400);
+    expect(WRESTLERS.filter((x) => x.promotion !== 'TIS')).toHaveLength(400);
+  });
+
+  it('ten promotions of 40 (the shipped indies signed up), and an indie scene of 100–200 generated for each world', () => {
+    const shipped = freshWorld(6).db.wrestlers;
+    expect(shipped).toHaveLength(400);
+    expect(shipped.filter((x) => x.promotion === 'TIS')).toHaveLength(0);
+    for (const p of PROMOTIONS.filter((x) => !x.indie)) expect(shipped.filter((x) => x.promotion === p.initials), p.initials).toHaveLength(40);
+    const a = setWorld(freshWorld(6));
+    const indies = WRESTLERS.filter((x) => x.promotion === 'TIS');
+    expect(indies.length).toBeGreaterThanOrEqual(100);
+    expect(indies.length).toBeLessThanOrEqual(200);
+    expect(a.indies!.generated).toBe(indies.length);
+    // Every region has a scene, and the same world always gets the same one.
+    for (const r of ['NORTH_AMERICA', 'SOUTH_AMERICA', 'EUROPE', 'ASIA', 'AFRICA', 'OCEANIA']) expect(indies.filter((x) => x.region === r).length, r).toBeGreaterThan(5);
+    expect(new Set(WRESTLERS.map((x) => x.name)).size).toBe(WRESTLERS.length);
+    const names = indies.map((x) => x.name);
+    setWorld(freshWorld(6));
+    expect(WRESTLERS.filter((x) => x.promotion === 'TIS').map((x) => x.name)).toEqual(names);
+    // Brands across every region, each with its own promoter.
+    const brands = Object.values(activeWorld().people!.brands);
+    expect(brands.length).toBeGreaterThanOrEqual(12);
+    for (const b of brands) expect(activeWorld().people!.staff[b.promoter!]?.job).toEqual({ kind: 'promoter', brand: b.id });
   });
 });

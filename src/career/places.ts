@@ -15,6 +15,11 @@ export const REGION_KEY: Record<string, PopRegion> = {
   NORTH_AMERICA: 'northAmerica', SOUTH_AMERICA: 'southAmerica', EUROPE: 'europe', ASIA: 'asia', AFRICA: 'africa', OCEANIA: 'oceania',
 };
 
+/** Regions next door, for who travels where. */
+export const NEIGHBOURS: Record<PopRegion, PopRegion[]> = {
+  northAmerica: ['southAmerica'], southAmerica: ['northAmerica'], europe: ['africa', 'asia'], africa: ['europe'], asia: ['oceania', 'europe'], oceania: ['asia'],
+};
+
 export const REGION_LABEL: Record<PopRegion, string> = {
   northAmerica: 'North America', southAmerica: 'South America', europe: 'Europe', asia: 'Asia', africa: 'Africa', oceania: 'Oceania',
 };

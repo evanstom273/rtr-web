@@ -23,8 +23,19 @@ export function promoOfBooker(key: string): string | null {
 
 /** An indie promoter is known by their show's name. */
 export const indieKey = (showName: string): string => `TIS:${showName}`;
-/** Whoever books a show: its promotion, or the indie promoter running it. */
-export const showBooker = (show: Pick<Show, 'promo' | 'name'>): string => (show.promo === 'TIS' ? indieKey(show.name) : show.promo);
+/** Whoever books a show: its promotion (its booker, see bookerKey), or the promoter running its indie brand. */
+export function showBooker(show: Pick<Show, 'promo' | 'name' | 'brand'>): string {
+  if (show.promo !== 'TIS') return show.promo;
+  const p = show.brand ? activeWorld().people?.brands[show.brand]?.promoter : null;
+  return p ?? indieKey(show.name);
+}
+
+/** An indie promoter's key (a promoter, or an old show-name key) rather than a promotion's booker. */
+export function isIndieBooker(key: string): boolean {
+  if (key.startsWith('TIS:')) return true;
+  const s = activeWorld().people?.staff[key];
+  return !!s && (s.job ? s.job.kind === 'promoter' : s.spells.at(-1)?.job.kind === 'promoter');
+}
 
 export function patienceOf(c: Career, key: string): number {
   return c.patience?.[bookerKey(key)]?.v ?? PATIENCE_START;

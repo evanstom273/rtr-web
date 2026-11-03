@@ -1,6 +1,6 @@
 // Every number career mode runs on, in one place. These are the values proposed on the canvas
 // "Career balance sheet" and are NOT approved yet: change them here and nowhere else.
-import type { ShowKind } from './types';
+import type { PopRegion, ShowKind } from './types';
 
 // --- Money (£) ---------------------------------------------------------------------------------
 /** Contracted fee = (base + perPop × regional popularity) × promotion budget × show type. */
@@ -106,9 +106,9 @@ export const START_CONTRACT_MONTHS_LEFT: [number, number] = [3, 18];
 export const RENEW_CHANCE_TOP = 0.7;
 export const RENEW_CHANCE_REST = 0.4;
 export const RELEASE_MONTHLY_BOTTOM = 0.01;
-export const ROSTER_MIN = 32;
-export const ROSTER_MAX = 40;
-export const ROSTER_SIGN_BELOW = 34;
+export const ROSTER_MIN = 36;
+export const ROSTER_MAX = 44;
+export const ROSTER_SIGN_BELOW = 38;
 /** On expiry and not renewed: chance another promotion signs them straight away. */
 export const POACH_CHANCE = 0.5;
 export const ROOKIE_EVERY_DAYS = 21;
@@ -320,3 +320,55 @@ export const TRAIT_COUNTS_SHIPPED = [0.3, 0.5, 0.2];
 export const TRAIT_COUNTS_GENERATED = [0.45, 0.4, 0.15];
 /** No single trait is held by more than this share of the shipped roster. */
 export const TRAIT_PREVALENCE_CAP = 0.15;
+
+/** The indie scene: generated for every new world (Lyra's call), between these many wrestlers. */
+export const INDIE_GENERATED: [number, number] = [100, 200];
+/** A kept world is topped up to the minimum; above the maximum, idle unknowns drift out of the business. */
+export const INDIE_POOL_MIN = 120;
+export const INDIE_POOL_MAX = 220;
+/** Generated indies: who they are. Share of the scene, age range and popularity in their home region. */
+export const INDIE_ARCHETYPES = {
+  prospect: { share: 0.45, age: [19, 24], pop: [8, 18], stats: -2 },
+  journeyman: { share: 0.4, age: [25, 33], pop: [14, 28], stats: 0 },
+  veteran: { share: 0.15, age: [34, 42], pop: [20, 34], stats: 2 },
+} as const;
+export const INDIE_FEMALE_SHARE = 0.35;
+/** Where the indie scene is: each region's share of generated wrestlers and of indie brands. */
+export const INDIE_REGION_SHARES: Record<PopRegion, number> = { northAmerica: 0.26, europe: 0.22, asia: 0.16, southAmerica: 0.12, africa: 0.12, oceania: 0.12 };
+/** Popularity away from home, as a share of home popularity: worldwide, next-door regions, everywhere else. */
+export const INDIE_GLOBAL_SHARE = 0.5;
+export const INDIE_NEIGHBOUR_SHARE = 0.3;
+export const INDIE_ELSEWHERE_SHARE = 0.15;
+
+/** Indie shows a week (Lyra's call): 6 to 10, never more than 10 in a calendar week, one-offs and cups included. */
+export const INDIE_SHOWS_PER_WEEK: [number, number] = [6, 10];
+export const INDIE_SHOWS_MAX_WEEK = 10;
+/** The draw aims for this many indie dates a week per indie wrestler, from real slots: about 8 shows × 5 bouts × 2 shared by about 150. */
+export const INDIE_DATES_PER_WEEK = 0.5;
+export const INDIE_SLOTS_PER_SHOW = 10;
+/** Indie brands: each runs a show about every 7–21 days, mostly at weekends (Monday first). */
+export const INDIE_BRAND_EVERY: [number, number] = [7, 21];
+export const INDIE_DOW = [0.04, 0.04, 0.07, 0.12, 0.25, 0.33, 0.15];
+/** A region with no indie show for this long gets priority in the next week's draw (no weekly guarantee). */
+export const INDIE_REGION_DROUGHT_DAYS = 21;
+/** What the long-run tests expect at least, in every rolling 28 days, per region. */
+export const INDIE_REGION_MIN_PER_28D = 2;
+/** Who's around for an indie show: home region, a region they've worked lately, next door, anywhere else. */
+export const INDIE_REGION_WEIGHT = { home: 1, circuit: 0.5, neighbour: 0.2, elsewhere: 0.05 };
+/** Indie champions travel: this many times as likely to be around. */
+export const INDIE_CHAMP_DRAW = 3;
+/** Who gets the spot: popularity, then reputation (±this share at 0 or 100) and the promoter's feeling for them. */
+export const INDIE_PICK_REP_WEIGHT = 0.4;
+export const INDIE_PICK_BOND_WEIGHT = 0.5;
+/** At most this many title matches on an indie card (one on a card of four or fewer). */
+export const INDIE_TITLE_BOUTS_MAX = 2;
+/** The last few places someone worked (for regional titles and who's around). */
+export const CIRCUIT_KEEP = 12;
+/** …counting only work this recent. */
+export const CIRCUIT_DAYS = 120;
+/** A generated indie idle this long, with popularity under this, may quietly leave the business when the scene is crowded. */
+export const INDIE_IDLE_LEAVE_DAYS = 90;
+export const INDIE_IDLE_LEAVE_POP = 10;
+export const INDIE_IDLE_LEAVE_MONTHLY = 0.03;
+/** Indie promoters' standing in the business when a world starts. */
+export const PROMOTER_REP: [number, number] = [25, 55];

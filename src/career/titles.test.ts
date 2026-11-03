@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { PROMOTIONS, TITLES, findWrestler } from '../data/rtr';
+import { PROMOTIONS, TITLES, WRESTLERS, findWrestler } from '../data/rtr';
 import { freshWorld, setWorld } from '../world/world';
 import { acceptLetter, applyBout, finishDay, myBoutToday, runToday, showsOn, startCareer } from './index';
 import type { SimJob, SimOut } from './sim';
+import { who } from './testkit';
 
 /** A stand-in for the engine: instant results from popularity and the seed, so a year runs in a second. */
 const quick = async (jobs: SimJob[]): Promise<SimOut[]> => jobs.map((j) => {
@@ -16,10 +17,10 @@ const quick = async (jobs: SimJob[]): Promise<SimOut[]> => jobs.map((j) => {
 describe('title matches', () => {
   // Cards are drawn a week out, so a title booked twice in that week would put a former champion in
   // the second match: a "new champion" who already had it, or a champion who loses it without being there.
-  for (const [player, seed] of [['jamie_mercer', 11], ['bishop_blackridge', 11], ['ama_quaye', 5], ['jamie_mercer', 23]] as const) {
+  for (const [player, seed] of [['jamie_mercer', 11], ['@indie', 11], ['@indie-f', 5], ['jamie_mercer', 23]] as const) {
     it(`always have the champion in them when they're wrestled (${player}, seed ${seed})`, async () => {
       const w = setWorld(freshWorld(seed));
-      const c = startCareer({ player, today: '2026-11-03', seed });
+      const c = startCareer({ player: who(player), today: '2026-11-03', seed });
       w.career = c;
       const bad: string[] = [];
       let bouts = 0;
@@ -71,7 +72,7 @@ describe('title matches', () => {
     w.career = c;
     const t = TITLES.find((x) => x.id === 'OPEN_CHALLENGE_TITLE')!;
     const champ = t.holder!;
-    const [x, y] = ['seth_quarry', 'harlan_wren'];
+    const [x, y] = WRESTLERS.filter((w) => w.promotion === 'TIS' && w.gender === t.gender && w.id !== champ).map((w) => w.id) as [string, string];
     const show = Object.values(c.shows).find((s) => s.date === c.today && s.card)!;
     show.card!.push({ a: x, b: y, title: t.id, planned: x });
     const news = c.letters.length;

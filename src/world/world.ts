@@ -8,6 +8,7 @@ import type { Career } from '../career/types';
 import { weekStart, type Day } from '../career/dates';
 import { emptyHistory, type WorldHistory } from './history';
 import { bookerOf, freshPeople, pairKey, type Bond, type People } from './people';
+import { populateIndies } from './populate';
 
 /** The world save's revision: each step in `upgrade` runs once, in order, on older saves. */
 export const WORLD_REV = 3;
@@ -30,6 +31,8 @@ export interface World {
   calendar?: { counters: Record<string, number>; nextIrregular: Record<string, Day> };
   /** Bookers, indie brands and promoters, and everyone's relationships (rev 3). */
   people?: People;
+  /** The indie scene's been generated (or topped up, for a world played before it existed). */
+  indies?: { generated: number; brands: number };
 }
 
 const KEY = 'current';
@@ -66,6 +69,21 @@ function upgrade(w: World): void {
   if (rev < 3) meetThePeople(w);
   w.people ??= freshPeople();
   w.rev = WORLD_REV;
+  ensurePopulation(w);
+}
+
+/**
+ * The indie scene (Lyra's call): a fresh world generates 100–200 indies, their brands and promoters,
+ * and crowns its indie champions; a world played before the scene existed is topped up. Once per world.
+ */
+export function ensurePopulation(w: World): void {
+  if (w.indies) return;
+  const tis = w.db.promotions.find((p) => p.indie);
+  const r = populateIndies({
+    seed: w.seed, played: worldPlayed(w), wrestlers: w.db.wrestlers, titles: w.db.titles, indieTitles: tis?.titles ?? [], people: w.people!,
+    retired: (id) => !!w.career?.people[id]?.retired,
+  });
+  w.indies = { generated: r.generated, brands: r.brands };
 }
 
 /**
