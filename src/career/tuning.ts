@@ -77,12 +77,16 @@ export const CARD_SIZE: Record<ShowKind, [number, number]> = { indie: [4, 6], we
 export const STIP_CHANCE: Record<ShowKind, number> = { indie: 0.12, weekly: 0.08, tour: 0.08, special: 0.2, flagship: 0.35 };
 export const INTERGENDER_CHANCE = 0.05;
 export const INTERGENDER_CHANCE_INDIE = 0.1;
-export const DEFENCE_GAP_DAYS = 14;
-export const DEFENCE_CHANCE: Record<ShowKind, number> = { weekly: 0.25, tour: 0.2, special: 0.7, flagship: 1, indie: 0.3 };
+/** No title is defended within this many days of its last defence (or the reign starting). */
+export const DEFENCE_GAP_DAYS = 30;
+/** Once a title's due, the chance it's defended on a given show (on top of title feuds paying off). */
+export const DEFENCE_CHANCE: Record<ShowKind, number> = { weekly: 0.06, tour: 0.05, special: 0.3, flagship: 0.5, indie: 0.12 };
+/** Title feuds are timed so the defence lands roughly this long after the last one (Lyra: about every two months). */
+export const TITLE_DEFENCE_EVERY_DAYS = 60;
 export const FEUD_WEEKS: [number, number] = [3, 6];
 export const FEUDS_PER_PROMOTION = 2;
 /** Planned finish: the champion is booked to retain this often. */
-export const PLANNED_RETAIN = 0.65;
+export const PLANNED_RETAIN = 0.75;
 /** AI title matches: the planned winner's edge on contested rolls. */
 export const PLANNED_NUDGE = 2;
 /**
