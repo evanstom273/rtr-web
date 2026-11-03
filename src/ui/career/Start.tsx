@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { PROMOTIONS, TITLES, WRESTLERS, type Wrestler } from '../../data/rtr';
-import { ATTR_KEYS, ATTR_SHORT, CLASS_NAME } from '../../career/create';
+import { ATTR_KEYS, ATTR_SHORT, CLASS_NAME, divisionName } from '../../career/create';
 import { fmtDay } from '../../career/dates';
 import { activeWorld } from '../../world/world';
 import { Head, Nm, Screen, useWords } from './parts';
@@ -54,7 +54,7 @@ export function Start({ hasCareer, fresh, onBack, onPick, onCreate }: Props) {
           return (
             <button key={x.id} className={x.id === sel ? 'c-ans on' : 'c-ans'} onClick={() => setSel(x.id)} style={{ padding: '7px 10px 8px' }}>
               <span className="c-rowsb"><Nm w={x} /><span className="c-hint">POP {Math.round(x.popularity.global)}</span></span>
-              <span className="c-ad"><i>{x.gimmick}</i> · {x.classes.map((k) => CLASS_NAME[k]).join(' · ')} · {x.country}</span>
+              <span className="c-ad"><i>{x.gimmick}</i> · {divisionName(x)} · {x.classes.map((k) => CLASS_NAME[k]).join(' · ')} · {x.country}</span>
               <span className="c-mini">
                 {ATTR_KEYS.map((k, i) => (
                   <span key={k}>
