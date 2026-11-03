@@ -202,5 +202,39 @@
         }
       }
     }
+  ],
+  "ZWA": [
+    {
+      "name": "ZWA：第{n:zh}章",
+      "kind": "special",
+      "numbered": true,
+      "numberingNeverResets": true,
+      "when": {
+        "every": null,
+        "tbd": "day of the week"
+      }
+    }
+  ],
+  "joint": [
+    {
+      "name": "ZWA & NWGP: A.R.I.S.E.",
+      "kind": "special",
+      "alliance": "A.R.I.S.E.",
+      "promotions": [
+        "ZWA",
+        "NWGP"
+      ],
+      "perYear": [
+        1,
+        2
+      ],
+      "titles": [
+        "ARISE_OPENWEIGHT_CHAMPIONSHIP",
+        "ARISE_BATTLE_CHAMPIONSHIP"
+      ],
+      "when": {
+        "tbd": "dates"
+      }
+    }
   ]
 }
