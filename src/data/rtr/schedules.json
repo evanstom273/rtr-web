@@ -284,6 +284,24 @@
       }
     }
   ],
+  "TIS": [
+    {
+      "name": "{generated}",
+      "kind": "indie",
+      "generated": true,
+      "when": {
+        "procedural": {
+          "eventsPerWeek": [
+            5,
+            9
+          ],
+          "countries": "all",
+          "sameDayAllowed": true
+        }
+      },
+      "notes": "Not an employer: a worldwide pool of one-off bookings. Names come from src/career/indieEvents.ts. A wrestler can't be booked on two shows the same day."
+    }
+  ],
   "joint": [
     {
       "name": "ZWA & NWGP: A.R.I.S.E.",
