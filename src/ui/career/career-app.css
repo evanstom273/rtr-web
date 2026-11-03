@@ -163,3 +163,22 @@
 .cr .c-ans:disabled{cursor:not-allowed}
 /* One-off shows: what it is, under the show's name (charity, farewell, cup round). */
 .cr .c-sheet .c-sh span.c-hot{display:block;margin-top:5px;color:var(--cr-champ)}
+/* Career events pop up over the calendar as a card, one at a time, so you notice them as they happen. */
+.cr .c-pop{position:absolute;inset:0;z-index:8;display:flex;align-items:center;justify-content:center;padding:16px 14px calc(16px + env(safe-area-inset-bottom,0px));background:color-mix(in srgb,var(--cr-bg) 80%,transparent)}
+.cr .c-pcard{width:100%;max-width:440px;max-height:100%;display:flex;flex-direction:column;gap:6px;padding:14px 14px 12px;background:var(--cr-panel);color:var(--cr-fg);border:1px solid var(--cr-line);border-top:4px solid var(--cr-hi);box-shadow:0 18px 50px rgba(0,0,0,.55);animation:c-pop-in .3s cubic-bezier(.2,.9,.3,1.15)}
+@keyframes c-pop-in{from{opacity:0;transform:translateY(28px) scale(.96)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.cr .c-pcard{animation:none}}
+.cr .c-ptag{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.cr .c-ptag>span:first-child{background:var(--cr-hi);color:var(--cr-hi-fg);font-family:var(--cr-mono);font-weight:600;font-size:11px;letter-spacing:.14em;padding:4px 9px}
+.cr .c-pttl{font-family:var(--cr-display);font-weight:900;font-size:28px;line-height:.98;text-transform:var(--cr-upper)}
+.cr .c-pbody{flex:0 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:7px;margin-top:2px}
+.cr .c-pbody>.c-ad{font-size:15px}
+.cr .c-pnav{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:8px;margin-top:6px;flex:0 0 auto}
+.cr .c-pnav>.c-b1:only-child{grid-column:1/-1}
+[data-skin=broadcast] .cr .c-pcard{border-top:0;border-left:5px solid var(--cr-hi)}
+[data-skin=broadcast] .cr .c-ptag>span:first-child{clip-path:polygon(0 0,100% 0,calc(100% - 9px) 100%,0 100%);padding-right:18px}
+[data-skin=paper] .cr .c-pcard{border:2px solid var(--cr-line);border-top:6px double var(--cr-hi);box-shadow:5px 5px 0 var(--cr-line)}
+[data-skin=paper] .cr .c-ptag>span:first-child{background:none;color:var(--cr-hi);font-family:var(--cr-display);font-style:italic;font-weight:700;font-size:15px;letter-spacing:0;padding:0;border-bottom:1px solid var(--cr-hi)}
+[data-skin=building] .cr .c-pcard{border-radius:10px;border:1px solid #8a8f99;border-top:4px solid var(--cr-hi);box-shadow:0 0 0 1px rgba(255,177,46,.3),0 18px 50px rgba(0,0,0,.6)}
+[data-skin=building] .cr .c-ptag>span:first-child{border-radius:4px}
+

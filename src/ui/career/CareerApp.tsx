@@ -117,7 +117,7 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
       );
     }
     default:
-      return <Calendar c={c} busy={busy} onAdvance={() => void advance()} onShowDay={() => go('show')} onOpen={(s) => go(s)} onAsk={(r) => go(r)} />;
+      return <Calendar c={c} busy={busy} onAdvance={() => void advance()} onShowDay={() => go('show')} onOpen={(s) => go(s)} onAsk={(r) => go(r)} onNegotiate={(id) => go({ negotiate: id })} />;
   }
 }
 

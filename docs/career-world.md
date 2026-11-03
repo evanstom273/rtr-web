@@ -108,6 +108,14 @@ Events arrive in the mail as letters with choices (`events.ts`).
 - The letter keeps what you chose and what came of it.
 - Unanswered letters lapse after `EVENT_EXPIRES_DAYS`.
 
+**They pop up** (Lyra's call). A new event, invitation or contract offer appears as a card over the
+calendar as soon as it arrives, oldest first, with "N more waiting":
+- Answer an event there and then, and the card shows what came of it.
+- A contract offer goes straight to Negotiate.
+- Later leaves it waiting in Mail.
+
+The card (`EventCard.tsx`) and Mail share the same choice rows.
+
 **Contract gating:**
 - Outside Appearances: media, signings and appearances. Tier 1 needs management's approval.
 - Merchandise Rights.

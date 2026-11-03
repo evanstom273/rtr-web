@@ -4,6 +4,7 @@ import { countersWaiting, cupLabel, firstAskable, myBoutToday, promoName, roundN
 import type { ReqRoute } from './Requests';
 import { addDays, dateOf, dayOf, daysInMonth, fmtDay, MONTHS, monthOf, weekday, yearOf } from '../../career/dates';
 import { stipulation } from '../../engine';
+import { EventPopup } from './EventCard';
 import { Nm, Screen, useToast, useWords } from './parts';
 
 interface Props {
@@ -13,6 +14,7 @@ interface Props {
   onShowDay: () => void;
   onOpen: (screen: 'letters' | 'profile' | 'training' | 'records' | 'requests') => void;
   onAsk: (r: ReqRoute) => void;
+  onNegotiate: (offerId: string) => void;
 }
 
 const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
@@ -26,7 +28,7 @@ function mineOn(c: Career, day: string): { show: Show; indie: boolean } | null {
 }
 
 /** The career home: the month, today's shows, and the way forward. */
-export function Calendar({ c, busy, onAdvance, onShowDay, onOpen, onAsk }: Props) {
+export function Calendar({ c, busy, onAdvance, onShowDay, onOpen, onAsk, onNegotiate }: Props) {
   const { skin, w } = useWords();
   const [view, setView] = useState(() => ({ y: yearOf(c.today), m: monthOf(c.today) }));
   const [sel, setSel] = useState(c.today);
@@ -205,6 +207,7 @@ export function Calendar({ c, busy, onAdvance, onShowDay, onOpen, onAsk }: Props
           </div>
         </div>
       )}
+      {busy === null && <EventPopup c={c} onNegotiate={onNegotiate} />}
       {busy !== null && (
         <div className="c-busy">
           <span>{w('The world wrestles…', 'Simulating the day')}</span>
