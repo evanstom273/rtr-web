@@ -20,6 +20,8 @@ export const CLASS_MODS: Record<WrestlerClass, number[]> = {
   HARDCORE: [8, -14, -3, -13, 6, -2],
 };
 export const CLASS_ORDER: WrestlerClass[] = ['POWERHOUSE', 'TECHNICIAN', 'STRIKER', 'HIGH_FLYER', 'HARDCORE'];
+/** Which division someone wrestles in, for the profiles. */
+export const divisionName = (w: { gender: string }): string => (w.gender === 'FEMALE' ? 'Women’s' : 'Men’s');
 export const CLASS_NAME: Record<WrestlerClass, string> = { POWERHOUSE: 'Powerhouse', TECHNICIAN: 'Technician', STRIKER: 'Striker', HIGH_FLYER: 'High Flyer', HARDCORE: 'Hardcore' };
 /** The lowest and highest attributes in the database. */
 export const LIMIT: [number, number] = [25, 98];

@@ -3,7 +3,7 @@ import { REGION_KEY, REGION_LABEL } from '../../career/places';
 import { TraitChips } from './Traits';
 import { PROMOTIONS, TITLES, WRESTLERS, findWrestler, getMove, titlesHeldBy } from '../../data/rtr';
 import { askableIndieTitles, askableTitles, person, promoName, type Career } from '../../career';
-import { ATTR_KEYS, ATTR_LONG, CLASS_NAME } from '../../career/create';
+import { ATTR_KEYS, ATTR_LONG, CLASS_NAME, divisionName } from '../../career/create';
 import { daysBetween, fmtDay } from '../../career/dates';
 import { stipulation } from '../../engine';
 import { activeWorld } from '../../world/world';
@@ -128,7 +128,7 @@ export function Records({ c, onBack, onMoveset, onNewCareer, onRequest }: Props)
             {roster.map((y) => (
               <button key={y.id} className={y.id === c.player ? 'c-ans on' : 'c-ans'} onClick={() => open({ k: 'wr', id: y.id })} style={{ padding: '7px 10px' }}>
                 <span className="c-rowsb"><Nm w={y} /><span className="c-hint">pop {Math.round(y.popularity.global)}</span></span>
-                <span className="c-ad">{y.gimmick} · {y.classes.map((k) => CLASS_NAME[k]).join(' · ')} · {y.country}{person(c, y.id).injury ? ' · injured' : ''}</span>
+                <span className="c-ad">{y.gimmick} · {divisionName(y)} · {y.classes.map((k) => CLASS_NAME[k]).join(' · ')} · {y.country}{person(c, y.id).injury ? ' · injured' : ''}</span>
               </button>
             ))}
             <button className="c-b3" style={{ minHeight: 36 }} onClick={onNewCareer}>{w('Start a new career…')}</button>
@@ -330,7 +330,7 @@ function File({ id, c, tab, setTab, onClose, onShow, onTitle, onMoveset, onChall
       <div className="c-who">
         <div className="c-ini">{initials(x.name)}</div>
         <div className="c-whot">
-          <span className="c-tag">{x.disposition} · {x.classes.map((k) => CLASS_NAME[k]).join(' · ')}</span>
+          <span className="c-tag">{x.disposition} · {divisionName(x)} · {x.classes.map((k) => CLASS_NAME[k]).join(' · ')}</span>
           <Nm w={x} cls="c-nm" />
           <span className="c-sub"><i>{x.gimmick}</i> · {x.age} · {x.country}</span>
           <TraitChips traits={x.traits} />
