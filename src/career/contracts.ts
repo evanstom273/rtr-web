@@ -3,7 +3,7 @@ import { WRESTLERS, findWrestler } from '../data/rtr';
 import { seededRng } from '../engine/rng';
 import { hashSeed, promoRegion, regionalPop } from './booker';
 import { BUDGET, C, CLAUSES, attitude, patience } from './clauses';
-import { letter, person, promoName, spend } from './career';
+import { letter, person, promoName, spend, indieBeltOnSigning } from './career';
 import { addDays, addMonths, daysBetween, fmtDay } from './dates';
 import { round5 } from './economy';
 import { startTitlePromise } from './offers';
@@ -115,6 +115,7 @@ export function signOffer(c: Career, o: Offer): void {
     me.promotion = o.promo;
     for (const s of Object.values(c.shows)) if (!s.done && s.date > c.today && s.promo === o.promo) s.card = null;
     startTitlePromise(c);
+    indieBeltOnSigning(c, c.today);
     letter(c, { kind: 'contract', from: promoName(o.promo), subject: `Signed: ${promoName(o.promo)}`, body: [`${o.months} months at £${o.fee.toLocaleString('en-GB')} a match, starting today. Welcome aboard.`] });
   } else {
     p.next = k;

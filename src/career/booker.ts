@@ -87,6 +87,9 @@ function weightedPick<T>(rnd: Rng, xs: T[], w: (x: T) => number): T | undefined 
   return xs[xs.length - 1];
 }
 
+/** The Indie Scene's titles (World Independent, Open-Challenge, Women's Grand Prix). */
+export const isIndieTitle = (id: string): boolean => !!PROMOTIONS.find((p) => p.initials === 'TIS')?.titles.includes(id);
+
 /** Top contenders for a title, best first. */
 export function contenders(c: Career, title: Title, pool: Wrestler[], region: PopRegion, day: Day): Wrestler[] {
   const score = (w: Wrestler) => {
@@ -99,8 +102,10 @@ export function contenders(c: Career, title: Title, pool: Wrestler[], region: Po
     return s;
   };
   const eligible = pool.filter((w) => w.id !== title.holder && w.gender === title.gender && !(c.people[w.id]?.titleBanUntil && c.people[w.id]!.titleBanUntil! > day));
-  // Champions don't chase their promotion's other titles, unless there's nobody else.
-  const unheld = eligible.filter((w) => !TITLES.some((t) => t.holder === w.id));
+  // Champions don't chase other titles, unless there's nobody else. An indie title doesn't count
+  // against a promotion's titles: you can hold one of each.
+  const indie = isIndieTitle(title.id);
+  const unheld = eligible.filter((w) => !TITLES.some((t) => t.holder === w.id && (indie || !isIndieTitle(t.id))));
   return (unheld.length ? unheld : eligible).sort((a, b) => score(b) - score(a));
 }
 
@@ -221,7 +226,16 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
 
   // Title matches: a promised shot, a feud paying off tonight, or a defence if the title's due one.
   for (const t of titles) {
-    if (!t.holder) continue;
+    if (!t.holder) {
+      // Vacant (its champion signed away without Indie Bookings): the top two contenders wrestle for it.
+      if (titlePending(c, t.id, show)) continue;
+      const [x, y] = contenders(c, t, [...pool, ...(wantMe && me && !hot ? [me] : [])], region, show.date).filter((w) => free(w.id));
+      if (x && y) {
+        take(x.id); take(y.id);
+        card.push({ a: x.id, b: y.id, title: t.id });
+      }
+      continue;
+    }
     const champ = findWrestler(t.holder);
     const pledge = pledges.find((p) => p.kind === 'title' && p.title === t.id);
     const champHere = champ && (champ.id === c.player ? wantMe : pool.some((w) => w.id === champ.id)) && free(champ.id);

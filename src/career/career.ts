@@ -2,7 +2,7 @@
 import { PROMOTIONS, TITLES, WRESTLERS, databaseChanged, findWrestler, type Wrestler } from '../data/rtr';
 import { seededRng, type Rng } from '../engine/rng';
 import type { MatchRulesConfig } from '../engine/types';
-import { HARDCORE_STIPS, available, bookAhead, hashSeed, heated, promoRegion, regionalPop } from './booker';
+import { HARDCORE_STIPS, available, bookAhead, hashSeed, heated, isIndieTitle, promoRegion, regionalPop } from './booker';
 import { drawCalendar } from './calendar';
 import { BUDGET, C, NO_CLAUSES, attitude } from './clauses';
 import { makeRookie } from './create';
@@ -547,6 +547,23 @@ function contractsEnding(c: Career, day: Day, rnd: Rng): void {
   }
 }
 
+/**
+ * Your contract starts: an indie title you hold stays yours only if the deal has Indie Bookings
+ * (you defend it on indie dates). Without, it's vacated and the indie scene wrestles for it.
+ */
+export function indieBeltOnSigning(c: Career, day: Day): void {
+  const k = c.people[c.player]?.contract;
+  if (!k || (k.clauses[C.indie] ?? 0) >= 1) return;
+  for (const t of TITLES.filter((x) => x.holder === c.player && isIndieTitle(x.id))) {
+    t.holder = null;
+    const open = history().reigns[t.id]?.find((r) => r.to === null);
+    if (open) open.to = day;
+    c.titles[t.id] = { since: day, defences: 0, last: null };
+    for (const s of Object.values(c.shows)) if (!s.done && s.card) for (const b of s.card) if (b.title === t.id && !b.result) { delete b.title; delete b.planned; }
+    letter(c, { kind: 'contract', from: 'The Indie Scene', subject: `You’ve vacated the ${t.name}`, body: [`Your ${k.promo} deal has no Indie Bookings, so you can’t defend it. The indie scene will crown a new champion.`] });
+  }
+}
+
 function playerContractEnds(c: Career, w: Wrestler, day: Day): void {
   const p = c.people[c.player]!;
   const was = p.contract!.promo;
@@ -556,6 +573,7 @@ function playerContractEnds(c: Career, w: Wrestler, day: Day): void {
     addEvent(history(), { day, kind: 'signed', who: w.id, name: w.name, promo: p.contract.promo, ...(was !== p.contract.promo ? { from: was } : {}) });
     w.promotion = p.contract.promo;
     letter(c, { kind: 'contract', from: promoName(p.contract.promo), subject: `Welcome to ${p.contract.promo}`, body: [`Your new deal starts today and runs to ${fmtDay(p.contract.end, 'long')}.`] });
+    indieBeltOnSigning(c, day);
   } else {
     p.contract = null;
     w.promotion = 'TIS';
