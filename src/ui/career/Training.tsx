@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { TraitChips, TraitShop } from './Traits';
 import { findWrestler } from '../../data/rtr';
 import { attributeTotal, showsOn, spend, trainingPrice, type Career } from '../../career';
 import { ATTR_KEYS, ATTR_LONG } from '../../career/create';
@@ -24,6 +25,7 @@ export function Training({ c, onBack, onMoveset }: Props) {
   const me = findWrestler(c.player)!;
   const [pending, setPending] = useState<number[]>([0, 0, 0, 0, 0, 0]);
   const [done, setDone] = useState<string | null>(null);
+  const [shop, setShop] = useState(false);
   const total = attributeTotal(me);
   const n = pending.reduce((a, b) => a + b, 0);
   const cost = costOf(total, n);
@@ -96,12 +98,17 @@ export function Training({ c, onBack, onMoveset }: Props) {
         <span className="c-sec">{w('What the next points cost', 'Price ladder')}</span>
         <div className="c-kv">{ladder.map((r) => <span key={r.l} style={{ display: 'contents' }}><span className="c-lab">{w(r.l)}</span><span className="c-val">{r.v}</span></span>)}</div>
         {done && <div className="c-start"><span className="c-lab">{w('Trained')}</span><span className="c-val">{done}</span></div>}
+        <div className="c-rowsb"><span className="c-sec c-grow">{w('Traits')}</span><span className="c-hint">{(me.traits ?? []).length} of 3</span></div>
+        <TraitChips traits={me.traits} empty="None yet" />
+        <span className="c-note">Traits come from how you wrestle and the choices you make, or you can pay for one here: £12,000 (£15,000 for the strongest), one every 90 days.</span>
+        <button className="c-b3" onClick={() => setShop(true)}>{w('Buy a trait ›')}</button>
         <button className="c-b3" onClick={onMoveset}>{w('Edit your moveset ›', 'Edit moveset ›')}</button>
       </div>
       <div className="c-nav">
         <button className="c-b2" onClick={() => (n ? setPending([0, 0, 0, 0, 0, 0]) : onBack())}>{n ? w('Clear') : w('‹ Back')}</button>
         <button className="c-b1" onClick={confirm} disabled={!n || booked || after < 0}>{n ? w(`Confirm · ${money(cost)}`) : w('Nothing lined up')}</button>
       </div>
+      {shop && <TraitShop c={c} booked={booked} onClose={() => setShop(false)} />}
     </Screen>
   );
 }

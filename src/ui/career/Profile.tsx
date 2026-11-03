@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef } from 'react';
+import { TraitChips } from './Traits';
 import { findWrestler, getMove, titlesHeldBy } from '../../data/rtr';
 import { C, CLAUSES, myBoutToday, person, promoName, type Career } from '../../career';
 import { ATTR_KEYS, ATTR_LONG, CLASS_NAME } from '../../career/create';
@@ -42,6 +43,7 @@ export function Profile({ c, onBack, onOpen, onShowDay, onHub }: Props) {
           <Nm w={me} cls="c-nm" />
           <span className="c-sub"><i>{me.gimmick}</i> · {me.age} · {me.height.replace("'", '′ ')}{me.height.includes('"') ? '' : '″'} · {me.weight} lb · {me.country}</span>
           <span className="c-status">{w(health)} · {wins}–{losses} · {titles.length ? titles.map((t) => t.name).join(', ') : w('No titles')} · {w(`Rep ${Math.round(p.rep)}`)}</span>
+          <TraitChips traits={me.traits} />
         </div>
       </div>
       <div className="c-pfill">

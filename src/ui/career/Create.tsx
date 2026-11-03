@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react';
+import { traitDef } from '../../data/rtr';
+import { TraitChips } from './Traits';
 import { WRESTLERS, getMove, type MoveType, type Wrestler, type WrestlerClass } from '../../data/rtr';
 import { seededRng } from '../../engine/rng';
 import {
@@ -249,6 +251,10 @@ export function Create({ hasCareer, onBack, onDone }: Props) {
             const a = ans[i] === null ? null : qq.a[ans[i]!];
             return <div key={i} className="c-bgr"><span className="c-lab">{qq.ch}</span><span className="c-val">{a?.t ?? '— not answered —'}</span><span className="c-effs">{a ? effs(a.mods).map((e, k) => <span key={k} className={e.c}>{e.t}</span>) : null}</span></div>;
           })}
+          <div className="c-rowsb"><span className="c-sec c-grow">{w('Your trait', 'Trait')}</span><span className="c-hint">{w('From your life story')}</span></div>
+          {ans.every((a) => a !== null) ? (
+            <div className="c-bgr"><TraitChips traits={[storyTrait(ans)]} /><span className="c-ad">{traitDef(storyTrait(ans)).blurb} More come from how you wrestle, or from Training.</span></div>
+          ) : <span className="c-note">Answer every question to see the trait your story points to.</span>}
           <div className="c-rowsb"><span className="c-sec c-grow">{w('Starting attributes')}</span><span className="c-hint">Overall {Math.round(vals.reduce((a, b) => a + b, 0) / 6)}</span></div>
           <div className="c-brk head"><span /><span className="c-lab">Base</span><span className="c-lab">Class</span><span className="c-lab">{skin === 'paper' ? 'Life' : 'Hist'}</span><span /><span className="c-lab">=</span></div>
           {ATTR_KEYS.map((_, i) => (

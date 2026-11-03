@@ -59,7 +59,7 @@ export const indieTarget = (pool: number): number =>
  * The indie week: the brands most due a show (and any in a region that's gone quiet) run one, about
  * the target number, never more than the weekly maximum. No region is promised a show every week.
  */
-function brandWeek(r: Rng, ind: IndieCalendar, ws: Day, used: Set<string>): { date: Day; country: string; name: string; brand: string }[] {
+function brandWeek(r: Rng, ind: IndieCalendar, ws: Day, used: Set<string>): { date: Day; country: string; city?: string; name: string; brand: string }[] {
   const open = ind.brands.filter((b) => !b.closed && b.from <= addDays(ws, 6) && CITIES[b.country]?.length);
   const target = Math.min(open.length, INDIE_SHOWS_MAX_WEEK, Math.max(INDIE_SHOWS_PER_WEEK[0], Math.min(INDIE_SHOWS_PER_WEEK[1], indieTarget(ind.pool) + randInt(r, -1, 1))));
   const score = (b: Brand) => {
@@ -75,7 +75,9 @@ function brandWeek(r: Rng, ind: IndieCalendar, ws: Day, used: Set<string>): { da
     const date = addDays(ws, Math.max(0, Math.min(6, b.dow + shift)));
     ind.last[b.id] = date;
     if (!ind.regionLast[b.region] || ind.regionLast[b.region]! < date) ind.regionLast[b.region] = date;
-    return { date, country: b.country, name: indieEventName(r, b.country, used), brand: b.id };
+    // Most nights at home; now and then a road show elsewhere in the country.
+    const home = b.city && r() < 0.75 ? b.city : undefined;
+    return { date, country: b.country, ...(home ? { city: home } : {}), name: indieEventName(r, b.country, used), brand: b.id };
   });
 }
 
@@ -119,7 +121,7 @@ function showName(rule: Rule, date: Day, n: number): string {
     .replace('{month}', MONTHS[monthOf(date)]!);
 }
 
-interface Draft { date: Day; promo: string; rule: Rule; country?: string; name?: string; promos?: string[]; irregular?: string; brand?: string }
+interface Draft { date: Day; promo: string; rule: Rule; country?: string; city?: string; name?: string; promos?: string[]; irregular?: string; brand?: string }
 
 /** Every date in [from, to] with the given weekday. */
 function weekdaysIn(from: Day, to: Day, wd: number): Day[] {
@@ -257,7 +259,7 @@ export function drawWeek(state: CalendarState, ws: Day): Show[] {
       kind: d.rule.kind,
       date: d.date,
       country,
-      city: cities[Math.floor(r() * cities.length)]!,
+      city: d.city ?? cities[Math.floor(r() * cities.length)]!,
       region: regionOfCountry(country),
       card: null,
       done: false,
