@@ -298,6 +298,20 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
       if (pledge?.show === show.id) pledgeLater(c, pledge, show);
       continue;
     }
+    // A defence a promoter arranged with you, the champion (career events).
+    const defence = pledges.find((p) => p.kind === 'defence' && p.title === t.id && p.show === show.id);
+    if (defence) {
+      const named = defence.opp ? findWrestler(defence.opp) : undefined;
+      const opp = named && free(named.id) && pool.some((w) => w.id === named.id) ? named
+        : contenders(c, t, pool, region, show.date).find((w) => free(w.id));
+      if (champ.id === c.player && wantMe && me && free(me.id) && opp) {
+        take(me.id); take(opp.id);
+        card.push({ a: me.id, b: opp.id, title: t.id, planned: rnd() < planRetainWith(c, t.id, show, me.id, opp.id) ? me.id : opp.id });
+        pledgeDone(c, defence, `Booked: defending the ${t.name} against ${opp.name} on ${show.name}.`);
+        continue;
+      }
+      pledgeDone(c, defence, `The defence on ${show.name} couldn’t happen.`);
+    }
     // A shot the booker promised you (Requests).
     if (pledge && me && champ.id !== me.id) {
       if (shotHere(pledge) && wantMe && free(me.id) && !feud) {

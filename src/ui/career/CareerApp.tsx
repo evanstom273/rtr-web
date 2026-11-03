@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { WRESTLERS, databaseChanged, type Wrestler } from '../../data/rtr';
-import { finishDay, makeOffer, person, startCareer } from '../../career';
+import { ctxFor, eventLibrary, finishDay, fire, makeOffer, person, startCareer } from '../../career';
 import { todayReal } from '../../career/dates';
 import { runJobs } from '../../career/runner';
 import { activeWorld, resetCareer, resetWorld, saveWorld } from '../../world/world';
@@ -39,7 +39,11 @@ interface Props {
 export function CareerApp({ initial, onMenu, onPlay }: Props) {
   const c = useCareer();
   // Dev only: lets the test scripts reach the career.
-  if (import.meta.env.DEV) (window as unknown as { __career: unknown }).__career = { world: activeWorld, commit, makeOffer };
+  if (import.meta.env.DEV) {
+    // Dev only: poke the world from the console (and from browser checks), e.g. __career.event('podcast').
+    const event = (id: string) => { const c = activeWorld().career!; const l = fire(ctxFor(c), eventLibrary().find((d) => d.id === id)!); commit(); return l?.id; };
+    (window as unknown as { __career: unknown }).__career = { world: activeWorld, commit, makeOffer, event };
+  }
   const [stack, setStack] = useState<CareerScreen[]>(() => [c ? initial ?? 'cal' : 'start']);
   const [busy, setBusy] = useState<number | null>(null);
   const screen = stack[stack.length - 1]!;

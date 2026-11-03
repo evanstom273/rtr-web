@@ -83,6 +83,8 @@ export interface Person {
   daysOff?: Day[];
   /** A contract signed to start when the current one ends. */
   next?: Contract;
+  /** Retired: no longer wrestles (their history stays). */
+  retired?: boolean;
   /** Creative Control: the last time Protected Booking was used, and shows you've already asked about. */
   creativeUsed?: Day;
   creativeAsked?: string[];
@@ -104,11 +106,13 @@ export interface Feud {
   done: boolean;
 }
 
-export type LetterKind = 'offer' | 'result' | 'news' | 'injury' | 'contract';
+export type LetterKind = 'offer' | 'result' | 'news' | 'injury' | 'contract' | 'event';
 export type LetterAction =
   | { type: 'indie'; show: string; fee: number; travel: number; needsApproval?: boolean }
   | { type: 'negotiate'; offer: string }
-  | { type: 'tryout'; show: string; promo: string };
+  | { type: 'tryout'; show: string; promo: string }
+  /** A career event: its choices, and the day it lapses if you don't answer. */
+  | { type: 'event'; event: string; options: EventChoice[]; expires: Day };
 
 export interface Letter {
   id: string;
@@ -123,6 +127,9 @@ export interface Letter {
   action?: LetterAction;
   /** Set once acted on (accepted, declined, expired). */
   done?: 'accepted' | 'declined' | 'expired';
+  /** Career events: what you picked and what came of it. */
+  picked?: string;
+  outcome?: string;
 }
 
 export interface Offer {
@@ -204,6 +211,15 @@ export interface Career {
   relations?: Record<string, Relation>;
   /** Promoter memory: what each booker (promotion, or indie promoter by show name) remembers of you. */
   bookers?: Record<string, BookerMemory>;
+  /** Career events: when each last happened, what you chose, follow-ups still to land, and ones waiting on you. */
+  events?: {
+    seen: Record<string, Day>;
+    lastAt?: Day;
+    log: { id: string; day: Day; pick: string | null }[];
+    open: Record<string, { id: string; d: Record<string, string | number> }>;
+    follow?: { day: Day; id: string; d: Record<string, string | number> }[];
+    tally?: Record<string, number>;
+  };
   nextRookie: Day;
   seq: number;
   seed: number;
@@ -217,7 +233,8 @@ export interface Pledge {
   id: string;
   /** The promotion whose booker made it ('TIS' for indie promoters). */
   promo: string;
-  kind: 'title' | 'match' | 'show' | 'dates';
+  /** defence: you, as champion, defend `title` on `show` (a promoter wanted the champion), against `opp` if named. */
+  kind: 'title' | 'match' | 'show' | 'dates' | 'defence';
   title?: string;
   opp?: string;
   /** A particular show, or else the first suitable show from `from`. */
@@ -277,3 +294,6 @@ export interface BookerMemory {
   snubs: number;
   last?: Day;
 }
+
+/** One choice in a career event letter. */
+export interface EventChoice { id: string; label: string; detail?: string; blocked?: string }
