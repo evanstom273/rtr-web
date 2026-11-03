@@ -140,3 +140,16 @@
 .cr .c-pfill>.c-recent>*{flex:none}
 .cr .c-pfill~.c-pgrid{flex:none;margin-top:0}
 .cr .c-pgrid~.c-hint{flex:none}
+/* Requests: patience meters, what-they'll-weigh chips, two-way tabs, the 5-tab hub, the wrestler search. */
+.cr .c-meter{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center}
+.cr .c-meter .c-bar{height:10px}.cr .c-meter .c-bar i{height:10px}
+.cr .c-meter .c-big{font-size:20px}
+.cr .c-chips{display:flex;flex-wrap:wrap;gap:4px}
+.cr .c-steps.cols2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.cr .c-ans.dis{opacity:.5}
+.cr .c-logl{display:grid;grid-template-columns:54px minmax(0,1fr);gap:6px;align-items:baseline}
+.cr .c-tabs4.five{grid-template-columns:repeat(5,minmax(0,1fr))}
+.cr .c-tabs4.five button{font-size:14px;letter-spacing:.03em}
+.cr .c-tabs4 button:nth-child(5){border-top-color:var(--cr-dim)}
+.cr .c-search{min-height:42px;padding:0 12px;border:1px solid var(--cr-line);background:var(--cr-panel);color:var(--cr-fg);font:inherit;font-size:15px}
+.cr button.c-b1:disabled{opacity:.45}

@@ -1,17 +1,15 @@
-import { C, CLAUSES, exitTerms, leaveContract, matchPay, payReview, person, promoName, type Career } from '../../career';
+import { C, CLAUSES, exitTerms, matchPay, person, promoName, type Career } from '../../career';
 import { daysBetween, fmtDay } from '../../career/dates';
 import { LOSS_CUT_BY_TIER } from '../../career/tuning';
-import { commit, Head, money, Screen, useToast, useWords } from './parts';
+import { Head, money, Screen, useWords } from './parts';
 
 interface Props { c: Career; onBack: () => void }
 
 /** Career → Contract: your deal, its ten clauses, what you're owed, and the ways out. */
 export function Contract({ c, onBack }: Props) {
   const { skin, w } = useWords();
-  const [toast, say] = useToast();
   const p = person(c, c.player);
   const k = p.contract;
-  const run = (f: () => string) => { say(f()); commit(); };
   if (!k) {
     return (
       <Screen>
@@ -37,7 +35,6 @@ export function Contract({ c, onBack }: Props) {
     k.leaving ? `You’ve given notice: you leave on ${fmtDay(k.leaving, 'long')}.` : '',
     p.next ? `Signed with ${p.next.promo} from ${fmtDay(p.next.start, 'long')}.` : '',
   ].filter(Boolean);
-  const wage = k.clauses[C.wage] ?? 0;
   return (
     <Screen>
       <Head title={skin === 'paper' ? 'Your Terms' : 'CONTRACT'} meta={w(fmtDay(c.today, 'long'), fmtDay(c.today))} onBack={onBack} />
@@ -68,11 +65,7 @@ export function Contract({ c, onBack }: Props) {
         <span className="c-sec">{w('Getting out', 'Exit')}</span>
         <span className="c-note">{exit.text}</span>
       </div>
-      <div className="c-nav">
-        <button className="c-b2" disabled={wage < 1} onClick={() => run(() => payReview(c))}>{w('Pay review')}</button>
-        <button className="c-b1" onClick={() => run(() => leaveContract(c))}>{w(exit.tier === 3 ? 'Leave now' : exit.tier === 2 ? 'Give notice' : exit.tier === 1 ? 'Buy yourself out' : 'Ask for release')}</button>
-      </div>
-      {toast}
+      <div className="c-nav"><button className="c-b2" onClick={onBack}>{w('‹ Back')}</button><button className="c-b1" onClick={onBack}>{w('Done')}</button></div>
     </Screen>
   );
 }

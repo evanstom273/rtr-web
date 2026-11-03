@@ -151,3 +151,56 @@ export const NEGO_COUNTER = 1.3;
 export const NEGO_GATE_REP_T3 = 60;
 export const NEGO_GATE_POP_RESIST_T2 = 35;
 export const NEGO_GATE_POP_RESIST_T3 = 50;
+
+// --- Requests (balance sheet section 13, approved) ---------------------------------------------
+/** Booker patience: 0–100, one meter per promotion's booker and per indie promoter. */
+export const PATIENCE_START = 70;
+export const PATIENCE_DECLINE_COUNTER = -10;
+export const PATIENCE_NAG = -8;
+export const REP_NAG = -1;
+export const PATIENCE_OFF_SCRIPT = -15;
+export const PATIENCE_NO_SHOW = -20;
+export const PATIENCE_CAUGHT = -20;
+/** Time: this much a week, but time alone never takes it above PATIENCE_START. */
+export const PATIENCE_PER_WEEK = 2;
+export const PATIENCE_GOOD_MATCH = 2;
+export const PATIENCE_GOOD_MATCH_STARS = 4;
+export const PATIENCE_FOLLOWED_PLAN = 3;
+export const PATIENCE_TOOK_COUNTER = 5;
+/** Below this they won't hear any request. */
+export const PATIENCE_FLOOR = 25;
+/** Every answer: roll under the yes chance → yes; in the next band → a counter; otherwise no. */
+export const ASK_COUNTER_BAND = 25;
+/** Shared factors, in points of yes chance: (rep − 50) ÷ 2, ±3 per win/loss in the last five, (patience − 70) ÷ 2. */
+export const ASK_REP_DIVISOR = 2;
+export const ASK_FORM_PER_RESULT = 3;
+export const ASK_PATIENCE_DIVISOR = 2;
+/** Cooldowns in days (soft: asking inside one is nagging). Be on a show and indie spots are once per show. */
+export const COOLDOWN_TITLE = 30;
+export const COOLDOWN_CHALLENGE = 14;
+export const COOLDOWN_MORE = 30;
+export const COOLDOWN_PROMOTION = 60;
+/** Title shot: yes chance by contender rank (#1, #2, #3, #4, #5); #6 or lower is a no. */
+export const TITLE_ASK_BY_RANK = [60, 40, 25, 10, 10];
+/** Championship Opportunities tier: extra yes chance. */
+export const TITLE_ASK_CLAUSE = [0, 10, 15, 20];
+/** Challenges (your promotion). */
+export const CHALLENGE_BASE = 50;
+export const CHALLENGE_PER_POP_ABOVE = 2;
+export const CHALLENGE_CHAMPION = -25;
+export const CHALLENGE_IN_FEUD = -30;
+/** Challenges on indie shows: the opponent's side. */
+export const INDIE_CH_ALLOWED = 60;
+export const INDIE_CH_PROMOTION = 25;
+/** Be on a show: + the booker's usual chance; big shows are harder. */
+export const SHOW_ASK_BONUS = 10;
+export const SHOW_ASK_SPECIAL = -20;
+export const SHOW_ASK_FLAGSHIP = -30;
+/** More matches: a yes promises at least this many dates next month; each one short pays your weekly fee. */
+export const MORE_BASE = 40;
+export const MORE_MIN_DATES = 4;
+/** Approaching another promotion while signed: chance your promotion hears (higher in its own region), and for how long it costs you. */
+export const CAUGHT_CHANCE = 0.25;
+export const CAUGHT_CHANCE_SAME_REGION = 0.4;
+export const CAUGHT_DAYS = 30;
+export const CAUGHT_BOOK_MULT = 0.5;

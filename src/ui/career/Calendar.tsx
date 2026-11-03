@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import { findWrestler, TITLES } from '../../data/rtr';
-import { C, askForSpot, dayOff, myBoutToday, promoName, showsOn, type Career, type Show } from '../../career';
+import { countersWaiting, firstAskable, myBoutToday, promoName, showsOn, type Career, type Show } from '../../career';
+import type { ReqRoute } from './Requests';
 import { addDays, dateOf, dayOf, daysInMonth, fmtDay, MONTHS, monthOf, weekday, yearOf } from '../../career/dates';
 import { stipulation } from '../../engine';
-import { commit, Nm, Screen, useToast, useWords } from './parts';
+import { Nm, Screen, useToast, useWords } from './parts';
 
 interface Props {
   c: Career;
   busy: number | null;
   onAdvance: () => void;
   onShowDay: () => void;
-  onOpen: (screen: 'letters' | 'profile' | 'training' | 'records') => void;
+  onOpen: (screen: 'letters' | 'profile' | 'training' | 'records' | 'requests') => void;
+  onAsk: (r: ReqRoute) => void;
 }
 
 const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
@@ -24,12 +26,12 @@ function mineOn(c: Career, day: string): { show: Show; indie: boolean } | null {
 }
 
 /** The career home: the month, today's shows, and the way forward. */
-export function Calendar({ c, busy, onAdvance, onShowDay, onOpen }: Props) {
+export function Calendar({ c, busy, onAdvance, onShowDay, onOpen, onAsk }: Props) {
   const { skin, w } = useWords();
   const [view, setView] = useState(() => ({ y: yearOf(c.today), m: monthOf(c.today) }));
   const [sel, setSel] = useState(c.today);
   const [open, setOpen] = useState<string | null>(null);
-  const [toast, say] = useToast();
+  const [toast] = useToast();
   // When the day moves on, the calendar follows it.
   useEffect(() => {
     setSel(c.today);
@@ -57,6 +59,7 @@ export function Calendar({ c, busy, onAdvance, onShowDay, onOpen }: Props) {
     contract ? `${contract.promo} · contract to ${fmtDay(contract.end, 'dm')} ${contract.end.slice(0, 4)}` : 'Free agent',
     p.injury ? `injured to ${fmtDay(p.injury.until, 'dm')}` : p.fatigue >= 60 ? 'tired' : p.fatigue >= 30 ? 'worn' : 'fresh',
   ].join(' · ');
+  const waiting = countersWaiting(c).length;
   const unread = c.letters.filter((l) => !l.read).length;
   const next = useMemo(() => {
     for (let i = 1; i < 60; i++) {
@@ -78,12 +81,6 @@ export function Calendar({ c, busy, onAdvance, onShowDay, onOpen }: Props) {
     if (s.done) return { text: 'Results in', hot: false };
     if (s.card) return { text: `${s.card.length} matches on the card`, hot: false };
     return { text: s.promo === 'TIS' ? 'Indie show · card not drawn up yet' : 'Card not drawn up yet', hot: false };
-  };
-
-  const ask = (s: Show) => {
-    const r = askForSpot(c, s);
-    commit();
-    say(r.text);
   };
 
   return (
@@ -153,11 +150,12 @@ export function Calendar({ c, busy, onAdvance, onShowDay, onOpen }: Props) {
         </div>
       </div>
 
-      <nav className="c-tabs4">
+      <nav className="c-tabs4 five">
         <button onClick={() => onOpen('letters')}>{skin === 'paper' ? 'Letters' : 'Mail'}{unread > 0 && <span className="c-badge">{unread}</span>}</button>
         <button onClick={() => onOpen('profile')}>{w('Career')}</button>
         <button onClick={() => onOpen('training')}>{w('Training')}</button>
         <button onClick={() => onOpen('records')}>{skin === 'paper' ? 'Records' : 'DATABASE'}</button>
+        <button onClick={() => onOpen('requests')}>{w('Requests')}{waiting > 0 && <span className="c-badge">{waiting}</span>}</button>
       </nav>
 
       {sheet && (
@@ -189,17 +187,15 @@ export function Calendar({ c, busy, onAdvance, onShowDay, onOpen }: Props) {
               })}
             </div>
             {(() => {
-              // Schedule Flexibility: refuse a date (Tier 3) or ask for the day off (Tier 1+), on your promotion's shows.
-              const k = p.contract, tier = k?.clauses[C.schedule] ?? 0;
-              if (!k || !tier || sheet.date <= c.today || !(sheet.promos ?? [sheet.promo]).includes(k.promo)) return null;
-              const onIt = sheet.card?.some((b) => b.a === c.player || b.b === c.player);
-              if (onIt && tier < 3) return null;
-              if (p.daysOff?.includes(sheet.date)) return <span className="c-note">You’ve got this day off.</span>;
-              return <button className="c-b3" style={{ marginTop: 6 }} onClick={() => { say(dayOff(c, sheet.date)); commit(); }}>{w(onIt ? 'Refuse this date' : 'Ask for the day off')}</button>;
+              // Requests shortcuts: your promotion's shows and indie shows beyond the drawn week.
+              const promo = p.contract?.promo;
+              const onIt = !!c.indie[sheet.id] || !!sheet.card?.some((b) => b.a === c.player || b.b === c.player);
+              const mine = !!promo && (sheet.promos ?? [sheet.promo]).includes(promo) && sheet.promo !== 'TIS';
+              const indie = sheet.promo === 'TIS';
+              if (sheet.done || onIt || (!mine && !indie)) return null;
+              if (sheet.date < firstAskable(c)) return sheet.date >= c.today ? <span className="c-note">{w('Cards for the next seven days are set.', 'Cards for the next 7 days are set')}</span> : null;
+              return <button className="c-b1" style={{ marginTop: 6 }} onClick={() => { setOpen(null); onAsk(mine ? { req: 'book', tab: 0, show: sheet.id } : { req: 'spot', show: sheet.id }); }}>{w(mine ? 'Ask to be on this ›' : 'Ask for a spot ›')}</button>;
             })()}
-            {sheet.promo === 'TIS' && sheet.date >= c.today && !sheet.done && !c.indie[sheet.id] && !sheet.card?.some((b) => b.a === c.player || b.b === c.player) && (
-              <button className="c-b1" style={{ marginTop: 6 }} onClick={() => ask(sheet)}>{w('Ask for a spot', 'Ask for a spot')}</button>
-            )}
           </div>
         </div>
       )}
