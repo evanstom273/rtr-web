@@ -7,7 +7,7 @@ import { NEIGHBOURS, REGION_KEY } from './places';
 import { activeWorld } from '../world/world';
 import { bondOf } from '../world/people';
 import {
-  CARD_SIZE, CIRCUIT_DAYS, CONTENDER_T1_BONUS, INDIE_CHAMP_DRAW, INDIE_PICK_BOND_WEIGHT, INDIE_PICK_REP_WEIGHT, INDIE_REGION_WEIGHT, INDIE_TITLE_BOUTS_MAX, FEUD_WEEKS, INDIE_DEFENCE_CHANCE, INDIE_DEFENCE_OVERDUE, FEUDS_PER_PROMOTION, INTERGENDER_CHANCE,
+  CARD_SIZE, CIRCUIT_DAYS, REGIONAL_CONTENDER_PER_DATE, REGIONAL_DEFENCE_CHANCE, REGIONAL_DEFENCE_OVERDUE, REGIONAL_ELIGIBLE_DATES, REGIONAL_WINDOW_DAYS, CONTENDER_T1_BONUS, INDIE_CHAMP_DRAW, INDIE_PICK_BOND_WEIGHT, INDIE_PICK_REP_WEIGHT, INDIE_REGION_WEIGHT, INDIE_TITLE_BOUTS_MAX, FEUD_WEEKS, INDIE_DEFENCE_CHANCE, INDIE_DEFENCE_OVERDUE, FEUDS_PER_PROMOTION, INTERGENDER_CHANCE,
   CAUGHT_BOOK_MULT, INTERGENDER_CHANCE_INDIE, SCHEDULE_T2_MAX_PER_MONTH, STIP_CHANCE, TITLE_CHANGE_MAX, TITLE_CHANGE_PER_REIGN_YEAR,
   TITLE_PLANNED_CHANGE, TITLE_RHYTHM, TRUST_HIGH, TRUST_LOW, TRUST_RETAIN_SWING_HIGH, TRUST_RETAIN_SWING_LOW, type TitleClass,
 } from './tuning';
@@ -34,12 +34,30 @@ export function showRoster(show: Show, roster: readonly Wrestler[]): Wrestler[] 
   return roster.filter((w) => promos.includes(w.promotion));
 }
 
-/** Titles defended on a show: the promotion's own (joint shows: the alliance titles). */
+/** A regional title's region, as a popularity key (undefined for every other title). */
+export const titleRegion = (t: Pick<Title, 'region'> | undefined): PopRegion | undefined => (t?.region ? REGION_KEY[t.region] : undefined);
+
+/** Titles defended on a show: the promotion's own (joint shows: the alliance titles; indie shows: regional titles only in their region). */
 export function showTitles(show: Show): Title[] {
   if (show.special?.noTitles) return [];
   if (show.promos?.length) return TITLES.filter((t) => t.id.startsWith('ARISE_'));
   const p = PROMOTIONS.find((x) => x.initials === show.promo);
-  return p ? p.titles.map((id) => TITLES.find((t) => t.id === id)).filter((t): t is Title => !!t && !t.id.startsWith('ARISE_')) : [];
+  return p ? p.titles.map((id) => TITLES.find((t) => t.id === id)).filter((t): t is Title => !!t && !t.id.startsWith('ARISE_') && (!t.region || titleRegion(t) === show.region)) : [];
+}
+
+/** Dates someone's worked in a region lately (their circuit). */
+export function regionalDates(c: Career, id: string, region: PopRegion, day: Day): number {
+  return (c.people[id]?.circuit ?? []).filter((x) => x.r === region && x.d <= day && daysBetween(x.d, day) <= REGIONAL_WINDOW_DAYS).length;
+}
+
+/**
+ * Can someone challenge for a regional title? Lyra's call: by where they've been wrestling, not where
+ * they're from. Someone with hardly any recent record (a new world, back from injury) is judged by home.
+ */
+export function regionalEligible(c: Career, w: Wrestler, region: PopRegion, day: Day): boolean {
+  if (regionalDates(c, w.id, region, day) >= REGIONAL_ELIGIBLE_DATES) return true;
+  const recent = (c.people[w.id]?.circuit ?? []).filter((x) => x.d <= day && daysBetween(x.d, day) <= REGIONAL_WINDOW_DAYS).length;
+  return recent < REGIONAL_ELIGIBLE_DATES && REGION_KEY[w.region] === region;
 }
 
 const busyOn = (c: Career, day: Day): Set<string> => {
@@ -90,10 +108,14 @@ export function regionFactor(c: Career, w: Wrestler, region: PopRegion, day: Day
   return INDIE_REGION_WEIGHT.elsewhere;
 }
 
-/** Who's around for an indie show tonight: each indie by how near they are; champions travel more. */
+/**
+ * Who's around for an indie show tonight: each indie by how near they are; champions travel more. An
+ * indie champion who signed with a promotion that allows indie dates still defends on the indies.
+ */
 function indiePool(c: Career, show: Show, roster: readonly Wrestler[], rnd: Rng): Wrestler[] {
   const champs = new Set(TITLES.filter((t) => isIndieTitle(t.id) && t.holder).map((t) => t.holder!));
-  return roster.filter((w) => w.promotion === 'TIS' && rnd() < Math.min(1, regionFactor(c, w, show.region, show.date) * (champs.has(w.id) ? INDIE_CHAMP_DRAW : 1)));
+  const indie = (w: Wrestler) => w.promotion === 'TIS' || (champs.has(w.id) && (c.people[w.id]?.contract?.clauses[1] ?? 0) >= 1);
+  return roster.filter((w) => w.id !== c.player && indie(w) && rnd() < Math.min(1, regionFactor(c, w, show.region, show.date) * (champs.has(w.id) ? INDIE_CHAMP_DRAW : 1)));
 }
 
 /**
@@ -127,7 +149,7 @@ function weightedPick<T>(rnd: Rng, xs: T[], w: (x: T) => number): T | undefined 
 export function titleClass(id: string): TitleClass {
   if (id.startsWith('ARISE_')) return 'alliance';
   const p = PROMOTIONS.find((x) => x.titles.includes(id));
-  if (p?.initials === 'TIS') return 'indie';
+  if (p?.initials === 'TIS') return TITLES.find((t) => t.id === id)?.region ? 'regional' : 'indie';
   return p?.titles[0] === id ? 'world' : 'secondary';
 }
 export const titleMinGap = (id: string): number => TITLE_RHYTHM[titleClass(id)].minGap;
@@ -159,21 +181,23 @@ function promoSpacing(c: Career, show: Show): number {
   return 61 / Math.max(1, n);
 }
 
-/** The Indie Scene's titles (World Independent, Open-Challenge, Women's Grand Prix). */
+/** The Indie Scene's titles: the three worldwide ones and the twelve regional ones. */
 export const isIndieTitle = (id: string): boolean => !!PROMOTIONS.find((p) => p.initials === 'TIS')?.titles.includes(id);
 
 /** Top contenders for a title, best first. */
 export function contenders(c: Career, title: Title, pool: Wrestler[], region: PopRegion, day: Day): Wrestler[] {
+  const home = titleRegion(title);
   const score = (w: Wrestler) => {
     const p = c.people[w.id]!;
     const form = (p.recent ?? []).reduce((a, b) => a + b, 0);
-    let s = regionalPop(w, region) + form * 4;
+    let s = regionalPop(w, home ?? region) + form * 4 + (home ? regionalDates(c, w.id, home, day) * REGIONAL_CONTENDER_PER_DATE : 0);
     const tier = w.id === c.player ? p.contract?.clauses[5] ?? 0 : 0;
     if (tier >= 1) s += CONTENDER_T1_BONUS;
     if (p.contract?.titleShotBy) s += 100;
     return s;
   };
-  const eligible = pool.filter((w) => w.id !== title.holder && w.gender === title.gender && !(c.people[w.id]?.titleBanUntil && c.people[w.id]!.titleBanUntil! > day));
+  const eligible = pool.filter((w) => w.id !== title.holder && w.gender === title.gender && !(c.people[w.id]?.titleBanUntil && c.people[w.id]!.titleBanUntil! > day)
+    && (!home || regionalEligible(c, w, home, day)));
   // Champions don't chase other titles, unless there's nobody else. An indie title doesn't count
   // against a promotion's titles: you can hold one of each.
   const indie = isIndieTitle(title.id);
@@ -503,6 +527,7 @@ function defenceChance(c: Career, show: Show, titleId: string, sinceLast: number
   const { minGap, target } = TITLE_RHYTHM[cls];
   if (sinceLast < minGap) return 0;
   if (cls === 'indie') return sinceLast >= target ? INDIE_DEFENCE_OVERDUE : INDIE_DEFENCE_CHANCE;
+  if (cls === 'regional') return sinceLast >= target ? REGIONAL_DEFENCE_OVERDUE : REGIONAL_DEFENCE_CHANCE;
   const big = show.kind === 'special' || show.kind === 'flagship';
   const p = Math.min(1, promoSpacing(c, show) / Math.max(1, target - minGap));
   if (sinceLast >= target) return big ? 1 : Math.min(1, p * 3);

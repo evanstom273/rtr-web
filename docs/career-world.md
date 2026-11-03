@@ -48,7 +48,8 @@ Title classes:
 | --- | --- | --- |
 | World | a promotion's first title | 21 / 35 days |
 | Secondary | its other titles | 21 / 35 days |
-| Indie | The Indie Scene's titles | 21 / 35 days, defended when the champion's on an indie card |
+| Indie | The Indie Scene's three worldwide titles | 21 / 35 days, defended when the champion's on an indie card |
+| Regional | The twelve regional indie titles | 21 / 42 days, only on indie shows in their region |
 | Alliance | A.R.I.S.E. titles | 30 / 60 days; only on A.R.I.S.E. joint shows |
 
 Per title per year, over two years in three worlds (`TITLE_STATS=1 npx vitest run src/career/titlestats.test.ts`):
@@ -255,6 +256,42 @@ After the scene went in (3 seeds, a year):
 | No match in 120 days | 1–2% overall; 4–8% of the least popular quarter |
 | Indie shows a week | median 7–9, never more than 10 |
 | Engine time a day | about 0.8 s (unchanged) |
+
+## Regional indie titles
+
+Twelve titles join the three worldwide indie ones: a world and a women's title for each region.
+
+| Region | Titles |
+| --- | --- |
+| North America | North American Independent Championship · North American Independent Women's Championship |
+| South America | South American Independent Championship · South American Independent Women's Championship |
+| Europe | European Independent Championship · European Independent Women's Championship |
+| Asia | Asian Independent Championship · Asian Independent Women's Championship |
+| Africa | African Independent Championship · African Independent Women's Championship |
+| Oceania | Oceanic Independent Championship · Oceanic Independent Women's Championship |
+
+The names are proposals, following "World Independent Championship".
+
+**How they work:**
+- **Crowned at the start** (Lyra's call): the best indie from the region holds each one when a world begins. An older save gets them on load, crowned from its own indies, with reigns from that day.
+- **Defended only on indie shows in their region.** Within the two-title-matches-a-card limit, promised shots go first, then the most overdue.
+- **Who can challenge (Lyra's call):** whoever has worked 3 dates in the region in the last 120 days, wherever they were born. Someone with hardly any recent record is judged by their home region instead.
+- **Contender score:** regional popularity, plus 2 for each recent date there.
+- **Defence chances:** 25% past the minimum gap, 90% once overdue. A planned change is 15%, rising with the length of the reign like every other class.
+- **Requests:** asking for a regional title tells you where it's defended and what it takes to qualify ("Work 3 dates in Europe within 120 days first").
+- **News:** a change only reaches you if it's your region, you've worked there lately, or you know someone involved.
+- **Signings:** an indie wrestler signed by a promotion between the card being drawn and the show still wrestles the date, but not for a title. An indie champion signed with Indie Bookings still defends on the indies.
+
+Per title per year, two years in three worlds:
+
+| Class | Matches | Changes | Champion wins | Plan kept | Median reign |
+| --- | --- | --- | --- | --- | --- |
+| World | 7.0 | 1.0 | 85% | 97% | 197d |
+| Secondary | 11.1 | 1.7 | 84% | 97% | 140d |
+| Indie (worldwide) | 12.9 | 1.9 | 85% | 97% | 134d |
+| Regional | 9.8 | 2.0 | 79% | 95% | 101d |
+
+Over three years in three worlds, under the weekly cap, every one of the 15 indie titles gets at least 5 defences a year. None goes more than 90 days without one, not counting days its champion was injured. Indie cards average 0.3 title matches.
 
 ## Performance
 

@@ -4,7 +4,8 @@
 import { PROMOTIONS, TITLES, WRESTLERS, findWrestler, type Title, type Wrestler } from '../data/rtr';
 import { seededRng } from '../engine/rng';
 import { activeWorld } from '../world/world';
-import { available, bookChance, contenders, datesThisMonth, hashSeed, isIndieTitle, playerBookable, promoRegion, regionalPop, setIndieRoll, titleMinGap } from './booker';
+import { available, bookChance, contenders, datesThisMonth, hashSeed, isIndieTitle, playerBookable, promoRegion, regionalEligible, regionalPop, setIndieRoll, titleMinGap, titleRegion } from './booker';
+import { REGION_LABEL } from './places';
 import { letter, makeOffer, myBoutToday, person, promoName, setCareerHooks, spend } from './career';
 import { C } from './clauses';
 import { leaveContract, matchRival, payReview } from './contracts';
@@ -14,7 +15,7 @@ import { dayOff, indieAllowed, joinIndie } from './offers';
 import { movePatience, patienceOf, patienceWeek, showBooker } from './patience';
 import { trust, trustLabel } from './relations';
 import {
-  INDIE_PROMISE_ROLLS,
+  INDIE_PROMISE_ROLLS, REGIONAL_ELIGIBLE_DATES, REGIONAL_WINDOW_DAYS,
   ASK_COUNTER_BAND, ASK_FORM_PER_RESULT, ASK_PATIENCE_DIVISOR, ASK_REP_DIVISOR, ASK_SPOT_BASE_PCT, ASK_SPOT_MAX_PCT, BOOK_AHEAD_DAYS,
   CAUGHT_CHANCE, CAUGHT_CHANCE_SAME_REGION, CAUGHT_DAYS, CHALLENGE_BASE, CHALLENGE_CHAMPION, CHALLENGE_IN_FEUD, CHALLENGE_PER_POP_ABOVE,
   COOLDOWN_CHALLENGE, COOLDOWN_MORE, COOLDOWN_PROMOTION, COOLDOWN_TITLE, CREATIVE_T1_CHANGE, CREATIVE_T2_COOLDOWN_DAYS, INDIE_CH_ALLOWED,
@@ -189,12 +190,14 @@ export function askTitleShot(c: Career, titleId: string): Ask {
 
 // ------------------------------------------------------------------ indie title shots (free agents)
 
-/** The indie titles a free agent can ask a promoter about: your division's. */
+/** The indie titles a free agent can ask a promoter about: your division's. The worldwide ones first, then the regions you can challenge in. */
 export function askableIndieTitles(c: Career): Title[] {
   if (myPromo(c)) return [];
   const p = PROMOTIONS.find((x) => x.initials === 'TIS');
-  const g = me(c).gender;
-  return p ? p.titles.map((id) => TITLES.find((t) => t.id === id)).filter((t): t is Title => !!t && t.gender === g) : [];
+  const mine = me(c);
+  const list = p ? p.titles.map((id) => TITLES.find((t) => t.id === id)).filter((t): t is Title => !!t && t.gender === mine.gender) : [];
+  const rank = (t: Title) => { const r = titleRegion(t); return !r ? 0 : regionalEligible(c, mine, r, c.today) ? 1 : 2; };
+  return list.map((t, i) => ({ t, i })).sort((a, b) => rank(a.t) - rank(b.t) || a.i - b.i).map((x) => x.t);
 }
 
 function indieRank(c: Career, t: Title, show: Show): number {
@@ -222,7 +225,8 @@ function champBusy(c: Career, t: Title, show: Show): string | null {
 /** The next indie show from a day where the champion's free and the title's due: same country first, then region. */
 export function indieTitleShow(c: Career, t: Title, from: Day, near: Show): Show | undefined {
   const due = [from, firstAskable(c), titleDueFrom(c, t)].sort().pop()!;
-  const ok = (s: Show) => s.date >= due && !champBusy(c, t, s) && indieAllowed(c, s.date).ok && !c.asked?.[s.id];
+  const region = titleRegion(t);
+  const ok = (s: Show) => s.date >= due && (!region || s.region === region) && !s.special?.noTitles && !champBusy(c, t, s) && indieAllowed(c, s.date).ok && !c.asked?.[s.id];
   const shows = askableIndieShows(c).filter(ok);
   return shows.find((s) => s.country === near.country) ?? shows.find((s) => s.region === near.region) ?? shows[0];
 }
@@ -236,8 +240,11 @@ export function previewIndieTitle(c: Career, titleId: string, showId: string): P
   const allowed = show ? indieAllowed(c, show.date) : { ok: false, why: '' };
   const due = titleDueFrom(c, t);
   const busy = show ? champBusy(c, t, show) : null;
+  const region = titleRegion(t);
   const hard = myPromo(c) ? 'Indie title shots are for free agents.'
     : holdsTitle(c.player) ? 'You already hold a title.'
+      : region && show && show.region !== region ? `The ${t.name} is only defended in ${REGION_LABEL[region]}.`
+        : region && !regionalEligible(c, me(c), region, show?.date ?? c.today) ? `Work ${REGIONAL_ELIGIBLE_DATES} dates in ${REGION_LABEL[region]} within ${REGIONAL_WINDOW_DAYS} days first.`
       : p.titleBanUntil && p.titleBanUntil > c.today ? `No title matches until ${fmtDay(p.titleBanUntil, 'dm')} (off-script).`
         : !show || show.date < firstAskable(c) ? 'The next seven days’ cards are set.'
           : !allowed.ok ? allowed.why ?? 'You can’t take that date.'

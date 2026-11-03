@@ -6,7 +6,9 @@ describe('imported RtR content', () => {
     expect(MOVES).toHaveLength(656);
     expect(WRESTLERS).toHaveLength(400);
     expect(PROMOTIONS).toHaveLength(11);
-    expect(TITLES).toHaveLength(33);
+    // Each promotion's three, plus the indie scene's three worldwide and twelve regional titles.
+    expect(TITLES).toHaveLength(45);
+    expect(TITLES.filter((t) => t.region)).toHaveLength(12);
   });
 
   it('every wrestler has a complete 40/2/3 moveset of real moves', () => {
