@@ -1,81 +1,364 @@
 import { useMemo, useState } from 'react';
-import { PROMOTIONS, TITLES, WRESTLERS, getMove, titlesHeldBy } from '../../data/rtr';
+import { PROMOTIONS, TITLES, WRESTLERS, findWrestler, getMove, titlesHeldBy } from '../../data/rtr';
 import { person, promoName, type Career } from '../../career';
 import { ATTR_KEYS, ATTR_LONG, CLASS_NAME } from '../../career/create';
-import { fmtDay } from '../../career/dates';
+import { daysBetween, fmtDay } from '../../career/dates';
+import { stipulation } from '../../engine';
+import { activeWorld } from '../../world/world';
+import { promotionStory, reignsOf, titleLineage, wrestlerHistory, type ArchivedShow, type WorldEvent } from '../../world/history';
 import { Head, money, Nm, Screen, useWords } from './parts';
 
 interface Props { c: Career; onBack: () => void; onMoveset: () => void; onNewCareer: () => void }
 
 const ORDER = ['VWF', 'TCG', 'NWGP', 'ZWA', 'SLN', 'END', 'IVW', 'SSWC', 'UFC', 'AAWA', 'TIS'];
+const FINISH: Record<string, string> = {
+  PINFALL: 'pinfall', SUBMISSION: 'submission', COUNT_OUT: 'count-out', DOUBLE_COUNT_OUT: 'double count-out', DISQUALIFICATION: 'DQ', TABLES: 'through a table',
+  LADDER: 'ladder', CAGE_ESCAPE: 'escaped the cage', TEN_COUNT: 'ten count', I_QUIT: 'I quit', TIME_DECISION: 'time limit',
+};
+const PAGE = 40;
+const clock = (t: number) => `${Math.floor(t / 60)}:${String(Math.round(t % 60)).padStart(2, '0')}`;
+const titleName = (id?: string) => TITLES.find((t) => t.id === id)?.name ?? id ?? '';
+const promoLabel = (p: string) => (p === 'TIS' ? 'The Indie Scene' : promoName(p));
+const initials = (name: string) => name.replace(/"[^"]*"\s*/g, '').split(' ').map((s) => s[0]).join('').slice(0, 2);
 
-/** Records (the database): every promotion, champion and wrestler as the world stands. Read only, except your own moveset. */
+type Overlay = { k: 'show'; id: string } | { k: 'title'; id: string } | { k: 'wr'; id: string };
+
+/**
+ * Records (the database): today's rosters, and the world's history: every show, every title's lineage,
+ * every promotion's story, and any wrestler's file. Read only, except your own moveset.
+ */
 export function Records({ c, onBack, onMoveset, onNewCareer }: Props) {
   const { skin, w } = useWords();
+  const H = activeWorld().history;
   const mine = WRESTLERS.find((x) => x.id === c.player)!;
+  const [tab, setTab] = useState(0);
   const [pi, setPi] = useState(() => Math.max(0, ORDER.indexOf(mine.promotion)));
-  const [sel, setSel] = useState<string | null>(null);
+  const [sf, setSf] = useState(0);
+  const [limit, setLimit] = useState(PAGE);
+  const [pr, setPr] = useState(() => Math.max(0, ORDER.indexOf(mine.promotion)));
+  const [stack, setStack] = useState<Overlay[]>([]);
+  const [wtab, setWtab] = useState(0);
+  const open = (o: Overlay) => { if (o.k === 'wr') setWtab(0); setStack([...stack, o]); };
+  const close = () => setStack(stack.slice(0, -1));
+  const top = stack[stack.length - 1];
+  const vs = skin === 'paper' ? 'v.' : 'VS';
+  const tabs = ['Rosters', 'Shows', 'Titles', 'Promotions'];
+
+  // ---- Rosters (as the world stands today) ----
   const promo = PROMOTIONS.find((p) => p.initials === ORDER[pi])!;
   const roster = useMemo(() => WRESTLERS.filter((x) => x.promotion === promo.initials)
     .sort((a, b) => Number(titlesHeldBy(b).length > 0) - Number(titlesHeldBy(a).length > 0) || b.popularity.global - a.popularity.global), [promo, c.today]);
   const champs = promo.titles.map((id) => TITLES.find((t) => t.id === id)).filter((t) => t?.holder);
-  const x = sel ? WRESTLERS.find((y) => y.id === sel) : undefined;
-  const xp = x ? person(c, x.id) : undefined;
-  const best = x ? Math.max(...ATTR_KEYS.map((k) => x.stats[k])) : 0;
-  const tis = promo.initials === 'TIS';
+
+  // ---- Shows ----
+  const filters = ['ALL', ...ORDER];
+  const filt = filters[sf]!;
+  const shows = useMemo(() => H.shows.filter((s) => filt === 'ALL' || s.promo === filt || s.promos?.includes(filt)).reverse(), [H.shows.length, filt]);
+
+  // ---- Promotions ----
+  const prKey = ORDER[pr]!;
+  const story = useMemo(() => promotionStory(H, prKey), [H.events.length, prKey]);
+  const prShows = useMemo(() => H.shows.filter((s) => s.promo === prKey || s.promos?.includes(prKey)), [H.shows.length, prKey]);
+  const bestBouts = useMemo(() => prShows.flatMap((s) => s.bouts.map((b) => ({ s, b }))).sort((x, y) => y.b.stars - x.b.stars).slice(0, 3), [prShows]);
+
+  const eventLine = (e: WorldEvent): { k: string; c: string; t: string } => {
+    switch (e.kind) {
+      case 'title': return { k: 'Title', c: 'c-eff gold', t: `${e.name} won the ${titleName(e.title)} at ${e.show}` };
+      case 'signed': return { k: 'Signed', c: 'c-eff up', t: `${e.name} signed with ${e.promo}${e.from ? ` from ${e.from}` : ' from The Indie Scene'}` };
+      case 'poached': return { k: 'Arrived', c: 'c-eff up', t: e.promo === prKey ? `${e.name} arrived from ${e.from}` : `${e.name} left for ${e.promo}` };
+      case 'released': return { k: 'Released', c: 'c-eff dn', t: `${e.name} left ${e.promo}` };
+      case 'expired': return { k: 'Left', c: 'c-eff dn', t: `${e.name}’s contract with ${e.promo} ran out` };
+      default: return { k: 'Debut', c: 'c-eff', t: `${e.name} debuted on The Indie Scene` };
+    }
+  };
+
+  const showRow = (s: ArchivedShow) => {
+    const main = s.bouts[s.bouts.length - 1]!;
+    const best = Math.max(...s.bouts.map((b) => b.stars));
+    const changes = s.bouts.filter((b) => b.newChamp).map((b) => `New champion: ${b.w === 'a' ? b.an : b.bn} (${titleName(b.title)})`);
+    return (
+      <button key={s.id} className="c-ans" onClick={() => open({ k: 'show', id: s.id })} style={{ padding: '8px 10px' }}>
+        <span className="c-rowsb">
+          <span className="c-lab">{fmtDay(s.date, 'dm')} {s.date.slice(0, 4)} · {s.promo === 'TIS' ? 'INDIE' : s.promo} · {s.city}</span>
+          <span className="c-effs">{(s.kind === 'special' || s.kind === 'flagship') && <span className="c-eff gold">{w(s.kind)}</span>}<span className="c-hint">{w('Best')} {best}★</span></span>
+        </span>
+        <b className="c-at">{s.name}</b>
+        <span className="c-vs"><span className="c-hint">{w('Main event:')}</span><Nm id={main.a} name={main.an} plain /><span className="c-vsx">{vs}</span><Nm id={main.b} name={main.bn} plain /></span>
+        {changes.length > 0 && <span className="c-ad">{changes.join(' · ')}</span>}
+      </button>
+    );
+  };
+
   return (
     <Screen>
       <Head title={skin === 'paper' ? 'Records' : 'DATABASE'} meta={w(fmtDay(c.today, 'long'), fmtDay(c.today))} onBack={onBack} />
-      <div className="c-cyc" style={{ marginTop: 10 }}>
-        <button className="c-stepb" onClick={() => setPi((pi + ORDER.length - 1) % ORDER.length)} aria-label="Previous promotion" style={{ minHeight: 52 }}>‹</button>
-        <div className="c-fld mid" style={{ minHeight: 52 }}><b className="c-big" style={{ fontSize: 20 }}>{tis ? w('The Indie Scene') : promo.initials}</b><span className="c-hint">{tis ? 'Free agents' : promo.name} · {roster.length} wrestlers</span></div>
-        <button className="c-stepb" onClick={() => setPi((pi + 1) % ORDER.length)} aria-label="Next promotion" style={{ minHeight: 52 }}>›</button>
+      <div className="c-steps cols4" style={{ marginTop: 10 }}>
+        {tabs.map((t, i) => <button key={t} className={i === tab ? 'c-st on' : 'c-st'} style={{ border: 0 }} onClick={() => setTab(i)}>{w(t)}</button>)}
       </div>
-      <div className="c-body">
-        <span className="c-sec">{w('The champions', 'Champions')}</span>
-        {champs.map((t) => <div key={t!.id} className="c-rowsb"><span className="c-lab">{t!.name}</span><Nm id={t!.holder!} /></div>)}
-        <div className="c-rowsb"><span className="c-sec c-grow">{w('The roster', 'Roster')}</span><span className="c-hint">{roster.length}</span></div>
-        {roster.map((y) => (
-          <button key={y.id} className={y.id === c.player ? 'c-ans on' : 'c-ans'} onClick={() => setSel(y.id)} style={{ padding: '7px 10px' }}>
-            <span className="c-rowsb"><Nm w={y} /><span className="c-hint">pop {Math.round(y.popularity.global)}</span></span>
-            <span className="c-ad">{y.gimmick} · {y.classes.map((k) => CLASS_NAME[k]).join(' · ')} · {y.country}{person(c, y.id).injury ? ' · injured' : ''}</span>
-          </button>
-        ))}
-      </div>
-      <div className="c-nav"><button className="c-b2" onClick={onBack}>{w('‹ Back')}</button><button className="c-b1" onClick={() => { setPi(Math.max(0, ORDER.indexOf(mine.promotion))); setSel(mine.id); }}>{w('Find me')}</button></div>
-      {x && xp && (
-        <div className="c-ovl">
-          <div className="c-top"><button className="c-back" onClick={() => setSel(null)} aria-label="Back to the roster">{skin === 'paper' ? '‹ Back' : '‹'}</button><div className="c-ttl">{skin === 'paper' ? 'Profile' : 'PROFILE'}</div><span className="c-meta">{x.promotion}</span></div>
-          <div className="c-mast">Profile</div>
-          <div className="c-who">
-            <div className="c-ini">{x.name.replace(/"[^"]*"\s*/g, '').split(' ').map((s) => s[0]).join('').slice(0, 2)}</div>
-            <div className="c-whot">
-              <span className="c-tag">{x.classes.map((k) => CLASS_NAME[k]).join(' · ')}</span>
-              <Nm w={x} cls="c-nm" />
-              <span className="c-sub"><i>{x.gimmick}</i> · {x.age} · {x.country}</span>
-              <span className="c-status">{x.promotion === 'TIS' ? 'Free agent' : `Signed to ${x.promotion}${xp.contract ? ` to ${fmtDay(xp.contract.end, 'dm')} ${xp.contract.end.slice(0, 4)}` : ''}`}{xp.injury ? ` · injured to ${fmtDay(xp.injury.until, 'dm')}` : ''}</span>
-            </div>
+
+      {tab === 0 && (
+        <>
+          <div className="c-cyc" style={{ marginTop: 8 }}>
+            <button className="c-stepb" onClick={() => setPi((pi + ORDER.length - 1) % ORDER.length)} aria-label="Previous promotion">‹</button>
+            <div className="c-fld mid"><b className="c-big" style={{ fontSize: 18 }}>{promo.initials === 'TIS' ? w('The Indie Scene') : promo.initials}</b><span className="c-hint">{promo.initials === 'TIS' ? 'Free agents' : promo.name} · {roster.length} wrestlers</span></div>
+            <button className="c-stepb" onClick={() => setPi((pi + 1) % ORDER.length)} aria-label="Next promotion">›</button>
           </div>
           <div className="c-body">
+            <span className="c-sec">{w('The champions', 'Champions')}</span>
+            {champs.map((t) => <button key={t!.id} className="c-rowsb" style={{ background: 'none', border: 0, padding: 0, textAlign: 'left' }} onClick={() => open({ k: 'title', id: t!.id })}><span className="c-lab">{t!.name}</span><Nm id={t!.holder!} /></button>)}
+            <div className="c-rowsb"><span className="c-sec c-grow">{w('The roster', 'Roster')}</span><span className="c-hint">{roster.length}</span></div>
+            {roster.map((y) => (
+              <button key={y.id} className={y.id === c.player ? 'c-ans on' : 'c-ans'} onClick={() => open({ k: 'wr', id: y.id })} style={{ padding: '7px 10px' }}>
+                <span className="c-rowsb"><Nm w={y} /><span className="c-hint">pop {Math.round(y.popularity.global)}</span></span>
+                <span className="c-ad">{y.gimmick} · {y.classes.map((k) => CLASS_NAME[k]).join(' · ')} · {y.country}{person(c, y.id).injury ? ' · injured' : ''}</span>
+              </button>
+            ))}
+            <button className="c-b3" style={{ minHeight: 36 }} onClick={onNewCareer}>{w('Start a new career…')}</button>
+          </div>
+        </>
+      )}
+
+      {tab === 1 && (
+        <>
+          <div className="c-cyc" style={{ marginTop: 8 }}>
+            <button className="c-stepb" onClick={() => { setSf((sf + filters.length - 1) % filters.length); setLimit(PAGE); }} aria-label="Previous promotion">‹</button>
+            <div className="c-fld mid"><b className="c-big" style={{ fontSize: 18 }}>{filt === 'ALL' ? w('Every promotion', 'All promotions') : filt === 'TIS' ? w('The Indie Scene') : filt}</b><span className="c-hint">{shows.length} shows · newest first</span></div>
+            <button className="c-stepb" onClick={() => { setSf((sf + 1) % filters.length); setLimit(PAGE); }} aria-label="Next promotion">›</button>
+          </div>
+          <div className="c-body">
+            {shows.length === 0 && <span className="c-note">No shows on record yet. Every show the world puts on is kept here once it’s happened.</span>}
+            {shows.slice(0, limit).map(showRow)}
+            {shows.length > limit && <button className="c-b3" onClick={() => setLimit(limit + PAGE)}>{w(`Older shows (${shows.length - limit} more)`)}</button>}
+          </div>
+        </>
+      )}
+
+      {tab === 2 && (
+        <div className="c-body">
+          {ORDER.map((p) => {
+            const ts = TITLES.filter((t) => (PROMOTIONS.find((x) => x.id === t.promotionId)?.initials ?? '') === p);
+            if (!ts.length) return null;
+            return (
+              <div key={p} style={{ display: 'contents' }}>
+                <span className="c-sec">{promoLabel(p)}</span>
+                {ts.map((t) => {
+                  const line = titleLineage(H, t.id);
+                  const cur = line[0];
+                  return (
+                    <button key={t.id} className="c-ans" onClick={() => open({ k: 'title', id: t.id })} style={{ padding: '7px 10px' }}>
+                      <span className="c-rowsb"><b className="c-at" style={{ fontSize: 15 }}>{t.name}</b><span className="c-hint">{line.length} {line.length === 1 ? 'reign' : 'reigns'}</span></span>
+                      <span className="c-vs">{t.holder ? <Nm id={t.holder} /> : <span className="c-nl">Vacant</span>}{cur && <span className="c-hint">since {fmtDay(cur.from, 'dm')} · {daysBetween(cur.from, c.today)} days</span>}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {tab === 3 && (
+        <>
+          <div className="c-cyc" style={{ marginTop: 8 }}>
+            <button className="c-stepb" onClick={() => setPr((pr + ORDER.length - 1) % ORDER.length)} aria-label="Previous promotion">‹</button>
+            <div className="c-fld mid"><b className="c-big" style={{ fontSize: 18 }}>{prKey === 'TIS' ? w('The Indie Scene') : prKey}</b><span className="c-hint">{promoLabel(prKey)}</span></div>
+            <button className="c-stepb" onClick={() => setPr((pr + 1) % ORDER.length)} aria-label="Next promotion">›</button>
+          </div>
+          <div className="c-body">
+            <div className="c-statg">
+              {[[prShows.length, 'Shows'], [story.filter((e) => e.kind === 'title').length, 'Title changes'], [story.filter((e) => e.kind !== 'title' && e.kind !== 'debut').length, 'Roster moves']].map(([v, l]) => (
+                <div key={l} className="c-statc"><b className="c-sbig" style={{ fontSize: 22 }}>{v}</b><span className="c-lab">{w(String(l))}</span></div>
+              ))}
+            </div>
+            <span className="c-sec">{w('Best matches')}</span>
+            {bestBouts.length === 0 && <span className="c-note">Nothing on record yet.</span>}
+            {bestBouts.map(({ s, b }, i) => (
+              <button key={i} className="c-led" style={{ gridTemplateColumns: '54px minmax(0, 1fr) auto', background: 'none', border: 0, textAlign: 'left', color: 'inherit' }} onClick={() => open({ k: 'show', id: s.id })}>
+                <span className="c-hint">{fmtDay(s.date, 'dm')}</span>
+                <span style={{ display: 'flex', flexDirection: 'column' }}><span className="c-vs"><Nm id={b.a} name={b.an} plain /><span className="c-vsx">{vs}</span><Nm id={b.b} name={b.bn} plain /></span><span className="c-hint">{s.name}</span></span>
+                <b className="c-big" style={{ fontSize: 16 }}>{b.stars}★</b>
+              </button>
+            ))}
+            <span className="c-sec">{w('The story so far', 'Timeline')}</span>
+            {story.length === 0 && <span className="c-note">No title changes or roster moves yet.</span>}
+            {story.slice(0, 60).map((e, i) => {
+              const x = eventLine(e);
+              return (
+                <button key={i} className="c-led" style={{ gridTemplateColumns: '54px minmax(0, 1fr)', background: 'none', border: 0, textAlign: 'left', color: 'inherit' }} onClick={() => open(e.kind === 'title' && e.title ? { k: 'title', id: e.title } : { k: 'wr', id: e.who })}>
+                  <span className="c-hint">{fmtDay(e.day, 'dm')}</span>
+                  <span className="c-val"><span className={x.c}>{w(x.k)}</span> {x.t}</span>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      <div className="c-nav"><button className="c-b2" onClick={onBack}>{w('‹ Back')}</button><button className="c-b1" onClick={() => open({ k: 'wr', id: c.player })}>{w('My history')}</button></div>
+
+      {top?.k === 'show' && <ShowCard id={top.id} onClose={close} onWrestler={(id) => open({ k: 'wr', id })} />}
+      {top?.k === 'title' && <Lineage id={top.id} today={c.today} onClose={close} onWrestler={(id) => open({ k: 'wr', id })} />}
+      {top?.k === 'wr' && <File id={top.id} c={c} tab={wtab} setTab={setWtab} onClose={close} onShow={(id) => open({ k: 'show', id })} onTitle={(id) => open({ k: 'title', id })} onMoveset={onMoveset} />}
+    </Screen>
+  );
+}
+
+/** A past show's full card and results. */
+function ShowCard({ id, onClose, onWrestler }: { id: string; onClose: () => void; onWrestler: (id: string) => void }) {
+  const { skin, w } = useWords();
+  const s = activeWorld().history.shows.find((x) => x.id === id);
+  if (!s) return null;
+  const vs = skin === 'paper' ? 'v.' : 'VS';
+  return (
+    <div className="c-ovl">
+      <div className="c-top"><button className="c-back" onClick={onClose} aria-label="Back">{skin === 'paper' ? '‹ Back' : '‹'}</button><div className="c-ttl">{skin === 'paper' ? 'The Card' : 'SHOW'}</div><span className="c-meta">{fmtDay(s.date, 'dm')}</span></div>
+      <div className="c-mast">The Card</div>
+      <div className="c-start" style={{ marginTop: 10 }}><span className="c-lab">{w(`${promoLabel(s.promo)} · ${s.kind}`)}</span><b className="c-sbig">{s.name}</b><span className="c-val">{s.city}, {s.country} · {fmtDay(s.date, 'long')}</span></div>
+      <div className="c-body">
+        {s.bouts.map((b, i) => {
+          const winner = b.w === 'a' ? b.an : b.w === 'b' ? b.bn : null;
+          return (
+            <div key={i} className={b.newChamp ? 'c-ans on' : 'c-ans'}>
+              <div className="c-rowsb">
+                <span className="c-lab">{w(i === s.bouts.length - 1 ? 'Main event' : i === 0 ? 'Opener' : `Match ${i + 1}`)}</span>
+                <span className="c-effs">
+                  {b.title && <span className="c-eff gold">{titleName(b.title)}</span>}
+                  {b.newChamp && <span className="c-eff up">{w('New champion')}</span>}
+                  {b.stip && <span className="c-eff">{stipulation(b.stip).name}</span>}
+                </span>
+              </div>
+              <span className="c-vs">
+                <button style={{ background: 'none', border: 0, padding: 0 }} onClick={() => onWrestler(b.a)}><Nm id={b.a} name={b.an} plain /></button>
+                <span className="c-vsx">{vs}</span>
+                <button style={{ background: 'none', border: 0, padding: 0 }} onClick={() => onWrestler(b.b)}><Nm id={b.b} name={b.bn} plain /></button>
+              </span>
+              <span className="c-ad">{winner ? `${winner} wins` : 'Draw'} · {FINISH[b.finish] ?? b.finish} · {clock(b.t)} · {b.stars}★{b.move ? ` · ${b.move}` : ''}</span>
+            </div>
+          );
+        })}
+      </div>
+      <div className="c-nav"><button className="c-b2" onClick={onClose}>{w('‹ Back')}</button><button className="c-b1" onClick={onClose}>{w('Done')}</button></div>
+    </div>
+  );
+}
+
+/** A title's lineage: every reign since records began. */
+function Lineage({ id, today, onClose, onWrestler }: { id: string; today: string; onClose: () => void; onWrestler: (id: string) => void }) {
+  const { skin, w } = useWords();
+  const t = TITLES.find((x) => x.id === id);
+  const line = titleLineage(activeWorld().history, id);
+  if (!t) return null;
+  const p = PROMOTIONS.find((x) => x.id === t.promotionId)?.initials ?? '';
+  const began = line[line.length - 1]?.from;
+  return (
+    <div className="c-ovl">
+      <div className="c-top"><button className="c-back" onClick={onClose} aria-label="Back">{skin === 'paper' ? '‹ Back' : '‹'}</button><div className="c-ttl">{skin === 'paper' ? 'The Lineage' : 'TITLE HISTORY'}</div><span className="c-meta">{p}</span></div>
+      <div className="c-mast">The Lineage</div>
+      <div className="c-start" style={{ marginTop: 10 }}>
+        <span className="c-lab">{promoLabel(p)}</span>
+        <b className="c-sbig">{t.name}</b>
+        <span className="c-val">{line.length} {line.length === 1 ? 'reign' : 'reigns'}{began ? ` since records began (${fmtDay(began, 'long')})` : ''} · champion now: {t.holder ? findWrestler(t.holder)?.name : 'vacant'}</span>
+      </div>
+      <div className="c-body">
+        {line.map((r, i) => {
+          const held = daysBetween(r.from, r.to ?? today);
+          return (
+            <button key={i} className={i === 0 ? 'c-ans on' : 'c-ans'} onClick={() => onWrestler(r.holder)}>
+              <div className="c-rowsb">{i === 0 ? <Nm id={r.holder} name={r.name} /> : <Nm id={r.holder} name={r.name} plain />}<span className="c-hint">{held} days</span></div>
+              <span className="c-ad">{fmtDay(r.from, 'long')} → {r.to ? fmtDay(r.to, 'long') : 'now'}</span>
+              <span className="c-effs">
+                <span className="c-eff">{r.defences} {r.defences === 1 ? 'defence' : 'defences'}</span>
+                <span className={r.won ? 'c-eff' : 'c-eff gold'}>{r.won ? `${w('Won from')} ${r.won.fromName ?? 'vacant'} · ${r.won.show}` : w('Champion when records began')}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="c-nav"><button className="c-b2" onClick={onClose}>{w('‹ Back')}</button><button className="c-b1" onClick={onClose}>{w('Done')}</button></div>
+    </div>
+  );
+}
+
+/** Any wrestler's file: today's profile, and their matches, title reigns and moves on record. */
+function File({ id, c, tab, setTab, onClose, onShow, onTitle, onMoveset }: {
+  id: string; c: Career; tab: number; setTab: (n: number) => void; onClose: () => void; onShow: (id: string) => void; onTitle: (id: string) => void; onMoveset: () => void;
+}) {
+  const { skin, w } = useWords();
+  const x = findWrestler(id);
+  const H = activeWorld().history;
+  const matches = useMemo(() => wrestlerHistory(H, id), [H.shows.length, id]);
+  if (!x) return null;
+  const p = person(c, id);
+  const reigns = reignsOf(H, id).reverse();
+  const moves = H.events.filter((e) => e.who === id && e.kind !== 'title').reverse();
+  const wins = matches.filter((m) => m.result === 'win').length, losses = matches.filter((m) => m.result === 'loss').length;
+  const avg = matches.length ? (matches.reduce((t, m) => t + m.stars, 0) / matches.length).toFixed(1) : '—';
+  const best = Math.max(...ATTR_KEYS.map((k) => x.stats[k]));
+  const tabs = ['Matches', 'Titles', 'Moves', 'Profile'];
+  return (
+    <div className="c-ovl">
+      <div className="c-top"><button className="c-back" onClick={onClose} aria-label="Back">{skin === 'paper' ? '‹ Back' : '‹'}</button><div className="c-ttl">{skin === 'paper' ? 'The File' : 'WRESTLER'}</div><span className="c-meta">{x.promotion}</span></div>
+      <div className="c-mast">The File</div>
+      <div className="c-who">
+        <div className="c-ini">{initials(x.name)}</div>
+        <div className="c-whot">
+          <span className="c-tag">{x.disposition} · {x.classes.map((k) => CLASS_NAME[k]).join(' · ')}</span>
+          <Nm w={x} cls="c-nm" />
+          <span className="c-sub"><i>{x.gimmick}</i> · {x.age} · {x.country}</span>
+          <span className="c-status">{x.promotion === 'TIS' ? 'Free agent' : `Signed to ${x.promotion}${p.contract ? ` to ${fmtDay(p.contract.end, 'dm')} ${p.contract.end.slice(0, 4)}` : ''}`}{p.injury ? ` · injured to ${fmtDay(p.injury.until, 'dm')}` : ''} · {matches.length} matches on file</span>
+        </div>
+      </div>
+      <div className="c-statg" style={{ marginTop: 8 }}>
+        {[[`${wins}–${losses}`, 'Record'], [`${avg}★`, 'Average'], [String(reigns.length), 'Title reigns']].map(([v, l]) => (
+          <div key={l} className="c-statc"><b className="c-sbig" style={{ fontSize: 22 }}>{v}</b><span className="c-lab">{w(l!)}</span></div>
+        ))}
+      </div>
+      <div className="c-steps cols4" style={{ marginTop: 8 }}>
+        {tabs.map((t, i) => <button key={t} className={i === tab ? 'c-st on' : 'c-st'} style={{ border: 0 }} onClick={() => setTab(i)}>{w(t)}</button>)}
+      </div>
+      <div className="c-body">
+        {tab === 0 && (matches.length ? matches.slice(0, 200).map((m, i) => (
+          <button key={i} className="c-led" style={{ gridTemplateColumns: '54px minmax(0, 1fr) auto', background: 'none', border: 0, textAlign: 'left', color: 'inherit' }} onClick={() => onShow(m.showId)}>
+            <span className="c-hint">{fmtDay(m.day, 'dm')}</span>
+            <span style={{ display: 'flex', flexDirection: 'column' }}>
+              <span className="c-vs"><span className={m.result === 'win' ? 'c-eff up' : m.result === 'loss' ? 'c-eff dn' : 'c-eff'}>{w(m.result === 'win' ? 'beat' : m.result === 'loss' ? 'lost to' : 'drew')}</span><Nm id={m.opp} name={m.oppName} plain /></span>
+              <span className="c-hint">{m.show}{m.title ? ` · ${titleName(m.title)}` : ''}</span>
+            </span>
+            <b className="c-big" style={{ fontSize: 16 }}>{m.stars}★</b>
+          </button>
+        )) : <span className="c-note">No matches on file yet.</span>)}
+        {tab === 1 && (reigns.length ? reigns.map((r, i) => (
+          <button key={i} className={r.to === null ? 'c-ans on' : 'c-ans'} onClick={() => onTitle(r.title)}>
+            <div className="c-rowsb"><b className="c-at" style={{ fontSize: 15 }}>{titleName(r.title)}</b><span className="c-hint">{daysBetween(r.from, r.to ?? c.today)} days</span></div>
+            <span className="c-ad">{fmtDay(r.from, 'long')} → {r.to ? fmtDay(r.to, 'long') : 'now'} · {r.defences} {r.defences === 1 ? 'defence' : 'defences'}</span>
+            <span className="c-effs"><span className={r.won ? 'c-eff' : 'c-eff gold'}>{r.won ? `Won from ${r.won.fromName ?? 'vacant'} · ${r.won.show}` : 'Champion when records began'}</span></span>
+          </button>
+        )) : <span className="c-note">No title reigns on file.</span>)}
+        {tab === 2 && (moves.length ? moves.map((e, i) => (
+          <div key={i} className="c-led" style={{ gridTemplateColumns: '54px minmax(0, 1fr)' }}>
+            <span className="c-hint">{fmtDay(e.day, 'dm')}</span>
+            <span className="c-val">{e.kind === 'signed' ? `Signed with ${e.promo}${e.from ? ` from ${e.from}` : ''}` : e.kind === 'poached' ? `Moved from ${e.from} to ${e.promo}` : e.kind === 'released' ? `Left ${e.promo}` : e.kind === 'expired' ? `Contract with ${e.promo} ran out` : 'Debuted on The Indie Scene'}</span>
+          </div>
+        )) : <span className="c-note">No moves since records began.</span>)}
+        {tab === 3 && (
+          <>
             {titlesHeldBy(x).length > 0 && <div className="c-warn">Holds the {titlesHeldBy(x).map((t) => t.name).join(' and the ')}</div>}
             <span className="c-sec">{w('Attributes')}</span>
             {ATTR_KEYS.map((k, i) => <div key={k} className="c-frow" style={{ gridTemplateColumns: '90px minmax(0, 1fr) 28px' }}><span className="c-lab">{ATTR_LONG[i]}</span><span className="c-bar"><i className={x.stats[k] === best ? 'c-fill best' : 'c-fill'} style={{ width: `${x.stats[k]}%` }} /></span><b className="c-big">{x.stats[k]}</b></div>)}
             <div className="c-kv">
               <span className="c-lab">{w('Popularity')}</span><span className="c-val">Global {Math.round(x.popularity.global)}</span>
-              <span className="c-lab">{w('Reputation')}</span><span className="c-val">{Math.round(xp.rep)}</span>
-              <span className="c-lab">{w('Finishers')}</span><span className="c-val">{x.finishers.map((id) => getMove(id).name).join(', ')}</span>
-              <span className="c-lab">{w('Signatures')}</span><span className="c-val">{x.signatures.map((id) => getMove(id).name).join(', ')}</span>
+              <span className="c-lab">{w('Reputation')}</span><span className="c-val">{Math.round(p.rep)}</span>
+              <span className="c-lab">{w('Finishers')}</span><span className="c-val">{x.finishers.map((m) => getMove(m).name).join(', ')}</span>
+              <span className="c-lab">{w('Signatures')}</span><span className="c-val">{x.signatures.map((m) => getMove(m).name).join(', ')}</span>
               {x.id === c.player && <><span className="c-lab">{w('Bank')}</span><span className="c-val">{money(c.money)}</span></>}
-              {xp.contract && x.id !== c.player && <><span className="c-lab">{w('Contract')}</span><span className="c-val">{promoName(xp.contract.promo)}</span></>}
             </div>
-          </div>
-          <div className="c-nav">
-            <button className="c-b2" onClick={() => setSel(null)}>{w('‹ Back')}</button>
-            {x.id === c.player ? <button className="c-b1" onClick={onMoveset}>{w('Edit your moveset ›', 'Edit moveset ›')}</button> : <button className="c-b1" disabled>{w('Read only')}</button>}
-          </div>
-        </div>
-      )}
-      <button className="c-b3" style={{ marginTop: 6, minHeight: 36 }} onClick={onNewCareer}>{w('Start a new career…')}</button>
-    </Screen>
+          </>
+        )}
+      </div>
+      <div className="c-nav">
+        <button className="c-b2" onClick={onClose}>{w('‹ Back')}</button>
+        {x.id === c.player ? <button className="c-b1" onClick={onMoveset}>{w('Edit your moveset ›', 'Edit moveset ›')}</button> : <button className="c-b1" onClick={onClose}>{w('Done')}</button>}
+      </div>
+    </div>
   );
 }

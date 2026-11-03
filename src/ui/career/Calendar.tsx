@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { findWrestler, TITLES } from '../../data/rtr';
 import { C, askForSpot, dayOff, myBoutToday, promoName, showsOn, type Career, type Show } from '../../career';
 import { addDays, dateOf, dayOf, daysInMonth, fmtDay, MONTHS, monthOf, weekday, yearOf } from '../../career/dates';
@@ -30,6 +30,11 @@ export function Calendar({ c, busy, onAdvance, onShowDay, onOpen }: Props) {
   const [sel, setSel] = useState(c.today);
   const [open, setOpen] = useState<string | null>(null);
   const [toast, say] = useToast();
+  // When the day moves on, the calendar follows it.
+  useEffect(() => {
+    setSel(c.today);
+    setView({ y: yearOf(c.today), m: monthOf(c.today) });
+  }, [c.today]);
   const me = findWrestler(c.player)!;
   const p = c.people[c.player]!;
   const mine = myBoutToday(c);
@@ -192,7 +197,7 @@ export function Calendar({ c, busy, onAdvance, onShowDay, onOpen }: Props) {
               if (p.daysOff?.includes(sheet.date)) return <span className="c-note">You’ve got this day off.</span>;
               return <button className="c-b3" style={{ marginTop: 6 }} onClick={() => { say(dayOff(c, sheet.date)); commit(); }}>{w(onIt ? 'Refuse this date' : 'Ask for the day off')}</button>;
             })()}
-            {sheet.promo === 'TIS' && sheet.date > c.today && !c.indie[sheet.id] && !sheet.card?.some((b) => b.a === c.player || b.b === c.player) && (
+            {sheet.promo === 'TIS' && sheet.date >= c.today && !sheet.done && !c.indie[sheet.id] && !sheet.card?.some((b) => b.a === c.player || b.b === c.player) && (
               <button className="c-b1" style={{ marginTop: 6 }} onClick={() => ask(sheet)}>{w('Ask for a spot', 'Ask for a spot')}</button>
             )}
           </div>

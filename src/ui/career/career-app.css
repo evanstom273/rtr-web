@@ -77,7 +77,8 @@
 .cr .c-sheet .c-sh span{font-family:var(--cr-mono);font-size:10.5px;letter-spacing:.12em;color:var(--cr-hi);text-transform:uppercase}
 .cr .c-sheet .c-sh b{display:block;font-family:var(--cr-display);font-weight:900;font-size:26px;line-height:.95;text-transform:var(--cr-upper)}
 .cr .c-sheet .c-sh button{min-width:44px;min-height:44px;border:1px solid var(--cr-line);background:var(--cr-bg);color:var(--cr-fg);font-size:16px}
-.cr .c-rows{display:flex;flex-direction:column;gap:3px;overflow-y:auto}
+.cr .c-rows{display:flex;flex-direction:column;gap:3px;overflow-y:auto;flex:1 1 auto;min-height:0}
+.cr .c-sheet>div>.c-b1,.cr .c-sheet>div>.c-b3{flex:0 0 auto}
 .cr .c-row{display:flex;flex-direction:column;background:var(--cr-bg);border-left:4px solid var(--cr-line);padding:7px 10px}
 .cr .c-row.mine{border-left-color:var(--cr-hi);background:var(--cr-panel2)}
 .cr .c-row>b{font-weight:700;font-size:15px;line-height:1.15}
