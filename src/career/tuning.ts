@@ -85,6 +85,11 @@ export const FEUDS_PER_PROMOTION = 2;
 export const PLANNED_RETAIN = 0.65;
 /** AI title matches: the planned winner's edge on contested rolls. */
 export const PLANNED_NUDGE = 2;
+/**
+ * AI title matches that go against the plan are re-run up to this many times (each a fresh match),
+ * so the plan usually holds (~90% at 2) but upsets still happen. The nudge alone only reached ~60%.
+ */
+export const PLANNED_RETRIES = 2;
 export const OFF_SCRIPT_TITLE_BAN_DAYS = 60;
 /** Cards are drawn up this many days ahead so you can see them on the calendar. */
 export const BOOK_AHEAD_DAYS = 7;

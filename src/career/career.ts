@@ -15,7 +15,7 @@ import { addEvent, type ArchivedShow } from '../world/history';
 import {
   BOOK_AHEAD_DAYS, CONTRACT_MONTHS, FATIGUE_HARDCORE_EXTRA, FATIGUE_PER_MATCH, FATIGUE_RECOVERY_PER_DAY, FATIGUE_STAMINA_DIVISOR,
   INJURY_BASE_PCT, INJURY_HARDCORE_MULT, INJURY_PER_FATIGUE, INJURY_SEVERITY, MEDICAL_BILL_COVER, MEDICAL_PAY_COVER, MEDICAL_PER_DAY, MERCH_INDIE,
-  MERCH_SHARE, MERCH_SIGNED, OFF_SCRIPT_TITLE_BAN_DAYS, PLANNED_NUDGE, POACH_CHANCE, POP_CEILING, POP_GLOBAL_SHARE, POP_IDLE_DAYS,
+  MERCH_SHARE, MERCH_SIGNED, OFF_SCRIPT_TITLE_BAN_DAYS, PLANNED_NUDGE, PLANNED_RETRIES, POACH_CHANCE, POP_CEILING, POP_GLOBAL_SHARE, POP_IDLE_DAYS,
   POP_IDLE_DECAY, POP_LOSS, POP_PER_STAR, POP_STAR_PIVOT, POP_TITLE_WIN, POP_WIN, RELEASE_MONTHLY_BOTTOM, RENEW_CHANCE_REST,
   RENEW_CHANCE_TOP, REP_FOUR_STAR, REP_OFF_SCRIPT, REP_PER_DATE, REP_START, ROOKIE_EVERY_DAYS, ROSTER_MAX, ROSTER_SIGN_BELOW,
   START_CONTRACT_MONTHS_LEFT, START_MONEY_CREATED, START_MONEY_PER_POP, TRYOUT_MIN_STARS,
@@ -339,6 +339,18 @@ export async function runToday(c: Career, run: (jobs: SimJob[]) => Promise<SimOu
   const jobs = worldJobs(c);
   const outs = await run(jobs);
   const byKey = new Map(outs.map((o) => [o.key, o]));
+  // Title matches usually go the way the booker planned: one that doesn't gets wrestled again.
+  const plannedSide = (j: SimJob) => {
+    const [showId, i] = j.key.split('#');
+    const b = c.shows[showId!]?.card?.[Number(i)];
+    return b?.planned ? (b.planned === j.you ? 'you' : 'them') : null;
+  };
+  for (let attempt = 1; attempt <= PLANNED_RETRIES; attempt++) {
+    const again = jobs.filter((j) => { const want = plannedSide(j); return want && byKey.get(j.key)?.winner !== want; })
+      .map((j) => ({ ...j, seed: hashSeed(j.seed, 'again', attempt) }));
+    if (!again.length) break;
+    for (const o of await run(again)) byKey.set(o.key, o);
+  }
   for (const show of showsOn(c, c.today)) {
     show.card?.forEach((_, i) => {
       const o = byKey.get(`${show.id}#${i}`);
