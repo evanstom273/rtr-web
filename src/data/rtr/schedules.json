@@ -215,6 +215,26 @@
       }
     }
   ],
+  "UFC": [
+    {
+      "name": "UFC: {month} {n}",
+      "kind": "tour",
+      "numbered": true,
+      "numberingResets": "month",
+      "when": {
+        "touringMonths": {
+          "pattern": "alternate",
+          "startMonth": "January",
+          "showsPerWeek": [
+            2,
+            3
+          ],
+          "days": null
+        },
+        "tbd": "start month and weekdays (January start is only the default, from the examples)"
+      }
+    }
+  ],
   "joint": [
     {
       "name": "ZWA & NWGP: A.R.I.S.E.",
