@@ -124,5 +124,83 @@
         "month": "every"
       }
     }
+  ],
+  "NWGP": [
+    {
+      "name": "Golden Challenge",
+      "kind": "flagship",
+      "when": {
+        "date": 1,
+        "month": "January"
+      }
+    },
+    {
+      "name": "KUSO!",
+      "kind": "special",
+      "when": {
+        "date": 1,
+        "month": "April"
+      }
+    },
+    {
+      "name": "Rikidōzan no kioku",
+      "kind": "special",
+      "when": {
+        "date": 1,
+        "month": "July"
+      }
+    },
+    {
+      "name": "Powder Keg",
+      "kind": "special",
+      "when": {
+        "date": 1,
+        "month": "October"
+      }
+    },
+    {
+      "name": "NWGP: Road to Golden Challenge",
+      "kind": "tour",
+      "when": {
+        "tour": {
+          "leadsTo": "Golden Challenge",
+          "weeks": 4,
+          "showsPerWeek": 3
+        }
+      }
+    },
+    {
+      "name": "NWGP: Road to KUSO!",
+      "kind": "tour",
+      "when": {
+        "tour": {
+          "leadsTo": "KUSO!",
+          "weeks": 2,
+          "showsPerWeek": 2
+        }
+      }
+    },
+    {
+      "name": "NWGP: Road to Rikidōzan no kioku",
+      "kind": "tour",
+      "when": {
+        "tour": {
+          "leadsTo": "Rikidōzan no kioku",
+          "weeks": 2,
+          "showsPerWeek": 2
+        }
+      }
+    },
+    {
+      "name": "NWGP: Road to Powder Keg",
+      "kind": "tour",
+      "when": {
+        "tour": {
+          "leadsTo": "Powder Keg",
+          "weeks": 2,
+          "showsPerWeek": 2
+        }
+      }
+    }
   ]
 }
