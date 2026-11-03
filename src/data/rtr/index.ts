@@ -8,22 +8,72 @@ import type { Move, Promotion, Title, Weapon, Wrestler } from './types';
 export * from './types';
 
 export const MOVES = movesJson as Move[];
-export const WRESTLERS = wrestlersJson as Wrestler[];
-export const PROMOTIONS = promotionsJson as Promotion[];
-export const TITLES = titlesJson as Title[];
 export const WEAPONS = weaponsJson as Weapon[];
 
+/**
+ * The live database. Exhibition and career share it (one world, like Wrestling Empire): a career
+ * changes champions, rosters and wrestlers, and exhibition sees it. These arrays are never replaced,
+ * only refilled by `applyDatabase`, so everything that imported them keeps working.
+ */
+export const WRESTLERS: Wrestler[] = [];
+export const PROMOTIONS: Promotion[] = [];
+export const TITLES: Title[] = [];
+
+export interface Database {
+  wrestlers: Wrestler[];
+  promotions: Promotion[];
+  titles: Title[];
+}
+
+/** A fresh copy of the database exactly as the game ships it. */
+export function shippedDatabase(): Database {
+  return structuredClone({
+    wrestlers: wrestlersJson as Wrestler[],
+    promotions: promotionsJson as Promotion[],
+    titles: titlesJson as Title[],
+  });
+}
+
 const moveById = new Map(MOVES.map((m) => [m.id, m]));
-const wrestlerById = new Map(WRESTLERS.map((w) => [w.id, w]));
-const promotionByInitials = new Map(PROMOTIONS.map((p) => [p.initials, p]));
+const weaponById = new Map(WEAPONS.map((w) => [w.id, w]));
+const wrestlerById = new Map<string, Wrestler>();
+const promotionByInitials = new Map<string, Promotion>();
+
+let version = 0;
+const listeners = new Set<() => void>();
+
+/** Swap in a database (the active world's). Lookups and every importer of the arrays see it at once. */
+export function applyDatabase(db: Database): void {
+  WRESTLERS.splice(0, WRESTLERS.length, ...db.wrestlers);
+  PROMOTIONS.splice(0, PROMOTIONS.length, ...db.promotions);
+  TITLES.splice(0, TITLES.length, ...db.titles);
+  databaseChanged();
+}
+
+/** Call after changing wrestlers, promotions or titles in place, so lookups and screens catch up. */
+export function databaseChanged(): void {
+  wrestlerById.clear();
+  for (const w of WRESTLERS) wrestlerById.set(w.id, w);
+  promotionByInitials.clear();
+  for (const p of PROMOTIONS) promotionByInitials.set(p.initials, p);
+  version++;
+  for (const l of listeners) l();
+}
+
+/** For React's useSyncExternalStore: re-render when the database changes. */
+export const databaseVersion = (): number => version;
+export function onDatabaseChange(l: () => void): () => void {
+  listeners.add(l);
+  return () => listeners.delete(l);
+}
+
+applyDatabase(shippedDatabase());
 
 export function getMove(id: string): Move {
   const m = moveById.get(id);
   if (!m) throw new Error(`Unknown move ${id}`);
   return m;
 }
-
-const weaponById = new Map(WEAPONS.map((w) => [w.id, w]));
 
 export function getWeapon(id: string): Weapon {
   const w = weaponById.get(id);
@@ -45,11 +95,9 @@ export function getPromotion(initials: string): Promotion | undefined {
   return promotionByInitials.get(initials);
 }
 
-/** Titles a wrestler currently holds. Holder ids are promotion-local, so match within the promotion. */
+/** Titles a wrestler currently holds. */
 export function titlesHeldBy(w: Wrestler): Title[] {
-  const promo = getPromotion(w.promotion);
-  if (!promo) return [];
-  return TITLES.filter((t) => t.promotionId === promo.id && t.holderId !== 0 && t.holderId === w.wrestlerId);
+  return TITLES.filter((t) => t.holder === w.id);
 }
 
-export const isChampion = (w: Wrestler): boolean => titlesHeldBy(w).length > 0;
+export const isChampion = (w: Wrestler): boolean => TITLES.some((t) => t.holder === w.id);

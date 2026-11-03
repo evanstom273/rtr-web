@@ -118,8 +118,8 @@ export interface Title {
   name: string;
   promotionId: number;
   gender: 'MALE' | 'FEMALE';
-  /** Promotion-local wrestler id; 0 = vacant. */
-  holderId: number;
+  /** The holder's wrestler id (global, so a champion who moves promotion is still found); null = vacant. */
+  holder: string | null;
   weeksHeld: number;
 }
 

@@ -3,38 +3,18 @@
 // mode on some browsers) the archive lives in memory for the session and says so.
 import type { MatchRecord } from '../ui/record';
 import { loadHits } from './greatestHits';
+import { tx as dbTx } from './db';
 import { store } from './storage';
 
-const DB = 'rtr';
-const STORE = 'matches';
 const MIGRATED = 'rtr-hits-migrated';
 
 let memory: MatchRecord[] | null = null;
-let dbp: Promise<IDBDatabase> | null = null;
-
-function open(): Promise<IDBDatabase> {
-  if (dbp) return dbp;
-  dbp = new Promise((resolve, reject) => {
-    if (typeof indexedDB === 'undefined') return reject(new Error('No IndexedDB'));
-    const req = indexedDB.open(DB, 1);
-    req.onupgradeneeded = () => {
-      if (!req.result.objectStoreNames.contains(STORE)) req.result.createObjectStore(STORE, { keyPath: 'id' });
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-  dbp.catch(() => {
-    memory ??= [];
-  });
-  return dbp;
-}
 
 function tx<T>(mode: IDBTransactionMode, run: (s: IDBObjectStore) => IDBRequest<T>): Promise<T> {
-  return open().then((db) => new Promise<T>((resolve, reject) => {
-    const r = run(db.transaction(STORE, mode).objectStore(STORE));
-    r.onsuccess = () => resolve(r.result);
-    r.onerror = () => reject(r.error);
-  }));
+  return dbTx('matches', mode, run).catch((e: unknown) => {
+    memory ??= [];
+    throw e;
+  });
 }
 
 /** True when matches only last until the app closes. */

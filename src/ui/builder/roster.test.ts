@@ -24,8 +24,9 @@ describe('match builder roster', () => {
     expect(asia[0]!.popularity.asia).toBe(Math.max(...WRESTLERS.map((w) => w.popularity.asia)));
   });
 
-  it('title status: nobody holds a title in the imported data yet', () => {
-    expect(filterRoster({ ...NO_FILTERS, title: 'champ' })).toHaveLength(0);
-    expect(filterRoster({ ...NO_FILTERS, title: 'non' })).toHaveLength(WRESTLERS.length);
+  it('title status: 33 champions, everyone else not', () => {
+    expect(filterRoster({ ...NO_FILTERS, title: 'champ' })).toHaveLength(33);
+    expect(filterRoster({ ...NO_FILTERS, title: 'non' })).toHaveLength(WRESTLERS.length - 33);
+    expect(filterRoster({ ...NO_FILTERS, title: 'VWF_CHAMPIONSHIP' }).map((w) => w.name)).toEqual(['Ray Hollis']);
   });
 });
