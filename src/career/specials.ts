@@ -14,6 +14,7 @@ import { indieFee, travelCost } from './economy';
 import { type EvCtx, type EvData, type EventDef, type FollowDef, ctxFor, fire, fx, homeRegion, join, money, registerEvents, round5 } from './events';
 import { indieAllowed, joinIndie } from './offers';
 import { CITIES, PROMO_COUNTRIES, REGION_KEY, REGION_OF } from './places';
+import { affinity } from './relations';
 import { indieTitleShow } from './requests';
 import { roundName, tourneyPairs } from './tourney';
 import {
@@ -50,7 +51,7 @@ function regionFor(c: Career, rnd: Rng): PopRegion {
 
 const near = (c: Career, region: PopRegion) => homeRegion(ctxFor(c)) === region;
 const indieShut = (c: Career) => { const k = person(c, c.player).contract; return !!k && (k.clauses[C.indie] ?? 0) === 0; };
-const relOf = (c: Career, id: string) => c.relations?.[id]?.v ?? 0;
+const relOf = (c: Career, id: string) => affinity(c, id);
 
 // ------------------------------------------------------------------ invitations (event letters, fired directly)
 

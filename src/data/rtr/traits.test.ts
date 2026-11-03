@@ -5,7 +5,7 @@ import { CONFLICTS, TRAIT_IDS, canAdd, traitDef, validTraits, type TraitId } fro
 import { TRAIT_PREVALENCE_CAP } from '../../career/tuning';
 import { QUESTIONS, makeRookie, storyTrait } from '../../career/create';
 import { seededRng } from '../../engine/rng';
-import { freshWorld, setWorld, type World } from '../../world/world';
+import { WORLD_REV, freshWorld, setWorld, type World } from '../../world/world';
 
 describe('traits', () => {
   it('every shipped wrestler has one to three, none clashing, and no trait is everywhere', () => {
@@ -58,7 +58,7 @@ describe('traits', () => {
     delete rookie.traits;
     w.db.wrestlers.push(rookie, { ...structuredClone(w.db.wrestlers[0]!), id: 'custom_abc', name: 'Made Up' });
     setWorld(w);
-    expect(w.rev).toBe(2);
+    expect(w.rev).toBe(WORLD_REV);
     const ship = new Map(shippedDatabase().wrestlers.map((x) => [x.id, x.traits]));
     for (const x of WRESTLERS) {
       expect(validTraits(x.traits ?? [])).toBe(true);

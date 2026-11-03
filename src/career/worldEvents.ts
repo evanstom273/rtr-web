@@ -9,6 +9,7 @@ import { addEvent, type WorldEvent } from '../world/history';
 import { hashSeed } from './booker';
 import { letter, person, setCareerHooks } from './career';
 import { addDays, daysBetween, fmtDay } from './dates';
+import { affinity } from './relations';
 import { arrangeFarewell } from './specials';
 import {
   BREAKTHROUGH_POP, CAREER_MILESTONES, CHAMP_INJURY_NEWS_DAYS, REIGN_MILESTONES, RETIRE_AGE_MIN, RETIRE_MONTHLY_BASE, RETIRE_MONTHLY_PER_YEAR,
@@ -18,7 +19,7 @@ import type { Career } from './types';
 
 const world = (c: Career) => (c.world ??= { last: {}, seen: {} });
 const record = (e: WorldEvent) => addEvent(activeWorld().history, e);
-const relOf = (c: Career, id: string) => c.relations?.[id]?.v ?? 0;
+const relOf = (c: Career, id: string) => affinity(c, id);
 const titleHolder = (id: string) => TITLES.some((t) => t.holder === id);
 const promoOfTitle = (id: string) => PROMOTIONS.find((p) => p.titles.includes(id))?.initials;
 const ord = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;

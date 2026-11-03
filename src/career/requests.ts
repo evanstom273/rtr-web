@@ -3,6 +3,7 @@
 // and day. Under the yes chance: yes. In the next band: a counter. Anything else: no.
 import { PROMOTIONS, TITLES, WRESTLERS, findWrestler, type Title, type Wrestler } from '../data/rtr';
 import { seededRng } from '../engine/rng';
+import { activeWorld } from '../world/world';
 import { available, bookChance, contenders, datesThisMonth, hashSeed, isIndieTitle, playerBookable, promoRegion, regionalPop, setIndieRoll, titleMinGap } from './booker';
 import { letter, makeOffer, myBoutToday, person, promoName, setCareerHooks, spend } from './career';
 import { C } from './clauses';
@@ -46,7 +47,13 @@ export const formLine = (c: Career): string => {
 const roll = (c: Career, key: string): number => seededRng(hashSeed(c.seed, 'ask', key, c.today))() * 100;
 const outcome = (chance: number, r: number): 'yes' | 'counter' | 'no' => (r < chance ? 'yes' : r < chance + ASK_COUNTER_BAND ? 'counter' : 'no');
 
-export const bookerName = (key: string): string => (key.startsWith('TIS:') ? key.slice(4) : promoName(key));
+/** Who a booker key is, for people: a booker's name and promotion, an indie promoter's show, or a promotion. */
+export const bookerName = (key: string): string => {
+  if (key.startsWith('TIS:')) return key.slice(4);
+  const s = activeWorld().people?.staff[key];
+  if (s) return s.job?.kind === 'booker' ? `${s.name} (${s.job.promo})` : s.name;
+  return promoName(key);
+};
 
 function record(c: Career, a: Omit<Ask, 'id' | 'day' | 'status' | 'toName'> & { status?: Ask['status'] }): Ask {
   const full: Ask = { id: `q${++c.seq}`, day: c.today, toName: bookerName(a.to), status: a.status ?? (a.answer === 'counter' ? 'open' : 'closed'), ...a };

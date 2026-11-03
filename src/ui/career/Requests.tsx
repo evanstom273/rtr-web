@@ -7,6 +7,7 @@ import {
   previewIndieTitle, previewMore, previewShow, previewSpot, previewTitle, promoName, standingWith, type Ask, type Career, type Preview, type Show,
 } from '../../career';
 import { regionalPop, titleMinGap } from '../../career/booker';
+import { patienceLog, promoOfBooker } from '../../career/patience';
 import { addDays, daysBetween, fmtDay } from '../../career/dates';
 import { REGION_LABEL } from '../../career/places';
 import { COOLDOWN_CHALLENGE, COOLDOWN_MORE, COOLDOWN_PROMOTION, COOLDOWN_TITLE, PATIENCE_DECLINE_COUNTER, PATIENCE_TOOK_COUNTER } from '../../career/tuning';
@@ -174,10 +175,10 @@ export function Requests({ c, tab: start, onBack, onFlow, onNegotiate }: ReqProp
   const waiting = countersWaiting(c);
   const answered = (c.asks ?? []).filter((a) => a.status !== 'open');
   const keys = Object.keys(c.patience ?? {});
-  const askedPromos = [...new Set([...keys, ...(c.asks ?? []).map((a) => a.to)])].filter((x) => x !== promo && !x.startsWith('TIS'));
+  const askedPromos = [...new Set([...keys.map(promoOfBooker), ...(c.asks ?? []).map((a) => a.to)])].filter((x): x is string => !!x && x !== promo && !x.startsWith('TIS'));
   const promoters = [...new Set([...keys, ...(c.asks ?? []).map((a) => a.to)])].filter((x) => x.startsWith('TIS:'));
   const chip = (a: Ask) => (a.answer === 'yes' ? ['c-eff up', 'Yes'] : a.answer === 'no' ? ['c-eff dn', 'No'] : a.counter?.kind === 'feud' ? ['c-eff', 'Wait for the feud'] : ['c-eff gold', 'Counter']);
-  const log = (key: string) => (c.patience?.[key]?.log ?? []);
+  const log = (key: string) => patienceLog(c, key);
 
   return (
     <Screen>

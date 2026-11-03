@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { PROMOTIONS, TITLES, WRESTLERS, findWrestler } from '../data/rtr';
 import { freshWorld, setWorld } from '../world/world';
 import { addDays } from './dates';
+import { bookerKey } from './patience';
 import {
   answerCounter, applyBout, askApproach, askChallenge, askIndieChallenge, askIndieTitleShot, askMore, askShow, askTitleShot, askableShows, askableIndieShows,
   askableIndieTitles, makeOffer, previewTitle, signOffer,
@@ -38,7 +39,7 @@ async function day(c: Career, mine?: () => 'you' | 'them' | null): Promise<void>
 /** Reputation and patience maxed: every factor-driven yes chance clears 100. */
 function charm(c: Career, promo: string): void {
   c.people[c.player]!.rep = 100;
-  (c.patience ??= {})[promo] = { v: 100, log: [] };
+  (c.patience ??= {})[bookerKey(promo)] = { v: 100, log: [] };
   for (let i = 0; i < 5; i++) c.history.unshift({ day: c.today, show: 'x', showName: 'x', promo, kind: 'weekly', opp: 'x', oppName: 'x', result: 'win', finish: 'PINFALL', t: 1, stars: 3, fee: 0, indie: false });
 }
 
@@ -99,13 +100,13 @@ describe('requests', () => {
 
   it('below 25 patience they won’t hear anything; it creeps back 2 a week, never past 70 on its own', async () => {
     const c = begin();
-    (c.patience ??= {}).VWF = { v: 20, log: [] };
+    (c.patience ??= {})[bookerKey('VWF')] = { v: 20, log: [] };
     expect(askMore(c).said).toMatch(/patience too low/);
     // Out injured, so no matches (and no off-script or no-show) muddy the weekly recovery.
     c.people[c.player]!.injury = { until: addDays(c.today, 60), what: 'test' };
     for (let i = 0; i < 21; i++) await day(c);
     expect(patienceOf(c, 'VWF')).toBe(26);
-    (c.patience.VWF = { v: 69, log: [] });
+    (c.patience[bookerKey('VWF')] = { v: 69, log: [] });
     for (let i = 0; i < 14; i++) await day(c);
     expect(patienceOf(c, 'VWF')).toBe(70);
   }, 60000);

@@ -16,7 +16,7 @@ export { answerEvent, eventChoices, eventLibrary, eligible, eventChance, fire, c
 export { EVENT_IDS } from './eventLibrary';
 export { arrangeFarewell, cupLabel, makeSpecial } from './specials';
 export { roundName, tourneyOf, tourneyPairs } from './tourney';
-export { patienceOf, indieKey, showBooker } from './patience';
+export { patienceOf, patienceLog, promoOfBooker, bookerKey, indieKey, showBooker } from './patience';
 export * from './types';
 export { drawCalendar } from './calendar';
 export { CLAUSES, C, BUDGET, attitude } from './clauses';
