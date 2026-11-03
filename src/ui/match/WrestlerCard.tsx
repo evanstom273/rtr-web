@@ -1,4 +1,5 @@
-import { AREA_LABEL, MOTION_LABEL, ORIENTATION_LABEL, POSITION_LABEL } from '../../data/commentary';
+import { useEffect, useRef, useState } from 'react';
+import { AREA_LABEL, MOTION_LABEL, ORIENTATION_LABEL, PART_LABEL, POSITION_LABEL } from '../../data/commentary';
 import type { Wrestler } from '../../data/rtr';
 import { BLEED_WORDS, MAX_FINISHER_STOCK, SIGNATURE_MOMENTUM, WARNING_LIMIT, type BodyPart, type Part, type SideView } from '../../engine';
 import { Mannequin } from '../common/Mannequin';
@@ -20,8 +21,16 @@ export function WrestlerCard({ w, v, active, focus, onPick, onSpecials }: Props)
   const r = Math.round;
   const st = v.state;
   const staPct = v.maxStamina ? (v.stamina / v.maxStamina) * 100 : 0;
+  const hit = useHit(v);
+  const ghost = useGhost(staPct);
   return (
-    <div className={`card ${v.key}${active ? ' active' : ''}`} id={`card-${v.key}`}>
+    <div className={`card ${v.key}${active ? ' active' : ''}${hit ? ` hit${hit.dmg >= 10 ? ' hit-big' : ''} h${hit.n % 2}` : ''}`} id={`card-${v.key}`}>
+      {hit && (
+        <span className={`dmg-pop${hit.dmg >= 10 ? ' big' : ''}`} key={hit.n} aria-hidden>
+          −{hit.dmg}
+          {hit.part && <small>{hit.part}</small>}
+        </span>
+      )}
       <div className="cname">
         <Name w={w} side={v.key} />
       </div>
@@ -39,6 +48,7 @@ export function WrestlerCard({ w, v, active, focus, onPick, onSpecials }: Props)
           <div className="bar">
             <span className="bl">STA</span>
             <span className="bt">
+              <i className="ghost" style={{ width: `${Math.max(ghost, staPct)}%` }} />
               <i className="sta" style={{ width: `${staPct}%` }} />
             </span>
             <span className="bv">
@@ -79,4 +89,45 @@ export function WrestlerCard({ w, v, active, focus, onPick, onSpecials }: Props)
       </div>
     </div>
   );
+}
+
+/** A hit: how much it took off, and where most of it went. Clears itself after a beat. */
+function useHit(v: SideView): { n: number; dmg: number; part: string } | null {
+  const prev = useRef({ ...v.hp });
+  const n = useRef(0);
+  const [hit, setHit] = useState<{ n: number; dmg: number; part: string } | null>(null);
+  const total = Object.values(v.hp).reduce((a, b) => a + b, 0);
+  useEffect(() => {
+    const before = prev.current;
+    prev.current = { ...v.hp };
+    let dmg = 0, worst: BodyPart | null = null, most = 0;
+    for (const p of Object.keys(v.hp) as BodyPart[]) {
+      const d = (before[p] ?? 0) - v.hp[p];
+      if (d > 0) dmg += d;
+      if (d > most) {
+        most = d;
+        worst = p;
+      }
+    }
+    if (dmg < 1) return;
+    n.current++;
+    setHit({ n: n.current, dmg: Math.round(dmg), part: worst ? PART_LABEL[worst] : '' });
+    const id = window.setTimeout(() => setHit(null), 1100);
+    return () => window.clearTimeout(id);
+  }, [total]); // eslint-disable-line react-hooks/exhaustive-deps
+  return hit;
+}
+
+/** The stamina you just lost hangs on in red for a moment, then drains away (fighting-game style). */
+function useGhost(pct: number): number {
+  const [ghost, setGhost] = useState(pct);
+  useEffect(() => {
+    if (pct >= ghost) {
+      setGhost(pct);
+      return;
+    }
+    const id = window.setTimeout(() => setGhost(pct), 500);
+    return () => window.clearTimeout(id);
+  }, [pct]); // eslint-disable-line react-hooks/exhaustive-deps
+  return ghost;
 }
