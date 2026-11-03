@@ -14,7 +14,7 @@ export function createSide(w: Wrestler, key: SideKey): Side {
   for (const m of [...regular, ...signatures, ...finishers]) if (!all.includes(m)) all.push(m);
   const maxStamina = Math.ceil(clamp(w.stats.stamina, 0, 100) * STAMINA_POOL_MULTIPLIER);
   return {
-    key, w, regular, signatures, finishers, all,
+    key, w, regular, signatures, finishers, all, booked: 0,
     state: { position: 'STANDING', orientation: 'FRONT', area: 'IN_RING', motion: 'STATIONARY' },
     hp: { HEAD: 100, BODY: 100, LEFT_ARM: 100, RIGHT_ARM: 100, LEFT_LEG: 100, RIGHT_LEG: 100 },
     stamina: maxStamina, maxStamina, fatigue: 0, momentum: 0, signatureReady: false, finisherStock: 0, signatureArmed: true, finisherArmed: true,

@@ -3,6 +3,7 @@
 // unavailable the world lives in memory for the session.
 import { PROMOTIONS, TITLES, WRESTLERS, applyDatabase, databaseChanged, shippedDatabase, type Database } from '../data/rtr';
 import { tx } from '../storage/db';
+import type { Career } from '../career/types';
 
 export interface World {
   v: 1;
@@ -10,8 +11,8 @@ export interface World {
   seed: number;
   createdAt: number;
   db: Database;
-  /** Career state; null while the world has never had a career. */
-  career: null;
+  /** The career in this world; null when there isn't one. */
+  career: Career | null;
 }
 
 const KEY = 'current';
