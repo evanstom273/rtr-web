@@ -123,3 +123,20 @@
 .cr .c-barrow i b{position:absolute;inset:0 auto 0 0;background:var(--cr-face)}
 .cr .c-barrow i b.best{background:var(--cr-hi)}
 .cr .c-barrow>b{font-family:var(--cr-display);font-weight:900;font-size:15px;text-align:right}
+/* Career screen: no scrolling, and the buttons stay put. Everything between the header and the
+   buttons lives in .c-pfill. Recent results get what's left (Profile.tsx sizes them): the bars
+   tighten to make room for one row (their flex-shrink of 100 makes them give way before the
+   results do), and spread out again when not even one row fits. */
+.cr .c-pfill{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.cr .c-pfill>*{flex:none}
+.cr .c-pfill>.c-two2{flex:0 100 auto;min-height:144px;display:flex;gap:14px}
+.cr .c-pfill>.c-two2>.c-bars{flex:1 1 0;min-width:0;min-height:0;gap:0}
+.cr .c-pfill .c-bars>.c-sec{flex:none;margin-bottom:4px}
+.cr .c-pfill .c-barrow{flex:0 1 26px;min-height:16px}
+.cr .c-pfill .c-barrow>b{line-height:1}
+.cr .c-pfill>.c-recent{flex:1 1 0px;min-height:0;overflow:hidden;display:flex;flex-direction:column}
+.cr .c-pfill.c-norecent>.c-recent{display:none}
+.cr .c-pfill.c-norecent>.c-two2,.cr .c-pfill.c-norecent .c-barrow{flex-grow:1}
+.cr .c-pfill>.c-recent>*{flex:none}
+.cr .c-pfill~.c-pgrid{flex:none;margin-top:0}
+.cr .c-pgrid~.c-hint{flex:none}
