@@ -13,6 +13,9 @@ import { useDragSort, type DragItem, type DropTarget, type TeamKey } from '../bu
 import { Name } from '../common/Name';
 import { buzz, classNames } from '../format';
 import { GreatestHits } from '../GreatestHits';
+import { Settings } from '../Settings';
+import { useSkin } from '../skin';
+import { BuilderHead } from '../skins/BuilderHead';
 
 interface Props {
   state: BuilderState;
@@ -44,6 +47,8 @@ export function Builder({ state: s, hits, onChange, onStart }: Props) {
   const [profile, setProfile] = useState<Wrestler | null>(null);
   const [showRules, setShowRules] = useState(false);
   const [info, setInfo] = useState(false);
+  const [settings, setSettings] = useState(false);
+  const skin = useSkin();
   useBackLayer(showRules, () => setShowRules(false));
   const list = useMemo(() => filterRoster(f), [f]);
   const teamOf = useCallback((id: string): TeamKey | null => (s.teams.A.includes(id) ? 'A' : s.teams.B.includes(id) ? 'B' : null), [s.teams]);
@@ -138,15 +143,21 @@ export function Builder({ state: s, hits, onChange, onStart }: Props) {
   return (
     <section id="setup" className={`builder${drag ? ' is-dragging' : ''}`}>
         <header className="bd-top">
-          <h1 className="bd-title">
-            Match <span>builder</span>
-          </h1>
-          <button className={`bd-sum${showRules ? ' on' : ''}`} onClick={() => setShowRules((x) => !x)} aria-expanded={showRules}>
-            {summary}
-          </button>
-          <button className="ghost sm bd-info" onClick={() => setInfo(true)}>
-            Info
-          </button>
+          <BuilderHead skin={skin} a={a[0]} b={b[0]} />
+          <div className="bd-bar">
+            <button className={`bd-sum${showRules ? ' on' : ''}`} onClick={() => setShowRules((x) => !x)} aria-expanded={showRules}>
+              {summary}
+            </button>
+            <button className="ghost sm bd-info" onClick={() => setInfo(true)}>
+              Info
+            </button>
+            <button className="ghost sm bd-gear" onClick={() => setSettings(true)} aria-label="Settings: the look of the game">
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
+                <circle cx="12" cy="12" r="3.2" />
+                <path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" />
+              </svg>
+            </button>
+          </div>
         </header>
 
         {showRules && (
@@ -256,6 +267,13 @@ export function Builder({ state: s, hits, onChange, onStart }: Props) {
         )}
 
         <div className="bd-main">
+          <div className="bd-card">
+            {team('A')}
+            <span className="bd-vs" aria-hidden>
+              vs
+            </span>
+            {team('B')}
+          </div>
           <div className="bd-panel bd-roster">
             <input type="search" className="bd-search" placeholder="Search name, country, region, class, face/heel, title…" value={f.q}
               onChange={(e) => setF({ ...f, q: e.target.value })} aria-label="Search wrestlers" />
@@ -343,7 +361,20 @@ export function Builder({ state: s, hits, onChange, onStart }: Props) {
                         {sortShort} <b>{v}</b>
                       </span>
                     )}
-                    {t && <span className={`bd-badge t${t}`}>{t}</span>}
+                    {t ? (
+                      <span className={`bd-badge t${t}`}>{t === 'A' ? 'You' : 'AI'}</span>
+                    ) : (
+                      <span className="bd-adds">
+                        <button className="bd-add tA" aria-label={`Add ${w.name} to your team`} onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => { e.stopPropagation(); buzz(); place(w.id, 'A'); }} disabled={s.locked.A || s.teams.A.length >= MAX_TEAM}>
+                          You
+                        </button>
+                        <button className="bd-add tB" aria-label={`Add ${w.name} to the AI's team`} onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => { e.stopPropagation(); buzz(); place(w.id, 'B'); }} disabled={s.locked.B || s.teams.B.length >= MAX_TEAM}>
+                          AI
+                        </button>
+                      </span>
+                    )}
                   </li>
                 );
               })}
@@ -351,11 +382,7 @@ export function Builder({ state: s, hits, onChange, onStart }: Props) {
             </ul>
           </div>
 
-          <div className="bd-dock">
-            <div className="bd-teams">
-              {team('A')}
-              {team('B')}
-            </div>
+          <div className="bd-foot">
             <p className={`bd-status${ready ? ' ok' : ''}`}>
               {ready ? `${findWrestler(a[0]!)!.name} vs ${findWrestler(b[0]!)!.name}` : status}
             </p>
@@ -376,7 +403,6 @@ export function Builder({ state: s, hits, onChange, onStart }: Props) {
           </div>
         </div>
 
-
       {drag && (
         <div className="bd-ghost" style={{ transform: `translate(${drag.x}px, ${drag.y}px)` }}>
           {findWrestler(drag.item.id)?.name}
@@ -388,6 +414,7 @@ export function Builder({ state: s, hits, onChange, onStart }: Props) {
         </div>
       )}
       {info && <InfoSheet hits={hits} onClose={() => setInfo(false)} />}
+      {settings && <Settings onClose={() => setSettings(false)} />}
       {profile && (
         <Profile w={profile} team={teamOf(profile.id)} locked={s.locked}
           onAdd={(t) => { place(profile.id, t); setProfile(null); }}

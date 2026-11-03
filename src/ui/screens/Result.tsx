@@ -1,26 +1,9 @@
-import { clamp, fmtClock, type MatchState, type Rating } from '../../engine';
+import { clamp, type MatchState, type Rating } from '../../engine';
 import type { Hit } from '../../storage/greatestHits';
 import { Name } from '../common/Name';
 import { GreatestHits } from '../GreatestHits';
-import { Ropes } from '../Ropes';
-
-function Stars({ x }: { x: number }) {
-  const full = Math.floor(x), fr = x - full;
-  const fc = fr >= 0.74 ? '¾' : fr >= 0.49 ? '½' : fr >= 0.24 ? '¼' : '';
-  return (
-    <>
-      {'★'.repeat(full)}
-      {fc && <span>{fc}</span>}
-      <span className="off">{'★'.repeat(Math.max(0, 5 - full - (fc ? 1 : 0)))}</span>
-    </>
-  );
-}
-
-const FINISH: Record<string, string> = {
-  PINFALL: 'Pinfall', SUBMISSION: 'Submission', COUNT_OUT: 'Count-out', DOUBLE_COUNT_OUT: 'Double count-out',
-  DISQUALIFICATION: 'Disqualification', TABLES: 'Through a table', LADDER: 'Ladder retrieval', CAGE_ESCAPE: 'Cage escape',
-  TEN_COUNT: 'Ten count', I_QUIT: 'I quit', TIME_DECISION: 'Time limit',
-};
+import { report, starText, surname, type Report } from '../model';
+import { useSkin } from '../skin';
 
 interface Props {
   S: MatchState;
@@ -30,48 +13,16 @@ interface Props {
   onNewMatch: () => void;
 }
 
-export function Result({ S, rating: r, hits, onRematch, onNewMatch }: Props) {
-  const R = S.result;
-  if (!R) return null;
+/** The match report. One model (the result, the rating, the headline), three dresses. */
+export function Result({ S, rating, hits, onRematch, onNewMatch }: Props) {
+  const skin = useSkin();
+  const r = report(S, rating);
+  if (!r) return null;
+  const Body = skin === 'paper' ? PaperReport : skin === 'broadcast' ? BroadcastReport : BuildingReport;
   return (
-    <section id="result">
+    <section id="result" className={`report r-${skin}`}>
       <div className="wrap">
-        <p className="eyebrow">{r.label}</p>
-        <div className="stars">
-          <Stars x={r.stars} />
-        </div>
-        <p className="rnum">
-          {r.stars} out of 5{r.raw >= 5.5 ? ' (and change)' : ''}
-        </p>
-        <h2 id="rLine">
-          {R.winner && R.loser ? (
-            <>
-              <Name w={S[R.winner].w} side={R.winner} /> def. <Name w={S[R.loser].w} side={R.loser} />
-            </>
-          ) : (
-            <>
-              <Name w={S.you.w} side="you" /> and <Name w={S.them.w} side="them" /> — no contest
-            </>
-          )}
-        </h2>
-        <p className="verdict">
-          {FINISH[R.finish]}
-          {R.move ? `, ${R.move.name}` : ''}
-          {R.score && R.winner && R.loser ? ` (${R.score[R.winner]}–${R.score[R.loser]} in falls)` : ''}, {fmtClock(R.t)}. {r.verdict}
-        </p>
-        <Ropes />
-        <div className="break">
-          {r.parts.map((p) => (
-            <div className="br" key={p.l}>
-              <span className="br-l">{p.l}</span>
-              <span className="br-t">
-                <i style={{ width: `${Math.round(clamp(p.v, 0.03, 1) * 100)}%` }} />
-              </span>
-              <span className="br-n">{p.n}</span>
-            </div>
-          ))}
-        </div>
-        <p className="recap">{r.recap}</p>
+        <Body r={r} S={S} />
         <div className="ractions">
           <button className="primary" onClick={onRematch}>
             Rematch
@@ -85,5 +36,143 @@ export function Result({ S, rating: r, hits, onRematch, onNewMatch }: Props) {
         </div>
       </div>
     </section>
+  );
+}
+
+const winnerName = (r: Report) =>
+  r.winner && r.winnerSide ? <Name w={r.winner} side={r.winnerSide} /> : <span>No winner</span>;
+
+function BroadcastReport({ r, S }: { r: Report; S: MatchState }) {
+  const lost = r.winnerSide === 'them' ? 'you' : 'them';
+  return (
+    <>
+      <div className="bc-bug rp-bug">
+        <div className={`bc-side you${r.winnerSide === 'you' ? ' won' : ''}`}>
+          <i className="bc-chip" />
+          <span className="bc-nm">{surname(S.you.w)}{r.winnerSide === 'you' ? ' ✓' : ''}</span>
+        </div>
+        <span className="bc-clock rp-final">
+          Final
+          <small>{r.time}</small>
+        </span>
+        <div className={`bc-side them${r.winnerSide === 'them' ? ' won' : ''}`}>
+          <i className="bc-chip" />
+          <span className="bc-nm">{r.winnerSide === 'them' ? '✓ ' : ''}{surname(S.them.w)}</span>
+        </div>
+      </div>
+      <div className={`moment rp-lower by-${r.winnerSide ?? lost}`}>
+        <span className="mo-kick">{r.winner ? 'Winner' : 'Result'} · {r.how}</span>
+        <span className="mo-big long">{r.winner ? r.winner.name : r.headline}</span>
+        {r.falls && <span className="mo-deck">{r.falls}</span>}
+      </div>
+      <div className="rp-score">
+        <div className="rp-stars">
+          <b>{r.rating.stars}</b>
+          <small>Stars</small>
+        </div>
+        <div>
+          <h2>{r.rating.label}</h2>
+          <p>{r.rating.verdict}</p>
+        </div>
+      </div>
+      <div className="rp-parts">
+        {r.parts.map((p) => (
+          <div key={p.l} className={`rp-part g-${p.grade}`}>
+            <span className="rp-g">
+              {p.l}
+              <b>{p.grade}</b>
+            </span>
+            <span className="rp-n">{p.n}</span>
+          </div>
+        ))}
+      </div>
+      <p className="recap">{r.rating.recap}</p>
+    </>
+  );
+}
+
+function PaperReport({ r }: { r: Report; S: MatchState }) {
+  return (
+    <>
+      <div className="pp-dateline">
+        <span>Morning edition</span>
+        <span>Final · {r.time}</span>
+      </div>
+      <div className="pp-mast">The Ringside Report</div>
+      <div className="pp-rule" />
+      <p className="rp-kick">
+        {r.winner && r.loser ? `${surname(r.winner)} def. ${surname(r.loser)}` : 'No decision'} · {r.how}
+        {r.falls ? ` · ${r.falls}` : ''}
+      </p>
+      <h1 className="rp-head">{r.headline}</h1>
+      <p className="rp-deck">{r.rating.recap}</p>
+      <div className="rp-verdict">
+        <div className="rp-stamp">
+          <small>Our rating</small>
+          <b>{starText(r.rating.stars)}</b>
+        </div>
+        <div>
+          <h2>{r.rating.label}</h2>
+          <p>{r.rating.verdict}</p>
+        </div>
+      </div>
+      <div className="rp-review">
+        <span className="pp-lab">The review</span>
+        {r.parts.map((p) => (
+          <div key={p.l} className="rp-line">
+            <b>{p.l}</b>
+            <span>{p.n}</span>
+          </div>
+        ))}
+      </div>
+      <p className="rp-winner">Winner: {winnerName(r)}</p>
+    </>
+  );
+}
+
+const LEDS = 12;
+
+function BuildingReport({ r }: { r: Report; S: MatchState }) {
+  const full = Math.floor(r.rating.stars), half = r.rating.stars - full >= 0.5;
+  return (
+    <>
+      <div className="bl-frame">
+        <div className="bl-screen rp-screen">
+          <span className="bl-kick">{r.winner ? 'Winner' : 'Result'} · {r.time}</span>
+          <b className={`rp-win ${r.winnerSide ?? ''}`}>{r.winner ? r.winner.name : r.headline}</b>
+          <span className="bl-sub">{r.how}{r.falls ? ` · ${r.falls}` : ''}</span>
+          <span className="rp-ledstars" role="img" aria-label={`${r.rating.stars} out of 5 stars`}>
+            {Array.from({ length: 5 }, (_, i) => (
+              <i key={i} className={i < full ? 'on' : i === full && half ? 'half' : ''}>★</i>
+            ))}
+          </span>
+          <span className="rp-label">{r.rating.label}</span>
+        </div>
+      </div>
+      <div className="bl-plate rp-plate">
+        {r.parts.map((p) => {
+          const lit = Math.round(clamp(p.v, 0, 1) * LEDS);
+          return (
+            <div key={p.l} className="rp-meter">
+              <div className="rp-mh">
+                <b>{p.l}</b>
+                <span>{p.n}</span>
+              </div>
+              <span className="bl-leds wide">
+                {Array.from({ length: LEDS }, (_, i) => (
+                  <i key={i} className={i < lit ? (i >= 9 ? 'on hot' : 'on') : ''} />
+                ))}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      <div className="bl-desk">
+        <span className="desk-lab">At the desk</span>
+        <p>{r.rating.verdict}</p>
+        <p className="mute">{r.rating.recap}</p>
+      </div>
+      <p className="rp-winner">Winner: {winnerName(r)}</p>
+    </>
   );
 }

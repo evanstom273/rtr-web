@@ -1,40 +1,13 @@
-import { useEffect, useRef, useState, type MutableRefObject, type ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AREA_LABEL } from '../../data/commentary';
-import { LADDER_PULLS, fmtClock, heatWord, liveObjects, stipulation, weaponOf, type MatchEngine, type MatchState } from '../../engine';
-import { CrowdCanvas } from './CrowdCanvas';
-
-export function Hud({ engine, pulse, children }: { engine: MatchEngine; pulse: MutableRefObject<number>; children?: ReactNode }) {
-  const S = engine.state, v = S.view;
-  return (
-    <header id="hud">
-      <div className="hudmain">
-        <CrowdCanvas engine={engine} pulse={pulse} />
-        <div className="hudrow">
-          <span id="evt">
-            {S.event} · {S.venue}
-            {S.rules.title && S.titleName ? ' · ' + S.titleName : ''}
-          </span>
-          <span id="clock">{fmtClock(v.t)}</span>
-          <span id="phase">{v.phase}</span>
-          {v.count !== null && <span id="countout">Count {v.count}</span>}
-          <span id="heatLbl">
-            Crowd {Math.round(v.heat)} · {heatWord(v.heat)}
-          </span>
-          <LiveStars live={v.live} />
-        </div>
-        <StipRow S={S} />
-      </div>
-      {children}
-    </header>
-  );
-}
+import { LADDER_PULLS, fmtClock, liveObjects, stipulation, weaponOf, type MatchState } from '../../engine';
 
 const OBJ_STATE: Record<string, string> = {
   dropped: 'on the floor', flat: 'set up', corner: 'in the corner', stacked: 'stacked', spread: 'spread out', ladder: 'set up',
 };
 
 /** The stipulation at a glance: score, time, the prize, what's lying around, the referee. */
-function StipRow({ S }: { S: MatchState }) {
+export function StipRow({ S }: { S: MatchState }) {
   const r = S.rules, o = S.obj, def = stipulation(r.stipulation);
   const bits: { t: string; c?: string }[] = [];
   if (r.stipulation !== 'standard') bits.push({ t: def.name, c: 'sn' });
@@ -69,7 +42,7 @@ function StipRow({ S }: { S: MatchState }) {
 const fmtStars = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0$/, ''));
 
 /** The star rating so far. Tap for the breakdown. Flashes when it climbs. */
-function LiveStars({ live }: { live: MatchState['view']['live'] }) {
+export function LiveStars({ live }: { live: MatchState['view']['live'] }) {
   const [open, setOpen] = useState(false);
   const [bump, setBump] = useState<'' | 'up' | 'down'>('');
   const prev = useRef(live.stars);
