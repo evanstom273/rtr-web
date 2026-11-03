@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { findWrestler } from '../data/rtr';
 import { freshWorld, setWorld } from '../world/world';
 import { C, NO_CLAUSES } from './clauses';
-import { askForSpot, exitTerms, gate, leaveContract, makeOffer, matchPay, mood, propose, signOffer, startCareer, willingness } from './index';
+import { acceptLetter, askForSpot, dayOff, exitTerms, gate, leaveContract, makeOffer, matchPay, mood, propose, signOffer, startCareer, willingness } from './index';
 import type { Career } from './types';
 
 function begin(player = 'jamie_mercer'): Career {
@@ -80,5 +80,34 @@ describe('contracts', () => {
     const results = shows.slice(0, 12).map((s) => askForSpot(c, s));
     expect(results.some((r) => r.ok)).toBe(true);
     expect(Object.keys(c.indie).length).toBeGreaterThan(0);
+  });
+
+  it('Schedule Flexibility Tier 3 lets you refuse a booked date, with no penalty', () => {
+    const c = begin();
+    const k = c.people[c.player]!.contract!;
+    k.clauses[C.schedule] = 3;
+    const show = Object.values(c.shows).find((s) => s.date > c.today && s.card?.some((b) => b.a === c.player || b.b === c.player))!;
+    expect(show).toBeTruthy();
+    const rep = c.people[c.player]!.rep;
+    expect(dayOff(c, show.date)).toMatch(/Refused/);
+    expect(show.card!.some((b) => b.a === c.player || b.b === c.player)).toBe(false);
+    expect(c.people[c.player]!.rep).toBe(rep);
+    k.clauses[C.schedule] = 0;
+    expect(dayOff(c, show.date)).toMatch(/no Schedule Flexibility/);
+  });
+
+  it('Indie Bookings Tier 3: a clashing indie date pulls you off the contracted show and costs reputation', () => {
+    const c = begin();
+    const k = c.people[c.player]!.contract!;
+    k.clauses[C.indie] = 3;
+    // A VWF date you're booked on, with an indie show the same night.
+    const indie = Object.values(c.shows).find((s) => s.promo === 'TIS' && s.date > c.today)!;
+    const mine = { ...indie, id: 'vwf-test', promo: 'VWF', kind: 'weekly' as const, name: 'Defiance', card: [{ a: 'ray_hollis', b: c.player }] };
+    c.shows[mine.id] = mine;
+    const rep = c.people[c.player]!.rep;
+    const l = { id: 'x', day: c.today, kind: 'offer' as const, from: 'x', subject: 'x', body: [], read: false, action: { type: 'indie' as const, show: indie.id, fee: 100, travel: 0 } };
+    expect(acceptLetter(c, l)).toMatch(/You’re booked:/);
+    expect(mine.card!.some((b) => b.a === c.player || b.b === c.player)).toBe(false);
+    expect(c.people[c.player]!.rep).toBeLessThan(rep);
   });
 });

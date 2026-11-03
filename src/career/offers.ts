@@ -8,7 +8,7 @@ import { C } from './clauses';
 import { addDays, addMonths, daysBetween, fmtDay, weekday, type Day } from './dates';
 import { indieFee, travelCost } from './economy';
 import {
-  ASK_SPOT_BASE_PCT, ASK_SPOT_MAX_PCT, INDIE_OFFER_WINDOW_DAYS, INDIE_OFFERS_BASE, INDIE_OFFERS_PER_POP, INDIE_T1_APPROVAL, NOTICE_CHANCE,
+  ASK_SPOT_BASE_PCT, ASK_SPOT_MAX_PCT, DAY_OFF_T1_CHANCE, INDIE_OFFER_WINDOW_DAYS, INDIE_OFFERS_BASE, INDIE_OFFERS_PER_POP, INDIE_T1_APPROVAL, NOTICE_CHANCE, REP_NO_SHOW,
 } from './tuning';
 import type { Career, Letter, Show } from './types';
 
@@ -16,11 +16,13 @@ import type { Career, Letter, Show } from './types';
 export function indieAllowed(c: Career, day: Day): { ok: boolean; why?: string; needsApproval?: boolean } {
   const p = person(c, c.player);
   if (p.injury && p.injury.until > day) return { ok: false, why: 'You’re injured that day.' };
-  if (Object.values(c.shows).some((s) => s.date === day && s.card?.some((b) => b.a === c.player || b.b === c.player))) return { ok: false, why: 'You’re already booked that day.' };
   if (Object.keys(c.indie).some((id) => c.shows[id]?.date === day)) return { ok: false, why: 'You’ve already got an indie date that day.' };
   const k = p.contract;
+  const tier = k?.clauses[C.indie] ?? 0;
+  // Already on a card that day: only Unrestricted indie bookings let you take a clashing date.
+  const onCard = Object.values(c.shows).some((s) => s.date === day && s.card?.some((b) => b.a === c.player || b.b === c.player));
+  if (onCard && (!k || tier < 3)) return { ok: false, why: 'You’re already booked that day.' };
   if (!k) return { ok: true };
-  const tier = k.clauses[C.indie] ?? 0;
   if (tier === 0) return { ok: false, why: `Your ${k.promo} contract doesn’t allow indie dates.` };
   const clash = Object.values(c.shows).some((s) => s.date === day && (s.promos ?? [s.promo]).includes(k.promo));
   if (clash && tier < 3) return { ok: false, why: `${k.promo} have a show that day.` };
@@ -30,6 +32,17 @@ export function indieAllowed(c: Career, day: Day): { ok: boolean; why?: string; 
 /** Put you on an indie show you've agreed to. If its card is already drawn up, add a match. */
 function joinIndie(c: Career, show: Show, fee: number, travel: number): void {
   c.indie[show.id] = { fee, travel };
+  // Unrestricted indie bookings can clash with a contracted date: you miss that date, and it costs you.
+  const k = person(c, c.player).contract;
+  if (k) {
+    for (const s of Object.values(c.shows)) {
+      if (s.date !== show.date || s.id === show.id || !s.card?.some((b) => b.a === c.player || b.b === c.player)) continue;
+      s.card = s.card.filter((b) => b.a !== c.player && b.b !== c.player);
+      const p = person(c, c.player);
+      p.rep = Math.max(0, p.rep + REP_NO_SHOW);
+      letter(c, { kind: 'contract', from: promoName(k.promo), subject: `You’re missing ${s.name}`, body: [`You’ve taken an indie date the same night. Your contract lets you, but ${k.promo} aren’t happy: reputation ${REP_NO_SHOW}.`] });
+    }
+  }
   if (!show.card) return;
   const busy = new Set<string>();
   for (const s of Object.values(c.shows)) if (s.date === show.date) for (const b of s.card ?? []) { busy.add(b.a); busy.add(b.b); }
@@ -195,6 +208,21 @@ export function startTitlePromise(c: Career): void {
   if (!k) return;
   const tier = k.clauses[C.title] ?? 0;
   if (tier >= 2) k.titleShotBy = addDays(c.today, tier >= 3 ? 60 : 120);
+}
+
+/** Schedule Flexibility: ask for a day off (Tier 1+, granted by chance below Tier 2) or refuse a date (Tier 3). */
+export function dayOff(c: Career, day: Day): string {
+  const p = person(c, c.player);
+  const k = p.contract;
+  const tier = k?.clauses[C.schedule] ?? 0;
+  if (!k || tier === 0) return 'Your contract has no Schedule Flexibility.';
+  if (day <= c.today) return 'Too late for that.';
+  const booked = Object.values(c.shows).find((s) => s.date === day && s.card?.some((b) => b.a === c.player || b.b === c.player));
+  if (booked && tier < 3) return `You’re already on ${booked.name}. Only Tier 3 lets you refuse a date.`;
+  if (tier === 1 && seededRng(hashSeed(c.seed, 'dayoff', day))() >= DAY_OFF_T1_CHANCE) return `${k.promo} need you that day.`;
+  (p.daysOff ??= []).push(day);
+  if (booked) booked.card = booked.card!.filter((b) => b.a !== c.player && b.b !== c.player);
+  return booked ? `Refused: you’re off ${booked.name}, no penalty.` : `${fmtDay(day, 'dm')} is yours: ${k.promo} won’t book you.`;
 }
 
 setCareerHooks({ notice, daily });
