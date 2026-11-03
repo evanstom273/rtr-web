@@ -35,7 +35,7 @@ export function History({ c, onBack, onStats }: Props) {
             <span className="c-hint">{fmtDay(m.day, 'dm')}</span>
             <span style={{ display: 'flex', flexDirection: 'column' }}>
               <span className="c-vs"><span className={m.result === 'win' ? 'c-eff up' : m.result === 'loss' ? 'c-eff dn' : 'c-eff'}>{w(m.result === 'win' ? 'beat' : m.result === 'loss' ? 'lost to' : 'drew')}</span>{findWrestler(m.opp) ? <Nm id={m.opp} /> : <span className="c-nl">{m.oppName}</span>}</span>
-              <span className="c-hint">{m.showName}{m.title ? ` · ${TITLES.find((t) => t.id === m.title)?.name}` : ''}{m.planned === 'off-script' ? ' · off-script' : ''}</span>
+              <span className="c-hint">{m.showName}{m.title ? ` · ${TITLES.find((t) => t.id === m.title)?.name}` : ''}{m.planned === 'off-script' ? ' · off-script' : m.planned === 'botched' ? ' · didn’t deliver' : m.planned === 'upset' ? ' · upset' : ''}</span>
             </span>
             <b className="c-big" style={{ fontSize: 16 }}>{stars(m.stars)}</b>
           </div>

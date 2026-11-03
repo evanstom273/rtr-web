@@ -1,5 +1,5 @@
 // Work coming your way: indie bookings, asking for a spot, tryouts and contract offers.
-import { PROMOTIONS, WRESTLERS, findWrestler } from '../data/rtr';
+import { PROMOTIONS, TITLES, WRESTLERS, findWrestler } from '../data/rtr';
 import type { Rng } from '../engine/rng';
 import { seededRng } from '../engine/rng';
 import { available, hashSeed, promoRegion, regionalPop } from './booker';
@@ -8,10 +8,11 @@ import { C } from './clauses';
 import { addDays, addMonths, daysBetween, fmtDay, weekday, type Day } from './dates';
 import { indieFee, travelCost } from './economy';
 import {
-  ASK_SPOT_BASE_PCT, ASK_SPOT_MAX_PCT, DAY_OFF_T1_CHANCE, INDIE_OFFER_WINDOW_DAYS, INDIE_OFFERS_BASE, INDIE_OFFERS_PER_POP, INDIE_T1_APPROVAL, NOTICE_CHANCE, REP_NO_SHOW, PATIENCE_NO_SHOW,
+  ASK_SPOT_BASE_PCT, ASK_SPOT_MAX_PCT, DAY_OFF_T1_CHANCE, INDIE_OFFER_WINDOW_DAYS, INDIE_OFFERS_BASE, INDIE_OFFERS_PER_POP, INDIE_T1_APPROVAL, NOTICE_CHANCE, REP_NO_SHOW, PATIENCE_NO_SHOW, INDIE_OFFER_CHAMPION, INDIE_OFFER_TRUSTED, TRUST_HIGH, TRUST_LOW,
 } from './tuning';
 import type { Career, Letter, Show } from './types';
-import { movePatience } from './patience';
+import { movePatience, showBooker } from './patience';
+import { remember, trust } from './relations';
 
 /** Can you take an indie date on this day? (Free agents always; signed wrestlers by their Indie Bookings tier.) */
 export function indieAllowed(c: Career, day: Day): { ok: boolean; why?: string; needsApproval?: boolean } {
@@ -42,6 +43,7 @@ export function joinIndie(c: Career, show: Show, fee: number, travel: number): v
       const p = person(c, c.player);
       p.rep = Math.max(0, p.rep + REP_NO_SHOW);
       movePatience(c, k.promo, PATIENCE_NO_SHOW, `Missed ${s.name} for an indie date`);
+      remember(c, k.promo, 'noShows');
       letter(c, { kind: 'contract', from: promoName(k.promo), subject: `You’re missing ${s.name}`, body: [`You’ve taken an indie date the same night. Your contract lets you, but ${k.promo} aren’t happy: reputation ${REP_NO_SHOW}.`] });
     }
   }
@@ -112,11 +114,15 @@ function indieOffers(c: Career, rnd: Rng): void {
   const p = person(c, c.player);
   if (p.contract && (p.contract.clauses[C.indie] ?? 0) === 0) return;
   const me = findWrestler(c.player)!;
-  const n = INDIE_OFFERS_BASE + Math.floor(me.popularity.global / INDIE_OFFERS_PER_POP);
+  // A champion draws more interest.
+  const champ = TITLES.some((t) => t.holder === c.player);
+  const n = INDIE_OFFERS_BASE + Math.floor(me.popularity.global / INDIE_OFFERS_PER_POP) + (champ ? 1 : 0);
   const home = me.region;
   const shows = Object.values(c.shows)
     .filter((s) => s.promo === 'TIS' && s.date > addDays(c.today, 1) && s.date <= addDays(c.today, INDIE_OFFER_WINDOW_DAYS) && indieAllowed(c, s.date).ok)
-    .map((s) => ({ s, w: (promoRegion('TIS') === s.region ? 1 : 1) * (regionalPop(me, s.region) + 5) * (s.country === me.country ? 2 : 1) * (0.5 + rnd()) }))
+    .filter((s) => trust(c, showBooker(s)) >= TRUST_LOW)
+    .map((s) => ({ s, w: (regionalPop(me, s.region) + 5) * (s.country === me.country ? 2 : 1) * (0.5 + rnd())
+      * (trust(c, showBooker(s)) >= TRUST_HIGH ? INDIE_OFFER_TRUSTED : 1) * (champ ? INDIE_OFFER_CHAMPION : 1) }))
     .sort((a, b) => b.w - a.w);
   const days = new Set<string>();
   let sent = 0;

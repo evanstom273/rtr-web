@@ -13,6 +13,7 @@ import type { SimJob, SimOut } from './sim';
 import { activeWorld } from '../world/world';
 import { addEvent, type ArchivedShow } from '../world/history';
 import { movePatience, showBooker } from './patience';
+import { remember } from './relations';
 import {
   BOOK_AHEAD_DAYS, CONTRACT_MONTHS, FATIGUE_HARDCORE_EXTRA, FATIGUE_PER_MATCH, FATIGUE_RECOVERY_PER_DAY, FATIGUE_STAMINA_DIVISOR,
   INJURY_BASE_PCT, INJURY_HARDCORE_MULT, INJURY_PER_FATIGUE, INJURY_SEVERITY, MEDICAL_BILL_COVER, MEDICAL_PAY_COVER, MEDICAL_PER_DAY, MERCH_INDIE,
@@ -173,7 +174,7 @@ function popChange(w: Wrestler, region: PopRegion, delta: number): number {
 }
 
 /** Apply a finished match to the world: popularity, fatigue, injuries, titles, feuds, and your pay. */
-export function applyBout(c: Career, show: Show, index: number, out: SimOut, aIsYou = true): void {
+export function applyBout(c: Career, show: Show, index: number, out: SimOut, aIsYou = true, how: 'played' | 'simmed' = 'played'): void {
   const bout = show.card![index]!;
   if (bout.result) return; // a match is settled once, however many times the night gets run
   dropStaleTitle(bout);
@@ -236,7 +237,7 @@ export function applyBout(c: Career, show: Show, index: number, out: SimOut, aIs
     if (feud.payoff === show.id) feud.done = true;
   }
 
-  if (bout.a === c.player || bout.b === c.player) settleMine(c, show, bout, out, aIsYou, changes[c.player] ?? 0, titleChanged);
+  if (bout.a === c.player || bout.b === c.player) settleMine(c, show, bout, out, aIsYou, changes[c.player] ?? 0, titleChanged, how);
 }
 
 function injure(c: Career, id: string, show: Show, rnd: Rng): void {
@@ -274,15 +275,19 @@ function injure(c: Career, id: string, show: Show, rnd: Rng): void {
 }
 
 /** Your side of a match: pay, history, the planned finish, tryouts, letters. */
-function settleMine(c: Career, show: Show, bout: Bout, out: SimOut, aIsYou: boolean, popDelta: number, titleChanged: boolean): void {
+function settleMine(c: Career, show: Show, bout: Bout, out: SimOut, aIsYou: boolean, popDelta: number, titleChanged: boolean, how: 'played' | 'simmed' = 'played'): void {
   const me = person(c, c.player);
   const oppId = bout.a === c.player ? bout.b : bout.a;
   const opp = findWrestler(oppId)!;
   const winner = bout.result!.winner;
   const result = winner === null ? 'draw' : winner === c.player ? 'win' : 'loss';
   let fee = 0, bonus = 0;
-  let planned: 'kept' | 'off-script' | null = null;
-  if (bout.planned) planned = bout.planned === winner ? 'kept' : 'off-script';
+  // Against the plan isn't always sabotage: winning when booked to lose, in a match you played, is going
+  // off-script; losing when booked to win is failing to deliver; a simmed match going the other way is an upset.
+  let planned: PlayerMatch['planned'] = null;
+  if (bout.planned) {
+    planned = bout.planned === winner ? 'kept' : bout.planned === c.player ? 'botched' : winner === c.player && how === 'played' ? 'off-script' : 'upset';
+  }
   const indie = show.promo === 'TIS';
   if (indie) {
     const deal = c.indie[show.id] ?? { fee: indieFee(findWrestler(c.player)!, show.region), travel: 0 };
@@ -311,7 +316,7 @@ function settleMine(c: Career, show: Show, bout: Bout, out: SimOut, aIsYou: bool
   const region = REGION_LABEL[show.region];
   letter(c, {
     kind: 'result', from: show.name, subject: `${result === 'win' ? 'You beat' : result === 'loss' ? 'You lost to' : 'A draw with'} ${opp.name}`,
-    body: [`${out.stars}★${out.move ? ` · ${out.move}` : ''}.${planned === 'off-script' ? ' You went off-script.' : ''}`],
+    body: [`${out.stars}★${out.move ? ` · ${out.move}` : ''}.${planned === 'off-script' ? ' You went off-script.' : planned === 'botched' ? ' You were booked to win.' : planned === 'upset' ? ' Not the finish they planned, but no one’s blaming you.' : ''}`],
     terms: [['Paid', `£${(fee + bonus).toLocaleString('en-GB')}`], ['Popularity', `${popDelta >= 0 ? '+' : ''}${r1(popDelta)} ${region}`], ['Reputation', `${r1(me.rep)}`]],
     read: false,
   } as Omit<Letter, 'id' | 'day'>);
@@ -398,7 +403,7 @@ export async function finishDay(c: Career, run: (jobs: SimJob[]) => Promise<SimO
   await runToday(c, run);
   // Anything still unplayed today (your match, if you walked away from it) is lost, and the booker remembers.
   const missed = myBoutToday(c);
-  if (missed) movePatience(c, showBooker(missed.show), PATIENCE_NO_SHOW, `Missed your match on ${missed.show.name}`);
+  if (missed) { movePatience(c, showBooker(missed.show), PATIENCE_NO_SHOW, `Missed your match on ${missed.show.name}`); remember(c, showBooker(missed.show), 'noShows'); }
   for (const show of showsOn(c, c.today)) show.done = true;
   endOfDay(c);
   databaseChanged();
