@@ -113,5 +113,16 @@
         "every": "Friday"
       }
     }
+  ],
+  "IVW": [
+    {
+      "name": "IVW: After Eight — {month}",
+      "kind": "special",
+      "when": {
+        "nth": "last",
+        "day": "Saturday",
+        "month": "every"
+      }
+    }
   ]
 }
