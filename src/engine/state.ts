@@ -101,6 +101,7 @@ export function createState(rnd: Rng, you: Wrestler, them: Wrestler, rules: Matc
     events: [],
     view: undefined as unknown as MatchView,
     seq: 0,
+    heatLine: [],
   };
   S.view = snapshotView(S);
   return S;

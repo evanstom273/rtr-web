@@ -22,6 +22,7 @@ interface Props {
   hits: Hit[];
   onChange: (s: BuilderState) => void;
   onStart: () => void;
+  onMenu: () => void;
 }
 
 const CLOCKS = [10, 15, 20, 25, 30];
@@ -41,7 +42,7 @@ function holderName(promotionInitials: string, holderId: number): string {
   return w ? `held by ${w.name}` : 'Vacant';
 }
 
-export function Builder({ state: s, hits, onChange, onStart }: Props) {
+export function Builder({ state: s, hits, onChange, onStart, onMenu }: Props) {
   const [f, setF] = useState<Filters>(NO_FILTERS);
   const [showFilters, setShowFilters] = useState(false);
   const [profile, setProfile] = useState<Wrestler | null>(null);
@@ -145,6 +146,9 @@ export function Builder({ state: s, hits, onChange, onStart }: Props) {
         <header className="bd-top">
           <BuilderHead skin={skin} a={a[0]} b={b[0]} />
           <div className="bd-bar">
+            <button className="ghost sm bd-menu" onClick={onMenu} aria-label="Back to the main menu">
+              ‹
+            </button>
             <button className={`bd-sum${showRules ? ' on' : ''}`} onClick={() => setShowRules((x) => !x)} aria-expanded={showRules}>
               {summary}
             </button>

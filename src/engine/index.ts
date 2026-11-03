@@ -18,3 +18,4 @@ export { heldBy, liveObjects, weaponOf, BLEED_WORDS, WEAPON_MOVES } from './env'
 export { LADDER_PULLS, ladderUnder, armedSpot } from './stip';
 export { WARNING_LIMIT, detectionChance } from './referee';
 export { READS, READ_LABEL, READ_HINT, type Read } from './reads';
+export { topPart } from './rating';

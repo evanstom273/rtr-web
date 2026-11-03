@@ -135,6 +135,7 @@ export function startPin(ctx: Ctx, k: SideKey, embedded: boolean): boolean {
     advanceClock(ctx);
     if (S.over) return true;
   }
+  A.stats.pinTries++;
   A.pinAttempts++;
   const pc = buildPinContext(ctx, k, embedded);
   S.pinContext = pc;
@@ -175,6 +176,7 @@ export function startPin(ctx: Ctx, k: SideKey, embedded: boolean): boolean {
 export function completeKickout(ctx: Ctx, k: SideKey, count: KickoutCount): void {
   const S = ctx.S, dk = other(k), D = S[dk], pc = S.pinContext;
   D.kickouts++;
+  D.stats.kickouts++;
   D.lastActionResult = 'KICKOUT';
   if (count >= 3) {
     say(ctx, LINES.kickoutLate, { a: k, d: dk }, 'hl');
@@ -226,6 +228,7 @@ export function useResiliency(ctx: Ctx, dk: SideKey, threat: 'pinfall' | 'submis
   D.resiliencyAvailable = false;
   D.resiliencyUsed = true;
   D.kickouts++;
+  D.stats.kickouts++;
   say(ctx, LINES.resiliency, { d: dk, vars: { x: threat === 'submission' ? 'hold' : 'three-count' } }, 'good');
   flash(ctx, 'Resiliency!', true);
   crowdObserve(ctx, { type: 'kickout', k: dk, count: 3, afterFinisher: !!S.pinContext?.lastMoveWasFinisher, afterSignature: false });

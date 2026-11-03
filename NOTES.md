@@ -673,3 +673,26 @@ Ringside paper is the default.
   - The matchup card is at the top on phones (on the right on wide screens).
   - Each roster row has "You" and "AI" quick-add buttons. Tap for the profile and hold to drag still work.
 - A new skin means: tokens in `skins.css`, a layout in `MatchLayouts.tsx`, and a branch each in `BuilderHead`, `Tape` and `Result`.
+
+## Main menu and the match archive
+
+The game now opens on a main menu (`screens/Menu.tsx`): Play, the archive, the database (coming soon) and Settings, dressed per skin.
+
+**Every finished match is saved in full** (`ui/record.ts`, stored by `storage/records.ts` in IndexedDB, since logs are ~30KB each). A record holds:
+- the result and the rating with its parts
+- every commentary line
+- the crowd heat at every clock step (`S.heatLine`)
+- per-wrestler numbers from `Side.stats`, counted in the engine:
+  - moves tried, landed and reversed: `finishMove`
+  - reads and counters: `finishMove` and `applyPending`
+  - signatures and finishers tried and hit
+  - kickouts, pin attempts (`startPin`) and holds (`beginSubmission`)
+  - clock steps in control: `advanceClock`
+- damage dealt, most-worked part and warnings, taken from what the engine already had
+
+**The archive** (`screens/Archive.tsx`):
+- Sorts by newest, best or longest.
+- Tick any number and download them as one zip, with a readable `.txt` and a `.json` per match. The zip writer (`storage/zip.ts`) is a small dependency-free stored-zip.
+- Old Greatest Hits come across once as summary-only entries, since they never had logs.
+
+**The match record** (`screens/Record.tsx`) shows it all, with download and delete.

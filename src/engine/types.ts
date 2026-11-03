@@ -202,6 +202,32 @@ export interface Side {
   reversals: number;
   kickouts: number;
   pinAttempts: number;
+  /** The match record's numbers (the archive and the downloads). */
+  stats: SideStats;
+}
+
+export interface SideStats {
+  /** Moves rolled for, and how they went. */
+  movesTried: number;
+  movesLanded: number;
+  /** Their own moves the opponent stopped. */
+  reversed: number;
+  /** Reversals that came from a right read (and stole the momentum). */
+  countered: number;
+  /** Reads made on defence, and how many were right. */
+  readsTried: number;
+  readsRight: number;
+  sigTried: number;
+  sigHit: number;
+  finTried: number;
+  finHit: number;
+  /** Pins they kicked out of (Resiliency included). */
+  kickouts: number;
+  /** Covers they went for, and holds they locked in. */
+  pinTries: number;
+  holds: number;
+  /** Clock steps they ended in control of. */
+  controlSteps: number;
 }
 
 /* ---------- log & events ---------- */
@@ -512,6 +538,8 @@ export interface MatchRulesConfig {
 
 export interface MatchState {
   id: number;
+  /** Crowd heat at every clock step: the record's crowd graph. */
+  heatLine: number[];
   rules: MatchRulesConfig;
   you: Side;
   them: Side;

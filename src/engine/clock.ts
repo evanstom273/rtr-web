@@ -26,6 +26,8 @@ export function advanceClock(ctx: Ctx): void {
   bleedTick(S);
   ironManClock(ctx);
   crowdTick(ctx);
+  S.heatLine.push(Math.round(S.heat));
+  if (S.control === 'you' || S.control === 'them') S[S.control].stats.controlSteps++;
 }
 
 function startCount(ctx: Ctx): void {

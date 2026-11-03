@@ -137,6 +137,13 @@ export function executeMove(ctx: Ctx, k: SideKey, move: Move, target?: TargetRes
 export function finishMove(ctx: Ctx, k: SideKey, move: Move, reversed: boolean, target: TargetResolution, crit = false, readRight = false): void {
   const S = ctx.S, A = S[k], dk = other(k);
   const startedAtZero = A.stamina <= 0;
+  const st = A.stats, sig = isSignatureMove(A, move), fin = isFinisherMove(A, move);
+  st.movesTried++;
+  if (reversed) st.reversed++;
+  else st.movesLanded++;
+  if (sig) { st.sigTried++; if (!reversed) st.sigHit++; }
+  if (fin) { st.finTried++; if (!reversed) st.finHit++; }
+  if (readRight) { S[dk].stats.readsRight++; if (reversed) S[dk].stats.countered++; }
   const result: ActionResult = reversed ? (isHighRisk(move) ? 'HIGH_RISK_CRASH' : 'REVERSAL') : 'CLEAN_SUCCESS';
   const dive = A.state.area === 'LADDER' ? ladderUnder(S, k) : null;
   applyMoveResult(ctx, k, dk, move, result, target, crit, !!dive, !reversed && readRight ? BLUNTED_DAMAGE : 1);
