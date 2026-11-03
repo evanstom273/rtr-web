@@ -32,6 +32,8 @@ export interface ArchivedShow {
   city: string;
   country: string;
   bouts: ArchivedBout[];
+  /** One-offs: "Charity show", "Farewell: Name", "Cup final". */
+  tag?: string;
 }
 
 export interface Reign {
@@ -45,7 +47,8 @@ export interface Reign {
   won?: { show: string; from: string | null; fromName: string | null };
 }
 
-export type WorldEventKind = 'title' | 'signed' | 'released' | 'expired' | 'poached' | 'debut';
+export type WorldEventKind = 'title' | 'signed' | 'released' | 'expired' | 'poached' | 'debut'
+  | 'retired' | 'returned' | 'milestone' | 'tournament' | 'breakthrough' | 'injured';
 export interface WorldEvent {
   day: Day;
   kind: WorldEventKind;
@@ -57,6 +60,8 @@ export interface WorldEvent {
   from?: string;
   title?: string;
   show?: string;
+  /** Words for the newer kinds: "100 days as champion", "the Leeds Cup". */
+  what?: string;
 }
 
 export interface WorldHistory {

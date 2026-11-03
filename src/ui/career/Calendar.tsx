@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { findWrestler, TITLES } from '../../data/rtr';
-import { countersWaiting, firstAskable, myBoutToday, promoName, showsOn, type Career, type Show } from '../../career';
+import { countersWaiting, cupLabel, firstAskable, myBoutToday, promoName, roundName, showsOn, type Career, type Show } from '../../career';
 import type { ReqRoute } from './Requests';
 import { addDays, dateOf, dayOf, daysInMonth, fmtDay, MONTHS, monthOf, weekday, yearOf } from '../../career/dates';
 import { stipulation } from '../../engine';
@@ -80,8 +80,11 @@ export function Calendar({ c, busy, onAdvance, onShowDay, onOpen, onAsk }: Props
     if (c.tryouts[s.id]) return { text: 'Your tryout (card not drawn up yet)', hot: true };
     if (s.done) return { text: 'Results in', hot: false };
     if (s.card) return { text: `${s.card.length} matches on the card`, hot: false };
-    return { text: s.promo === 'TIS' ? 'Indie show · card not drawn up yet' : 'Card not drawn up yet', hot: false };
+    return { text: s.promo === 'TIS' && !s.special ? 'Indie show · card not drawn up yet' : 'Card not drawn up yet', hot: false };
   };
+  /** One-offs say what they are: "Charity: food bank", "Farewell: Name", "The Leeds Cup · Semi-final". */
+  const tagOf = (s: Show) => (s.special ? cupLabel(c, s) ?? s.special.tag : null);
+  const promoLabel = (s: Show) => (s.special?.kind === 'crossover' && s.promos ? s.promos.join('×') : s.promo === 'TIS' ? 'INDIE' : s.promo);
 
   return (
     <Screen>
@@ -141,8 +144,8 @@ export function Calendar({ c, busy, onAdvance, onShowDay, onOpen, onAsk }: Props
             const st = status(s);
             return (
               <button key={s.id} className={`c-show${st.hot ? ' mine' : ''}`} onClick={() => setOpen(s.id)}>
-                <span className="c-p">{s.promo === 'TIS' ? 'INDIE' : s.promo}</span>
-                <span className="c-n"><b>{s.name}</b><span className={st.hot ? 'hot' : ''}>{st.text}</span></span>
+                <span className="c-p">{promoLabel(s)}</span>
+                <span className="c-n"><b>{s.name}</b><span className={st.hot ? 'hot' : ''}>{tagOf(s) && !st.hot ? `${tagOf(s)} · ` : ''}{st.text}</span></span>
                 <span className="c-w">{s.city} ›</span>
               </button>
             );
@@ -163,8 +166,9 @@ export function Calendar({ c, busy, onAdvance, onShowDay, onOpen, onAsk }: Props
           <div>
             <div className="c-sh">
               <div>
-                <span>{sheet.promo === 'TIS' ? 'The Indie Scene' : promoName(sheet.promo)} · {fmtDay(sheet.date, 'dm')} · {sheet.city}, {sheet.country}</span>
+                <span>{sheet.special?.kind === 'crossover' && sheet.promos ? sheet.promos.map(promoName).join(' × ') : sheet.promo === 'TIS' ? 'The Indie Scene' : promoName(sheet.promo)} · {fmtDay(sheet.date, 'dm')} · {sheet.city}, {sheet.country}</span>
                 <b>{sheet.name}</b>
+                {tagOf(sheet) && <span className="c-hot">{tagOf(sheet)}{sheet.special?.noTitles ? ' · no titles on the line' : ''}</span>}
               </div>
               <button onClick={() => setOpen(null)} aria-label="Close the card">✕</button>
             </div>
@@ -176,6 +180,8 @@ export function Calendar({ c, busy, onAdvance, onShowDay, onOpen, onAsk }: Props
                   b.title ? TITLES.find((t) => t.id === b.title)?.name : '',
                   b.stip ? stipulation(b.stip).name : '',
                   b.feud ? 'feud' : '',
+                  b.tourney ? `cup ${roundName(b.tourney.round)}` : '',
+                  b.farewell ? 'farewell match' : '',
                   b.result ? `${b.result.winner ? `${findWrestler(b.result.winner)?.name} wins` : 'draw'} · ${b.result.stars}★` : '',
                 ].filter(Boolean).join(' · ');
                 return (

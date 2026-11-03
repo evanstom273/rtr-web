@@ -10,6 +10,7 @@ import {
   TITLE_PLANNED_CHANGE, TITLE_RHYTHM, TRUST_HIGH, TRUST_LOW, TRUST_RETAIN_SWING_HIGH, TRUST_RETAIN_SWING_LOW, type TitleClass,
 } from './tuning';
 import type { Bout, Career, Feud, Person, Pledge, PopRegion, Show } from './types';
+import { BRACKET, tourneyOf, tourneyPairs } from './tourney';
 import { showBooker } from './patience';
 import { trust } from './relations';
 
@@ -40,6 +41,7 @@ export function showRoster(show: Show, roster: readonly Wrestler[]): Wrestler[] 
 
 /** Titles defended on a show: the promotion's own (joint shows: the alliance titles). */
 export function showTitles(show: Show): Title[] {
+  if (show.special?.noTitles) return [];
   if (show.promos?.length) return TITLES.filter((t) => t.id.startsWith('ARISE_'));
   const p = PROMOTIONS.find((x) => x.initials === show.promo);
   return p ? p.titles.map((id) => TITLES.find((t) => t.id === id)).filter((t): t is Title => !!t && !t.id.startsWith('ARISE_')) : [];
@@ -52,7 +54,9 @@ const busyOn = (c: Career, day: Day): Set<string> => {
 };
 
 export function available(p: Person | undefined, day: Day): boolean {
-  if (!p) return false;
+  if (!p || p.retired) return false;
+  // Retiring: nothing after the farewell (cards are drawn a week ahead of it).
+  if (p.retiring && day > p.retiring) return false;
   if (p.injury && p.injury.until > day) return false;
   return true;
 }
@@ -268,6 +272,48 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
   const [lo, hi] = CARD_SIZE[show.kind];
   const size = lo + Math.floor(rnd() * (hi - lo + 1));
 
+  // A cup night: the round's matches go on first. Someone who can't make it hands their opponent a walkover.
+  const cup = tourneyOf(c, show.special?.tourney);
+  if (cup && show.special?.round !== undefined) {
+    const r = show.special.round;
+    if (r === 0 && !cup.entrants.length) {
+      const field = pool.filter((w) => free(w.id)).sort((a, b) => regionalPop(b, region) - regionalPop(a, region));
+      const seeds = [...(cup.player && wantMe && me && free(me.id) ? [me] : []), ...field].slice(0, 8)
+        .sort((a, b) => regionalPop(b, region) - regionalPop(a, region));
+      cup.entrants = BRACKET.map((i) => seeds[i]?.id ?? '');
+    }
+    const here = (id: string | null) => !!id && free(id) && (id === c.player ? !!wantMe : pool.some((w) => w.id === id));
+    const won = (cup.won[r] ??= []);
+    tourneyPairs(cup, r).forEach(([x, y], slot) => {
+      if (won[slot]) return;
+      if (here(x) && here(y)) {
+        take(x!); take(y!);
+        card.push({ a: x!, b: y!, tourney: { id: cup.id, round: r, slot } });
+        return;
+      }
+      won[slot] = here(x) ? x : here(y) ? y : x || y || null;
+    });
+  }
+
+  // A farewell: the retiring wrestler's last match, against the best opponent here (or you, if they asked for you).
+  const fw = show.special?.kind === 'farewell' ? findWrestler(show.special.for ?? '') : undefined;
+  // It's their night wherever they're signed: the retiring wrestler is here if they're fit and free.
+  if (fw && free(fw.id) && !busy.has(fw.id) && !reserved.has(fw.id) && available(c.people[fw.id], show.date)) {
+    const asked = pledges.find((p) => p.kind === 'match' && p.show === show.id && p.opp === fw.id);
+    let opp: Wrestler | undefined;
+    if (asked && wantMe && me && free(me.id)) {
+      opp = me;
+      pledgeDone(c, asked, `Booked: ${fw.name}’s farewell, against you.`);
+    } else {
+      const cands = [...pool.filter((w) => w.id !== fw.id && free(w.id) && w.gender === fw.gender), ...(wantMe && me && free(me.id) && me.gender === fw.gender && !hot ? [me] : [])];
+      opp = cands.sort((a, b) => regionalPop(b, region) - regionalPop(a, region))[0];
+    }
+    if (opp) {
+      take(fw.id); take(opp.id);
+      card.push({ a: opp.id, b: fw.id, farewell: true });
+    }
+  }
+
   // Title matches: a promised shot, a feud paying off tonight, or a defence if the title's due one.
   for (const t of titles) {
     if (!t.holder) {
@@ -364,11 +410,15 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
     card.push({ a: f.a, b: f.b, feud: f.id, ...(payoff && show.kind !== 'weekly' && rnd() < 0.5 ? { stip: pickStip(rnd) } : {}) });
   }
 
+  // Crossover showcases: the two rosters against each other where possible.
+  const cross = show.special?.kind === 'crossover';
+  const crossPool = (a: Wrestler, xs: Wrestler[]) => { if (!cross) return xs; const o = xs.filter((w) => w.promotion !== a.promotion); return o.length ? o : xs; };
+
   // You, if you're on and not in a match yet. In the doghouse: someone from the bottom half of the roster.
   if (wantMe && me && free(me.id)) {
     let opps = pool.filter((w) => free(w.id));
     if (hot) opps = [...opps].sort((x, y) => regionalPop(x, region) - regionalPop(y, region)).slice(0, Math.max(1, Math.ceil(opps.length / 2)));
-    const opp = opponentFor(rnd, me, opps, region, indie);
+    const opp = opponentFor(rnd, me, crossPool(me, opps), region, indie);
     if (opp) {
       take(me.id); take(opp.id);
       card.push({ a: opp.id, b: me.id, ...(tryout ? { tryout: true } : rnd() < STIP_CHANCE[show.kind] ? { stip: pickStip(rnd) } : {}) });
@@ -380,7 +430,7 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
   while (card.length < size && pool.length >= 2) {
     const a = weightedPick(rnd, pool, (w) => 1 + regionalPop(w, region) / 10 - (c.people[w.id]?.fatigue ?? 0) / 25)!;
     pool.splice(pool.indexOf(a), 1);
-    const b = opponentFor(rnd, a, pool, region, indie);
+    const b = opponentFor(rnd, a, crossPool(a, pool), region, indie);
     if (!b) continue;
     pool.splice(pool.indexOf(b), 1);
     card.push({ a: a.id, b: b.id, ...(rnd() < STIP_CHANCE[show.kind] ? { stip: pickStip(rnd) } : {}) });
@@ -391,7 +441,8 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
     const wa = findWrestler(b.a), wb = findWrestler(b.b);
     const pop = ((wa ? regionalPop(wa, region) : 0) + (wb ? regionalPop(wb, region) : 0)) / 2;
     const titleRank = b.title ? (showTitles(show).findIndex((t) => t.id === b.title) === 0 ? 300 : 150) : 0;
-    return pop + titleRank + (b.feud ? 20 : 0);
+    const special = b.tourney ? 200 + b.tourney.round * 150 : b.farewell ? 400 : 0;
+    return pop + titleRank + special + (b.feud ? 20 : 0);
   };
   card.sort((x, y) => weight(x) - weight(y));
   const last = card[card.length - 1];
@@ -439,7 +490,9 @@ export function bookChance(me: Wrestler, show: Show, roster: readonly Wrestler[]
 /** Draw up cards for every show from `from` up to `days` ahead that hasn't got one. */
 export function bookAhead(c: Career, from: Day, days: number, roster: readonly Wrestler[]): void {
   const until = addDays(from, days);
-  const shows = Object.values(c.shows).filter((s) => !s.card && !s.done && s.date >= from && s.date <= until).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.kind === 'indie' ? 1 : -1));
+  // One-offs draw first on their night (a cup needs its entrants), then promotions, then the indies.
+  const rank = (s: Show) => (s.special ? 0 : s.kind === 'indie' ? 2 : 1);
+  const shows = Object.values(c.shows).filter((s) => !s.card && !s.done && s.date >= from && s.date <= until).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : rank(a) - rank(b)));
   for (const s of shows) s.card = bookShow(c, s, roster);
 }
 

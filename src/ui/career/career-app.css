@@ -161,3 +161,5 @@
 /* Career events: a choice your contract or bank balance rules out says why, in the warning colour. */
 .cr .c-ad.c-why{color:var(--cr-bad)}
 .cr .c-ans:disabled{cursor:not-allowed}
+/* One-off shows: what it is, under the show's name (charity, farewell, cup round). */
+.cr .c-sheet .c-sh span.c-hot{display:block;margin-top:5px;color:var(--cr-champ)}
