@@ -41,10 +41,11 @@ export const NO_FILTERS: Filters = { q: '', country: '', cls: '', gender: '', pr
 export const activeFilterCount = (f: Filters): number =>
   [f.country, f.cls, f.gender, f.promotion, f.disposition, f.title].filter(Boolean).length;
 
-export const COUNTRIES = [...new Set(WRESTLERS.map((w) => w.country).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+// The database is live (a career changes it), so these lists are read fresh rather than kept.
+export const countries = (): string[] => [...new Set(WRESTLERS.map((w) => w.country).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 export const CLASSES = Object.keys(CLASS_LABEL) as WrestlerClass[];
-export const PROMOTION_LIST = [...PROMOTIONS].sort((a, b) => a.initials.localeCompare(b.initials));
-export const TITLE_LIST = [...TITLES].sort((a, b) => a.name.localeCompare(b.name));
+export const promotionList = () => [...PROMOTIONS].sort((a, b) => a.initials.localeCompare(b.initials));
+export const titleList = () => [...TITLES].sort((a, b) => a.name.localeCompare(b.name));
 
 const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 /** Names sort without their nickname quotes, so "Macho" Martínez files under M. */

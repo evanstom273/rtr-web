@@ -5,7 +5,7 @@ import type { Hit } from '../../storage/greatestHits';
 import { useBackLayer } from '../backStack';
 import { Profile } from '../builder/Profile';
 import {
-  CLASSES, COUNTRIES, NO_FILTERS, PROMOTION_LIST, SORTS, TITLE_LIST, activeFilterCount, filterRoster, sortValue, type Filters, type SortMode,
+  CLASSES, NO_FILTERS, SORTS, activeFilterCount, countries, promotionList, titleList, filterRoster, sortValue, type Filters, type SortMode,
 } from '../builder/roster';
 import { IRON_MAN_MINUTES, STIPULATIONS, rulesEditable, stipulation, type StipulationId } from '../../engine';
 import { MAX_TEAM, type BuilderState } from '../builder/state';
@@ -36,9 +36,8 @@ function titleHost(s: BuilderState): string {
   return '';
 }
 
-function holderName(promotionInitials: string, holderId: number): string {
-  if (!holderId) return 'Vacant';
-  const w = WRESTLERS.find((x) => x.promotion === promotionInitials && x.wrestlerId === holderId);
+function holderName(holder: string | null): string {
+  const w = holder ? findWrestler(holder) : undefined;
   return w ? `held by ${w.name}` : 'Vacant';
 }
 
@@ -251,7 +250,7 @@ export function Builder({ state: s, hits, onChange, onStart, onMenu }: Props) {
             <select value={s.event} onChange={(e) => set({ event: e.target.value, titleId: '' })} aria-label="Presenting promotion">
               <option value="auto">Auto — their promotion, or a dream match</option>
               <option value="">Independent — no presenting promotion</option>
-              {PROMOTION_LIST.map((p) => (
+              {promotionList().map((p) => (
                 <option key={p.initials} value={p.initials}>
                   {p.initials} — {p.name}
                 </option>
@@ -261,7 +260,7 @@ export function Builder({ state: s, hits, onChange, onStart, onMenu }: Props) {
               <option value="">Non-title match</option>
               {titles.map((t) => (
                 <option key={t.id} value={t.id}>
-                  {t.name} — {holderName(host, t.holderId)}
+                  {t.name} — {holderName(t.holder)}
                 </option>
               ))}
             </select>
@@ -297,7 +296,7 @@ export function Builder({ state: s, hits, onChange, onStart, onMenu }: Props) {
               <div className="bd-filters">
                 <select value={f.country} onChange={(e) => setF({ ...f, country: e.target.value })} aria-label="Country">
                   <option value="">All countries</option>
-                  {COUNTRIES.map((c) => (
+                  {countries().map((c) => (
                     <option key={c}>{c}</option>
                   ))}
                 </select>
@@ -316,7 +315,7 @@ export function Builder({ state: s, hits, onChange, onStart, onMenu }: Props) {
                 </select>
                 <select value={f.promotion} onChange={(e) => setF({ ...f, promotion: e.target.value })} aria-label="Promotion">
                   <option value="">All promotions</option>
-                  {PROMOTION_LIST.map((p) => (
+                  {promotionList().map((p) => (
                     <option key={p.initials} value={p.initials}>
                       {p.initials} — {p.name}
                     </option>
@@ -331,7 +330,7 @@ export function Builder({ state: s, hits, onChange, onStart, onMenu }: Props) {
                   <option value="">All title status</option>
                   <option value="champ">Champions only</option>
                   <option value="non">Non-champions</option>
-                  {TITLE_LIST.map((t) => (
+                  {titleList().map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.name}
                     </option>
