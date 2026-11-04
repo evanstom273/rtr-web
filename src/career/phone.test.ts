@@ -25,8 +25,9 @@ function someone(c: Career, like: number, fam: number, traits?: string[]): strin
 }
 
 describe('the phone', () => {
+  const was = FEATURES.phone;
   beforeEach(() => { FEATURES.phone = true; });
-  afterEach(() => { FEATURES.phone = false; });
+  afterEach(() => { FEATURES.phone = was; });
 
   it('you message someone: you say it, they answer in their voice, and how they feel moves', () => {
     const c = begin('jamie_mercer', 7);
