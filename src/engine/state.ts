@@ -69,7 +69,7 @@ let nextId = 1;
 
 /** Career extras: the booker's planned winner, how fresh each side arrives, a big occasion, tonight's form. */
 function careerSide(s: Side, rules: MatchRulesConfig, rnd: Rng): Side {
-  if (rules.booked?.side === s.key) s.booked = rules.booked.bonus;
+  if (rules.booked?.side === s.key) { s.booked = rules.booked.bonus; if (rules.booked.cheat) s.cheat = true; }
   s.big = !!(rules.big || rules.title || rules.titleId);
   s.form = rollForm(s, rnd);
   const mood = rules.mood?.[s.key];

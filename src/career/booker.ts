@@ -646,6 +646,10 @@ export const setAngles = (pick: typeof heatPick, news: typeof angleNews): void =
 /** How keen a booker is to put two in the ring (politics plugs in: rivals, friends who lobby, enemies who refuse). */
 let pairBias: (a: string, b: string) => number = () => 1;
 export const setPairBias = (f: typeof pairBias): void => { pairBias = f; };
+/** Booker mode: shows you book aren't drawn up ahead (your staff do it the night before if you haven't), and what your staff add. */
+let deferHook: ((c: Career, show: Show) => boolean) | null = null;
+let staffHook: ((c: Career, show: Show) => void) | null = null;
+export const setBookDefer = (defer: typeof deferHook, staff: typeof staffHook): void => { deferHook = defer; staffHook = staff; };
 /** Booker mode: who else a show can draw on (a small promotion books free agents in the region per show). */
 let extraPool: ((c: Career, show: Show, roster: readonly Wrestler[], rnd: Rng) => Wrestler[]) | null = null;
 export const setExtraPool = (f: typeof extraPool): void => { extraPool = f; };
@@ -673,7 +677,12 @@ export function bookAhead(c: Career, from: Day, days: number, roster: readonly W
   // One-offs draw first on their night (a cup needs its entrants), then promotions, then the indies.
   const rank = (s: Show) => (s.special ? 0 : s.kind === 'indie' ? 2 : 1);
   const shows = Object.values(c.shows).filter((s) => !s.card && !s.done && s.date >= from && s.date <= until).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : rank(a) - rank(b)));
-  for (const s of shows) s.card = bookShow(c, s, roster);
+  for (const s of shows) {
+    // Booker mode: a show you book waits for you until the night before; then your staff book it.
+    if (s.date > from && deferHook?.(c, s)) continue;
+    s.card = bookShow(c, s, roster);
+    if (deferHook?.(c, s)) { s.booked = 'staff'; staffHook?.(c, s); }
+  }
 }
 
 export type { Feud };

@@ -7,6 +7,7 @@ import { addDays, fmtDay } from '../../career/dates';
 import { CITIES, regionOfCountry, REGION_LABEL } from '../../career/places';
 import { COMPANY, FOUND } from '../../career/tuning';
 import { commit, Head, money, Screen, useToast, useWords } from './parts';
+import { OfficeCard } from './OfficeCard';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const NTH = ['', 'First', 'Second', 'Third', 'Fourth'];
@@ -31,7 +32,7 @@ export function Office({ c, onBack }: { c: Career; onBack: () => void }) {
   const [toast, say] = useToast();
   const roles = rolesOf(c);
   const [sel, setSel] = useState<string | null>(roles[0]?.promo ?? null);
-  const [tab, setTab] = useState<'overview' | 'schedule'>('overview');
+  const [tab, setTab] = useState<'overview' | 'card' | 'schedule'>('overview');
   const [founding, setFounding] = useState(!roles.length);
   const indieFree = !roles.some((r) => !isMajorTier(companyTier(r.promo)));
   const promo = sel && roles.some((r) => r.promo === sel) ? sel : roles[0]?.promo ?? null;
@@ -50,9 +51,9 @@ export function Office({ c, onBack }: { c: Career; onBack: () => void }) {
           : (
             <>
               <div className="c-chips">
-                {(['overview', 'schedule'] as const).map((t) => <button key={t} className={`c-chip${tab === t ? ' on' : ''}`} onClick={() => setTab(t)}>{w(t === 'overview' ? 'Overview' : 'Schedule')}</button>)}
+                {(['overview', 'card', 'schedule'] as const).map((t) => <button key={t} className={`c-chip${tab === t ? ' on' : ''}`} onClick={() => setTab(t)}>{w(t === 'overview' ? 'Overview' : t === 'card' ? 'Card' : 'Schedule')}</button>)}
               </div>
-              {tab === 'overview' ? <Overview c={c} promo={promo} say={say} /> : <Schedule key={promo} c={c} promo={promo} say={say} />}
+              {tab === 'overview' ? <Overview c={c} promo={promo} say={say} /> : tab === 'card' ? <OfficeCard key={promo} c={c} promo={promo} say={say} /> : <Schedule key={promo} c={c} promo={promo} say={say} />}
             </>
           )}
       </div>

@@ -25,6 +25,7 @@ import './romance';
 import './politics';
 import './rumours';
 import './company';
+import './card';
 
 export * from './career';
 export * from './contracts';
@@ -75,3 +76,4 @@ export {
   rosterSummary, scheduleOf, setSchedule, setSlots, slotLabel, takeRole, TIER_LABEL, tierOf as companyTier, type Company, type Founding, type OfficeRole, type OfficeState, type Tier,
 } from './company';
 export type { Rule } from './calendar';
+export { autoBook, bookerPool, canBook, CARD_MAX, cardIssues, describeShow, FINISH_LABEL, rateShow, SEG_LABEL, SEG_WHO, setCard, showsDone, showsToBook, STIPS, titlesFor, watchBout } from './card';

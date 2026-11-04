@@ -74,6 +74,8 @@ export function aiDirtyLean(ai: Side, distraction: boolean): number {
   let s = 0;
   if (has(ai, 'dirty_fighter')) s += distraction ? FX.dirty_fighter.aiDistract : FX.dirty_fighter.aiDirty;
   if (!distraction && has(ai, 'hot_headed')) s += FX.hot_headed.aiDirty;
+  // Booker mode: booked to win by cheating, they go looking for it.
+  if (ai.cheat) s += distraction ? FX.dirty_fighter.aiDistract : FX.dirty_fighter.aiDirty;
   return s;
 }
 

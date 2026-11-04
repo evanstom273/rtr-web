@@ -22,7 +22,7 @@ import { ANGLES, RUMOURS } from './tuning';
 import { voiceOf } from './voice';
 import type { Career } from './types';
 
-export type RumourKind = 'dating' | 'cheating' | 'badmouth' | 'leaving' | 'favourite' | 'faking' | 'drunk';
+export type RumourKind = 'dating' | 'cheating' | 'badmouth' | 'leaving' | 'favourite' | 'faking' | 'drunk' | 'glory';
 /** A story going round: about whom (and who else), true or not, who started it, who's heard it. */
 export interface Rumour { id: string; kind: RumourKind; a: string; b?: string; promo?: string; truth: boolean; by: string; day: Day; heard: string[]; dead?: true; traced?: true }
 
@@ -41,6 +41,7 @@ export function claim(r: Rumour, c?: Career): string {
     case 'badmouth': return `${own ? 'You’ve' : `${a} has`} been badmouthing ${b} to the office`;
     case 'leaving': return `${own ? 'You’re' : `${a} is`} trying to get out of ${r.promo}`;
     case 'favourite': return `${own ? 'You’re' : `${a} is`} the booker’s pet`;
+    case 'glory': return `${own ? 'You book yourself' : `${a} books themselves`} to win everything at ${r.promo}`;
     case 'faking': return `${own ? 'Your' : `${a}’s`} injury isn’t as bad as ${own ? 'you’re' : 'they’re'} making out`;
     default: return `${own ? 'You' : a} got thrown out of a bar after the show`;
   }
@@ -54,6 +55,9 @@ function start(c: Career, r: Omit<Rumour, 'id' | 'day' | 'heard'>, heard: string
   if (all.length > R.keep) all.splice(0, all.length - R.keep);
   return x;
 }
+
+/** Booker mode: a story gets going from elsewhere (you booking yourself to win everything). */
+export const startRumour = (c: Career, r: Omit<Rumour, 'id' | 'day' | 'heard'>, heard: string[]): Rumour | null => start(c, r, heard);
 
 // ------------------------------------------------------------------ where they come from
 
@@ -116,6 +120,7 @@ function land(c: Career, r: Rumour, listener: string): void {
   else if (r.kind === 'leaving' && r.promo && bookerOf(P(), r.promo)?.id === listener) feelPair(P(), listener, r.a, [E.leaving, 0], [0, 0], 'Heard they want out', c.today, { keep });
   else if (r.kind === 'favourite' && findWrestler(listener)?.promotion === r.promo) feelPair(P(), listener, r.a, [E.favourite, 0], [0, 0], why, c.today, { keep });
   else if (r.kind === 'faking') feelPair(P(), listener, r.a, [0, E.faking], [0, 0], why, c.today, { keep });
+  else if (r.kind === 'glory' && findWrestler(listener)?.promotion === r.promo) feelPair(P(), listener, r.a, [E.favourite, 0], [0, 0], 'Heard they book themselves to win everything', c.today, { keep });
   else if (r.kind === 'drunk' && P().staff[listener]) feelPair(P(), listener, r.a, [E.drunk, 0], [0, 0], why, c.today, { keep });
 }
 

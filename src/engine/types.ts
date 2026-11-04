@@ -114,7 +114,9 @@ export type Control = SideKey | 'neutral';
 
 export type FinishType =
   | 'PINFALL' | 'SUBMISSION' | 'COUNT_OUT' | 'DOUBLE_COUNT_OUT' | 'DISQUALIFICATION' | 'TABLES' | 'LADDER'
-  | 'CAGE_ESCAPE' | 'TEN_COUNT' | 'I_QUIT' | 'TIME_DECISION';
+  | 'CAGE_ESCAPE' | 'TEN_COUNT' | 'I_QUIT' | 'TIME_DECISION'
+  /** Booker mode: a run-in ends it, nobody wins. */
+  | 'NO_CONTEST';
 
 /** Body-target resolution, as produced by MoveTargetResolver. */
 export interface TargetResolution {
@@ -137,6 +139,8 @@ export interface Side {
   w: Wrestler;
   /** Career: the booker's thumb on the scale (0 almost always). */
   booked: number;
+  /** Booker mode: booked to win by cheating (leans on dirty tactics). */
+  cheat?: boolean;
   /** A big match (title, special, flagship, cup final, farewell): Big-Match Performers rise to it. */
   big: boolean;
   /** Inconsistent: tonight's form, −2 to +2 on every roll (0 for everyone else). */
@@ -573,7 +577,7 @@ export interface MatchRulesConfig {
   eventName?: string;
   venueName?: string;
   /** Career: the booker's planned winner gets this much on their rolls (AI title matches only). */
-  booked?: { side: SideKey; bonus: number };
+  booked?: { side: SideKey; bonus: number; cheat?: boolean };
   /** Career: a big match (special, flagship, cup final, farewell); title matches count anyway. */
   big?: boolean;
   /** Career: fatigue carried in, as the share of stamina each side starts with (1 = fresh). */
