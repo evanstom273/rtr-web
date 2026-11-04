@@ -29,6 +29,8 @@ import './card';
 import './stories';
 import './belts';
 import './books';
+import './signing';
+import './morale';
 
 export * from './career';
 export * from './contracts';
@@ -83,3 +85,5 @@ export { autoBook, bookerPool, canBook, CARD_MAX, cardIssues, describeShow, FINI
 export { alliancesOf, dispositionLabel, dropStory, formAlliance, setPayoff, startStory, storiesOf, storyLabel, turn, turnsOf, type Alliance, type Turn } from './stories';
 export { createTitle, cupPairs, cupRoundName, cupRounds, cupsOf, DIVISION_LABEL, renameTitle, retireTitle, roundBouts, setDivision, startCup, titleAllows, titleLimit, titlesOf, unifyTitles, vacateTitle, type Cup, type Division } from './belts';
 export { bookSummary, borrow, closeCompany, IN_LINES, invest, LINE_LABEL, nextTier, OUT_LINES, priceLevel, setPrice, setWage, showDraw, ticketPrice, venueFor, withdraw, type Line } from './books';
+export { approach, approachesOf, buyoutFor, cantApproach, contractWith, dealValue, demand, homeRegion, offer, prospects, releaseFrom, worth, type Approach, type Deal } from './signing';
+export { candidates, fire as fireStaff, hire, moodToward, promise, promisesOf, STAFF_DOES, STAFF_LABEL, staffOf, staffQ, type Hire, type StaffRole } from './morale';

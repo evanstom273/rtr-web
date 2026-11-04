@@ -1265,3 +1265,32 @@ export const BIZ = {
   /** TV and sponsor offers to your promotion: from regional, once its shows average this. */
   offerFrom: 2.8, tvYears: 1,
 };
+
+/**
+ * Booker mode, stage 5: signing from the other side. Someone's worth a date to you: the tier's floor × (their fans
+ * where you are ÷ the tier's reference)^0.5, kept between ×0.5 and ×8; more to step down from a bigger promotion, for
+ * a mercenary, for someone loyal to where they are; less if they like you. They haggle three rounds; offer under 60%
+ * of what they want and they walk (under 40% and they're insulted). Buying someone out: their fee, four dates a month,
+ * for what's left of their deal, ×1.5. Releasing someone: what's left, up to three months.
+ */
+export const SIGN = {
+  floor: { local: 60, regional: 250, national: 1500, global: 2500 } as Record<string, number>,
+  ref: { local: 2000, regional: 20000, national: 100000, global: 300000 } as Record<string, number>,
+  minFactor: 0.5, maxFactor: 8, minFee: 30,
+  stepDown: 1.3, mercenary: 1.2, loyal: 1.15, likeEffect: 0.003,
+  rounds: 3, walkBelow: 0.6, insult: 0.4, insultLike: -6, counterGap: 0.25, longerPerMonth: 0.01, shortDeal: 1.1,
+  rivalFrom: 60, rivalChance: 0.35, rivalLift: 1.15, buyout: 1.5, releaseMonths: 3,
+  signedLike: 5, releasedLike: -12, renewNotice: 30, renewLift: 1.1, walkLike: -30,
+};
+/** Your roster's feelings about you as booker (Lyra's call: through relationships). */
+export const MORALE = {
+  win: 1, titleWin: 6, mainEvent: 1, idleDays: 21, idle: -2, underpaid: 0.7, underpaidLike: -2,
+  promised: 2, promiseDays: 60, pushWins: 3, kept: 8, broken: -12,
+  unhappy: -30, wantsOut: -50, speakUp: 0.25, letGo: 10, brushOff: -3,
+  conduct: 0.02, fined: -3, suspended: -6, ignoredRespect: -1,
+};
+/** Staff you hire: candidates a month, wages by tier (× 0.5 + quality), and what the best do. */
+export const STAFF = {
+  pool: 4, wage: { local: 300, regional: 1500, national: 9000, global: 20000 } as Record<string, number>,
+  agentStars: 0.25, producerSeg: 0.5, producerTv: 0.15, doctorCut: 0.3, writerSegs: 3,
+};
