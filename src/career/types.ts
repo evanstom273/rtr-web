@@ -375,6 +375,8 @@ export interface Career {
   meets?: import('./plans').Meet[];
   lent?: import('./plans').Lent[];
   shares?: Record<string, string>;
+  /** Living with someone (a partner or a mate): your living costs are shared. */
+  home?: { with: string; since: Day };
   offered?: Record<string, Day>;
   /** AM or PM of `today` (days on). Missing: the AM. */
   phase?: 'am' | 'pm';
@@ -520,6 +522,9 @@ export interface Relation {
   kind?: RelKind;
   /** What it's become, alongside a mentorship. */
   tie?: 'friend' | 'best_friend' | 'rival' | 'enemy';
+  /** Romance: where you are, and whether they've a crush on you. */
+  love?: import('../world/people').LoveStage;
+  crush?: boolean;
   met: Day;
   last: Day;
   log: { day: Day; t: string; d?: number }[];

@@ -214,8 +214,8 @@ export function pickLine(bank: Bank, v: PVoice, rnd: () => number, vars: Record<
 
 // ------------------------------------------------------------------ plans (stage 3)
 
-export type MeetKind = 'drinks' | 'meal' | 'night' | 'gym' | 'spots' | 'visit';
-export const MEET_LABEL: Record<MeetKind, string> = { drinks: 'Drinks', meal: 'A meal', night: 'A night out', gym: 'The gym together', spots: 'Running spots', visit: 'Going round theirs' };
+export type MeetKind = 'drinks' | 'meal' | 'night' | 'gym' | 'spots' | 'visit' | 'date' | 'wedding';
+export const MEET_LABEL: Record<MeetKind, string> = { drinks: 'Drinks', meal: 'A meal', night: 'A night out', gym: 'The gym together', spots: 'Running spots', visit: 'Going round theirs', date: 'A date', wedding: 'A wedding' };
 
 /** You asking. */
 export const ASK: Record<MeetKind, string[]> = {
@@ -225,6 +225,8 @@ export const ASK: Record<MeetKind, string[]> = {
   gym: ['Gym {when}? I need someone to push me.', 'Training {when}? Could use a partner.'],
   spots: ['Want to run some spots {when}? Ring’s free.', 'Ring time {when}? Let’s work some stuff.'],
   visit: ['Can I come round {when}?', 'I’ll pop round {when} if that’s alright.'],
+  date: ['Dinner {when}? Just us.', 'Let me take you out {when}.'],
+  wedding: ['See you at the wedding {when}.'],
 };
 /** Them answering an invitation. */
 export const INVITE_ANSWER: Record<'yes' | 'no' | 'busy', Bank> = {
@@ -247,7 +249,90 @@ export const AFTER: Record<MeetKind, Bank> = {
   gym: { plain: ['Good session.', 'Felt that. Same time next week?'], hot: ['Pushed you hard. You’ll thank me.'], warm: ['Great session! Proud of you x'], cocky: ['You kept up. Mostly.'], pro: ['Solid work today.'], sly: ['You’ve got a weakness on your left side. Just saying.'] },
   spots: { plain: ['That last sequence is money.', 'Good work. That’s going on telly.'], hot: ['Hit me harder next time.'], warm: ['That was so fun! We work well together.'], cocky: ['I made you look good. You’re welcome.'], pro: ['Tight. Let’s keep it.'], sly: ['Keep that finish to yourselves.'] },
   visit: { plain: ['Good to see you.'], warm: ['Come round any time x'], fam: ['House feels empty now you’ve gone. Ring us.'], hot: ['Don’t leave it so long next time.'], cocky: ['You can come again. Maybe.'], pro: ['Thanks for coming over.'], sly: ['Nice to have a proper talk.'] },
+  date: { plain: ['Had a really good time tonight.', 'Same again soon?'], warm: ['Tonight was perfect x', 'Can’t stop smiling x'], hot: ['That was a lot better than I expected. In a good way.'], cocky: ['You’re lucky I’m so charming.'], pro: ['I really enjoyed tonight.'], sly: ['I think that went rather well, don’t you?'] },
+  wedding: { plain: ['Thank you for being there. Means the world.'], warm: ['Best day of my life, and you were there x'], hot: ['Bloody brilliant day. Cheers for coming.'], cocky: ['Best wedding you’ll ever go to. Admit it.'], pro: ['Thank you for coming. It meant a lot.'], sly: ['Glad you came. Saw you dancing.'] },
 };
+
+// ------------------------------------------------------------------ romance (stage 4; it fades to black)
+
+/** What you say. */
+export const LOVE_SAY: Record<'flirt' | 'date' | 'commit' | 'movein' | 'propose' | 'split', Record<Tone, string[]>> = {
+  flirt: {
+    warm: ['You looked really good tonight. Just saying.', 'I always look forward to seeing you, you know.'],
+    plain: ['Has anyone told you you’ve got a great smile?', 'You’re good company. Really good company.'],
+    cocky: ['Not going to lie, you’re the best-looking person in that locker room. After me.', 'Admit it: you’ve been thinking about me.'],
+    blunt: ['I fancy you. There. Said it.', 'I like you. Like, like you.'],
+  },
+  date: {
+    warm: ['Would you let me take you out to dinner? A proper date.', 'I’d love to take you out. Just the two of us.'],
+    plain: ['Do you want to go on a date with me?', 'Dinner? As a date.'],
+    cocky: ['You, me, dinner. I’m a catch, you know.', 'Let me take you out. You won’t regret it.'],
+    blunt: ['I want to take you on a date. Yes or no?', 'Go out with me.'],
+  },
+  commit: {
+    warm: ['I don’t want to see anyone else. Do you want to make this official?', 'I think I’m falling for you. Be mine?'],
+    plain: ['Are we a couple, then? I’d like us to be.', 'Shall we make it official?'],
+    cocky: ['You’d be mad to let me get away. Official?', 'Let’s tell everyone. Officially.'],
+    blunt: ['I want us to be together. Properly.', 'Are we doing this or not?'],
+  },
+  movein: {
+    warm: ['I hate saying goodbye every night. Move in with me?', 'What if we got a place together?'],
+    plain: ['Do you want to move in together?', 'Let’s get a place.'],
+    cocky: ['Half your stuff’s at mine anyway. Make it official.', 'You’re here every night. Might as well pay rent.'],
+    blunt: ['Move in with me.', 'I want to live with you.'],
+  },
+  propose: {
+    warm: ['I want to spend the rest of my life with you. Will you marry me?'],
+    plain: ['Will you marry me?'],
+    cocky: ['I’ve decided you’re stuck with me. Marry me?'],
+    blunt: ['Marry me.'],
+  },
+  split: {
+    warm: ['I care about you, but this isn’t working. I think we should end it.'],
+    plain: ['I think we should break up.'],
+    cocky: ['It’s not me, it’s you. We’re done.'],
+    blunt: ['It’s over.'],
+  },
+};
+/** How they answer (yes or no). */
+export const LOVE_ANSWER: Record<'flirt' | 'date' | 'commit' | 'movein' | 'propose', Record<'yes' | 'no', Bank>> = {
+  flirt: {
+    yes: { plain: ['Ha. You’re not so bad yourself.', 'Stop it. (Don’t stop it.)'], warm: ['You’re making me blush x', 'I was hoping you’d say something like that x'], hot: ['Took you long enough.'], cocky: ['I know. But it’s nice to hear.'], pro: ['Well. That’s a nice thing to hear.'], sly: ['Careful. I might take you seriously.'] },
+    no: { plain: ['Ha. I’m flattered, but no.', 'That’s sweet. But no.'], warm: ['Aw, that’s kind. I don’t see you like that though.'], hot: ['Not happening.'], cocky: ['Everyone does. Get in the queue.'], pro: ['Let’s keep it professional.'], sly: ['Nice try.'] },
+  },
+  date: {
+    yes: { plain: ['I’d like that.', 'Yes. Definitely yes.'], warm: ['Yes!! I’ve been hoping you’d ask x'], hot: ['About bloody time. Yes.'], cocky: ['Go on then. You’re paying.'], pro: ['I’d like that very much.'], sly: ['I thought you’d never ask.'] },
+    no: { plain: ['I don’t think that’s a good idea.', 'Sorry. I don’t feel that way.'], warm: ['I’m so sorry, I just don’t feel that way x'], hot: ['No. Sorry.'], cocky: ['Out of your league, love.'], pro: ['I’d rather not, sorry.'], sly: ['I’m spoken for. Or I might as well be.'] },
+  },
+  commit: {
+    yes: { plain: ['Yes. Officially.'], warm: ['YES. I’m so happy x'], hot: ['Course. Anyone else comes near you, they’re dead.'], cocky: ['Obviously.'], pro: ['I’d love that.'], sly: ['I was wondering when you’d ask.'] },
+    no: { plain: ['I’m not ready for that.'], warm: ['Can we keep it like this for now? x'], hot: ['Slow down.'], cocky: ['Let’s not get carried away.'], pro: ['Not yet. Give it time.'], sly: ['Let’s see how things go.'] },
+  },
+  movein: {
+    yes: { plain: ['Let’s do it.'], warm: ['Our own place!! Yes x'], hot: ['Finally. Your flat’s a tip though.'], cocky: ['I’ll bring the good furniture.'], pro: ['Yes. Let’s sort the details.'], sly: ['I’ve already looked at a few places.'] },
+    no: { plain: ['Not yet. I like my own space.'], warm: ['I love you, but not yet x'], hot: ['Too soon.'], cocky: ['And give up my place? No.'], pro: ['Let’s wait a bit.'], sly: ['One step at a time.'] },
+  },
+  propose: {
+    yes: { plain: ['Yes. Yes, yes, yes.'], warm: ['YES! Oh my god, yes x'], hot: ['Yes, you idiot. Yes.'], cocky: ['Knew you would. Yes.'], pro: ['Yes. Absolutely yes.'], sly: ['Took you long enough. Yes.'] },
+    no: { plain: ['I… I can’t. I’m sorry.'], warm: ['I love you, but I’m not ready. I’m so sorry.'], hot: ['No. Not like this.'], cocky: ['That’s a no. Sorry.'], pro: ['I need more time.'], sly: ['Let’s talk about this properly.'] },
+  },
+};
+/** What they send you. */
+export const LOVE_SENT: Record<'flirt' | 'ask' | 'miss' | 'talk' | 'dump' | 'found', Bank> = {
+  flirt: { plain: ['Can’t stop thinking about our last chat.', 'You were looking good on the show last night.'], warm: ['Is it weird that I miss you already? x'], hot: ['You. Me. Sometime.'], cocky: ['Bet you’re thinking about me right now.'], pro: ['I really enjoy spending time with you.'], sly: ['I have a confession to make. Another time.'] },
+  ask: { plain: ['Would you go out with me? Properly.'], warm: ['I really like you. Dinner sometime? x'], hot: ['I’m taking you out. When are you free?'], cocky: ['I’m going to take you on the best date of your life.'], pro: ['I’d like to take you to dinner, if you’d like that.'], sly: ['How about dinner. Just us.'] },
+  miss: { plain: ['Miss you.', 'Can’t wait to see you.'], warm: ['Missing you loads x', 'Counting the days x'], hot: ['When are you back? Hate this.'], cocky: ['You’re lucky I’m so patient.'], pro: ['Thinking of you. Good luck tonight.'], sly: ['Come home soon.'] },
+  talk: { plain: ['We need to talk.', 'I feel like I never see you any more.'], warm: ['Are we okay? I feel like we’re drifting x'], hot: ['You’re never here. What is this?'], cocky: ['Do you even remember what I look like?'], pro: ['I think we need to talk about us.'], sly: ['Is there something you’re not telling me?'] },
+  dump: { plain: ['I’m sorry. I think we should end it.'], warm: ['I don’t want to do this, but I think it’s over. I’m sorry x'], hot: ['We’re done.'], cocky: ['I’m ending this. You’ll get over it.'], pro: ['I’ve thought about this a lot. It’s over.'], sly: ['I think we both knew this was coming.'] },
+  found: { plain: ['I know about them. How could you?'], warm: ['I trusted you. How could you do this to me?'], hot: ['You lying, cheating piece of shit.'], cocky: ['Seriously? Them? Over me?'], pro: ['I know what you did. Don’t contact me.'], sly: ['Did you really think I wouldn’t find out?'] },
+};
+/** Family news. */
+export const FAMILY_SENT: Record<'ill' | 'died' | 'baby', Bank> = {
+  ill: { plain: ['Bit of bad news, love. They’re keeping your {rel} in hospital for a bit.'], fam: ['Don’t panic, but your {rel}’s not well. They’re in hospital. Come and see them when you can.'] },
+  died: { plain: ['I’m so sorry, love. Your {rel} passed away last night.'], fam: ['I don’t know how to say this. Your {rel} passed away last night. Ring me.'] },
+  baby: { plain: ['It’s a {kid}! Mum and baby doing well.'], warm: ['WE HAD A {KID}!!! Come and meet them x'] },
+};
+
 /** Pulling out on the day. */
 export const FLAKE: Bank = {
   plain: ['Sorry, something’s come up. Can’t make it.', 'Gutted, I can’t today. Rain check?'], hot: ['Can’t today. Don’t ask.'], cocky: ['Something better came up. Kidding. Sort of. Can’t make it.'],

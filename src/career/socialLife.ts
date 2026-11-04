@@ -13,13 +13,13 @@
 import { findWrestler, hasTrait, TITLES, type Wrestler, WRESTLERS, worksFor } from '../data/rtr';
 import { hashSeed, seededRng, type Rng } from '../engine/rng';
 import { activeWorld } from '../world/world';
-import { bondOf, bondsOf, bookerOf, dropBond, feelPair, freshPeople, kindOf, likeOf, promoterOf, type Bond, type BondKind, type Goal, type Life, type People } from '../world/people';
+import { bondOf, bondsOf, bookerOf, dropBond, feelPair, freshPeople, kindOf, likeOf, promoterOf, together, type Bond, type BondKind, type Goal, type Life, type People } from '../world/people';
 import { chemistry, ensureCircle, firstRespect, gauss, homeOf, personaOf, seedWorld, staffPersona, type Persona } from '../world/social';
 import { letter, setCareerHooks, setMod, setMoodDice, showsOn } from './career';
 import { addDays, daysBetween, weekday, type Day } from './dates';
 import { dealsOf } from './deals';
 import {
-  BOND_KIND, BOND_LOG, GOALS, MOOD, MOOD_FX, SOCIAL_DRIFT, SOCIAL_ENCOUNTER, SOCIAL_MATCH, SOCIAL_NEWS_MAX, SOCIAL_PRUNE, SOCIAL_READ, SOCIAL_SEEK, SOCIAL_SPILL,
+  BOND_KIND, ROMANCE, BOND_LOG, GOALS, MOOD, MOOD_FX, SOCIAL_DRIFT, SOCIAL_ENCOUNTER, SOCIAL_MATCH, SOCIAL_NEWS_MAX, SOCIAL_PRUNE, SOCIAL_READ, SOCIAL_SEEK, SOCIAL_SPILL,
 } from './tuning';
 import type { Bout, Career, Show } from './types';
 
@@ -218,7 +218,10 @@ export const MOOD_WHY: Record<string, string> = {
   friends: 'Good friends around them', best: 'A best friend in their corner', enemies: 'Enemies backstage', alone: 'Nobody in their corner',
   mentor: 'A mentorship', family: 'Family behind them', form_up: 'Winning', form_down: 'Losing', great: 'A great match lately', champ: 'Holding a title',
   goal_met: 'Got what they were after', goal_stuck: 'Getting nowhere', injured: 'Injured', idle: 'Not getting booked', tired: 'Worn out', broke: 'Money worries',
+  dating: 'Seeing someone', partner: 'In love', apart: 'Apart from their partner a lot', grief: 'Grieving', death: 'A death in the family', ill: 'Someone they love is ill',
+  baby: 'A new baby', heartbreak: 'Heartbroken', wedding: 'Just married (or about to be)',
 };
+const LOVE_RANK = ['crush', 'dating', 'partner', 'living', 'engaged', 'married'];
 
 /** Where someone's wellbeing is heading, and the biggest reasons. */
 export function moodTarget(c: Career, id: string): { v: number; why: string[] } {
@@ -233,8 +236,18 @@ export function moodTarget(c: Career, id: string): { v: number; why: string[] } 
     else if (k === 'friend') friends++;
     else if (k === 'enemy') enemies++;
     if (bond.mentor) mentor = true;
-    if (P.folk?.[other]?.kind === 'family' && (bond.a === id ? bond.lb : bond.la) >= BOND_KIND.friend) family++;
+    if (P.folk?.[other]?.kind === 'family' && !P.folk[other]!.died && (bond.a === id ? bond.lb : bond.la) >= BOND_KIND.friend) family++;
   }
+  // Love (stage 4): a partner lifts it, by how far you've come; being apart a lot drags it.
+  const lover = bondsOf(P, id).filter((b) => together(b.bond)).sort((a, b) => LOVE_RANK.indexOf(b.bond.love!.st) - LOVE_RANK.indexOf(a.bond.love!.st))[0];
+  if (lover) {
+    const st = lover.bond.love!.st as keyof typeof ROMANCE.mood;
+    parts.push([st === 'dating' ? 'dating' : 'partner', ROMANCE.mood[st] ?? 0]);
+    const them = findWrestler(lover.other), me = findWrestler(id);
+    if (them && me && (them.country !== me.country || (them.promotion !== me.promotion && them.promotion !== 'TIS' && me.promotion !== 'TIS'))) parts.push(['apart', ROMANCE.mood.apart]);
+  }
+  // What's happened lately: a death, a wedding, a baby, a break-up.
+  for (const s of P.lives?.[id]?.shocks ?? []) if (s.until > c.today) parts.push([s.k, s.d]);
   if (friends) parts.push(['friends', Math.min(M.friendMax, friends * M.friend)]);
   if (best) parts.push(['best', Math.min(M.bestMax, best * M.best)]);
   if (enemies) parts.push(['enemies', Math.max(M.enemyMax, enemies * M.enemy)]);

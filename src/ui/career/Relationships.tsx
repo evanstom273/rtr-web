@@ -13,6 +13,7 @@ interface Props { c: Career; onBack: () => void; onMessage?: (id: string) => voi
 const KIND_CLASS: Record<string, string> = {
   Enemy: 'c-eff bad', Rival: 'c-eff bad', 'Friendly rival': 'c-eff gold', Mentor: 'c-eff gold', 'Protégé': 'c-eff up', 'Best friend': 'c-eff up', Friend: 'c-eff up',
   'Trusted colleague': 'c-eff up', Disliked: 'c-eff dn', Colleague: 'c-eff', Acquaintance: 'c-eff', Stranger: 'c-eff',
+  Dating: 'c-eff gold', Partner: 'c-eff gold', Engaged: 'c-eff gold', Married: 'c-eff gold', Ex: 'c-eff dn', 'Fancies you': 'c-eff gold',
 };
 
 /** How someone feels about you, in words (separate from whether they trust your work). */

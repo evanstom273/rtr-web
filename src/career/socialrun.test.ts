@@ -30,6 +30,7 @@ function census(c: ReturnType<typeof begin>): string {
     `  ${live.length} wrestlers · ${Object.keys(P.bonds).length} bonds (${per(n.bonds)} each) · each: friends ${per(n.friend)} best ${per(n.best_friend)} rivals ${per(n.rival)} enemies ${per(n.enemy)} · no friend ${n.none}`,
     `  wellbeing: 10% ${q(0.1)} · 25% ${q(0.25)} · median ${q(0.5)} · 75% ${q(0.75)} · 90% ${q(0.9)} · lowest ${moods[0]} highest ${moods.at(-1)} · at or under ${MOOD_FX.low} ${low} · at or over ${MOOD_FX.high} ${high}`,
     `  goals ${JSON.stringify(goals)}`,
+    `  love: ${JSON.stringify(Object.values(P.bonds).filter((x) => x.love).reduce((m, x) => { m[x.love!.st] = (m[x.love!.st] ?? 0) + 1; return m; }, {} as Record<string, number>))} · died ${Object.values(P.lives ?? {}).filter((l) => l.died).length} · folk ${Object.keys(P.folk ?? {}).length}`,
     `  save: people ${(JSON.stringify(P).length / 1024).toFixed(0)} KB (bonds ${(JSON.stringify(P.bonds).length / 1024).toFixed(0)} KB) · whole world ${(JSON.stringify(activeWorld()).length / 1024).toFixed(0)} KB`,
   ].join('\n');
 }
