@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { WRESTLERS, databaseChanged, type Wrestler } from '../../data/rtr';
-import { advancePhase, beginHistory, careerFrom, ctxFor, eventLibrary, fire, makeOffer, makeSpecial, person, phaseOf, routineOf, skip, startCareer, type SkipTarget } from '../../career';
+import { advancePhase, beginHistory, careerFrom, ctxFor, eventLibrary, fire, makeOffer, makeSpecial, person, phaseOf, routineOf, skip, startCareer, takeRole, type SkipTarget } from '../../career';
 import { simMyMatch } from './simMine';
 import { FEATURES } from '../../career/tuning';
 import { calledOut } from '../../career/mail';
@@ -112,7 +112,7 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
   useEffect(() => { if (!choosing) restore(); }, [choosing, restore]);
   useEffect(() => restore, [restore]);
 
-  const begin = async (player: string, extra?: Wrestler, deal?: StartDeal) => {
+  const begin = async (player: string, extra?: Wrestler, deal?: StartDeal, booking?: string) => {
     // Fresh: the world you've been looking at, from today's real date. Kept: carry on where the world got to.
     const fresh = universe === 'fresh';
     if (!fresh && activeWorld().career) await resetCareer();
@@ -138,9 +138,11 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
       ...(!fresh && world.calendar ? { calendar: world.calendar } : {}),
       ...(deal !== undefined ? { deal } : {}),
     });
+    // Booker mode at career start (Lyra's call): booking for a promotion from day one, or straight to founding one.
+    if (booking && booking !== 'found') takeRole(world.career, booking, 'booker');
     await saveWorld(world);
     commit();
-    setStack(['cal']);
+    setStack(booking ? ['cal', 'office'] : ['cal']);
   };
 
   const advance = async () => {
@@ -212,7 +214,7 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
     if (s === 'create') return <Create hasCareer={hadCareer} onBack={back} onDone={(w) => void begin(w.id, w)} />;
     return (
       <>
-        <Start hasCareer={hadCareer} fresh={universe === 'fresh'} onBack={activeWorld().sim ? () => setStack(['history']) : leaveStart} onPick={(id, deal) => void begin(id, undefined, deal)} onCreate={() => go('create')}
+        <Start hasCareer={hadCareer} fresh={universe === 'fresh'} onBack={activeWorld().sim ? () => setStack(['history']) : leaveStart} onPick={(id, deal, booking) => void begin(id, undefined, deal, booking)} onCreate={() => go('create')}
           onHistory={FEATURES.history && !activeWorld().sim && (universe === 'fresh' || !worldPlayed()) ? () => setHistSetup(true) : undefined} />
         {setup}
       </>

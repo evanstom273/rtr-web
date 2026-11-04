@@ -5,6 +5,7 @@ import { C, NO_CLAUSES, packageClauses, PACKAGES, PLAYER_PACKAGES, triggerSlots 
 import { ClauseGroups } from './Clauses';
 import { ATTR_KEYS, ATTR_SHORT, CLASS_NAME, divisionName } from '../../career/create';
 import { fmtDay } from '../../career/dates';
+import { FEATURES } from '../../career/tuning';
 import { activeWorld } from '../../world/world';
 import { Head, Nm, Screen, useWords } from './parts';
 
@@ -16,7 +17,7 @@ interface Props {
   /** Picking from a fresh world (the one shown), rather than carrying on in this one. */
   fresh: boolean;
   onBack: () => void;
-  onPick: (id: string, deal?: StartDeal) => void;
+  onPick: (id: string, deal?: StartDeal, booking?: string) => void;
   onCreate: () => void;
   /** Simulate history first (a fresh world only). */
   onHistory?: () => void;
@@ -32,6 +33,7 @@ export function Start({ hasCareer, fresh, onBack, onPick, onCreate, onHistory }:
   const [sel, setSel] = useState<string | null>(null);
   // undefined: their contract as it is.
   const [deal, setDeal] = useState<StartDeal | undefined>(undefined);
+  const [booking, setBooking] = useState('');
   const [editing, setEditing] = useState(false);
   const promo = PROMOTIONS.find((p) => p.initials === ORDER[pi])!;
   const roster = useMemo(() => WRESTLERS.filter((x) => x.promotion === promo.initials)
@@ -106,9 +108,19 @@ export function Start({ hasCareer, fresh, onBack, onPick, onCreate, onHistory }:
           </button>
         </div>
       )}
+      {picked && FEATURES.booker && (
+        <div className="c-chips">
+          <button className={`c-chip${!booking ? ' on' : ''}`} onClick={() => setBooking('')}>{w('Just wrestle')}</button>
+          <button className={`c-chip${booking === 'found' ? ' on' : ''}`} onClick={() => setBooking('found')}>{w('+ Found a promotion')}</button>
+          <select className="c-fld" value={booking && booking !== 'found' ? booking : ''} onChange={(e) => setBooking(e.target.value)} aria-label="Book for" style={{ flex: 1, minWidth: 140 }}>
+            <option value="">{w('+ Book for…')}</option>
+            {PROMOTIONS.filter((p) => !p.indie && !p.closed).map((p) => <option key={p.initials} value={p.initials}>Book for {p.initials}</option>)}
+          </select>
+        </div>
+      )}
       <div className="c-nav">
         <button className="c-b2" onClick={onCreate}>{skin === 'paper' ? 'Write your own' : 'CREATE YOUR OWN'}</button>
-        <button className="c-b1" disabled={!picked} onClick={() => picked && onPick(picked.id, deal)}>
+        <button className="c-b1" disabled={!picked} onClick={() => picked && onPick(picked.id, deal, booking || undefined)}>
           {picked ? w(`Begin as ${surname}`, `Start as ${surname}`) : w('Choose someone', 'Pick someone')}
         </button>
       </div>

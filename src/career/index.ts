@@ -31,6 +31,8 @@ import './belts';
 import './books';
 import './signing';
 import './morale';
+import './owners';
+import './war';
 
 export * from './career';
 export * from './contracts';
@@ -87,3 +89,5 @@ export { createTitle, cupPairs, cupRoundName, cupRounds, cupsOf, DIVISION_LABEL,
 export { bookSummary, borrow, closeCompany, IN_LINES, invest, LINE_LABEL, nextTier, OUT_LINES, priceLevel, setPrice, setWage, showDraw, ticketPrice, venueFor, withdraw, type Line } from './books';
 export { approach, approachesOf, buyoutFor, cantApproach, contractWith, dealValue, demand, homeRegion, offer, prospects, releaseFrom, worth, type Approach, type Deal } from './signing';
 export { candidates, fire as fireStaff, hire, moodToward, promise, promisesOf, STAFF_DOES, STAFF_LABEL, staffOf, staffQ, type Hire, type StaffRole } from './morale';
+export { applyFor, askingPrice, bookerStanding, buy, goalText, ownerOf, ownerView, resign, sellUp, valuation, type Goal, type OwnerView } from './owners';
+export { counterProgrammed } from './war';

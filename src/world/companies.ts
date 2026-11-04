@@ -46,6 +46,10 @@ export interface Company {
   loan?: { left: number; monthly: number };
   /** Yours: what you pay yourself a month as owner. */
   wage?: number;
+  /** A rival took the TV slot: no offers until then (booker mode, stage 6). */
+  tvBlocked?: Day;
+  /** The owner's side of things when you book for them: patience, this quarter's goals, their favourite. */
+  boss?: import('../career/owners').OwnerView;
   /** Staff you've hired (booker mode, stage 5): head writer, road agent, producer, scout, doctor. */
   staff?: { role: string; id: string; wage: number; since: Day }[];
 }

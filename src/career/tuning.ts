@@ -1294,3 +1294,25 @@ export const STAFF = {
   pool: 4, wage: { local: 300, regional: 1500, national: 9000, global: 20000 } as Record<string, number>,
   agentStars: 0.25, producerSeg: 0.5, producerTv: 0.15, doctorCut: 0.3, writerSegs: 3,
 };
+
+/**
+ * Booker mode, stage 6: owners (Lyra's call: goals, meddling and the sack). Patience starts at 60 (40 on probation);
+ * each quarter's goals met +15, missed −20; a show under 2.5★ −2; a show way over budget −3; a month in the red −10;
+ * crossing their champion −15; agreeing with them +5, defying them −10. At 0 you're out. Buying: the bank, a year's
+ * takings × 0.8, popularity and roster by tier, 40% off in the red, up to 20% off if the owner likes you; selling gets
+ * 90%. Being hired: your standing (rep × 0.6 + (rating − 2) × 20) against the tier's bar.
+ */
+export const OWNER = {
+  start: 60, probation: 40, quarter: 91, goals: 2, ratingGoal: 3, crowdShare: 0.6, pushWins: 3,
+  goalMet: 15, goalMissed: -20, badShow: 2.5, badShowCost: -2, overBudget: -3, redMonth: -10, vetoed: -15, agree: 5, defy: -10,
+  meddle: 0.25, oldAge: 78, handOn: 0.03, closeLike: 50, desperateRed: 2, desperate: 0.25,
+  yearsTakings: 0.8, perPop: { local: 300, regional: 5000, national: 100000, global: 300000 } as Record<string, number>,
+  perHead: { local: 500, regional: 5000, national: 50000, global: 150000 } as Record<string, number>,
+  troubled: 0.6, friendDiscount: 0.002, counterFrom: 0.8, sellFor: 0.9,
+  applyNeed: { local: 20, regional: 35, national: 55, global: 70 } as Record<string, number>, applyGap: 90, offerChance: 0.08,
+};
+/** The war: poaching (a month, ×3 unhappy, ×1.5 to a bigger promotion, more if their booker hates you), a shared night, TV, startups, merges. */
+export const WAR = {
+  poach: 0.02, unhappy: 3, bigger: 1.5, match: 1.25, counter: 0.12, tvOutbid: 0.3,
+  startup: 0.03, startupPop: 25, startupRep: 60, startupBank: 20000, mergeRed: 2, merge: 0.3,
+};
