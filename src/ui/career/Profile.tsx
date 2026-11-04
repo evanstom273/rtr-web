@@ -62,7 +62,7 @@ export function Profile({ c, onBack, onOpen, onShowDay, onHub }: Props) {
             {k ? `${fmtDay(k.start, 'dm')} ${k.start.slice(0, 4)} → ${fmtDay(k.end, 'dm')} ${k.end.slice(0, 4)} · ${money(k.fee)} a match` : 'Indie bookings by letter, or ask for a spot on any indie show.'}
             {p.next ? ` · Next: ${p.next.promo} from ${fmtDay(p.next.start, 'dm')}` : ''}
           </span>
-          {k && <div className="c-effs">{clauseList.length ? clauseList.map((t) => <span key={t} className="c-eff up">{t}</span>) : <span className="c-eff">No clauses</span>}{(k.clauses[C.merch] ?? 0) === 0 && <span className="c-eff">No merch share</span>}</div>}
+          {k && <div className="c-effs">{clauseList.length ? clauseList.slice(0, 6).map((t) => <span key={t} className="c-eff up">{t}</span>) : <span className="c-eff">No clauses</span>}{clauseList.length > 6 && <span className="c-eff">+{clauseList.length - 6} more</span>}{(p.deals ?? []).map((d) => <span key={d.promo} className="c-eff gold">Also {d.promo}</span>)}{(k.clauses[C.merch] ?? 0) === 0 && <span className="c-eff">No merch share</span>}</div>}
         </div>
         <div className="c-two2" style={{ marginTop: 10 }}>
           <div className="c-bars">

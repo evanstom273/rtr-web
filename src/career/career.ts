@@ -530,6 +530,7 @@ export function endOfDay(c: Career): void {
   c.today = tomorrow;
   activeWorld().day = tomorrow;
   extendCalendar(c);
+  strayBelts(c, tomorrow);
   bookAhead(c, tomorrow, BOOK_AHEAD_DAYS, WRESTLERS);
   dailyPlayer(c, rnd);
   // Last thing at night, after every way someone can leave (retirements included): rosters back to 38–40.
@@ -686,7 +687,9 @@ function contractsEnding(c: Career, day: Day, rnd: Rng): void {
     // An extra deal (a non-exclusive star on another major) ending: the AI often re-sign; yours just ends.
     for (const x of [...(p.deals ?? [])]) {
       if (x.end >= day) continue;
-      if (w.id !== c.player && rnd() < RENEW_CHANCE_REST + renewLean(w)) { x.start = day; x.end = addMonths(day, CONTRACT_MONTHS[1]!); continue; }
+      // A champion there always re-signs (as on a main deal).
+      const champThere = TITLES.some((t) => t.holder === w.id && PROMOTIONS.find((q) => q.initials === x.promo)?.titles.includes(t.id));
+      if (w.id !== c.player && (champThere || rnd() < RENEW_CHANCE_REST + renewLean(w))) { x.start = day; x.end = addMonths(day, CONTRACT_MONTHS[1]!); continue; }
       addEvent(history(), { day, kind: 'expired', who: w.id, name: w.name, promo: x.promo });
       dropDeal(p, w, x.promo);
       for (const s of Object.values(c.shows)) if (!s.done && s.date >= day && s.card && (s.promos ?? [s.promo]).includes(x.promo)) s.card = s.card.filter((b) => b.result || (b.a !== w.id && b.b !== w.id));
@@ -716,6 +719,25 @@ function contractsEnding(c: Career, day: Day, rnd: Rng): void {
     const others = PROMOTIONS.filter((x) => !x.indie && !worksFor(w, x.initials) && rosterOf(x.initials).length < ROSTER_TARGET);
     if (others.length && rnd() < Math.min(0.95, POACH_CHANCE * poachMult(w))) sign(c, w, others[Math.floor(rnd() * others.length)]!.initials, day, rnd);
     else release(c, w, 'expired');
+  }
+}
+
+/**
+ * A promotion's title held by someone no longer on its roster (a deal they had there ended) is vacated, quietly:
+ * the next card for it crowns someone. (Yours goes through beltsOnMove, with a letter.)
+ */
+function strayBelts(c: Career, day: Day): void {
+  for (const t of TITLES) {
+    if (!t.holder || t.id.startsWith('ARISE_') || isIndieTitle(t.id)) continue;
+    const owner = PROMOTIONS.find((p) => p.titles.includes(t.id));
+    const w = findWrestler(t.holder);
+    if (!owner || !w || worksFor(w, owner.initials)) continue;
+    if (w.id === c.player) { beltsOnMove(c, day); continue; }
+    t.holder = null;
+    const open = history().reigns[t.id]?.find((r) => r.to === null);
+    if (open) open.to = day;
+    c.titles[t.id] = { since: day, defences: 0, last: null };
+    for (const s of Object.values(c.shows)) if (!s.done && s.card) for (const b of s.card) if (b.title === t.id && !b.result) { delete b.title; delete b.planned; }
   }
 }
 

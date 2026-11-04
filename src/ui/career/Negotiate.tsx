@@ -1,39 +1,69 @@
 import { useState } from 'react';
-import { CLAUSES, attitude, clauseCost, gate, mood, propose, roundsLeft, signOffer, willingness, type Career, type Proposal } from '../../career';
+import {
+  attitude, baseFor, BONUS_TRIGGERS, C, CHARACTER, clauseCost, dealsOf, gate, mood, PACKAGES, packageProposal, person, PLAYER_PACKAGES, promoName, propose, roundsLeft,
+  signOffer, triggerSlots, underLine, walkAway, type BonusTrigger, type Career, type PackageId, type Proposal,
+} from '../../career';
+import { CLAUSES } from '../../career/clauses';
 import { fmtDay } from '../../career/dates';
-import { CONTRACT_MONTHS } from '../../career/tuning';
+import { CONTRACT_MONTHS, SPLIT_DATES_TOTAL } from '../../career/tuning';
+import { ClauseGroups, Pips } from './Clauses';
 import { commit, Head, money, Screen, useToast, useWords } from './parts';
 
 interface Props { c: Career; offerId: string; onBack: () => void; onDone: () => void }
 
 const MOOD: Record<string, [string, string]> = { keen: ['Keen', 'c-eff up'], happy: ['Happy with it', 'c-eff up'], hesitant: ['Hesitant', 'c-eff gold'], losing: ['Losing interest', 'c-eff bad'] };
+const PKG_SHORT: Record<string, string> = { star: 'Star', developmental: 'Developmental', parttime: 'Part-timer', attraction: 'Attraction', custom: 'Custom' };
 
-/** Negotiate a contract clause by clause: fee, length and ten clauses, against their patience. */
+/**
+ * Negotiate a contract (Lyra's design): open with a package or build your own, every clause in five folding
+ * sections, a walk-away line on any clause (their offer goes under it and you can walk with no hard feelings),
+ * your pick of bonus triggers, and the dates a month when it's part-time or a second major.
+ */
 export function Negotiate({ c, offerId, onBack, onDone }: Props) {
   const { skin, w } = useWords();
   const [toast, say] = useToast();
   const o = c.offers.find((x) => x.id === offerId);
-  const [p, setP] = useState<Proposal>(() => ({ fee: o?.fee ?? 0, months: o?.months ?? 12, clauses: [...(o?.clauses ?? [])] }));
+  const [p, setP] = useState<Proposal>(() => ({ fee: o?.fee ?? 0, months: o?.months ?? 12, clauses: [...(o?.clauses ?? [])], ...(o?.dates ? { dates: o.dates } : {}), triggers: [...(o?.triggers ?? [])] }));
+  const [pkg, setPkg] = useState<PackageId | 'custom'>(o?.pkg ?? 'custom');
+  const [lines, setLines] = useState<number[]>(() => o?.lines ?? CLAUSES.map(() => 0));
   if (!o) return null;
-  const base = willingness(c, o.promo, o.id);
+  const base = baseFor(c, o, p);
   const m = mood(c, o, p);
   const open = o.status === 'open';
   const accepted = open && o.said.startsWith('“Done');
+  const under = underLine(o) >= 0;
+  const ch = CHARACTER[o.promo];
+  const others = dealsOf(person(c, c.player)).filter((k) => k.promo !== o.promo);
   const setTier = (i: number, d: number) => {
     const t = Math.max(0, Math.min(3, (p.clauses[i] ?? 0) + d));
     if (d > 0 && gate(c, o, i, t)) return say(gate(c, o, i, t)!);
-    setP({ ...p, clauses: p.clauses.map((x, k) => (k === i ? t : x)) });
+    const clauses = p.clauses.map((x, k) => (k === i ? t : x));
+    const slots = triggerSlots(clauses[C.bonuses] ?? 0);
+    setP({ ...p, clauses, triggers: (p.triggers ?? []).slice(0, slots) });
+    setPkg('custom');
+  };
+  const pickPackage = (k: PackageId | 'custom') => { setPkg(k); setP(packageProposal(c, o, k, p)); };
+  const toggleTrigger = (t: BonusTrigger) => {
+    const have = p.triggers ?? [];
+    const slots = triggerSlots(p.clauses[C.bonuses] ?? 0);
+    setP({ ...p, triggers: have.includes(t) ? have.filter((x) => x !== t) : have.length < slots ? [...have, t] : [...have.slice(1), t] });
   };
   const submit = () => {
+    o.lines = lines;
+    o.pkg = pkg === 'custom' ? undefined : pkg;
     const r = propose(c, o, p);
-    if (r === 'counter') setP({ fee: o.fee, months: o.months, clauses: [...o.clauses] });
+    if (r === 'counter') setP({ fee: o.fee, months: o.months, clauses: [...o.clauses], ...(o.dates ? { dates: o.dates } : {}), triggers: [...(o.triggers ?? [])] });
     commit();
   };
   const sign = () => {
-    signOffer(c, o);
+    const said = signOffer(c, o);
     commit();
-    onDone();
+    if (o.status === 'signed') onDone();
+    else say(said);
   };
+  const walk = () => { o.lines = lines; const said = walkAway(c, o); commit(); if (said) say(said); onBack(); };
+  const slots = triggerSlots(p.clauses[C.bonuses] ?? 0);
+  const datesOn = !!o.second || !!p.dates || pkg === 'parttime' || pkg === 'attraction';
 
   return (
     <Screen>
@@ -44,38 +74,63 @@ export function Negotiate({ c, offerId, onBack, onDone }: Props) {
         <div className="c-rowsb"><span className="c-lab">{w('How it’s going')}</span><b className={MOOD[m]![1]}>{w(MOOD[m]![0])}</b></div>
       </div>
       <div className="c-body">
+        {ch && <span className="c-note"><b>{promoName(o.promo)}: {ch.style}.</b> {ch.blurb}</span>}
+        {o.second && <span className="c-note">A second deal, alongside {others.map((k) => k.promo).join(' and ')}: it can’t be exclusive, and the month splits between you ({SPLIT_DATES_TOTAL} dates in all).</span>}
+        <span className="c-lab">{w('Start from')}</span>
+        <div className="c-chips">
+          {[...PLAYER_PACKAGES, 'custom' as const].map((k) => <button key={k} className={`c-chip${pkg === k ? ' on' : ''}`} onClick={() => pickPackage(k)}>{w(PKG_SHORT[k]!)}</button>)}
+        </div>
+        {pkg !== 'custom' && <span className="c-ad">{PACKAGES[pkg].blurb}</span>}
         <div className="c-trow"><span className="c-lab">{w('Fee')}</span><b className="c-big">{money(p.fee)} {w('a match', '/ match')}</b>
-          <button className="c-stepb" onClick={() => setP({ ...p, fee: Math.max(50, p.fee - 50) })}>−</button><button className="c-stepb" onClick={() => setP({ ...p, fee: p.fee + 50 })}>+</button></div>
+          <button className="c-stepb" onClick={() => setP({ ...p, fee: Math.max(50, p.fee - 50) })} aria-label="£50 less">−</button><button className="c-stepb" onClick={() => setP({ ...p, fee: p.fee + 50 })} aria-label="£50 more">+</button></div>
         <span className="c-lab">{w('Length')}</span>
         <div className="c-modes" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
           {CONTRACT_MONTHS.map((n) => <button key={n} className={p.months === n ? 'c-mode on' : 'c-mode'} style={{ minHeight: 40 }} onClick={() => setP({ ...p, months: n })}><b>{n} {w('mo')}</b></button>)}
         </div>
-        <span className="c-sec">{w('The ten clauses', 'Clauses')}</span>
-        {CLAUSES.map((cl, i) => {
+        {datesOn && (
+          <>
+            <span className="c-lab">{w('Dates a month')}</span>
+            <div className="c-chips">
+              {!o.second && <button className={`c-chip${!p.dates ? ' on' : ''}`} onClick={() => { const { dates: _d, ...rest } = p; setP(rest); }}>{w('Booker’s call')}</button>}
+              {[2, 4, 6, 8].map((n) => <button key={n} className={`c-chip${p.dates === n ? ' on' : ''}`} onClick={() => setP({ ...p, dates: n })}>{n}</button>)}
+            </div>
+            <span className="c-hint">Fewer dates pay more a date.{o.second ? ` ${others.map((k) => k.promo).join(' and ')} would keep ${SPLIT_DATES_TOTAL - (p.dates ?? 4)}.` : ''}</span>
+          </>
+        )}
+        <div className="c-rowsb"><span className="c-sec c-grow">{w('The 25 clauses', 'Clauses')}</span><span className="c-hint">{w('Tap a section to open it')}</span></div>
+        <ClauseGroups tiers={p.clauses} open={['card']} row={(cl, i) => {
           const t = p.clauses[i] ?? 0;
           const att = attitude(o.promo, i);
-          const g3 = t >= 2 ? gate(c, o, i, 3) : null;
+          const cost = clauseCost(o.promo, base, i, t);
+          const line = lines[i] ?? 0;
+          const excl = i === C.exclusivity;
           return (
-            <div key={cl.id} className={t ? 'c-ccard on' : 'c-ccard'}>
+            <div className={t ? 'c-ccard on' : 'c-ccard'}>
               <div className="c-crow2">
                 <b className="c-at">{cl.name}</b>
                 <button className="c-stepb" onClick={() => setTier(i, -1)} aria-label={`Lower ${cl.name}`}>−</button>
-                <span className="c-pips">{[1, 2, 3].map((k) => <i key={k} className={k <= t ? 'c-pip on' : gate(c, o, i, k) ? 'c-pip lock' : 'c-pip'} />)}</span>
+                <Pips t={t} lock={(n) => !!gate(c, o, i, n)} />
                 <button className="c-stepb" onClick={() => setTier(i, 1)} aria-label={`Raise ${cl.name}`}>+</button>
               </div>
               <span className="c-ad">{t ? `${w('Tier', 'T')} ${t} · ${cl.tiers[t - 1]}` : cl.none}</span>
               <span className="c-effs">
-                <span className={att === 'resist' ? 'c-eff dn' : att === 'flexible' ? 'c-eff up' : 'c-eff'}>{w(att === 'resist' ? 'They resist' : att === 'flexible' ? 'They’re flexible' : 'Neutral')}</span>
-                <span className="c-eff">{t ? `Costs them ~${money(clauseCost(o.promo, base, i, t))} a match` : w('Costs nothing')}</span>
-                {g3 && <span className="c-eff bad">{g3}</span>}
+                <span className={att === 'resist' ? 'c-eff dn' : att === 'flexible' ? 'c-eff up' : 'c-eff'}>{w(excl ? (att === 'resist' ? 'They want you exclusive' : att === 'flexible' ? 'They’ll share you' : 'Neutral') : att === 'resist' ? 'They resist' : att === 'flexible' ? 'They’re flexible' : 'Neutral')}</span>
+                <span className="c-eff">{excl ? (cost < 0 ? `Pays you ~${money(-cost)} more a match` : cost > 0 ? `Costs them ~${money(cost)} a match` : 'The standard') : t ? `Costs them ~${money(cost)} a match` : w('Costs nothing')}</span>
+                <button className={line ? 'c-eff gold' : 'c-eff'} onClick={() => setLines(lines.map((x, k) => (k === i ? (x + 1) % 4 : x)))} aria-label={`Walk-away line for ${cl.name}`}>{w(line ? `Your line: T${line}` : 'No line')}</button>
               </span>
+              {i === C.bonuses && slots > 0 && (
+                <div className="c-chips">
+                  {BONUS_TRIGGERS.map((b) => <button key={b.id} className={`c-chip${p.triggers?.includes(b.id) ? ' on' : ''}`} onClick={() => toggleTrigger(b.id)}>{w(b.name)}</button>)}
+                  <span className="c-hint">{(p.triggers ?? []).length} of {slots} picked</span>
+                </div>
+              )}
             </div>
           );
-        })}
-        <span className="c-note">Starts {fmtDay(o.start, 'long')}. Every clause tier costs them something; push too far and they walk.</span>
+        }} />
+        <span className="c-note">Starts {fmtDay(o.start, 'long')}. Every clause tier costs them something; push too far and they walk. Set a line on the clauses you won’t give up: if their offer goes under one, you can walk away and they won’t hold it against you.</span>
       </div>
       <div className="c-nav">
-        <button className="c-b2" onClick={onBack}>{w(open ? 'Walk away' : '‹ Back')}</button>
+        <button className="c-b2" onClick={open ? walk : onBack}>{w(open ? (under ? 'Walk away (no hard feelings)' : 'Walk away') : '‹ Back')}</button>
         {accepted ? <button className="c-b1" onClick={sign}>{w(`Sign with ${o.promo}`)}</button>
           : <button className="c-b1" disabled={!open} onClick={submit}>{w('Put it to them', 'Submit')}</button>}
       </div>
