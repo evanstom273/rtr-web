@@ -169,7 +169,7 @@ export function handover(c: Career, promo: string, old: Staffer, why: 'fired' | 
 }
 
 /** A new indie brand in a region (a closed one is replaced, so the scene keeps its shape). */
-function openBrand(c: Career, region: PopRegion, rnd: Rng): void {
+export function openBrand(c: Career, region: PopRegion, rnd: Rng): void {
   const P = people();
   const country = pick(rnd, countriesIn(region));
   const city = pick(rnd, CITIES[country]!);

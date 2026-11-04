@@ -15,6 +15,7 @@ import { registerReplies } from './mail';
 import { PROMO_COUNTRIES } from './places';
 import { REGION_DATA } from '../world/populate';
 import { contractWith } from './signing';
+import { openBrand } from './staff';
 import { moodToward } from './morale';
 import { FEATURES, WAR } from './tuning';
 import type { Career, Show } from './types';
@@ -81,6 +82,8 @@ function startups(c: Career, rnd: Rng): void {
     const day = WEEKDAYS[(b.dow + 1) % 7]!;
     companies()[ini] = { promo: ini, owner: pr.id, tier: 'local', bank: WAR.startupBank, founded: c.today, home: { country: b.country, city }, schedule: [{ name: b.name, kind: 'weekly', when: { every: day } } as never] };
     b.closed = c.today;
+    // The indie scene keeps its shape: a new brand opens in the region.
+    openBrand(c, b.region, rnd);
     takeJob(P0, pr, { kind: 'booker', promo: ini }, c.today, 'founded');
     addEvent(activeWorld().history, { day: c.today, kind: 'founded', who: pr.id, name: pr.name, promo: ini, what: `${b.name} goes from indie brand to promotion` });
     redraw(c, ini, addDays(c.today, 7));
