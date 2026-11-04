@@ -496,6 +496,17 @@ export interface CrowdStats {
   tenCounts: number;
   nearQuits: number;
   dirty: number;
+  /** Holds that nearly made someone tap. */
+  nearTaps?: number;
+  /** Escapes from a hold that had them nearly tapping: the rope-break moment. */
+  ropeBreaks?: number;
+  /** Big hard-hitting moves landed (impact 9+, not counted as high-risk): powerhouses' and strikers' spectacle. */
+  bigHits?: number;
+  /** A reversal straight back from a reversal: counter for counter. */
+  counters?: number;
+  /** Who reversed last, and when (for counters). */
+  lastRev?: SideKey | null;
+  lastRevT?: number;
 }
 
 /* ---------- view ---------- */

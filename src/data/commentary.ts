@@ -374,7 +374,7 @@ export const CHANTS = {
 /* ---------- rating copy (plain text; {x} etc. are text params) ---------- */
 
 export const RATING = {
-  parts: { crowd: 'Crowd', story: 'Story', drama: 'Drama', action: 'Action', finish: 'Finish' },
+  parts: { crowd: 'Crowd', story: 'Story', drama: 'Drama', craft: 'Craft', action: 'Action' },
   crowdNote: 'Averaged {avg}, peaked at {peak}.',
   story: {
     heatSeg: '{x} had a proper heat segment',

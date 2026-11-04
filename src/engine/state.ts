@@ -61,7 +61,7 @@ function emptyCrowd(): CrowdStats {
     heatSum: 0, heatN: 0, heatPeak: 0, reversals: 0, finRev: 0, nf: 0, fk: 0, crashes: 0, high: 0, spots: 0, rest: 0,
     repeats: 0, heatSeg: null, comeback: null, limbPayoff: false, finAttemptsSeen: false, fkAbsorbed: { you: 0, them: 0 },
     tableBreaks: 0, weaponHits: 0, bleeds: 0, ladderPulls: 0, climbStops: 0, cageClimbs: 0, travel: 0, falls: 0, tenCounts: 0,
-    nearQuits: 0, dirty: 0,
+    nearQuits: 0, dirty: 0, nearTaps: 0, ropeBreaks: 0, counters: 0, bigHits: 0, lastRev: null, lastRevT: 0,
   };
 }
 

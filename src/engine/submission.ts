@@ -204,7 +204,7 @@ export function resolveSubmission(ctx: Ctx, outcome: SubOutcome): void {
   if (outcome === 'SUBMISSION_ESCAPE') {
     D.lastActionResult = 'SUBMISSION_ESCAPE';
     say(ctx, LINES.subEscape, { d: dk });
-    crowdObserve(ctx, { type: 'submission_escape', k: dk });
+    crowdObserve(ctx, { type: 'submission_escape', k: dk, deep: txn.nearTapSaid });
     observePhase(ctx, 'submission_escape');
     ring(ctx, 'escape', dk);
     setControl(ctx, dk);
