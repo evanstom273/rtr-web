@@ -39,7 +39,7 @@ export const conversion = (aud: number): number => FAN_CONV * Math.max(0.05, aud
  * A match's fans for one wrestler: most in the show's region (saturating against its audience), and a
  * little spillover for a 4★+ match. Returns the change in the show's region, in people.
  */
-export function matchFans(w: Wrestler, show: Show, stars: number, won: boolean, lost: boolean, titleWon: boolean): number {
+export function matchFans(w: Wrestler, show: Show, stars: number, won: boolean, lost: boolean, titleWon: boolean, boost = 1): number {
   const r = show.region;
   const have = fansIn(w, r);
   if (stars < FAN_BAD_STARS) {
@@ -49,7 +49,7 @@ export function matchFans(w: Wrestler, show: Show, stars: number, won: boolean, 
   }
   const aud = audience(show);
   const quality = 2 ** (stars - 3) * (won ? FAN_WIN : lost ? FAN_LOSS : 1) * (titleWon ? FAN_TITLE_WIN : 1)
-    * (hasTrait(w, 'crowd_pleaser') ? TRAIT_FX.crowd_pleaser.fanMult : 1);
+    * (hasTrait(w, 'crowd_pleaser') ? TRAIT_FX.crowd_pleaser.fanMult : 1) * boost;
   const room = Math.max(0, 1 - have / (FAN_SATURATION * aud));
   const gain = Math.round(aud * conversion(aud) * quality * room);
   w.fans[r] = have + gain;

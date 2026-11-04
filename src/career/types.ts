@@ -259,6 +259,8 @@ export interface Career {
   ledger: Entry[];
   /** Every pound by kind since the career began (the ledger keeps only the last 400 entries). */
   totals?: Partial<Record<Entry['kind'], { amount: number; n: number }>>;
+  /** Social media: your recent posts, the weekly cap, who you've called out, and the feed. */
+  social?: import('./social').SocialState;
   /** The country you live in (your home country until you move). */
   base?: string;
   /** Living costs (Lyra's call): the first Monday they're due, and the last Monday paid. */
