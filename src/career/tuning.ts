@@ -1162,11 +1162,11 @@ export const ANGLES = { chance: 0.5, bestFriends: 0.6 };
 
 /**
  * Companies: every promotion but The Indie Scene is one, with an owner, a booker, a tier and a bank.
- * Tiers come from popularity at first (global 70+, national 50+, regional 25+, else local); stage 4 moves
+ * Tiers come from popularity at first (global 70+, national 45+, regional 25+, else local); stage 4 moves
  * them with money and fans. Starting banks are rough until the books arrive (stage 4).
  */
 export const COMPANY = {
-  tierFrom: { global: 70, national: 50, regional: 25 } as Record<'global' | 'national' | 'regional', number>,
+  tierFrom: { global: 70, national: 45, regional: 25 } as Record<'global' | 'national' | 'regional', number>,
   startBank: { local: 25_000, regional: 250_000, national: 2_500_000, global: 8_000_000 } as Record<'local' | 'regional' | 'national' | 'global', number>,
   /** Roster sizes each tier keeps (the majors stay at 38–40). */
   roster: { local: 12, regional: 24, national: 40, global: 40 } as Record<'local' | 'regional' | 'national' | 'global', number>,

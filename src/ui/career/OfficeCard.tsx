@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  autoBook, bookerPool, canBook, CARD_MAX, cardIssues, FINISH_LABEL, SEG_LABEL, SEG_WHO, setCard, showsDone, showsToBook, STIPS, titlesFor, watchBout,
+  autoBook, bookerPool, canBook, CARD_MAX, cardIssues, FINISH_LABEL, roundBouts, SEG_LABEL, SEG_WHO, setCard, showsDone, showsToBook, STIPS, titlesFor, watchBout,
   type BookedFinish, type Bout, type Career, type Segment, type SegKind, type Show,
 } from '../../career';
 import { findWrestler } from '../../data/rtr';
@@ -96,7 +96,7 @@ function Booking({ c, show, say }: { c: Career; show: Show; say: (s: string) => 
       {!card ? (
         <>
           <span className="c-note">Not booked yet. If you leave it, your staff book it the night before.</span>
-          <button className="c-b1" disabled={!!no} onClick={() => setCardDraft([])}>{no ?? w('Book it ›')}</button>
+          <button className="c-b1" disabled={!!no} onClick={() => setCardDraft(roundBouts(c, show))}>{no ?? w('Book it ›')}</button>
           <button className="c-b3" disabled={!!no} onClick={staff}>{w('Let the staff book it now')}</button>
         </>
       ) : (

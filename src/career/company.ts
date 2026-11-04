@@ -262,6 +262,7 @@ function daily(c: Career): void {
 
 /** A small promotion's card isn't only its own roster: free agents in the region fill it out (per-show bookings). */
 setExtraPool((c, show, roster, rnd) => {
+  if (!FEATURES.booker) return [];
   const co = companyOf(show.promo);
   if (!co || isMajorTier(co.tier)) return [];
   return roster.filter((w) => w.promotion === 'TIS' && w.id !== c.player && rnd() < Math.min(1, regionFactor(c, w, show.region, show.date)));
@@ -269,6 +270,7 @@ setExtraPool((c, show, roster, rnd) => {
 
 /** How many a promotion keeps on its roster: by tier, and none signed for you while you sign them yourself. */
 setRosterTarget((promo, fallback) => {
+  if (!FEATURES.booker) return fallback;
   const co = companyOf(promo);
   if (!co) return fallback;
   if (co.closed) return 0;
@@ -280,7 +282,7 @@ setCareerHooks({
   phase,
   daily,
   // The AI doesn't release anyone from a roster you run: that's your call.
-  protect: (_c, _id, promo) => playerRuns(promo),
+  protect: (_c, _id, promo) => FEATURES.booker && playerRuns(promo),
 });
 
 /** Your promotions in a line each: "IVW · booker · national · £2.5m". */

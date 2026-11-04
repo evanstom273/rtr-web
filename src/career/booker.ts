@@ -275,6 +275,8 @@ export function contenders(c: Career, title: Title, pool: Wrestler[], region: Po
 /** Keep each promotion's feuds going: a title feud for each title and a couple of others. */
 export function refreshFeuds(c: Career, show: Show, roster: readonly Wrestler[]): void {
   if (show.promo === 'TIS' || show.promos) return;
+  // Booker mode: on a promotion you book, the storylines are yours to write (your staff book around them).
+  if (activeWorld().companies?.[show.promo]?.booker === 'player') return;
   const promo = show.promo;
   const live = c.feuds.filter((f) => f.promo === promo && !f.done);
   const rnd = seededRng(hashSeed(c.seq, 'feuds', show.id));
