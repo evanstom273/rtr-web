@@ -563,7 +563,7 @@ const CAREER: EventDef[] = [
     when: (x) => (!x.k || (x.k.clauses[C.indie] ?? 0) >= 1) && askableIndieShows(x.c).some((s) => s.region !== homeRegion(x) && indieAllowed(x.c, s.date).ok),
     setup: (x) => {
       const s = pick(x.rnd, askableIndieShows(x.c).filter((y) => y.region !== homeRegion(x) && indieAllowed(x.c, y.date).ok && !x.c.asked?.[y.id]).slice(0, 30));
-      return s ? { show: s.id, name: s.name, city: s.city, country: s.country, date: s.date, amount: round5(indieFee(x.me, s.region) * 1.3) } : null;
+      return s ? { show: s.id, name: s.name, city: s.city, country: s.country, date: s.date, amount: round5(indieFee(x.me, s) * 1.3) } : null;
     },
     from: (_x, d) => `${d.name} · ${d.city}, ${d.country}`, subject: () => 'We’ll fly you out',
     body: (x, d) => [`We’re running ${d.name} in ${d.city} on ${fmtDay(String(d.date), 'long')} and want you on it. ${stated(x, d)}, and we cover the travel.`],
@@ -578,7 +578,7 @@ const CAREER: EventDef[] = [
     setup: (x) => {
       const indieTitle = titlesHeld(x).find(isIndieTitle);
       const s = pick(x.rnd, askableIndieShows(x.c).filter((y) => indieAllowed(x.c, y.date).ok && trust(x.c, showBooker(y)) >= 45 && !x.c.asked?.[y.id]).slice(0, 25));
-      return indieTitle && s ? { show: s.id, name: s.name, city: s.city, country: s.country, date: s.date, title: indieTitle, amount: round5(indieFee(x.me, s.region) * 1.5), travel: travelCost(x.me.country, s.country) } : null;
+      return indieTitle && s ? { show: s.id, name: s.name, city: s.city, country: s.country, date: s.date, title: indieTitle, amount: round5(indieFee(x.me, s) * 1.5), travel: travelCost(x.me.country, s.country) } : null;
     },
     from: (_x, d) => `${d.name} · ${d.city}, ${d.country}`, subject: () => 'We want the champion',
     body: (x, d) => [`We want the ${TITLES.find((t) => t.id === d.title)?.name} on ${d.name} (${fmtDay(String(d.date), 'long')}), and we want you defending it. ${stated(x, d)}${Number(d.travel) ? `, plus travel` : ''}.`],
@@ -603,7 +603,7 @@ const CAREER: EventDef[] = [
       const m = x.c.history.find((y) => y.planned === 'off-script' && y.wonTitle)!;
       const crossed = x.c.shows[m.show] ? showBooker(x.c.shows[m.show]!) : '';
       const s = pick(x.rnd, askableIndieShows(x.c).filter((y) => showBooker(y) !== crossed && indieAllowed(x.c, y.date).ok && !x.c.asked?.[y.id]).slice(0, 25));
-      return s ? { show: s.id, name: s.name, city: s.city, date: s.date, title: m.title!, opp: m.opp, amount: round5(indieFee(x.me, s.region) * 1.4), travel: travelCost(x.me.country, s.country) } : null;
+      return s ? { show: s.id, name: s.name, city: s.city, date: s.date, title: m.title!, opp: m.opp, amount: round5(indieFee(x.me, s) * 1.4), travel: travelCost(x.me.country, s.country) } : null;
     },
     from: (_x, d) => `${d.name} · ${d.city}`, subject: () => '“The Stolen Title”',
     body: (x, d) => [`Everyone’s still arguing about how you won the ${TITLES.find((t) => t.id === d.title)?.name}. We want to sell it: you against ${nameOf(d, 'opp')}, the rematch, on ${d.name}. ${stated(x, d)}.`],

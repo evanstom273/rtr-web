@@ -114,7 +114,7 @@ const r1 = (v: number) => Math.round(v * 10) / 10;
 export const fx = {
   money(x: EvCtx, n: number, why: string): string {
     if (!n) return '';
-    spend(x.c, Math.round(n), why, n > 0 ? 'bonus' : 'training');
+    spend(x.c, Math.round(n), why, 'event');
     return n > 0 ? `+${money(n)}` : `−${money(-n)}`;
   },
   rep(x: EvCtx, n: number): string {

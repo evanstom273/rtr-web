@@ -370,6 +370,58 @@ Noise is about ±2 points. Aggressive and Defensive got gentler downsides afterw
 - Each change is recorded in history.
 - Veterans with Mentor bring on a young wrestler near them: +1 a month to their weakest attribute, up to +4, and a mentor bond.
 
+## Pay and living costs (economy stage)
+
+Lyra's calls:
+- About £2,500 a match at the bottom of a major promotion.
+- Indie fees lower and not the same everywhere.
+- How many dates you get decides your income.
+- Weekly living costs where you live.
+
+**Major promotions** (`economy.ts: contractFee`, `clauses.ts: feeFloor`):
+- **The floor** is the weekly-show fee: £2,500 at popularity 46, rising £29.40 a point (about £3,500 at 80).
+- **The fee** is the floor × (your fans in the promotion's home region ÷ its roster's median)^0.5, never below the floor and at most ×8.
+- **Opening offers** start at the floor at least.
+- **Negotiation** starts from the same fee and keeps reputation, form, traits, rival offers and clauses as before.
+- **Show sizes:** weekly ×1, tour ×0.8, special ×1.5, flagship ×2.5. SLN's Friday show, a flagship every week, pays ×1.25.
+- **Existing saves:** contracts and open offers below their promotion's floor come up to it (world rev 8); nothing else about them changes.
+
+**Indie fees** (`indieFee`):
+- £50 × the brand (0.8 at popularity 5 to 1.3 at 30) × (your fans in that region ÷ 500)^0.48.
+- × 1.5 if you hold an indie title; × 1.3 on a special or cup night.
+- Between £30 and £1,500: 500 fans £50, 5k £150, 50k £455, 500k £1,375.
+- A loss pays 75% (`LOSS_CUT`).
+
+**Merch:** worldwide fans × £0.006 a month × your Merchandise Rights share; a free agent sells their own at £0.002.
+
+**Starting money:** £1,000 + £2,000 × log10(worldwide fans ÷ 1,000) for someone you pick; £500 for a created wrestler.
+
+**Living costs** (switched on with their screens, `FEATURES.livingCosts`):
+- Every Monday where you live: Europe £220, North America £253, Oceania £242, Asia £176, South America £132, Africa £110.
+- Keyed to the Monday, so a replayed night can't charge twice.
+- An existing career gets a letter and four weeks' notice; a new one pays from its first Monday.
+
+**The ledger:**
+- New kinds: living, wage, relocation, event. Event money is no longer filed under training.
+- Finances totals now count every pound since day one; the ledger itself keeps the latest 400 entries.
+
+**Two years of five lives in the real game** (`ECON=1 npx vitest run src/career/economy.test.ts`):
+- Living costs are on and fans are held fixed.
+- Lives take their best-paying indie offers (local first), and anything over £1,000 goes on training.
+
+| Life | Dates a month | Balance after 1 / 2 years | Points | Model |
+| --- | --- | --- | --- | --- |
+| Unknown indie, no job | 0.6 | −£10.0k / −£21.5k | 1 | −£10.2k / −£20.5k, 0 |
+| …with part-time retail (£250) | 0.7 | +£1.2k / +£1.1k | 6 | +£1.1k / +£1.3k, 7 |
+| Indie regular (5k fans) + retail | 3.8 | +£1.4k / +£1.0k | 13 | +£1.3k / +£1.5k, 19 |
+| Successful indie (50k), full-time | 6.3 | positive | 46 | 53 |
+| Newly signed, bottom of VWF | 4.1 | positive | 93 | 103 |
+| Star (Buck Stratton) | 7.8 | £2.8M | caps out | caps out |
+
+- Five of the six land within 25% of the model.
+- The indie regular trains less than the model, because real travel averages about £60 a date against the £40 assumed.
+- With fans allowed to grow, the old popularity rules (now on fans) compound too fast: a 50k indie reached 3.9M in two years. The fan-growth stage replaces those rules.
+
 ## Fans and promotion popularity (world rev 7)
 
 Lyra's calls:

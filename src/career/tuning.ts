@@ -3,23 +3,14 @@
 import type { PopRegion, ShowKind } from './types';
 
 // --- Money (£) ---------------------------------------------------------------------------------
-/** Contracted fee = (base + perPop × regional popularity) × promotion budget × show type. */
-export const FEE_BASE = 100;
-export const FEE_PER_POP = 30;
+/** A contracted match pays the weekly-show fee (section 16: MAJOR_FEE_*) × the size of the show. */
 export const SHOW_MULT: Record<ShowKind, number> = { weekly: 1, tour: 0.8, special: 1.5, flagship: 2.5, indie: 1 };
-/** Indie fee = base + perPop × popularity in the show's region. */
-export const INDIE_BASE = 30;
-export const INDIE_PER_POP = 8;
 /** Share of the fee lost for losing (Guaranteed Pay tiers below change it). */
 export const LOSS_CUT = 0.25;
 /** Travel to an indie show: same country, same region, different region. */
 export const TRAVEL = { country: 0, region: 60, abroad: 250 };
-/** Picked wrestler's savings = this × global popularity. Created wrestlers start with START_MONEY_CREATED. */
-export const START_MONEY_PER_POP = 100;
+/** A created wrestler's savings (someone you pick: START_MONEY_BASE in section 16). */
 export const START_MONEY_CREATED = 500;
-/** Monthly merch gross: popularity² × this (signed) or × the indie rate (free agents keep all of it). */
-export const MERCH_SIGNED = 2;
-export const MERCH_INDIE = 0.6;
 
 // --- Training (Elden Ring curve) ----------------------------------------------------------------
 /** Level = attribute total − offset; price = Elden Ring's rune cost for that level ÷ divisor. */
@@ -146,7 +137,6 @@ export const NOTICE_DAYS = 30;
 export const MERCH_SHARE = [0, 0.1, 0.25, 0.6];
 
 // --- Negotiation -------------------------------------------------------------------------------
-export const NEGO_REGION_WEIGHT = 0.7;
 export const NEGO_REP_SWING = 0.1;
 export const NEGO_FORM_SWING = 0.1;
 export const NEGO_RIVAL_LIFT = 1.05;
@@ -519,3 +509,49 @@ export const PROMO_POP_PER_STAR = 8;
 export const BRAND_POP_BOUNDS: [number, number] = [5, 30];
 export const BRAND_POP_BASE = 15;
 export const BRAND_POP_PER_STAR = 10;
+
+/**
+ * Switches for player-facing rules that wait on their screens (Lyra's approval). Off: the game plays
+ * as before. Each UI stage turns its own on.
+ */
+export const FEATURES = { livingCosts: false };
+
+/**
+ * Pay (Lyra's call: how many dates you get decides your income). A major promotion's weekly-show fee:
+ * its floor (£2,500 at popularity 46, about £3,500 at 80) × your fans in its home region against its
+ * roster's median, to the power 0.5, capped at ×8. Opening offers start at the floor at least.
+ */
+export const MAJOR_FEE_FLOOR = 2500;
+export const MAJOR_FEE_FLOOR_AT = 46;
+export const MAJOR_FEE_PER_POINT = 29.4;
+export const MAJOR_FEE_MIN = 2000;
+export const MAJOR_FEE_FAN_EXP = 0.5;
+export const MAJOR_FEE_FAN_CAP = 8;
+/** SLN-style weekly flagships pay like a big weekly show, not a pay-per-view. */
+export const SHOW_MULT_WEEKLY_FLAGSHIP = 1.25;
+/**
+ * An indie fee: £50 × brand (0.8 at popularity 5 to 1.3 at 30) × (your fans in that region ÷ 500)^0.48,
+ * × 1.5 as an indie champion, × 1.3 on a special or cup night; £30–£1,500. 500 fans £50 · 5k £150 ·
+ * 50k £455 · 500k £1,375.
+ */
+export const INDIE_FEE_BASE = 50;
+export const INDIE_FEE_FANS_REF = 500;
+export const INDIE_FEE_EXP = 0.48;
+export const INDIE_FEE_BRAND: [number, number] = [0.8, 1.3];
+export const INDIE_FEE_CHAMP = 1.5;
+export const INDIE_FEE_SPECIAL = 1.3;
+export const INDIE_FEE_RANGE: [number, number] = [30, 1500];
+/** Merch a month: worldwide fans × this (× your Merchandise Rights share when signed). */
+export const MERCH_PER_FAN_SIGNED = 0.006;
+export const MERCH_PER_FAN_FREE = 0.002;
+/** Starting money for someone you pick: £1,000 + £2,000 × log10(worldwide fans ÷ 1,000). Created: START_MONEY_CREATED. */
+export const START_MONEY_BASE = 1000;
+export const START_MONEY_PER_DECADE = 2000;
+/**
+ * Living costs a week (Lyra's call), taken on Mondays where you're based: Europe £220, scaled by each
+ * region's cost index (wages from day jobs scale the same way). An existing career gets four weeks'
+ * notice before the first one.
+ */
+export const LIVING_COST_EUROPE = 220;
+export const COST_INDEX: Record<PopRegion, number> = { northAmerica: 1.15, oceania: 1.1, europe: 1, asia: 0.8, southAmerica: 0.6, africa: 0.5 };
+export const LIVING_GRACE_DAYS = 28;

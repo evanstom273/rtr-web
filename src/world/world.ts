@@ -2,7 +2,7 @@
 // database plus, once a career is running, everything the career tracks. Kept in IndexedDB; if that's
 // unavailable the world lives in memory for the session.
 import { PROMOTIONS, TITLES, WRESTLERS, applyDatabase, databaseChanged, fansFromPopularity, rollCount, rollTraits, shippedDatabase, shippedWrestler, type Database, type Wrestler } from '../data/rtr';
-import { BUDGET } from '../career/clauses';
+import { BUDGET, floorFor } from '../career/clauses';
 import { BRAND_POP_BOUNDS } from '../career/tuning';
 import { hashSeed, seededRng } from '../engine/rng';
 import { tx } from '../storage/db';
@@ -13,7 +13,7 @@ import { bookerOf, freshPeople, pairKey, type Bond, type People } from './people
 import { crownIndies, growIndies, populateIndies } from './populate';
 
 /** The world save's revision: each step in `upgrade` runs once, in order, on older saves. */
-export const WORLD_REV = 7;
+export const WORLD_REV = 8;
 
 export interface World {
   v: 1;
@@ -80,6 +80,8 @@ function upgrade(w: World): void {
     p.status ??= 'open';
     if (!p.by && p.promo !== 'TIS') p.by = bookerOf(w.people!, p.promo)?.id;
   }
+  // Rev 8: the new pay floor (Lyra's call): contracts and open offers below it come up to it.
+  if (rev < 8) raiseToFloor(w);
   // Rev 6: the indie scene is a straight 200 (Lyra's call), so an older one grows to it.
   if (rev < 6 && w.indies) w.indies.generated += growIndies({ seed: w.seed, wrestlers: w.db.wrestlers, people: w.people, retired: (id) => !!w.career?.people[id]?.retired });
 }
@@ -100,6 +102,23 @@ export function toFans(w: World): void {
     const [lo, hi] = BRAND_POP_BOUNDS;
     b.popularity ??= lo + (Math.abs(hashSeed(w.seed, 'brand-pop', b.id)) % (hi - lo + 1));
   }
+}
+
+/**
+ * Rev 8 (Lyra's call: about £2,500 a match at the bottom): contracts and open offers below their
+ * promotion's new floor come up to it. Nothing else about them changes; higher ones are untouched.
+ */
+export function raiseToFloor(w: World): void {
+  const c = w.career;
+  if (!c) return;
+  const floor = (promo: string) => {
+    const p = w.db.promotions.find((x) => x.initials === promo);
+    return !p || p.indie ? 0 : floorFor(p.popularity);
+  };
+  for (const p of Object.values(c.people)) {
+    for (const k of [p.contract, p.next]) if (k) k.fee = Math.max(k.fee, floor(k.promo));
+  }
+  for (const o of c.offers ?? []) if (o.status === 'open') o.fee = Math.max(o.fee, floor(o.promo));
 }
 
 /**

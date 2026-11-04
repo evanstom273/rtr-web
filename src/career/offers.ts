@@ -9,7 +9,7 @@ import { C } from './clauses';
 import { addDays, addMonths, daysBetween, fmtDay, weekday, type Day } from './dates';
 import { indieFee, travelCost } from './economy';
 import {
-  ASK_SPOT_BASE_PCT, ASK_SPOT_MAX_PCT, DAY_OFF_T1_CHANCE, INDIE_OFFER_WINDOW_DAYS, INDIE_OFFERS_BASE, INDIE_OFFERS_PER_POP, INDIE_T1_APPROVAL, NOTICE_CHANCE, REP_NO_SHOW, PATIENCE_NO_SHOW, INDIE_OFFER_CHAMPION, INDIE_OFFER_TRUSTED, TRUST_HIGH, TRUST_LOW,
+  ASK_SPOT_BASE_PCT, ASK_SPOT_MAX_PCT, DAY_OFF_T1_CHANCE, INDIE_OFFER_CHAMPION, INDIE_OFFER_TRUSTED, INDIE_OFFER_WINDOW_DAYS, INDIE_OFFERS_BASE, INDIE_OFFERS_PER_POP, INDIE_T1_APPROVAL, NOTICE_CHANCE, PATIENCE_NO_SHOW, REP_NO_SHOW, TITLE_SHOT_BREACH_FEES, TITLE_SHOT_DAYS, TRUST_HIGH, TRUST_LOW,
 } from './tuning';
 import type { Career, Letter, Show } from './types';
 import { movePatience, showBooker } from './patience';
@@ -105,7 +105,7 @@ export function askForSpot(c: Career, show: Show): { ok: boolean; text: string }
   if (asked[show.id]) return { ok: false, text: 'They’ve already said no.' };
   asked[show.id] = true;
   if (seededRng(hashSeed(c.seed, 'ask', show.id))() >= chance) return { ok: false, text: 'They’re full. Maybe next time.' };
-  const fee = indieFee(me, show.region), travel = travelCost(me.country, show.country);
+  const fee = indieFee(me, show), travel = travelCost(me.country, show.country);
   joinIndie(c, show, fee, travel);
   return { ok: true, text: `You’re on: £${fee.toLocaleString('en-GB')}${travel ? `, travel £${travel}` : ''}.` };
 }
@@ -131,7 +131,7 @@ function indieOffers(c: Career, rnd: Rng): void {
     if (sent >= n) break;
     if (days.has(s.date)) continue;
     days.add(s.date);
-    const fee = indieFee(me, s.region), travel = travelCost(me.country, s.country);
+    const fee = indieFee(me, s), travel = travelCost(me.country, s.country);
     const ok = indieAllowed(c, s.date);
     const key = showBooker(s);
     const from = s.brand && activeWorld().people?.staff[key] ? `${activeWorld().people!.staff[key]!.name} · ${activeWorld().people!.brands[s.brand]?.name ?? s.city}` : `${s.name} · ${s.city}, ${s.country}`;
@@ -208,7 +208,7 @@ function titleShotBreach(c: Career): void {
   const k = person(c, c.player).contract!;
   const tier = k.clauses[C.title] ?? 0;
   delete k.titleShotBy;
-  const fees = tier >= 3 ? 8 : 4;
+  const fees = TITLE_SHOT_BREACH_FEES[Math.min(3, tier)]!;
   spend(c, k.fee * fees, `${k.promo} missed your guaranteed title shot`, 'bonus');
   if (tier >= 3) k.clauses[C.exit] = 3;
   letter(c, { kind: 'contract', from: promoName(k.promo), subject: 'We owe you a title shot', body: [`We didn’t get you a title match in time. That’s £${(k.fee * fees).toLocaleString('en-GB')} compensation${tier >= 3 ? ', and you’re free to leave whenever you like' : ''}.`] });
@@ -219,7 +219,7 @@ export function startTitlePromise(c: Career): void {
   const k = person(c, c.player).contract;
   if (!k) return;
   const tier = k.clauses[C.title] ?? 0;
-  if (tier >= 2) k.titleShotBy = addDays(c.today, tier >= 3 ? 60 : 120);
+  if (tier >= 2) k.titleShotBy = addDays(c.today, TITLE_SHOT_DAYS[tier]!);
 }
 
 /** Schedule Flexibility: ask for a day off (Tier 1+, granted by chance below Tier 2) or refuse a date (Tier 3). */
