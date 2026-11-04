@@ -51,12 +51,23 @@ export type CrowdEvent =
   | { type: 'threshold'; critical: boolean }
   | { type: 'kickout'; k: SideKey; count: number; afterFinisher: boolean; afterSignature: boolean }
   | { type: 'submission_started'; limbPayoff: boolean }
-  | { type: 'submission_escape'; k: SideKey }
+  | { type: 'submission_escape'; k: SideKey; deep?: boolean }
   | { type: 'near_tap' }
   | { type: 'catch_breath' }
   | { type: 'match_end' }
   /** A hardcore or stipulation spot: table break, ladder fall, weapon shot. */
   | { type: 'spot'; amount: number };
+
+/** Counter for counter: a reversal straight back from the other side's reversal gets its own pop. */
+function counterChain(ctx: Ctx, k: SideKey): void {
+  const S = ctx.S, c = S.crowd;
+  if (c.lastRev && c.lastRev !== k && S.t - (c.lastRevT ?? 0) <= 30) {
+    c.counters = (c.counters ?? 0) + 1;
+    heat(ctx, 6);
+  }
+  c.lastRev = k;
+  c.lastRevT = S.t;
+}
 
 export function crowdObserve(ctx: Ctx, e: CrowdEvent): void {
   const S = ctx.S, c = S.crowd;
@@ -90,6 +101,7 @@ export function crowdObserve(ctx: Ctx, e: CrowdEvent): void {
       break;
     }
     case 'reversal':
+      counterChain(ctx, e.k);
       landedBy(ctx, e.k);
       c.reversals++;
       if (e.crash) {
@@ -102,6 +114,7 @@ export function crowdObserve(ctx: Ctx, e: CrowdEvent): void {
       }
       break;
     case 'setup_reversed':
+      counterChain(ctx, e.k);
       landedBy(ctx, e.k);
       c.reversals++;
       heat(ctx, 3);
@@ -144,10 +157,16 @@ export function crowdObserve(ctx: Ctx, e: CrowdEvent): void {
     case 'submission_escape':
       landedBy(ctx, e.k);
       heat(ctx, 8);
+      // Out of a hold they were nearly tapping to: the rope-break moment.
+      if (e.deep) {
+        c.ropeBreaks = (c.ropeBreaks ?? 0) + 1;
+        heat(ctx, 6);
+      }
       break;
     case 'near_tap':
       c.nf++;
-      heat(ctx, 8);
+      c.nearTaps = (c.nearTaps ?? 0) + 1;
+      heat(ctx, 10);
       break;
     case 'catch_breath':
       c.rest++;

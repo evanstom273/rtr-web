@@ -484,3 +484,19 @@ export const TRUST_INHERIT = 0.25;
 export const PLEDGE_HONOUR_BASE = 0.7;
 export const PLEDGE_HONOUR_SWING = 0.2;
 export const PLEDGE_LOG_MAX = 50;
+
+// ------------------------------------------------------------------ 16. Economy, daily life, travel and fans (proposals)
+
+/**
+ * Match ratings (Lyra's call: median about 3★, 4★+ about 12%, 4.5★+ about 2%, 5★ about 1 in 1,000, as
+ * long-run targets). Five style-neutral scores, the best four count (weighted), then one fixed curve
+ * from that composite to stars, fitted once on a 50,000-match corpus (scripts/rating-corpus.ts, fit in
+ * docs). Refit if the engine's crowd changes.
+ */
+export const RATING_WEIGHTS = { crowd: 1.2, story: 1.0, drama: 1.1, craft: 0.9, spectacle: 0.8 } as const;
+export const RATING_CURVE = {
+  at: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
+  stars: [0.25, 0.5, 1.25, 2.0, 2.5, 3.0, 3.5, 3.875, 4.375, 4.875, 5.25],
+};
+/** A title on the line adds a touch (the Big-Match trait's own bonus is TRAIT_FX.big_match.stars). */
+export const RATING_TITLE_BONUS = 0.05;

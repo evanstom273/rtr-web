@@ -41,7 +41,8 @@ function afterMine(c: Career, show: Show, bout: Bout, m: PlayerMatch): void {
   if (m.planned === 'kept') lean(c, 'professional', 10);
   if (m.planned === 'off-script') { lean(c, 'rebellious', 40); reset(c, 'professional'); }
   if (won && (show.kind === 'special' || show.kind === 'flagship' || m.title) && m.stars >= 3.5) lean(c, 'big_match', m.wonTitle ? 35 : 25);
-  if (m.stars >= 4) lean(c, 'crowd_pleaser', 10);
+  // 4★ is rarer since the rating recalibration (about 12% of matches), so a strong 3.75★ counts too.
+  if (m.stars >= 3.75) lean(c, 'crowd_pleaser', m.stars >= 4 ? 15 : 8);
   if (won && m.finish === 'SUBMISSION') lean(c, 'submission_specialist', 30);
   if (won && m.finish === 'DISQUALIFICATION') lean(c, 'dirty_fighter', 20);
   if (!s) return;
