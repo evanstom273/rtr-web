@@ -61,19 +61,37 @@ export interface StartOptions {
   calendar?: { counters: Record<string, number>; nextIrregular: Record<string, Day> };
   /** Lyra's call: start on whatever deal you like, no negotiating. null: a free agent. */
   deal?: { promo: string; fee: number; months: number; clauses: number[] } | null;
+  /** A simulated history to carry on from: its calendar, contracts, title clocks, feuds and everyone's state. */
+  carry?: Career;
 }
 
 const history = () => activeWorld().history;
+const H0 = history;
 
 /** Start a career in the active world (which the caller has just reset to the shipped database). */
 export function startCareer(o: StartOptions): Career {
   const rnd = seededRng(o.seed);
-  const c: Career = {
+  const k = o.carry;
+  // Carrying on from a simulated history: the world's state comes with it; only your side starts fresh.
+  const c: Career = k ? {
+    v: 1, player: o.player, startedOn: o.today, today: o.today, drawnTo: k.drawnTo, counters: { ...k.counters }, nextIrregular: { ...k.nextIrregular }, shows: structuredClone(k.shows),
+    people: structuredClone(k.people), titles: structuredClone(k.titles), feuds: structuredClone(k.feuds), letters: [], offers: [], money: 0, ledger: [], history: [], indie: {}, tryouts: {},
+    nextRookie: k.nextRookie, seq: k.seq, seed: o.seed,
+    ...(k.tourneys ? { tourneys: structuredClone(k.tourneys) } : {}), ...(k.cupShots ? { cupShots: structuredClone(k.cupShots) } : {}), ...(k.world ? { world: structuredClone(k.world) } : {}),
+    ...(k.scouting ? { scouting: { ...k.scouting } } : {}), ...(k.brandLast ? { brandLast: structuredClone(k.brandLast) } : {}), ...(k.regionLast ? { regionLast: structuredClone(k.regionLast) } : {}),
+    ...(k.social ? { social: { recent: [], weekFans: 0, callouts: {}, feed: k.social.feed.filter((p) => p.who !== k.player && p.target !== k.player) } } : {}),
+  } : {
     v: 1, player: o.player, startedOn: o.today, today: o.today, drawnTo: '', counters: { ...(o.calendar?.counters ?? {}) }, nextIrregular: { ...(o.calendar?.nextIrregular ?? {}) }, shows: {},
     people: {}, titles: {}, feuds: [], letters: [], offers: [], money: 0, ledger: [], history: [], indie: {}, tryouts: {},
     nextRookie: addDays(o.today, ROOKIE_EVERY_DAYS), seq: 0, seed: o.seed,
   };
-  for (const w of WRESTLERS) {
+  if (k) {
+    delete c.people[k.player];
+    // You're not retiring: whatever they'd announced in history, you're carrying on.
+    const me = c.people[o.player];
+    if (me) delete me.retiring;
+  }
+  if (!k) for (const w of WRESTLERS) {
     const p = person(c, w.id);
     if (isSigned(w)) {
       const left = START_CONTRACT_MONTHS_LEFT[0] + Math.floor(rnd() * (START_CONTRACT_MONTHS_LEFT[1] - START_CONTRACT_MONTHS_LEFT[0] + 1));
@@ -98,10 +116,11 @@ export function startCareer(o: StartOptions): Career {
       const keep = isIndieTitle(t.id) ? w.promotion === 'TIS' || (o.deal?.clauses[C.indie] ?? 0) >= 1 : owner === w.promotion || (!owner && was === w.promotion);
       if (!keep) { t.holder = null; stripped.push(t.name); }
     }
+    if (k) for (const t of TITLES.filter((x) => x.holder === null)) { const open = H0().reigns[t.id]?.find((r) => r.to === null); if (open) open.to = o.today; c.titles[t.id] = { since: o.today, defences: 0, last: null }; }
     if (stripped.length) letter(c, { kind: 'contract', from: promoName(was), subject: `You’ve been stripped of the ${stripped.join(' and the ')}`, body: [`You’ve moved on, so ${stripped.length > 1 ? 'they’re' : 'it’s'} vacant. A new champion will be crowned.`] });
   }
   const H = history();
-  for (const t of TITLES) {
+  if (!k) for (const t of TITLES) {
     const reigns = (H.reigns[t.id] ??= []);
     const open = reigns.find((r) => r.to === null);
     if (open && open.holder !== t.holder) open.to = o.today;
@@ -129,6 +148,8 @@ export function startCareer(o: StartOptions): Career {
 
 export function letter(c: Career, l: Omit<Letter, 'id' | 'day' | 'read'> & { day?: Day }): Letter {
   const full: Letter = { id: `l${++c.seq}`, day: l.day ?? c.today, read: false, ...l };
+  // Nobody's playing (history being simulated): nobody to write to.
+  if (c.spectator) return full;
   // Mail can take a letter elsewhere (world news waits for Monday's digest).
   if (hooks.mail?.route(c, l)) return full;
   c.letters.unshift(full);
@@ -755,7 +776,7 @@ export function setCareerHooks(h: { notice?: Hook; daily?: Hook; monthly?: Hook;
   if (h.mail) hooks.mail = h.mail;
   if (h.phase) hooks.phase.push(h.phase);
 }
-const noticePlayer = (c: Career, rnd: Rng) => { for (const f of hooks.notice) f(c, rnd); };
+const noticePlayer = (c: Career, rnd: Rng) => { if (!c.spectator) for (const f of hooks.notice) f(c, rnd); };
 const dailyPlayer = (c: Career, rnd: Rng) => { for (const f of hooks.daily) f(c, rnd); };
 
 export { available, BUDGET };

@@ -401,7 +401,7 @@ function settleOwn(c: Career): void {
 // ------------------------------------------------------------------ the daily round
 
 function daily(c: Career): void {
-  if (!FEATURES.hustles) return;
+  if (!FEATURES.hustles || c.spectator) return;
   const h = hustleOf(c);
   // Injured: the physical gigs fall away.
   if (injured(c)) for (const g of Object.values(h.gigs)) if (!QUIET.has(g.kind)) { delete h.gigs[g.id]; letter(c, { kind: 'news', from: g.name, subject: 'You can’t work it injured', body: ['They’ve found someone else.'] }); }

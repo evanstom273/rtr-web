@@ -34,6 +34,7 @@ export { activityAt, advancePhase, baseCountry, bookings, defaultRoutine, fits, 
 export { baseRegion, livingCost } from './economy';
 export { skip, type SkipTarget } from './skip';
 export { developMonth, ensurePotential, rollRoom } from './development';
+export { addNobody, careerFrom, dropNobody, NOBODY, simulateTo, startSpectator } from './worldSim';
 export { MAIL_TABS, replyTo, tabOf, waitingOnYou, type MailTab } from './mail';
 export {
   blocked as hustleBlocked, bookConvention, buyStock, classFee, conventionsAhead, conventionTake, dropGig, fundTotal, hireable, hireFee, hustleOf, isCoaching,

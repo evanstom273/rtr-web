@@ -272,6 +272,8 @@ export interface PlayerMatch {
 
 export interface Career {
   v: 1;
+  /** A world running with nobody playing (history being simulated): no letters, no offers, nothing for 'you'. */
+  spectator?: boolean;
   player: string;
   startedOn: Day;
   today: Day;
