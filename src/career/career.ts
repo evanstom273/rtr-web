@@ -718,19 +718,26 @@ function contractsEnding(c: Career, day: Day, rnd: Rng): void {
 }
 
 /**
- * Your contract starts: an indie title you hold stays yours only if the deal has Indie Bookings
- * (you defend it on indie dates). Without, it's vacated and the indie scene wrestles for it.
+ * You've moved (Lyra's call): a title from the promotion you've left is stripped. An indie title stays yours only
+ * if you're still on the indies, or your new deal has Indie Bookings (you defend it on indie dates). Vacated
+ * titles go to whoever wins them next; the reign closes and any title match booked for it comes off the card.
  */
-export function indieBeltOnSigning(c: Career, day: Day): void {
-  const k = c.people[c.player]?.contract;
-  if (!k || (k.clauses[C.indie] ?? 0) >= 1) return;
-  for (const t of TITLES.filter((x) => x.holder === c.player && isIndieTitle(x.id))) {
+export function beltsOnMove(c: Career, day: Day): void {
+  const k = c.people[c.player]?.contract ?? null;
+  const now = findWrestler(c.player)?.promotion ?? 'TIS';
+  for (const t of TITLES.filter((x) => x.holder === c.player)) {
+    const indie = isIndieTitle(t.id);
+    const owners = PROMOTIONS.filter((p) => p.titles.includes(t.id)).map((p) => p.initials);
+    const keep = indie ? now === 'TIS' || (k?.clauses[C.indie] ?? 0) >= 1 : owners.includes(now);
+    if (keep) continue;
     t.holder = null;
     const open = history().reigns[t.id]?.find((r) => r.to === null);
     if (open) open.to = day;
     c.titles[t.id] = { since: day, defences: 0, last: null };
     for (const s of Object.values(c.shows)) if (!s.done && s.card) for (const b of s.card) if (b.title === t.id && !b.result) { delete b.title; delete b.planned; }
-    letter(c, { kind: 'contract', from: 'The Indie Scene', subject: `You’ve vacated the ${t.name}`, body: [`Your ${k.promo} deal has no Indie Bookings, so you can’t defend it. The indie scene will crown a new champion.`] });
+    letter(c, indie
+      ? { kind: 'contract', from: 'The Indie Scene', subject: `You’ve vacated the ${t.name}`, body: [`Your ${k?.promo ?? 'new'} deal has no Indie Bookings, so you can’t defend it. The indie scene will crown a new champion.`] }
+      : { kind: 'contract', from: promoName(owners[0] ?? t.name), subject: `You’ve been stripped of the ${t.name}`, body: [`You’ve left ${owners[0] ?? 'them'}, so the ${t.name} is vacant. A new champion will be crowned.`] });
   }
 }
 
@@ -743,12 +750,13 @@ function playerContractEnds(c: Career, w: Wrestler, day: Day): void {
     addEvent(history(), { day, kind: 'signed', who: w.id, name: w.name, promo: p.contract.promo, ...(was !== p.contract.promo ? { from: was } : {}) });
     w.promotion = p.contract.promo;
     letter(c, { kind: 'contract', from: promoName(p.contract.promo), subject: `Welcome to ${p.contract.promo}`, body: [`Your new deal starts today and runs to ${fmtDay(p.contract.end, 'long')}.`] });
-    indieBeltOnSigning(c, day);
+    beltsOnMove(c, day);
   } else {
     p.contract = null;
     w.promotion = 'TIS';
     addEvent(history(), { day, kind: 'expired', who: w.id, name: w.name, promo: was });
     letter(c, { kind: 'contract', from: promoName(was), subject: 'Your contract has ended', body: ['You’re a free agent on The Indie Scene from today.'] });
+    beltsOnMove(c, day);
   }
   // Their cards no longer have you on them.
   for (const s of Object.values(c.shows)) if (!s.done && s.date >= day && s.promo === was && s.card) s.card = s.card.filter((b) => b.a !== c.player && b.b !== c.player);
