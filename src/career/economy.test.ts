@@ -12,7 +12,8 @@ import type { Show } from './types';
 
 const setFans = (w: Wrestler, region: (typeof FAN_REGIONS)[number], n: number) => { w.fans[region] = n; };
 const nextMonday = (d: string) => { let x = d; while (weekday(x) !== 1) x = addDays(x, 1); return x; };
-afterEach(() => { FEATURES.livingCosts = false; });
+const DEFAULTS = { ...FEATURES };
+afterEach(() => { Object.assign(FEATURES, DEFAULTS); });
 
 describe('pay (Lyra’s calls: about £2,500 a match at the bottom; dates decide income)', () => {
   it('every major promotion pays at least its floor, bigger promotions more, and stars far more', () => {
@@ -126,6 +127,7 @@ describe('living costs (Lyra’s call: weekly, where you live; switched on with 
   });
 
   it('switched off, nobody pays rent', async () => {
+    FEATURES.livingCosts = false;
     const c = begin('@indie');
     for (let i = 0; i < 15; i++) await day(c);
     expect(c.ledger.some((e) => e.kind === 'living')).toBe(false);

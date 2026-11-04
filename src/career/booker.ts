@@ -10,7 +10,7 @@ import { NEIGHBOURS, REGION_KEY } from './places';
 import { activeWorld } from '../world/world';
 import { bondOf } from '../world/people';
 import {
-  CARD_SIZE, CAUGHT_BOOK_MULT, CIRCUIT_DAYS, CONTENDER_T1_BONUS, FEATURES, FEUD_WEEKS, FEUDS_PER_PROMOTION, INDIE_CHAMP_DRAW, INDIE_DEFENCE_CHANCE, INDIE_DEFENCE_OVERDUE, INDIE_PICK_BOND_WEIGHT, INDIE_PICK_REP_WEIGHT, INDIE_REGION_WEIGHT, INDIE_TITLE_BOUTS_MAX, INTERGENDER_CHANCE, INTERGENDER_CHANCE_INDIE, PLEDGE_LOG_MAX, REGIONAL_CONTENDER_PER_DATE, REGIONAL_DEFENCE_CHANCE, REGIONAL_DEFENCE_OVERDUE, REGIONAL_ELIGIBLE_DATES, REGIONAL_WINDOW_DAYS, SCHEDULE_T2_MAX_PER_MONTH, STIP_CHANCE, TITLE_CHANGE_MAX, TITLE_CHANGE_PER_REIGN_YEAR, TITLE_PLANNED_CHANGE, TITLE_RHYTHM, type TitleClass, TRUST_HIGH, TRUST_LOW, TRUST_RETAIN_SWING_HIGH, TRUST_RETAIN_SWING_LOW,
+  CARD_SIZE, CAUGHT_BOOK_MULT, CIRCUIT_DAYS, CONTENDER_T1_BONUS, FEATURES, FEUD_WEEKS, FEUDS_PER_PROMOTION, INDIE_CHAMP_DRAW, INDIE_DEFENCE_CHANCE, INDIE_DEFENCE_OVERDUE, INDIE_PICK_BOND_WEIGHT, INDIE_PICK_REP_WEIGHT, INDIE_REGION_WEIGHT, INDIE_TITLE_BOUTS_MAX, INTERGENDER_CHANCE, INTERGENDER_CHANCE_INDIE, PLEDGE_LOG_MAX, REGIONAL_CONTENDER_PER_DATE, REGIONAL_DEFENCE_CHANCE, REGIONAL_DEFENCE_OVERDUE, REGIONAL_ELIGIBLE_DATES, REGIONAL_HOME_DAYS, REGIONAL_WINDOW_DAYS, SCHEDULE_T2_MAX_PER_MONTH, STIP_CHANCE, TITLE_CHANGE_MAX, TITLE_CHANGE_PER_REIGN_YEAR, TITLE_PLANNED_CHANGE, TITLE_RHYTHM, type TitleClass, TRUST_HIGH, TRUST_LOW, TRUST_RETAIN_SWING_HIGH, TRUST_RETAIN_SWING_LOW,
 } from './tuning';
 import type { Bout, Career, Feud, Person, Pledge, PopRegion, Show } from './types';
 import { BRACKET, tourneyOf, tourneyPairs } from './tourney';
@@ -331,6 +331,8 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
     .map((p) => (p.kind === 'match' ? p.opp : p.kind === 'title' ? TITLES.find((t) => t.id === p.title)?.holder : undefined)).filter((x): x is string => !!x));
   // Days on: nobody works two continents on consecutive days (the travel takes the day between).
   const away = FEATURES.days ? farAway(c, show) : null;
+  // ...so a regional champion whose belt is overdue isn't flown to indie shows abroad: they stay free for home.
+  if (away && indie) for (const t of TITLES) if (t.holder && t.region && titleRegion(t) !== show.region && sinceLastDefence(c, t.id, show) >= REGIONAL_HOME_DAYS) away.add(t.holder);
   let pool = (indie ? indiePool(c, show, roster, rnd, promisedHere) : showRoster(show, roster))
     .filter((w) => w.id !== c.player && !busy.has(w.id) && !reserved.has(w.id) && !away?.has(w.id) && available(c.people[w.id], show.date));
   const card: Bout[] = [];

@@ -8,7 +8,8 @@ import { begin, quick } from './testkit';
 import { FEATURES } from './tuning';
 import type { Show } from './types';
 
-afterEach(() => { FEATURES.days = false; FEATURES.jobs = false; FEATURES.livingCosts = false; });
+const DEFAULTS = { ...FEATURES };
+afterEach(() => { Object.assign(FEATURES, DEFAULTS); });
 const on = () => { FEATURES.days = true; FEATURES.jobs = true; };
 const nextWeekday = (d: string, wd: number) => { let x = addDays(d, 1); while (weekday(x) !== wd) x = addDays(x, 1); return x; };
 /** One phase the way the game does it: your match first (simmed with the quick stand-in), then the clock. */
@@ -28,6 +29,7 @@ const fake = (c: Career, id: string, date: string, country: string, region: Show
 
 describe('days (Lyra’s calls: an AM and a PM, training sessions, travel that takes time)', () => {
   it('off, a press moves a whole day; on, the AM then the PM', async () => {
+    FEATURES.days = false; FEATURES.jobs = false;
     const c = begin('@indie');
     const d0 = c.today;
     await step(c);
