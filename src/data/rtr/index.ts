@@ -116,6 +116,11 @@ export function getPromotion(initials: string): Promotion | undefined {
   return promotionByInitials.get(initials);
 }
 
+/** On a promotion's roster: their main promotion, or another major they're also signed to (non-exclusive deals count fully on both). */
+export const worksFor = (w: Wrestler, promo: string): boolean => w.promotion === promo || !!w.also?.includes(promo);
+/** Everyone on a promotion's roster right now. */
+export const rosterOf = (promo: string): Wrestler[] => WRESTLERS.filter((w) => worksFor(w, promo));
+
 /** Titles a wrestler currently holds. */
 export function titlesHeldBy(w: Wrestler): Title[] {
   return TITLES.filter((t) => t.holder === w.id);

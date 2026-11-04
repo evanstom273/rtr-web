@@ -1,3 +1,4 @@
+import { C } from './clauses';
 import { afterEach, describe, expect, it } from 'vitest';
 import { FAN_REGIONS, findWrestler } from '../data/rtr';
 import { acceptLetter, advancePhase, answerEvent, bookConvention, buyStock, classFee, conventionsAhead, hireable, hustleBlocked, hustleOf, myBoutToday, ownBudget, putOnShow, setCoaching, subsTarget, workShow } from './index';
@@ -59,14 +60,19 @@ describe('side earners (Lyra’s calls)', () => {
     expect(workShow(c, show, 'commentary')).toMatch(/commentary/);
   }, 120000);
 
-  it('signed wrestlers need Outside Appearances', () => {
+  it('signed wrestlers: Exclusivity decides outside work, Image Rights what you can do with your face', () => {
     on();
     const c = begin('jamie_mercer');
-    c.people[c.player]!.contract!.clauses[9] = 0;
-    expect(hustleBlocked(c, 'convention')).toMatch(/Outside Appearances/);
+    const k = c.people[c.player]!.contract!;
+    k.clauses[C.image] = 2;
+    k.clauses[C.exclusivity] = 3;
+    expect(hustleBlocked(c, 'convention')).toMatch(/totally exclusive/);
     expect(hustleBlocked(c, 'content')).toBeNull();
-    c.people[c.player]!.contract!.clauses[9] = 2;
+    k.clauses[C.exclusivity] = 0;
     expect(hustleBlocked(c, 'convention')).toBeNull();
+    k.clauses[C.image] = 0;
+    expect(hustleBlocked(c, 'convention')).toMatch(/Image Rights/);
+    expect(hustleBlocked(c, 'merch')).toMatch(/Image Rights/);
   });
 
   it('subscribers grow while you post and wrestle, and pay weekly', async () => {

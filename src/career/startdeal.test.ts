@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { findWrestler, PROMOTIONS, TITLES } from '../data/rtr';
 import { setWorld, freshWorld } from '../world/world';
 import { finishDay, leaveContract, signOffer, startCareer } from './index';
+import { C, NO_CLAUSES } from './clauses';
+const excl = (t: number) => { const x = NO_CLAUSES(); x[C.exclusivity] = t; return x; };
 import { quick } from './testkit';
 
 describe('your own deal at the start (Lyra’s call: no negotiating)', () => {
@@ -54,7 +56,7 @@ describe('leaving a promotion strips its belt (Lyra’s call)', () => {
   });
   it('walking out (Contract Exit) or the deal running out', async () => {
     const a = champOf('TCG');
-    a.c.people[a.c.player]!.contract!.clauses[7] = 3;
+    a.c.people[a.c.player]!.contract!.clauses[C.exit] = 3;
     leaveContract(a.c);
     expect(a.t.holder).toBeNull();
     const b = champOf('END');
@@ -62,16 +64,16 @@ describe('leaving a promotion strips its belt (Lyra’s call)', () => {
     await finishDay(b.c, quick);
     expect(b.t.holder).toBeNull();
   });
-  it('an indie belt stays on the indies, or with Indie Bookings; goes without', () => {
+  it('an indie belt stays on the indies, or with any deal short of Total Exclusivity; goes with it', () => {
     setWorld(freshWorld(5));
     const t = TITLES.find((x) => x.holder && x.id.includes('INDEPENDENT') && findWrestler(x.holder)?.promotion === 'TIS')!;
     const c = startCareer({ player: t.holder!, today: '2026-11-03', seed: 5 });
-    signOffer(c, { id: 'o1', promo: 'VWF', day: c.today, fee: 5000, months: 12, clauses: [0, 1, 0, 0, 0, 0, 0, 0, 0, 0], start: c.today, status: 'open' } as never);
+    signOffer(c, { id: 'o1', promo: 'VWF', day: c.today, fee: 5000, months: 12, clauses: excl(2), start: c.today, status: 'open' } as never);
     expect(t.holder).toBe(c.player);
     setWorld(freshWorld(5));
     const t2 = TITLES.find((x) => x.id === t.id)!;
     const c2 = startCareer({ player: t2.holder!, today: '2026-11-03', seed: 5 });
-    signOffer(c2, { id: 'o1', promo: 'VWF', day: c2.today, fee: 5000, months: 12, clauses: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], start: c2.today, status: 'open' } as never);
+    signOffer(c2, { id: 'o1', promo: 'VWF', day: c2.today, fee: 5000, months: 12, clauses: excl(3), start: c2.today, status: 'open' } as never);
     expect(t2.holder).toBeNull();
   });
 });

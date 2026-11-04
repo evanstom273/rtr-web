@@ -5,11 +5,12 @@
 // situation, a gap between events, at most a couple waiting on you), the effects every choice draws
 // on, follow-ups that land weeks later, and the memory of what you chose.
 import { eventFans } from './fanGrowth';
-import { type Attributes, findWrestler, fmtFans, globalScore, TITLES, type Wrestler, WRESTLERS } from '../data/rtr';
+import { type Attributes, findWrestler, fmtFans, globalScore, TITLES, type Wrestler, WRESTLERS, worksFor } from '../data/rtr';
 import { seededRng, type Rng } from '../engine/rng';
 import { hashSeed } from './booker';
 import { letter, person, setCareerHooks, spend } from './career';
 import { C } from './clauses';
+import { approves, sideWork } from './deals';
 import { ATTR_KEYS, ATTR_LONG } from './create';
 import { addDays, daysBetween, type Day } from './dates';
 import { indieFee } from './economy';
@@ -18,7 +19,7 @@ import { movePatience, showBooker } from './patience';
 import { moveRelation, remember } from './relations';
 import {
   EVENT_BLOCKED_MULT, EVENT_BUSY_MULT, EVENT_CHAMP_MULT, EVENT_DAILY_BASE, EVENT_EXPIRES_DAYS, EVENT_FREE_AGENT_MULT, EVENT_MAX_OPEN, EVENT_MIN_GAP, EVENT_QUIET_MULT,
-  EVENT_STAR_MULT, EVENT_UNKNOWN_MULT, OUTSIDE_T1_APPROVAL,
+  EVENT_STAR_MULT, EVENT_UNKNOWN_MULT,
 } from './tuning';
 import type { Career, Contract, EventChoice, Letter, Person, PopRegion, RelKind, Show } from './types';
 
@@ -103,7 +104,7 @@ export function nearbyCity(x: EvCtx): { city: string; country: string } {
 /** Wrestlers on your scene: your promotion's roster, or the Indie Scene if you're a free agent. */
 export function scene(x: EvCtx): Wrestler[] {
   const promo = x.k?.promo ?? 'TIS';
-  return WRESTLERS.filter((w) => w.id !== x.c.player && w.promotion === promo && !x.c.people[w.id]?.retired);
+  return WRESTLERS.filter((w) => w.id !== x.c.player && worksFor(w, promo) && !x.c.people[w.id]?.retired);
 }
 export const recentOpp = (x: EvCtx): Wrestler | undefined => (x.c.history[0] ? findWrestler(x.c.history[0].opp) : undefined);
 
@@ -159,15 +160,16 @@ export const fx = {
 export const tallyOf = (c: Career, key: string): number => c.events?.tally?.[key] ?? 0;
 export const join = (...xs: string[]): string => xs.filter(Boolean).join(' · ');
 
-/** Outside Appearances: media, signings and appearances. Free agents please themselves. */
+/** Outside work (media, signings, appearances) by Exclusivity (Lyra's call): free below Major Exclusive, off at Total. Free agents please themselves. */
 export function outsideBlocked(x: EvCtx): string | null {
-  if (!x.k) return null;
-  return (x.k.clauses[C.outside] ?? 0) === 0 ? `Your ${x.k.promo} deal has no Outside Appearances.` : null;
+  const side = sideWork(x.c.people[x.c.player]);
+  return side.rule === 'banned' ? `Your ${side.promo} deal is totally exclusive: no outside work.` : null;
 }
-/** Tier 1 needs management's say-so: some you just don't get. */
+/** Major Exclusive needs management's say-so: some you just don't get. */
 export function outsideApproved(x: EvCtx, salt: string): boolean {
-  if (!x.k || (x.k.clauses[C.outside] ?? 0) >= 2) return true;
-  return seededRng(hashSeed(x.c.seed, 'outside', salt, x.c.today))() < OUTSIDE_T1_APPROVAL;
+  const side = sideWork(x.c.people[x.c.player]);
+  if (side.rule !== 'approval') return true;
+  return approves(x.c, side.promo!, 'outside', salt, x.c.today);
 }
 /** Merchandise Rights: off-brand merch money only reaches you if your deal lets it. */
 export function merchBlocked(x: EvCtx): string | null {

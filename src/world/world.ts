@@ -3,6 +3,7 @@
 // unavailable the world lives in memory for the session.
 import { PROMOTIONS, TITLES, WRESTLERS, applyDatabase, databaseChanged, fansFromPopularity, rollCount, rollTraits, shippedDatabase, shippedWrestler, type Database, type Wrestler } from '../data/rtr';
 import { BUDGET, floorFor } from '../career/clauses';
+import { freshContracts } from '../career/deals';
 import { BRAND_POP_BOUNDS } from '../career/tuning';
 import { hashSeed, seededRng } from '../engine/rng';
 import { tx } from '../storage/db';
@@ -13,7 +14,7 @@ import { bookerOf, freshPeople, pairKey, type Bond, type People } from './people
 import { crownIndies, growIndies, populateIndies } from './populate';
 
 /** The world save's revision: each step in `upgrade` runs once, in order, on older saves. */
-export const WORLD_REV = 8;
+export const WORLD_REV = 9;
 
 export interface World {
   v: 1;
@@ -49,11 +50,14 @@ export function freshWorld(seed = Math.floor(Math.random() * 2 ** 31)): World {
 
 /** Make `w` the active world. Its database becomes the live one everything reads. */
 export function setWorld(w: World): World {
+  const rev = w.rev ?? 1;
   upgrade(w);
   applyDatabase(w.db);
   // From here on the world's database *is* the live arrays, so changes made through either are saved.
   w.db = { wrestlers: WRESTLERS, promotions: PROMOTIONS, titles: TITLES };
   active = w;
+  // Rev 9 (Lyra's call): the 25-clause contracts. Everyone's rewritten under them (it reads the live rosters, so it runs here).
+  if (rev < 9) for (const c of [w.career, w.sim?.career]) if (c) freshContracts(c);
   return w;
 }
 

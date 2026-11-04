@@ -6,7 +6,8 @@
 import { fansIn, fansTotal, findWrestler, WRESTLERS, type Wrestler } from '../data/rtr';
 import { hashSeed, seededRng } from '../engine/rng';
 import { letter, person, setCareerHooks, spend } from './career';
-import { C } from './clauses';
+import { tierOf } from './clauses';
+import { dealsOf, sideWork } from './deals';
 import { addDays, daysBetween, fmtDay, weekday, type Day } from './dates';
 import { attributeTotal, indieFee, livingCost, baseRegion, travelCost } from './economy';
 import { ctxFor, fire, registerEvents, type EventDef } from './events';
@@ -50,12 +51,18 @@ const QUIET = new Set<HustleKind>(['merch', 'convention', 'coaching', 'commentar
 export function blocked(c: Career, kind: HustleKind): string | null {
   if (!FEATURES.hustles) return 'Not yet.';
   if (injured(c) && !QUIET.has(kind)) return 'Not while you’re injured.';
-  const k = c.people[c.player]?.contract;
-  if (!k || kind === 'content' || kind === 'fund' || kind === 'merch') return null;
-  const tier = k.clauses[C.outside] ?? 0;
-  if (tier === 0) return `Your ${k.promo} deal has no Outside Appearances.`;
-  if (kind === 'own' && tier < 2) return `Running your own show needs Limited Freedom or better in your ${k.promo} deal.`;
-  if (tier === 1 && patienceOf(c, k.promo) < 50) return `${k.promo} management won’t approve it right now (patience under 50).`;
+  const p = c.people[c.player];
+  const k = p?.contract;
+  if (!k || kind === 'fund') return null;
+  // Character & Image Rights: your face, your name. Content and conventions need Shared; sponsors and your own gear Licensed.
+  const image = Math.max(...dealsOf(p).map((d) => tierOf(d, 'image')));
+  const needs = kind === 'merch' || kind === 'sponsor' ? 2 : kind === 'content' || kind === 'convention' ? 1 : 0;
+  if (image < needs) return `Your ${k.promo} deal owns your image: ${kind === 'merch' ? 'selling your own gear' : kind === 'sponsor' ? 'sponsors' : kind === 'content' ? 'paid content' : 'conventions'} need${kind === 'merch' || kind === 'sponsor' ? '' : 's'} ${needs >= 2 ? 'Licensed' : 'Shared'} Image Rights.`;
+  if (kind === 'content' || kind === 'merch') return null;
+  // Exclusivity (Lyra's call: stepped): free below Major Exclusive, their approval there, none at Total.
+  const side = sideWork(p);
+  if (side.rule === 'banned') return `Your ${side.promo} deal is totally exclusive: no outside work.`;
+  if (side.rule === 'approval' && patienceOf(c, side.promo!) < 50) return `${side.promo} management won’t approve it right now (patience under 50).`;
   return null;
 }
 

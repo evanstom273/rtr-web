@@ -2,17 +2,18 @@
 import { matchFans } from './fanGrowth';
 import { poachMult, renewLean, retryAdjust } from './leans';
 import {
-  databaseChanged, fansTotal, findWrestler, fmtFans, globalScore, hasTrait, PROMOTIONS, shippedWomenShare, TITLES, type Wrestler, WRESTLERS,
+  databaseChanged, fansTotal, findWrestler, fmtFans, globalScore, hasTrait, PROMOTIONS, rosterOf, shippedWomenShare, TITLES, worksFor, type Wrestler, WRESTLERS,
 } from '../data/rtr';
 import { seededRng, type Rng } from '../engine/rng';
 import type { MatchRulesConfig } from '../engine/types';
 import { HARDCORE_STIPS, available, bookAhead, hashSeed, heated, isIndieTitle, promoRegion, regionalDates, regionalPop, titleRegion } from './booker';
 import { bondOf } from '../world/people';
 import { drawCalendar } from './calendar';
-import { attitude, BUDGET, C, feeFloor, NO_CLAUSES } from './clauses';
+import { BUDGET, C, tierOf } from './clauses';
+import { aiContract, dropDeal, promoteDeal, sideWork } from './deals';
 import { makeRookie } from './create';
 import { addDays, addMonths, type Day, daysBetween, fmtDay, weekday } from './dates';
-import { baseRegion, contractFee, indieFee, isWeeklyFlagship, livingCost, matchPay, round5 } from './economy';
+import { baseRegion, indieFee, isWeeklyFlagship, livingCost, matchPay, round5 } from './economy';
 import { REGION_KEY, REGION_LABEL } from './places';
 import type { SimJob, SimOut } from './sim';
 import { activeWorld } from '../world/world';
@@ -39,19 +40,6 @@ function newPerson(id: string, rep: number): Person {
   return { rep, fatigue: 0, injury: null, contract: null, birthday: `${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`, last: null, recent: [] };
 }
 
-/** A contract for someone already on a roster when the world starts (or an AI signing). */
-export function aiContract(rnd: Rng, w: Wrestler, promo: string, start: Day, months: number): Contract {
-  const clauses = NO_CLAUSES();
-  // Bigger names have a perk or two, in the areas the promotion doesn't mind giving.
-  const roster = WRESTLERS.filter((x) => x.promotion === promo);
-  const rank = roster.filter((x) => globalScore(x) > globalScore(w)).length / Math.max(1, roster.length);
-  if (rank < 0.25) {
-    const easy = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].filter((i) => attitude(promo, i) === 'flexible');
-    for (const i of easy.slice(0, 1 + Math.floor(rnd() * 2))) clauses[i] = 1 + Math.floor(rnd() * 2);
-  }
-  return { promo, start, end: addMonths(start, months), fee: contractFee(w, promo), clauses };
-}
-
 export interface StartOptions {
   player: string;
   today: Day;
@@ -60,7 +48,7 @@ export interface StartOptions {
   /** Carrying on in a kept world: its show numbering and irregular schedules. */
   calendar?: { counters: Record<string, number>; nextIrregular: Record<string, Day> };
   /** Lyra's call: start on whatever deal you like, no negotiating. null: a free agent. */
-  deal?: { promo: string; fee: number; months: number; clauses: number[] } | null;
+  deal?: { promo: string; fee: number; months: number; clauses: number[]; dates?: number; triggers?: import('./clauses').BonusTrigger[] } | null;
   /** A simulated history to carry on from: its calendar, contracts, title clocks, feuds and everyone's state. */
   carry?: Career;
 }
@@ -107,14 +95,15 @@ export function startCareer(o: StartOptions): Career {
     const was = w.promotion;
     if (o.deal === null) { w.promotion = 'TIS'; p.contract = null; } else {
       w.promotion = o.deal.promo;
-      p.contract = { promo: o.deal.promo, start: o.today, end: addMonths(o.today, o.deal.months), fee: Math.max(0, Math.round(o.deal.fee)), clauses: [...o.deal.clauses] };
+      p.contract = { promo: o.deal.promo, start: o.today, end: addMonths(o.today, o.deal.months), fee: Math.max(0, Math.round(o.deal.fee)), clauses: [...o.deal.clauses], since: o.today,
+        ...(o.deal.dates ? { dates: o.deal.dates } : {}), ...(o.deal.triggers?.length ? { triggers: [...o.deal.triggers] } : {}) };
     }
     // Lyra's call: moving strips the belt. A title from the promotion you've left is vacated (the reign closes below);
     // an indie title stays only if you're still on the indies or the new deal has Indie Bookings.
     const stripped: string[] = [];
     for (const t of TITLES.filter((x) => x.holder === o.player)) {
       const owner = PROMOTIONS.find((x) => x.titles.includes(t.id))?.initials;
-      const keep = isIndieTitle(t.id) ? w.promotion === 'TIS' || (o.deal?.clauses[C.indie] ?? 0) >= 1 : owner === w.promotion || (!owner && was === w.promotion);
+      const keep = isIndieTitle(t.id) ? w.promotion === 'TIS' || tierOf(o.deal, 'exclusivity') < 3 : owner === w.promotion || (!owner && was === w.promotion);
       if (!keep) { t.holder = null; stripped.push(t.name); }
     }
     if (k) for (const t of TITLES.filter((x) => x.holder === null)) { const open = H0().reigns[t.id]?.find((r) => r.to === null); if (open) open.to = o.today; c.titles[t.id] = { since: o.today, defences: 0, last: null }; }
@@ -418,21 +407,8 @@ function tryoutVerdict(c: Career, show: Show, passed: boolean): void {
 }
 
 /** A promotion offers you a contract (it opens a negotiation). */
-export function makeOffer(c: Career, promo: string, why: string): void {
-  const me = findWrestler(c.player)!;
-  const mine = c.people[c.player]!.contract;
-  const start = mine ? addDays(mine.end, 1) : c.today;
-  // Opening offers start at the promotion's floor at least (Lyra's call: about £2,500 at the bottom).
-  const fee = round5(Math.max(feeFloor(promo), contractFee(me, promo) * 0.85));
-  const id = `o${++c.seq}`;
-  c.offers.push({ id, promo, day: c.today, fee, months: 12, clauses: NO_CLAUSES(), start, rounds: 0, said: `£${fee.toLocaleString('en-GB')} a match for 12 months. No extras.`, status: 'open' });
-  letter(c, {
-    kind: 'offer', from: promoName(promo), subject: `${promo} want to sign you`,
-    body: [`${why}: we’d like to bring you to ${promoName(promo)} on a 12-month deal at £${fee.toLocaleString('en-GB')} a match.`, mine ? `Your current deal runs to ${fmtDay(mine.end, 'long')}, so this would start the day after.` : 'It would start straight away. The terms are open to negotiation.'],
-    terms: [['Fee', `£${fee.toLocaleString('en-GB')} a match`], ['Length', '12 months'], ['Starts', fmtDay(start, 'dm')]],
-    action: { type: 'negotiate', offer: id },
-  });
-}
+/** A promotion wants you: contracts.ts makes the offer (packages, a second deal if you're non-exclusive). */
+export function makeOffer(c: Career, promo: string, why: string): void { hooks.offer?.(c, promo, why); }
 
 /**
  * A title match drawn before its title changed hands, without the new champion in it, goes ahead as an
@@ -594,24 +570,27 @@ function monthly(c: Career, day: Day, rnd: Rng): void {
   // Merch follows your fans: signed, your Merchandise Rights share of it; a free agent sells their own, at a lower rate.
   const merch = mine.contract ? round5(fansTotal(me) * MERCH_PER_FAN_SIGNED * (MERCH_SHARE[mine.contract.clauses[C.merch] ?? 0] ?? 0) * pleaser) : round5(fansTotal(me) * MERCH_PER_FAN_FREE * pleaser);
   spend(c, merch, mine.contract && !(mine.contract.clauses[C.merch] ?? 0) ? 'Merch (no Merchandise Rights)' : 'Merch', 'merch');
-  // Mid-contract releases at the bottom of each roster.
+  // Mid-contract releases at the bottom of each roster (never someone their contract protects).
   for (const p of PROMOTIONS.filter((x) => !x.indie)) {
-    const roster = WRESTLERS.filter((w) => w.promotion === p.initials).sort((a, b) => globalScore(a) - globalScore(b));
+    const roster = rosterOf(p.initials).sort((a, b) => globalScore(a) - globalScore(b));
     for (const w of roster.slice(0, Math.floor(roster.length / 4))) {
       if (w.id === c.player || TITLES.some((t) => t.holder === w.id)) continue;
-      if (rnd() < RELEASE_MONTHLY_BOTTOM) release(c, w, 'released');
+      if (hooks.protect.some((f) => f(c, w.id, p.initials))) continue;
+      if (rnd() < RELEASE_MONTHLY_BOTTOM) release(c, w, 'released', p.initials);
     }
   }
   noticePlayer(c, rnd);
   for (const f of hooks.monthly) f(c, rnd);
 }
 
-function release(c: Career, w: Wrestler, how: 'released' | 'expired'): void {
-  const from = w.promotion;
+/** Someone leaves a promotion: their deal there ends (a non-exclusive star keeps any other major they're on). */
+function release(c: Career, w: Wrestler, how: 'released' | 'expired', from = w.promotion): void {
   addEvent(history(), { day: c.today, kind: how, who: w.id, name: w.name, promo: from });
-  w.promotion = 'TIS';
-  c.people[w.id]!.contract = null;
-  if (from === findWrestler(c.player)?.promotion) letter(c, { kind: 'news', from: 'The news desk', subject: `${w.name} leaves ${from}`, body: [how === 'released' ? `${from} have released ${w.name}.` : `${w.name}’s contract ran out and they’re a free agent.`] });
+  const p = c.people[w.id]!;
+  if (from !== w.promotion) dropDeal(p, w, from);
+  else promoteDeal(p, w);
+  for (const s of Object.values(c.shows)) if (!s.done && s.date > c.today && s.card && (s.promos ?? [s.promo]).includes(from)) s.card = s.card.filter((b) => b.result || (b.a !== w.id && b.b !== w.id));
+  if (worksFor(findWrestler(c.player)!, from)) letter(c, { kind: 'news', from: 'The news desk', subject: `${w.name} leaves ${from}`, body: [how === 'released' ? `${from} have released ${w.name}.` : `${w.name}’s contract ran out${w.promotion === 'TIS' ? ' and they’re a free agent' : ` (they’re still with ${w.promotion})`}.`] });
 }
 
 function sign(c: Career, w: Wrestler, promo: string, day: Day, rnd: Rng): void {
@@ -619,6 +598,8 @@ function sign(c: Career, w: Wrestler, promo: string, day: Day, rnd: Rng): void {
   addEvent(history(), { day, kind: from === 'TIS' ? 'signed' : 'poached', who: w.id, name: w.name, promo, ...(from !== 'TIS' ? { from } : {}) });
   w.promotion = promo;
   const pp = person(c, w.id);
+  // A fresh start: any other majors they were on as well go with the old deal.
+  for (const k of pp.deals ?? []) dropDeal(pp, w, k.promo);
   pp.contract = aiContract(rnd, w, promo, day, CONTRACT_MONTHS[1 + Math.floor(rnd() * 2)]!);
   pp.moves = [...(pp.moves ?? []), day].slice(-4);
   pp.renewals = 0;
@@ -627,8 +608,8 @@ function sign(c: Career, w: Wrestler, promo: string, day: Day, rnd: Rng): void {
     if (s.done || s.promo !== 'TIS' || !s.card) continue;
     for (const b of s.card) if (!b.result && b.title && isIndieTitle(b.title) && (b.a === w.id || b.b === w.id)) { delete b.title; delete b.planned; }
   }
-  const myPromo = findWrestler(c.player)?.promotion;
-  if (promo === myPromo || (from === myPromo && from !== 'TIS')) letter(c, { kind: 'news', from: 'The news desk', subject: `${w.name} signs with ${promo}`, body: [from === 'TIS' ? `${promo} have signed ${w.name} from The Indie Scene.` : `${w.name} leaves ${from} for ${promo}.`] });
+  const mine = findWrestler(c.player);
+  if (mine && (worksFor(mine, promo) || (from !== 'TIS' && worksFor(mine, from)))) letter(c, { kind: 'news', from: 'The news desk', subject: `${w.name} signs with ${promo}`, body: [from === 'TIS' ? `${promo} have signed ${w.name} from The Indie Scene.` : `${w.name} leaves ${from} for ${promo}.`] });
 }
 
 /**
@@ -661,7 +642,7 @@ function scoutRosters(c: Career, day: Day): void {
   const scouting = (c.scouting ??= {});
   let pool: Wrestler[] | null = null;
   for (const p of PROMOTIONS.filter((x) => !x.indie)) {
-    const roster = WRESTLERS.filter((w) => w.promotion === p.initials);
+    const roster = rosterOf(p.initials);
     let n = roster.length;
     if (n >= ROSTER_TARGET) { delete scouting[p.initials]; continue; }
     const due = (scouting[p.initials] ??= addDays(day, between(rnd, ROSTER_SCOUT_DAYS)));
@@ -696,10 +677,25 @@ const between = (rnd: Rng, [lo, hi]: readonly [number, number]) => lo + Math.flo
 function contractsEnding(c: Career, day: Day, rnd: Rng): void {
   for (const w of [...WRESTLERS]) {
     const p = c.people[w.id];
-    const k = p?.contract;
-    if (!p || !k || k.end >= day) continue;
+    if (!p) continue;
+    // An extra deal (a non-exclusive star on another major) ending: the AI often re-sign; yours just ends.
+    for (const x of [...(p.deals ?? [])]) {
+      if (x.end >= day) continue;
+      if (w.id !== c.player && rnd() < RENEW_CHANCE_REST + renewLean(w)) { x.start = day; x.end = addMonths(day, CONTRACT_MONTHS[1]!); continue; }
+      addEvent(history(), { day, kind: 'expired', who: w.id, name: w.name, promo: x.promo });
+      dropDeal(p, w, x.promo);
+      for (const s of Object.values(c.shows)) if (!s.done && s.date >= day && s.card && (s.promos ?? [s.promo]).includes(x.promo)) s.card = s.card.filter((b) => b.result || (b.a !== w.id && b.b !== w.id));
+      if (w.id === c.player) {
+        letter(c, { kind: 'contract', from: promoName(x.promo), subject: `Your ${x.promo} deal has ended`, body: [`You’re still with ${p.contract?.promo ?? 'The Indie Scene'}.`] });
+        beltsOnMove(c, day);
+      }
+    }
+    const k = p.contract;
+    if (!k || k.end >= day) continue;
+    // A clause can keep them on (an option year, an injured wrestler's job held).
+    if (hooks.ending.some((f) => f(c, w, k, rnd))) continue;
     if (w.id === c.player) { playerContractEnds(c, w, day); continue; }
-    const roster = WRESTLERS.filter((x) => x.promotion === w.promotion);
+    const roster = rosterOf(w.promotion);
     const byPop = [...roster].sort((a, b) => globalScore(a) - globalScore(b));
     const median = byPop.length ? globalScore(byPop[Math.floor(byPop.length / 2)]!) : 0;
     const champ = TITLES.some((t) => t.holder === w.id);
@@ -708,27 +704,30 @@ function contractsEnding(c: Career, day: Day, rnd: Rng): void {
     const restless = hasTrait(w, 'ambitious') && globalScore(w) < third && rnd() < TRAIT_BACKSTAGE.ambitious.leave;
     if (champ || (!restless && rnd() < (globalScore(w) >= median ? RENEW_CHANCE_TOP : RENEW_CHANCE_REST) + renewLean(w))) {
       p.contract = aiContract(rnd, w, w.promotion, day, CONTRACT_MONTHS[1]!);
+      p.contract.since = k.since ?? k.start;
       p.renewals = (p.renewals ?? 0) + 1;
       continue;
     }
-    const others = PROMOTIONS.filter((x) => !x.indie && x.initials !== w.promotion && WRESTLERS.filter((y) => y.promotion === x.initials).length < ROSTER_TARGET);
+    const others = PROMOTIONS.filter((x) => !x.indie && !worksFor(w, x.initials) && rosterOf(x.initials).length < ROSTER_TARGET);
     if (others.length && rnd() < Math.min(0.95, POACH_CHANCE * poachMult(w))) sign(c, w, others[Math.floor(rnd() * others.length)]!.initials, day, rnd);
     else release(c, w, 'expired');
   }
 }
 
 /**
- * You've moved (Lyra's call): a title from the promotion you've left is stripped. An indie title stays yours only
- * if you're still on the indies, or your new deal has Indie Bookings (you defend it on indie dates). Vacated
- * titles go to whoever wins them next; the reign closes and any title match booked for it comes off the card.
+ * You've moved (Lyra's call): a title from a promotion you've left is stripped. An indie title stays yours only
+ * if you're still on the indies, or your deals let you take indie dates (anything short of Total Exclusivity).
+ * Vacated titles go to whoever wins them next; the reign closes and any title match booked for it comes off the card.
  */
 export function beltsOnMove(c: Career, day: Day): void {
-  const k = c.people[c.player]?.contract ?? null;
-  const now = findWrestler(c.player)?.promotion ?? 'TIS';
+  const p = c.people[c.player];
+  const me = findWrestler(c.player);
+  const now = me?.promotion ?? 'TIS';
+  const side = sideWork(p);
   for (const t of TITLES.filter((x) => x.holder === c.player)) {
     const indie = isIndieTitle(t.id);
-    const owners = PROMOTIONS.filter((p) => p.titles.includes(t.id)).map((p) => p.initials);
-    const keep = indie ? now === 'TIS' || (k?.clauses[C.indie] ?? 0) >= 1 : owners.includes(now);
+    const owners = PROMOTIONS.filter((x) => x.titles.includes(t.id)).map((x) => x.initials);
+    const keep = indie ? now === 'TIS' || side.rule !== 'banned' : !!me && owners.some((o) => worksFor(me, o));
     if (keep) continue;
     t.holder = null;
     const open = history().reigns[t.id]?.find((r) => r.to === null);
@@ -736,7 +735,7 @@ export function beltsOnMove(c: Career, day: Day): void {
     c.titles[t.id] = { since: day, defences: 0, last: null };
     for (const s of Object.values(c.shows)) if (!s.done && s.card) for (const b of s.card) if (b.title === t.id && !b.result) { delete b.title; delete b.planned; }
     letter(c, indie
-      ? { kind: 'contract', from: 'The Indie Scene', subject: `You’ve vacated the ${t.name}`, body: [`Your ${k?.promo ?? 'new'} deal has no Indie Bookings, so you can’t defend it. The indie scene will crown a new champion.`] }
+      ? { kind: 'contract', from: 'The Indie Scene', subject: `You’ve vacated the ${t.name}`, body: [`Your ${side.promo ?? 'new'} deal is totally exclusive, so you can’t defend it. The indie scene will crown a new champion.`] }
       : { kind: 'contract', from: promoName(owners[0] ?? t.name), subject: `You’ve been stripped of the ${t.name}`, body: [`You’ve left ${owners[0] ?? 'them'}, so the ${t.name} is vacant. A new champion will be crowned.`] });
   }
 }
@@ -744,18 +743,21 @@ export function beltsOnMove(c: Career, day: Day): void {
 function playerContractEnds(c: Career, w: Wrestler, day: Day): void {
   const p = c.people[c.player]!;
   const was = p.contract!.promo;
+  for (const f of hooks.leaving) f(c, p.contract!, 'ended');
   if (p.next) {
+    const old = p.contract!;
     p.contract = p.next;
     delete p.next;
+    if (p.contract.promo === was) p.contract.since = old.since ?? old.start;
     addEvent(history(), { day, kind: 'signed', who: w.id, name: w.name, promo: p.contract.promo, ...(was !== p.contract.promo ? { from: was } : {}) });
     w.promotion = p.contract.promo;
+    if (w.also?.includes(p.contract.promo)) dropDeal(p, w, p.contract.promo);
     letter(c, { kind: 'contract', from: promoName(p.contract.promo), subject: `Welcome to ${p.contract.promo}`, body: [`Your new deal starts today and runs to ${fmtDay(p.contract.end, 'long')}.`] });
     beltsOnMove(c, day);
   } else {
-    p.contract = null;
-    w.promotion = 'TIS';
+    const now = promoteDeal(p, w);
     addEvent(history(), { day, kind: 'expired', who: w.id, name: w.name, promo: was });
-    letter(c, { kind: 'contract', from: promoName(was), subject: 'Your contract has ended', body: ['You’re a free agent on The Indie Scene from today.'] });
+    letter(c, { kind: 'contract', from: promoName(was), subject: 'Your contract has ended', body: [now === 'TIS' ? 'You’re a free agent on The Indie Scene from today.' : `You’re still with ${promoName(now)}.`] });
     beltsOnMove(c, day);
   }
   // Their cards no longer have you on them.
@@ -773,11 +775,24 @@ export interface MailHooks {
 }
 export interface MailBefore { fans: Record<string, number>; rep: number; patience: number; bond: number; label: string }
 type PhaseHook = (c: Career, ph: 'am' | 'pm', activity: string) => void;
-const hooks: { notice: Hook[]; daily: Hook[]; monthly: Hook[]; mine: ((c: Career, show: Show, bout: Bout, m: PlayerMatch) => void)[]; mail: MailHooks | null; phase: PhaseHook[] } = { notice: [], daily: [], monthly: [], mine: [], mail: null, phase: [] };
+/** Clauses plug in here: someone protected from release, a deal that stays on past its end, you leaving a deal. */
+type ProtectHook = (c: Career, id: string, promo: string) => boolean;
+type EndingHook = (c: Career, w: Wrestler, k: Contract, rnd: Rng) => boolean;
+type LeavingHook = (c: Career, k: Contract, how: 'ended' | 'left' | 'released' | 'moved') => void;
+const hooks: {
+  notice: Hook[]; daily: Hook[]; monthly: Hook[]; mine: ((c: Career, show: Show, bout: Bout, m: PlayerMatch) => void)[]; mail: MailHooks | null; phase: PhaseHook[];
+  protect: ProtectHook[]; ending: EndingHook[]; leaving: LeavingHook[]; offer: ((c: Career, promo: string, why: string) => void) | null;
+} = { notice: [], daily: [], monthly: [], mine: [], mail: null, phase: [], protect: [], ending: [], leaving: [], offer: null };
+/** You're leaving a deal (it ended, you left, you were released, or you moved): clauses that care (Image Rights, Loyalty, Signing advances) run here. */
+export function leavingHooks(c: Career, k: Contract, how: 'ended' | 'left' | 'released' | 'moved'): void { for (const f of hooks.leaving) f(c, k, how); }
 /** Your half-day happened (days on): side earners pay out here. */
 export function phaseHooks(c: Career, ph: 'am' | 'pm', activity: string): void { for (const f of hooks.phase) f(c, ph, activity); }
 /** Other career modules (offers, requests) plug in here; each adds to the list. */
-export function setCareerHooks(h: { notice?: Hook; daily?: Hook; monthly?: Hook; mine?: (c: Career, show: Show, bout: Bout, m: PlayerMatch) => void; mail?: MailHooks; phase?: PhaseHook }): void {
+export function setCareerHooks(h: { notice?: Hook; daily?: Hook; monthly?: Hook; mine?: (c: Career, show: Show, bout: Bout, m: PlayerMatch) => void; mail?: MailHooks; phase?: PhaseHook; protect?: ProtectHook; ending?: EndingHook; leaving?: LeavingHook; offer?: (c: Career, promo: string, why: string) => void }): void {
+  if (h.offer) hooks.offer = h.offer;
+  if (h.protect) hooks.protect.push(h.protect);
+  if (h.ending) hooks.ending.push(h.ending);
+  if (h.leaving) hooks.leaving.push(h.leaving);
   if (h.notice) hooks.notice.push(h.notice);
   if (h.daily) hooks.daily.push(h.daily);
   if (h.monthly) hooks.monthly.push(h.monthly);

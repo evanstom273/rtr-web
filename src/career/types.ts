@@ -106,10 +106,36 @@ export interface Contract {
   end: Day;
   /** Weekly-show fee; specials and flagships multiply it. */
   fee: number;
-  /** Tier 0–3 for each of the ten clauses, in CLAUSES order. */
+  /** Tier 0–3 for each of the 25 clauses, in CLAUSES order (clauses.ts). */
   clauses: number[];
+  /** The package it started from (clauses.ts), if any. */
+  pkg?: import('./clauses').PackageId;
+  /** Agreed dates a month (part-timers, special attractions, and every deal when you work for more than one major); unset: the booker's call. */
+  dates?: number;
+  /** Performance Bonuses: the achievements it pays for (as many as the tier allows). */
+  triggers?: import('./clauses').BonusTrigger[];
+  /** With this promotion continuously since (Loyalty & Tenure counts from here; renewals keep it). */
+  since?: Day;
   /** Contract Exit Tier 2: notice given, leaving on this day. */
   leaving?: Day;
+  /** Their broken promises (Booking Commitments, title shots, bonuses): enough and you can leave free. */
+  breaches?: number;
+  /** You can walk away free (Contract Exit: breach exits). */
+  breachExit?: boolean;
+  /** Signing Bonus & Advances: what you still owe them. */
+  advance?: number;
+  /** Creative Control: vetoes used (days). */
+  vetoes?: Day[];
+  /** Championship Opportunities: a rematch owed for this title by this day. */
+  rematch?: { title: string; by: Day };
+  /** Schedule Flexibility: holiday weeks booked (each the Monday it starts). */
+  holidays?: Day[];
+  /** International Touring Tier 2+: you've opted in to their tours. */
+  tours?: boolean;
+  /** Anniversaries already paid out (Loyalty, yearly raises), as years since `since`/`start`. */
+  paidYears?: number;
+  /** Booking Commitments: the last month checked ('YYYY-MM'). */
+  checked?: string;
   /** Championship Opportunities Tier 2/3: a title match is owed by this day. */
   titleShotBy?: Day;
   lastReview?: Day;
@@ -131,6 +157,15 @@ export interface Person {
   daysOff?: Day[];
   /** A contract signed to start when the current one ends. */
   next?: Contract;
+  /** Other majors you're signed to at the same time (non-exclusive deals); `contract` is the first. */
+  deals?: Contract[];
+  /** Leaving early (Contract Exit): their region's other majors can't sign you until this day. */
+  noCompete?: { promo: string; until: Day };
+  /** Conduct & Discipline: no-shows lately, and a suspension. */
+  noShows?: Day[];
+  suspendedUntil?: Day;
+  /** Loyalty & Tenure Tier 3: a legend of this promotion. */
+  legend?: string;
   /** Retired: no longer wrestles (their history stays). */
   retired?: boolean;
   retiredOn?: Day;
@@ -233,9 +268,18 @@ export interface Offer {
   start: Day;
   rounds: number;
   said: string;
-  status: 'open' | 'signed' | 'walked' | 'declined';
+  status: 'open' | 'signed' | 'walked' | 'declined' | 'blocked';
   /** A rival offer this one is matching. */
   rival?: number;
+  pkg?: import('./clauses').PackageId;
+  dates?: number;
+  triggers?: import('./clauses').BonusTrigger[];
+  /** A second deal, alongside the one you're on (non-exclusive). */
+  second?: boolean;
+  /** Your current promotion's counter before you sign elsewhere (Lyra's call: always a courtesy call). */
+  courtesy?: string;
+  /** Walk-away lines: the lowest tier you'll accept on each clause. */
+  lines?: number[];
 }
 
 export interface Entry { day: Day; text: string; amount: number; kind: 'fee' | 'travel' | 'training' | 'medical' | 'merch' | 'bonus' | 'buyout' | 'start' | 'living' | 'wage' | 'relocation' | 'event' }

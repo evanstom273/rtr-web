@@ -21,7 +21,7 @@ export function Negotiate({ c, offerId, onBack, onDone }: Props) {
   const accepted = open && o.said.startsWith('“Done');
   const setTier = (i: number, d: number) => {
     const t = Math.max(0, Math.min(3, (p.clauses[i] ?? 0) + d));
-    if (d > 0 && gate(c, o.promo, i, t)) return say(gate(c, o.promo, i, t)!);
+    if (d > 0 && gate(c, o, i, t)) return say(gate(c, o, i, t)!);
     setP({ ...p, clauses: p.clauses.map((x, k) => (k === i ? t : x)) });
   };
   const submit = () => {
@@ -54,13 +54,13 @@ export function Negotiate({ c, offerId, onBack, onDone }: Props) {
         {CLAUSES.map((cl, i) => {
           const t = p.clauses[i] ?? 0;
           const att = attitude(o.promo, i);
-          const g3 = t >= 2 ? gate(c, o.promo, i, 3) : null;
+          const g3 = t >= 2 ? gate(c, o, i, 3) : null;
           return (
             <div key={cl.id} className={t ? 'c-ccard on' : 'c-ccard'}>
               <div className="c-crow2">
                 <b className="c-at">{cl.name}</b>
                 <button className="c-stepb" onClick={() => setTier(i, -1)} aria-label={`Lower ${cl.name}`}>−</button>
-                <span className="c-pips">{[1, 2, 3].map((k) => <i key={k} className={k <= t ? 'c-pip on' : gate(c, o.promo, i, k) ? 'c-pip lock' : 'c-pip'} />)}</span>
+                <span className="c-pips">{[1, 2, 3].map((k) => <i key={k} className={k <= t ? 'c-pip on' : gate(c, o, i, k) ? 'c-pip lock' : 'c-pip'} />)}</span>
                 <button className="c-stepb" onClick={() => setTier(i, 1)} aria-label={`Raise ${cl.name}`}>+</button>
               </div>
               <span className="c-ad">{t ? `${w('Tier', 'T')} ${t} · ${cl.tiers[t - 1]}` : cl.none}</span>

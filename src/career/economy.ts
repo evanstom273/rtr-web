@@ -1,5 +1,5 @@
 // Money: fees, travel and the training price curve.
-import { fansIn, findWrestler, TITLES, type Wrestler, WRESTLERS } from '../data/rtr';
+import { fansIn, findWrestler, TITLES, type Wrestler, rosterOf } from '../data/rtr';
 import schedulesJson from '../data/rtr/schedules.json';
 import { activeWorld } from '../world/world';
 import { C, feeFloor } from './clauses';
@@ -19,7 +19,7 @@ export const round5 = (v: number): number => Math.round(v / 5) * 5;
  */
 export function contractFee(w: Wrestler, promo: string): number {
   const region = promoRegion(promo);
-  const roster = WRESTLERS.filter((x) => x.promotion === promo && x.id !== w.id).map((x) => fansIn(x, region)).sort((a, b) => a - b);
+  const roster = rosterOf(promo).filter((x) => x.id !== w.id).map((x) => fansIn(x, region)).sort((a, b) => a - b);
   const median = roster.length ? roster[Math.floor(roster.length / 2)]! : 1;
   const factor = Math.min(MAJOR_FEE_FAN_CAP, Math.max(1, (fansIn(w, region) / Math.max(1, median)) ** MAJOR_FEE_FAN_EXP));
   return round5(feeFloor(promo) * factor);

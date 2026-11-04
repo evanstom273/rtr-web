@@ -1,45 +1,50 @@
 // Work coming your way: indie bookings, asking for a spot, tryouts and contract offers.
 import { booked, fitsTrip } from './availability';
-import { findWrestler, globalScore, PROMOTIONS, TITLES, WRESTLERS } from '../data/rtr';
+import { findWrestler, globalScore, PROMOTIONS, TITLES, WRESTLERS, rosterOf } from '../data/rtr';
 import type { Rng } from '../engine/rng';
 import { seededRng } from '../engine/rng';
 import { activeWorld } from '../world/world';
 import { available, hashSeed, promoRegion, regionalPop } from './booker';
 import { letter, makeOffer, person, promoName, setCareerHooks, spend } from './career';
 import { C } from './clauses';
+import { approves, dealsOf, sideWork } from './deals';
+import { nonExclusive } from './exclusive';
 import { addDays, addMonths, daysBetween, fmtDay, weekday, type Day } from './dates';
 import { indieFee, travelCost } from './economy';
 import {
-  ASK_SPOT_BASE_PCT, ASK_SPOT_MAX_PCT, DAY_OFF_T1_CHANCE, INDIE_OFFER_CHAMPION, INDIE_OFFER_TRUSTED, INDIE_OFFER_WINDOW_DAYS, INDIE_OFFERS_BASE, INDIE_OFFERS_PER_POP, INDIE_T1_APPROVAL, NOTICE_CHANCE, PATIENCE_NO_SHOW, REP_NO_SHOW, TITLE_SHOT_BREACH_FEES, TITLE_SHOT_DAYS, TRUST_HIGH, TRUST_LOW,
+  ASK_SPOT_BASE_PCT, ASK_SPOT_MAX_PCT, DAY_OFF_T1_CHANCE, INDIE_OFFER_CHAMPION, INDIE_OFFER_TRUSTED, INDIE_OFFER_WINDOW_DAYS, INDIE_OFFERS_BASE, INDIE_OFFERS_PER_POP, NOTICE_CHANCE, PATIENCE_NO_SHOW, REP_NO_SHOW, TITLE_SHOT_BREACH_FEES, TITLE_SHOT_DAYS, TRUST_HIGH, TRUST_LOW,
 } from './tuning';
 import type { Career, Letter, Show } from './types';
 import { movePatience, showBooker } from './patience';
 import { remember, trust } from './relations';
 
-/** Can you take an indie date on this day? (Free agents always; signed wrestlers by their Indie Bookings tier.) */
-export function indieAllowed(c: Career, at: Day | Show): { ok: boolean; why?: string; needsApproval?: boolean } {
+/**
+ * Can you take an indie date on this day? Free agents always; signed wrestlers by their Exclusivity (Lyra's call:
+ * free when non-exclusive or First Refusal, their approval at Major Exclusive, never at Total), and never on a
+ * night one of your promotions has a show.
+ */
+export function indieAllowed(c: Career, at: Day | Show): { ok: boolean; why?: string; needsApproval?: boolean; approver?: string } {
   const day = typeof at === 'string' ? at : at.date;
   if (typeof at !== 'string') { const f = fitsTrip(c, at); if (!f.ok) return { ok: false, why: f.why }; }
   const p = person(c, c.player);
   if (p.injury && p.injury.until > day) return { ok: false, why: 'You’re injured that day.' };
   if (Object.keys(c.indie).some((id) => c.shows[id]?.date === day)) return { ok: false, why: 'You’ve already got an indie date that day.' };
-  const k = p.contract;
-  const tier = k?.clauses[C.indie] ?? 0;
-  // Already on a card that day: only Unrestricted indie bookings let you take a clashing date.
   const onCard = Object.values(c.shows).some((s) => s.date === day && s.card?.some((b) => b.a === c.player || b.b === c.player));
-  if (onCard && (!k || tier < 3)) return { ok: false, why: 'You’re already booked that day.' };
-  if (!k) return { ok: true };
-  if (tier === 0) return { ok: false, why: `Your ${k.promo} contract doesn’t allow indie dates.` };
-  const clash = Object.values(c.shows).some((s) => s.date === day && (s.promos ?? [s.promo]).includes(k.promo));
-  if (clash && tier < 3) return { ok: false, why: `${k.promo} have a show that day.` };
-  return { ok: true, needsApproval: tier === 1 };
+  if (onCard) return { ok: false, why: 'You’re already booked that day.' };
+  const deals = dealsOf(p);
+  if (!deals.length) return { ok: true };
+  const side = sideWork(p);
+  if (side.rule === 'banned') return { ok: false, why: `Your ${side.promo} deal is totally exclusive: no indie dates.` };
+  const clash = deals.find((k) => Object.values(c.shows).some((s) => s.date === day && (s.promos ?? [s.promo]).includes(k.promo)));
+  if (clash) return { ok: false, why: `${clash.promo} have a show that day.` };
+  return side.rule === 'approval' ? { ok: true, needsApproval: true, approver: side.promo! } : { ok: true };
 }
 
 /** Put you on an indie show you've agreed to. If its card is already drawn up, add a match. */
 export function joinIndie(c: Career, show: Show, fee: number, travel: number): void {
   c.indie[show.id] = { fee, travel };
   booked(c, show);
-  // Unrestricted indie bookings can clash with a contracted date: you miss that date, and it costs you.
+  // A date already on a card that night (older saves, or a card drawn since): you miss it, and it costs you.
   const k = person(c, c.player).contract;
   if (k) {
     for (const s of Object.values(c.shows)) {
@@ -69,9 +74,9 @@ export function acceptLetter(c: Career, l: Letter): string {
     if (!show || show.date <= c.today) { l.done = 'expired'; return 'That show’s been and gone.'; }
     const ok = indieAllowed(c, show);
     if (!ok.ok) return ok.why ?? 'You can’t make that date.';
-    if (ok.needsApproval && seededRng(hashSeed(c.seed, 'approve', l.id))() >= INDIE_T1_APPROVAL) {
+    if (ok.needsApproval && !approves(c, ok.approver!, 'indie', l.id)) {
       l.done = 'declined';
-      return `${person(c, c.player).contract!.promo} said no to this one.`;
+      return `${ok.approver} said no to this one.`;
     }
     joinIndie(c, show, a.fee, a.travel);
     l.done = 'accepted';
@@ -117,7 +122,7 @@ export function askForSpot(c: Career, show: Show): { ok: boolean; text: string }
 /** Mondays: indie promoters write with bookings. */
 function indieOffers(c: Career, rnd: Rng): void {
   const p = person(c, c.player);
-  if (p.contract && (p.contract.clauses[C.indie] ?? 0) === 0) return;
+  if (sideWork(p).rule === 'banned') return;
   const me = findWrestler(c.player)!;
   // A champion draws more interest.
   const champ = TITLES.some((t) => t.holder === c.player);
@@ -143,7 +148,7 @@ function indieOffers(c: Career, rnd: Rng): void {
       kind: 'offer', from, subject: `Booking: ${s.name}`,
       body: [`We’re running ${s.name} in ${s.city} on ${fmtDay(s.date, 'long')} and want you on the card.`],
       terms: [['Date', fmtDay(s.date)], ['Fee', `£${fee.toLocaleString('en-GB')}`], ['Travel', travel ? `£${travel}` : 'None']],
-      ...(p.contract ? { note: ok.needsApproval ? `Your Indie Bookings clause (Tier 1) means ${p.contract.promo} have to approve it.` : `Your Indie Bookings clause allows it.` } : {}),
+      ...(p.contract ? { note: ok.needsApproval ? `Your ${ok.approver} deal is Major Exclusive: they have to approve it.` : `Your Exclusivity allows it.` } : {}),
       action: { type: 'indie', show: s.id, fee, travel, ...(ok.needsApproval ? { needsApproval: true } : {}) },
     });
     sent++;
@@ -157,11 +162,12 @@ function notice(c: Career, rnd: Rng): void {
   const me = findWrestler(c.player)!;
   if (p.next) return;
   const freeAgent = !p.contract;
-  if (!freeAgent && daysBetween(c.today, p.contract!.end) > 183) return;
-  for (const promo of PROMOTIONS.filter((x) => !x.indie && x.initials !== p.contract?.promo)) {
+  // Signed: only near the end of a deal, or any time when you're non-exclusive (a second major can call).
+  if (!freeAgent && daysBetween(c.today, p.contract!.end) > 183 && !nonExclusive(c, c.player)) return;
+  for (const promo of PROMOTIONS.filter((x) => !x.indie && !dealsOf(p).some((k) => k.promo === x.initials))) {
     if (c.offers.some((o) => o.promo === promo.initials && o.status === 'open')) continue;
     const region = promoRegion(promo.initials);
-    const pops = WRESTLERS.filter((w) => w.promotion === promo.initials).map((w) => regionalPop(w, region)).sort((a, b) => a - b);
+    const pops = rosterOf(promo.initials).map((w) => regionalPop(w, region)).sort((a, b) => a - b);
     const q1 = pops[Math.floor(pops.length / 4)] ?? 0, median = pops[Math.floor(pops.length / 2)] ?? 0;
     const mine = regionalPop(me, region);
     if (rnd() >= NOTICE_CHANCE) continue;

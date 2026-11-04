@@ -9,7 +9,7 @@ import { activeWorld } from '../world/world';
 import { addEvent } from '../world/history';
 import { hashSeed } from './booker';
 import { letter, person, setCareerHooks, spend } from './career';
-import { C } from './clauses';
+import { approves, sideWork } from './deals';
 import { addDays, daysBetween, fmtDay, weekStart, type Day } from './dates';
 import { indieFee, travelCost } from './economy';
 import { type EvCtx, type EvData, type EventDef, type FollowDef, ctxFor, fire, fx, homeRegion, join, money, registerEvents, round5 } from './events';
@@ -20,7 +20,7 @@ import { indieTitleShow } from './requests';
 import { roundName, tourneyPairs } from './tourney';
 import {
   BENEFIT_MIN_INJURY_DAYS, BENEFIT_MIN_POP, CHARITY_REP_FREE, CUP_SHOT_DAYS, CHARITY_REP_PAID, CUP_PRIZE_MULT, CUP_ROUND_GAP, CUP_WIN_POP, CUP_WIN_REP,
-  INDIE_SHOWS_MAX_WEEK, INDIE_T1_APPROVAL, SPECIAL_DAILY, SPECIAL_GAP, SPECIAL_LEAD, SPECIAL_MIN_GAP, TRIBUTE_MIN_POP,
+  INDIE_SHOWS_MAX_WEEK, SPECIAL_DAILY, SPECIAL_GAP, SPECIAL_LEAD, SPECIAL_MIN_GAP, TRIBUTE_MIN_POP,
 } from './tuning';
 import type { Career, PopRegion, Show, SpecialKind, Tourney } from './types';
 
@@ -88,7 +88,7 @@ function regionFor(c: Career, rnd: Rng): PopRegion {
 }
 
 const near = (c: Career, region: PopRegion) => homeRegion(ctxFor(c)) === region;
-const indieShut = (c: Career) => { const k = person(c, c.player).contract; return !!k && (k.clauses[C.indie] ?? 0) === 0; };
+const indieShut = (c: Career) => sideWork(person(c, c.player)).rule === 'banned';
 const relOf = (c: Career, id: string) => affinity(c, id);
 
 // ------------------------------------------------------------------ invitations (event letters, fired directly)
@@ -101,11 +101,12 @@ function indieBlock(x: EvCtx, d: EvData): string | null {
   const ok = indieAllowed(x.c, s);
   return ok.ok ? null : ok.why ?? 'You can’t make that date.';
 }
-/** Indie Bookings Tier 1: management has to say yes. */
+/** Major Exclusive: management has to say yes. */
 function approved(x: EvCtx, d: EvData): string | null {
   const s = x.c.shows[String(d.show)];
-  if (!s || s.promo !== 'TIS' || !indieAllowed(x.c, s).needsApproval) return null;
-  return seededRng(hashSeed(x.c.seed, 'approve', s.id))() < INDIE_T1_APPROVAL ? null : `${x.k?.promo} said no to this one.`;
+  const ok = s && s.promo === 'TIS' ? indieAllowed(x.c, s) : null;
+  if (!s || !ok?.needsApproval) return null;
+  return approves(x.c, ok.approver!, 'indie', s.id) ? null : `${ok.approver} said no to this one.`;
 }
 const booked = (x: EvCtx, d: EvData, fee: number) => { const s = x.c.shows[String(d.show)]!; if (s.promo === 'TIS') joinIndie(x.c, s, fee, Number(d.travel ?? 0)); return s; };
 const after = (x: EvCtx, d: EvData) => Math.max(1, daysBetween(x.day, String(d.date)) + 1);

@@ -3,7 +3,7 @@
 // your booker checks in every Monday, a digest of everything everywhere comes every Monday, and the press asks
 // for interviews. You can reply to almost anything: replies move relationships, your personality, your fans and
 // reputation, and your bookers' patience. Ignoring a rival or a friend sometimes costs you. A year is kept.
-import { FAN_REGIONS, fansIn, fansTotal, findWrestler, fmtFans, PROMOTIONS, TITLES, type TraitId } from '../data/rtr';
+import { FAN_REGIONS, fansIn, fansTotal, findWrestler, fmtFans, PROMOTIONS, TITLES, type TraitId, worksFor } from '../data/rtr';
 import { hashSeed, seededRng } from '../engine/rng';
 import { activeWorld } from '../world/world';
 import { bondOf, bondsOf, bookerOf } from '../world/people';
@@ -344,7 +344,7 @@ function press(c: Career): void {
   }
   const last = c.history[0];
   const rival = P() ? bondsOf(P()!, c.player).filter((x) => x.bond.kind === 'rival' || x.bond.v <= -30).map((x) => x.other).find((id) => findWrestler(id)) : undefined;
-  const target = rival ?? TITLES.find((t) => t.holder && findWrestler(t.holder)?.promotion === (k?.promo ?? me.promotion))?.holder ?? undefined;
+  const target = rival ?? TITLES.find((t) => t.holder && worksFor(findWrestler(t.holder)!, k?.promo ?? me.promotion))?.holder ?? undefined;
   letter(c, {
     kind: 'press', from: pick(rnd, outlets), subject: 'Twenty minutes?', fromId: '',
     body: [last ? `We’d love twenty minutes about ${last.result === 'win' ? `beating ${last.oppName}` : last.wonTitle ? 'the title' : 'where you go from here'}.` : 'We’d love twenty minutes about your career so far.', 'What do you want to say?'],

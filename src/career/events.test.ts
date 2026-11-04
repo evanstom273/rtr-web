@@ -84,14 +84,14 @@ describe('career events', () => {
     expect(pay).toBeTruthy();
   });
 
-  it('Outside Appearances gates media: none blocks it, and the letter says why', () => {
+  it('Exclusivity gates media: Total Exclusivity blocks it, and the letter says why', () => {
     const c = begin();
-    sign(c, { [C.outside]: 0 });
+    sign(c, { [C.exclusivity]: 3 });
     const l = fire(ctxFor(c), def('podcast'))!;
     const opts = l.action?.type === 'event' ? l.action.options : [];
-    expect(opts.find((o) => o.id === 'straight')!.blocked).toMatch(/Outside Appearances/);
+    expect(opts.find((o) => o.id === 'straight')!.blocked).toMatch(/totally exclusive/);
     expect(opts.find((o) => o.id === 'no')!.blocked).toBeUndefined();
-    expect(answerEvent(c, l.id, 'straight')).toMatch(/Outside Appearances/);
+    expect(answerEvent(c, l.id, 'straight')).toMatch(/totally exclusive/);
     expect(l.done).toBeUndefined();
   });
 
@@ -113,7 +113,7 @@ describe('career events', () => {
 
   it('follow-ups land later: the documentary airs a month on', async () => {
     const c = begin();
-    sign(c, { [C.outside]: 2 });
+    sign(c, { [C.exclusivity]: 0 });
     const l = fire(ctxFor(c), def('documentary'))!;
     answerEvent(c, l.id, 'yes');
     const pop = globalScore(findWrestler(c.player)!);
@@ -125,9 +125,9 @@ describe('career events', () => {
 
   it('events your contract rules out entirely come round less often, but still come round', () => {
     const c = begin();
-    sign(c, { [C.outside]: 0 });
+    sign(c, { [C.exclusivity]: 3 });
     const blocked = eligible(ctxFor(c)).find((e) => e.d.id === 'convention' || e.d.id === 'podcast');
-    sign(c, { [C.outside]: 2 });
+    sign(c, { [C.exclusivity]: 0 });
     const open = eligible(ctxFor(c)).find((e) => e.d.id === blocked?.d.id);
     expect(blocked && open).toBeTruthy();
     expect(blocked!.w).toBeCloseTo(open!.w * EVENT_BLOCKED_MULT);

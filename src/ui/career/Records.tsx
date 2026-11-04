@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { REGION_KEY, REGION_LABEL } from '../../career/places';
 import { TraitChips } from './Traits';
-import { FAN_REGIONS, fansTotal, findWrestler, fmtFans, getMove, globalScore, PROMOTIONS, TITLES, titlesHeldBy, WRESTLERS } from '../../data/rtr';
+import { FAN_REGIONS, fansTotal, findWrestler, fmtFans, getMove, globalScore, PROMOTIONS, TITLES, titlesHeldBy, WRESTLERS, worksFor } from '../../data/rtr';
 import { askableIndieTitles, askableTitles, person, promoName, type Career } from '../../career';
 import { ATTR_KEYS, ATTR_LONG, CLASS_NAME, divisionName } from '../../career/create';
 import { daysBetween, fmtDay } from '../../career/dates';
@@ -66,7 +66,7 @@ export function Records({ c, onBack, onMoveset, onNewCareer, onRequest }: Props)
 
   // ---- Rosters (as the world stands today) ----
   const promo = PROMOTIONS.find((p) => p.initials === ORDER[pi])!;
-  const roster = useMemo(() => WRESTLERS.filter((x) => x.promotion === promo.initials && !c.people[x.id]?.retired)
+  const roster = useMemo(() => WRESTLERS.filter((x) => worksFor(x, promo.initials) && !c.people[x.id]?.retired)
     .sort((a, b) => Number(titlesHeldBy(b).length > 0) - Number(titlesHeldBy(a).length > 0) || globalScore(b) - globalScore(a)), [promo, c.today]);
   const champs = promo.titles.map((id) => TITLES.find((t) => t.id === id)).filter((t) => t?.holder);
 

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { findWrestler } from '../data/rtr';
 import { freshWorld, setWorld } from '../world/world';
-import { C, NO_CLAUSES } from './clauses';
-import { acceptLetter, askForSpot, dayOff, exitTerms, gate, leaveContract, makeOffer, matchPay, mood, propose, signOffer, startCareer, willingness } from './index';
+import { C, CLAUSES, NO_CLAUSES } from './clauses';
+import { askForSpot, indieAllowed, dayOff, exitTerms, gate, leaveContract, makeOffer, matchPay, mood, propose, signOffer, startCareer, willingness } from './index';
 import type { Career } from './types';
 import { who } from './testkit';
 
@@ -13,30 +13,32 @@ function begin(player = 'jamie_mercer'): Career {
   return c;
 }
 
+/** A plain deal: Major Exclusive (the reference the fee's priced against), nothing else. */
+const std = (): number[] => { const x = NO_CLAUSES(); x[C.exclusivity] = 2; return x; };
+
 describe('contracts', () => {
   it('a fair ask is accepted; a greedy one is countered; an absurd one makes them walk', () => {
     const c = begin();
     makeOffer(c, 'TCG', 'Test');
     const o = c.offers.at(-1)!;
     const base = willingness(c, 'TCG', o.id);
-    expect(propose(c, o, { fee: base, months: 12, clauses: NO_CLAUSES() })).toBe('accept');
+    expect(propose(c, o, { fee: base, months: 12, clauses: std() })).toBe('accept');
     makeOffer(c, 'NWGP', 'Test');
     const o2 = c.offers.at(-1)!;
     const b2 = willingness(c, 'NWGP', o2.id);
-    expect(propose(c, o2, { fee: Math.round(b2 * 1.25), months: 12, clauses: NO_CLAUSES() })).toBe('counter');
+    expect(propose(c, o2, { fee: Math.round(b2 * 1.25), months: 12, clauses: std() })).toBe('counter');
     expect(o2.fee).toBeLessThan(Math.round(b2 * 1.25));
-    expect(propose(c, o2, { fee: b2 * 3, months: 12, clauses: NO_CLAUSES() })).toBe('walk');
+    expect(propose(c, o2, { fee: b2 * 3, months: 12, clauses: std() })).toBe('walk');
     expect(o2.status).toBe('walked');
   });
 
   it('you can\'t have every clause at Tier 3', () => {
     const c = begin();
-    makeOffer(c, 'VWF', 'Test');
+    makeOffer(c, 'TCG', 'Test');
     const o = c.offers.at(-1)!;
-    // Reputation 50 locks every Tier 3.
-    expect(gate(c, 'VWF', C.creative, 3)).toMatch(/reputation/);
-    c.people[c.player]!.rep = 90;
-    const all3 = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3];
+    // Lyra's call: no gates, only the price. Everything at Tier 3 is far too rich.
+    expect(gate(c, o, C.creative, 3)).toBeNull();
+    const all3 = CLAUSES.map(() => 3);
     expect(mood(c, o, { fee: o.fee, months: 12, clauses: all3 })).toBe('losing');
     expect(propose(c, o, { fee: o.fee, months: 12, clauses: all3 })).not.toBe('accept');
   });
@@ -97,18 +99,20 @@ describe('contracts', () => {
     expect(dayOff(c, show.date)).toMatch(/no Schedule Flexibility/);
   });
 
-  it('Indie Bookings Tier 3: a clashing indie date pulls you off the contracted show and costs reputation', () => {
+  it('Exclusivity steps indie dates: free when non-exclusive, approval at Major Exclusive, none at Total, never on your own show nights', () => {
     const c = begin();
     const k = c.people[c.player]!.contract!;
-    k.clauses[C.indie] = 3;
-    // A VWF date you're booked on, with an indie show the same night.
-    const indie = Object.values(c.shows).find((s) => s.promo === 'TIS' && s.date > c.today)!;
-    const mine = { ...indie, id: 'vwf-test', promo: 'VWF', kind: 'weekly' as const, name: 'Defiance', card: [{ a: 'ray_hollis', b: c.player }] };
-    c.shows[mine.id] = mine;
-    const rep = c.people[c.player]!.rep;
-    const l = { id: 'x', day: c.today, kind: 'offer' as const, from: 'x', subject: 'x', body: [], read: false, action: { type: 'indie' as const, show: indie.id, fee: 100, travel: 0 } };
-    expect(acceptLetter(c, l)).toMatch(/You’re booked:/);
-    expect(mine.card!.some((b) => b.a === c.player || b.b === c.player)).toBe(false);
-    expect(c.people[c.player]!.rep).toBeLessThan(rep);
+    k.clauses[C.exclusivity] = 0;
+    const indie = Object.values(c.shows).find((s) => s.promo === 'TIS' && s.date > c.today && indieAllowed(c, s).ok)!;
+    expect(indieAllowed(c, indie)).toEqual({ ok: true });
+    k.clauses[C.exclusivity] = 2;
+    expect(indieAllowed(c, indie)).toMatchObject({ ok: true, needsApproval: true, approver: k.promo });
+    k.clauses[C.exclusivity] = 3;
+    expect(indieAllowed(c, indie).why).toMatch(/totally exclusive/);
+    // A night your promotion has a show: never, whatever the tier.
+    k.clauses[C.exclusivity] = 0;
+    const theirs = Object.values(c.shows).find((s) => s.promo === k.promo && s.date > c.today)!;
+    const clash = Object.values(c.shows).find((s) => s.promo === 'TIS' && s.date === theirs.date);
+    if (clash) expect(indieAllowed(c, clash).ok).toBe(false);
   });
 });
