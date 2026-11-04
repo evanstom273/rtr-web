@@ -22,7 +22,7 @@ import { Records } from './Records';
 import { Relationships } from './Relationships';
 import { RequestFlow, Requests, showAnswersNext, type ReqRoute } from './Requests';
 import { ShowDay } from './ShowDay';
-import { Start } from './Start';
+import { Start, type StartDeal } from './Start';
 import { OwnShow } from './OwnShow';
 import { Social } from './Social';
 import { Stats } from './Stats';
@@ -92,7 +92,7 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
   useEffect(() => { if (!choosing) restore(); }, [choosing, restore]);
   useEffect(() => restore, [restore]);
 
-  const begin = async (player: string, extra?: Wrestler) => {
+  const begin = async (player: string, extra?: Wrestler, deal?: StartDeal) => {
     // Fresh: the world you've been looking at, from today's real date. Kept: carry on where the world got to.
     const fresh = universe === 'fresh';
     if (!fresh && activeWorld().career) await resetCareer();
@@ -106,6 +106,7 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
     world.career = startCareer({
       player, today: fresh ? todayReal() : world.day ?? todayReal(), seed: world.seed, created: !!extra,
       ...(!fresh && world.calendar ? { calendar: world.calendar } : {}),
+      ...(deal !== undefined ? { deal } : {}),
     });
     await saveWorld(world);
     commit();
@@ -174,7 +175,7 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
       );
     }
     if (s === 'create') return <Create hasCareer={hadCareer} onBack={back} onDone={(w) => void begin(w.id, w)} />;
-    return <Start hasCareer={hadCareer} fresh={universe === 'fresh'} onBack={leaveStart} onPick={(id) => void begin(id)} onCreate={() => go('create')} />;
+    return <Start hasCareer={hadCareer} fresh={universe === 'fresh'} onBack={leaveStart} onPick={(id, deal) => void begin(id, undefined, deal)} onCreate={() => go('create')} />;
   };
   if (screen === 'start' || screen === 'create') return startScreen(screen);
   if (!c) return startScreen('start');

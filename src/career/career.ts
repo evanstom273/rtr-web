@@ -59,6 +59,8 @@ export interface StartOptions {
   created?: boolean;
   /** Carrying on in a kept world: its show numbering and irregular schedules. */
   calendar?: { counters: Record<string, number>; nextIrregular: Record<string, Day> };
+  /** Lyra's call: start on whatever deal you like, no negotiating. null: a free agent. */
+  deal?: { promo: string; fee: number; months: number; clauses: number[] } | null;
 }
 
 const history = () => activeWorld().history;
@@ -77,6 +79,15 @@ export function startCareer(o: StartOptions): Career {
       const left = START_CONTRACT_MONTHS_LEFT[0] + Math.floor(rnd() * (START_CONTRACT_MONTHS_LEFT[1] - START_CONTRACT_MONTHS_LEFT[0] + 1));
       const months = CONTRACT_MONTHS.find((m) => m >= left) ?? 24;
       p.contract = aiContract(rnd, w, w.promotion, addMonths(o.today, left - months), months);
+    }
+  }
+  // Your own deal: any promotion (you move there), any fee, length and clauses; or a free agent.
+  if (o.deal !== undefined) {
+    const w = findWrestler(o.player)!;
+    const p = person(c, o.player);
+    if (o.deal === null) { w.promotion = 'TIS'; p.contract = null; } else {
+      w.promotion = o.deal.promo;
+      p.contract = { promo: o.deal.promo, start: o.today, end: addMonths(o.today, o.deal.months), fee: Math.max(0, Math.round(o.deal.fee)), clauses: [...o.deal.clauses] };
     }
   }
   const H = history();
