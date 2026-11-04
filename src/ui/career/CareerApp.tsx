@@ -160,6 +160,7 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
   // Time skipping (Lyra's call, Football Manager style): saved at each day's end, stopped by anything that needs you.
   const [skipping, setSkipping] = useState(false);
   const [note, setNote] = useState<{ text: string } | null>(null);
+  const [awayLog, setAwayLog] = useState<string[] | null>(null);
   const stop = useRef(false);
   const doSkip = async (t: SkipTarget) => {
     if (!c || busy !== null) return;
@@ -177,7 +178,9 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
         },
       });
       commit();
-      setNote({ text: r.stopped ?? 'There.' });
+      // The summary says it all when there is one; otherwise a word on why it stopped.
+      setNote({ text: r.stopped ?? (r.handled.length ? '' : 'There.') });
+      if (r.handled.length) setAwayLog(r.handled);
       window.setTimeout(() => setNote(null), 4000);
     } catch {
       await reloadWorld();
@@ -243,7 +246,7 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
       );
     }
     default:
-      return <Calendar c={c} busy={busy} skipping={skipping} onStop={() => { stop.current = true; }} onSkip={(t) => void doSkip(t)} note={note} onAdvance={() => void advance()} onShowDay={() => go('show')} onOpen={(s) => go(s)} onAsk={(r) => go(r)} onNegotiate={(id) => go({ negotiate: id })} />;
+      return <Calendar c={c} busy={busy} skipping={skipping} onStop={() => { stop.current = true; }} onSkip={(t) => void doSkip(t)} note={note} awayLog={awayLog} onAwayDone={() => setAwayLog(null)} onAdvance={() => void advance()} onShowDay={() => go('show')} onOpen={(s) => go(s)} onAsk={(r) => go(r)} onNegotiate={(id) => go({ negotiate: id })} />;
   }
 }
 

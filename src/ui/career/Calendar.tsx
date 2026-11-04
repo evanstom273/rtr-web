@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { activeWorld } from '../../world/world';
 import { findWrestler, TITLES } from '../../data/rtr';
-import { activityAt, dropGig, hustleOf, showWorkPay, workShow, countersWaiting, cupLabel, firstAskable, myBoutToday, phaseOf, promoName, roundName, routineOf, showsOn, type Activity, type Career, type Show, type SkipTarget } from '../../career';
+import { activityAt, dropGig, ordersOf, hustleOf, showWorkPay, workShow, countersWaiting, cupLabel, firstAskable, myBoutToday, phaseOf, promoName, roundName, routineOf, showsOn, type Activity, type Career, type Show, type SkipTarget } from '../../career';
 import { FEATURES } from '../../career/tuning';
 import type { ReqRoute } from './Requests';
 import { addDays, dateOf, dayOf, daysInMonth, fmtDay, MONTHS, monthOf, weekday, yearOf } from '../../career/dates';
@@ -18,6 +18,9 @@ interface Props {
   onSkip?: (t: SkipTarget) => void;
   /** Why a skip stopped (a new object each time, so the same reason shows again). */
   note?: { text: string } | null;
+  /** What your character answered while you were away. */
+  awayLog?: string[] | null;
+  onAwayDone?: () => void;
   onAdvance: () => void;
   onShowDay: () => void;
   onOpen: (screen: 'letters' | 'profile' | 'training' | 'records' | 'requests') => void;
@@ -46,7 +49,7 @@ function brandLine(s: Show): string {
   return who ? `${b.name} · ${who}` : b.name;
 }
 
-export function Calendar({ c, busy, skipping, onStop, onSkip, note, onAdvance, onShowDay, onOpen, onAsk, onNegotiate }: Props) {
+export function Calendar({ c, busy, skipping, onStop, onSkip, note, awayLog, onAwayDone, onAdvance, onShowDay, onOpen, onAsk, onNegotiate }: Props) {
   const { skin, w } = useWords();
   const [view, setView] = useState(() => ({ y: yearOf(c.today), m: monthOf(c.today) }));
   const [sel, setSel] = useState(c.today);
@@ -270,6 +273,12 @@ export function Calendar({ c, busy, skipping, onStop, onSkip, note, onAdvance, o
                 <button className="c-b1" style={{ minHeight: 44, padding: '0 14px' }} onClick={() => { setSkipSheet(false); onSkip({ days: nDays }); }}>{w('Go ›')}</button>
               </div>
             </div>
+            <span className="c-lab" style={{ marginTop: 4 }}>{w('Your mail')}</span>
+            <div className="c-chips">
+              {[[true, 'Answer it for me'], [false, 'Leave it for me']].map(([v, l]) => (
+                <button key={String(l)} className={`c-chip${ordersOf(c).on === v ? ' on' : ''}`} onClick={() => { ordersOf(c).on = v as boolean; commit(); }}>{w(l as string)}</button>
+              ))}
+            </div>
             <span className="c-lab" style={{ marginTop: 4 }}>{w('Your matches')}</span>
             <div className="c-chips">
               {[[false, 'Stop for them'], [true, 'Sim them']].map(([v, l]) => (
@@ -291,7 +300,17 @@ export function Calendar({ c, busy, skipping, onStop, onSkip, note, onAdvance, o
           </div>
         </div>
       )}
-      {busy === null && <EventPopup c={c} onNegotiate={onNegotiate} />}
+      {awayLog && awayLog.length > 0 && busy === null && (
+        <div className="c-sheet" onClick={(e) => e.target === e.currentTarget && onAwayDone?.()}>
+          <div>
+            <div className="c-sh"><div><span>{w('While you were away')}</span><b>{w(`${awayLog.length} thing${awayLog.length === 1 ? '' : 's'} handled`)}</b></div><button onClick={onAwayDone} aria-label="Close">✕</button></div>
+            <div className="c-rows">{awayLog.map((x, i) => <span key={i} className="c-dline">{x}</span>)}</div>
+            <span className="c-note">Set what your character does in My week › Away.</span>
+            <button className="c-b1" onClick={onAwayDone}>{w('Got it')}</button>
+          </div>
+        </div>
+      )}
+      {busy === null && !awayLog?.length && <EventPopup c={c} onNegotiate={onNegotiate} />}
       {busy !== null && (
         <div className="c-busy">
           <span>{skipping ? `${w('Skipping ahead', 'Skipping')} · ${fmtDay(c.today, 'dm')}${days ? ` ${ph.toUpperCase()}` : ''}` : w('The world wrestles…', 'Simulating the day')}</span>

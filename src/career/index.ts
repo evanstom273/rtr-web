@@ -33,6 +33,7 @@ export { nextMatch, reach as socialReach, socialAct, socialPreview, weekCap as s
 export { activityAt, advancePhase, baseCountry, bookings, defaultRoutine, fits, isShift, jobBoard, phaseOf, pkey, quitJob, relocate, relocateCost, routineOf, shiftPay, takeJob, timeOff, trainSession, type Activity } from './day';
 export { baseRegion, livingCost } from './economy';
 export { skip, type SkipTarget } from './skip';
+export { answerForMe, defaultOrders, ordersOf } from './away';
 export { developMonth, ensurePotential, rollRoom } from './development';
 export { addNobody, backdate, careerFrom, debuts, dropNobody, NOBODY, simulateTo, startSpectator } from './worldSim';
 export { beginHistory, checkpoint, debutYear, headline, historyOf, onesToWatch, runHistoryYear, summarise, type Summary } from './historySim';
