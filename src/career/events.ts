@@ -7,6 +7,7 @@
 import { eventFans } from './fanGrowth';
 import { type Attributes, findWrestler, fmtFans, globalScore, TITLES, type Wrestler, WRESTLERS, worksFor } from '../data/rtr';
 import { seededRng, type Rng } from '../engine/rng';
+import { activeWorld } from '../world/world';
 import { hashSeed } from './booker';
 import { letter, person, setCareerHooks, spend } from './career';
 import { C } from './clauses';
@@ -220,8 +221,12 @@ export function fire(x: EvCtx, d: EventDef, data?: EvData): Letter | null {
   if (!dd) return null;
   const ev = (x.c.events ??= blankEvents());
   const options: EventChoice[] = d.options.filter((o) => !o.hidden?.(x, dd)).map((o) => ({ id: o.id, label: typeof o.label === 'function' ? o.label(x, dd) : o.label, ...(o.detail ? { detail: o.detail(x, dd) } : {}), ...(o.blocked?.(x, dd) ? { blocked: o.blocked(x, dd)! } : {}) }));
+  const from = d.from(x, dd);
+  // From someone in particular (it's their doing, and it's signed with their name): it belongs in your thread with them.
+  const who = typeof dd.who === 'string' ? dd.who : undefined;
+  const fromId = who && (findWrestler(who)?.name === from || activeWorld().people?.staff[who]?.name === from) ? who : undefined;
   const l = letter(x.c, {
-    kind: 'event', from: d.from(x, dd), subject: d.subject(x, dd), body: d.body(x, dd),
+    kind: 'event', from, subject: d.subject(x, dd), body: d.body(x, dd), ...(fromId ? { fromId } : {}),
     action: { type: 'event', event: d.id, options, expires: addDays(x.day, d.expires ?? EVENT_EXPIRES_DAYS) },
   });
   ev.seen[d.id] = x.day;

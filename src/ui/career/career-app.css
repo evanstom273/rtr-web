@@ -252,3 +252,32 @@
 .cr .c-pickf .c-chip{min-height:30px;padding:0 8px;font-size:13px}
 .cr .c-skipn .c-cyc{display:grid;grid-template-columns:44px minmax(0,1fr) 44px auto;gap:4px;align-items:center}
 .cr .c-skipn .c-stepb{min-height:40px}
+/* The phone (relationships stage 2): threads, bubbles, moments in person, the hub's phone button. */
+.cr .c-hdr.withphone{grid-template-columns:8px minmax(0,1fr) auto auto}
+.cr .c-phoneb{position:relative;border:0;border-left:1px solid var(--cr-line);background:var(--cr-panel2);color:var(--cr-fg);font-family:var(--cr-display);font-weight:900;font-size:15px;letter-spacing:.04em;text-transform:var(--cr-upper);padding:0 14px 0 10px;min-width:72px}
+.cr .c-phoneb .c-badge{top:3px;right:3px}
+.cr .c-thr{display:grid;grid-template-columns:40px minmax(0,1fr);gap:10px;align-items:center;padding:8px 10px;text-align:left}
+.cr .c-thr.on{border-color:var(--cr-hi)}
+.cr .c-av{width:40px;height:40px;display:flex;align-items:center;justify-content:center;background:var(--cr-panel2);font-family:var(--cr-display);font-weight:900;font-size:16px;color:var(--cr-fg)}
+.cr .c-thrt{display:flex;flex-direction:column;gap:3px;min-width:0}
+.cr .c-ell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.cr .c-cnt{min-width:18px;height:18px;border-radius:9px;background:var(--cr-bad);color:#fff;font-family:var(--cr-mono);font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;padding:0 4px;flex:none}
+.cr .c-msgs{display:flex;flex-direction:column;gap:6px}
+.cr .c-bub{max-width:84%;padding:8px 11px;background:var(--cr-panel2);color:var(--cr-fg);font-family:var(--cr-body);font-size:15px;line-height:1.35;align-self:flex-start;border:1px solid var(--cr-line);white-space:pre-wrap}
+.cr .c-bub.me{align-self:flex-end;background:var(--cr-hi);color:var(--cr-hi-fg);border-color:transparent}
+.cr .c-bnote{align-self:flex-start;font-family:var(--cr-mono);font-size:10px;color:var(--cr-dim);letter-spacing:.04em;text-transform:uppercase;margin:-2px 0 4px;max-width:90%}
+.cr .c-bnote.me{align-self:flex-end;text-align:right}
+.cr .c-bnote.up{color:var(--cr-good)}.cr .c-bnote.dn{color:var(--cr-bad)}
+.cr .c-dsep{align-self:center;font-family:var(--cr-mono);font-size:10px;letter-spacing:.1em;color:var(--cr-dim);margin:6px 0 2px}
+.cr .c-inp{align-self:stretch;border:1px dashed var(--cr-line);padding:8px 10px;display:flex;flex-direction:column;gap:6px}
+.cr .c-reps{align-self:flex-end;width:84%;display:flex;flex-direction:column;gap:4px}
+.cr .c-reps .c-ans{padding:7px 10px;gap:2px}
+[data-skin=building] .cr .c-bub{border-radius:14px}
+[data-skin=building] .cr .c-bub:not(.me){border-bottom-left-radius:4px}
+[data-skin=building] .cr .c-bub.me{border-bottom-right-radius:4px}
+[data-skin=building] .cr .c-av{border-radius:50%}
+[data-skin=building] .cr .c-phoneb{border-radius:0}
+[data-skin=paper] .cr .c-bub{background:transparent}
+[data-skin=paper] .cr .c-bub.me{background:var(--cr-fg);color:var(--cr-bg)}
+[data-skin=paper] .cr .c-av{background:transparent;border:1px solid var(--cr-line);font-family:'Playfair Display',Georgia,serif}
+[data-skin=paper] .cr .c-phoneb{background:transparent;border-left:1px solid var(--cr-line);font-family:'Playfair Display',Georgia,serif;font-size:16px}

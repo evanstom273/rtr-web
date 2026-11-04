@@ -231,7 +231,8 @@ export function gradeOf(c: Career, w: Wrestler, promo: string): Grade {
 
 const fileOf = (c: Career, promo: string): ScoutFile => ((c.scout ??= {})[promo] ??= { stage: 'pass' });
 
-/** They've heard of you now (and how). */
+/** They've heard of you now (and how): word of mouth, a friend putting a word in (the phone). */
+export const heardOf = (c: Career, promo: string, how: string): void => know(c, promo, how);
 function know(c: Career, promo: string, how: string): void {
   const f = fileOf(c, promo);
   if (!f.known) { f.known = c.today; f.how = how; }

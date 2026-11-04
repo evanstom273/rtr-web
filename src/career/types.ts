@@ -369,6 +369,8 @@ export interface Career {
   pressAt?: Day;
   /** Social media: your recent posts, the weekly cap, who you've called out, and the feed. */
   social?: import('./social').SocialState;
+  /** The phone: your threads with people, and what they've sent you this week. */
+  phone?: import('./phone').PhoneState;
   /** AM or PM of `today` (days on). Missing: the AM. */
   phase?: 'am' | 'pm';
   /** The first day days were on: bookings before it are honoured whatever their travel. */

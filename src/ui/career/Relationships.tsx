@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, type KeyboardEvent } from 'react';
 import { findWrestler, type Staffer } from '../../data/rtr';
-import { bookerName, memoryLine, memoryOf, MOOD_WHY, moodLabel, moodOf, patienceOf, promoName, readOf, relLabel, relationsList, trust, trustLabel, type Career } from '../../career';
+import { bookerName, memoryLine, memoryOf, MOOD_WHY, moodLabel, moodOf, patienceOf, phoneOn, promoName, readOf, relLabel, relationsList, trust, trustLabel, type Career } from '../../career';
 import { daysBetween, fmtDay } from '../../career/dates';
 import { activeWorld } from '../../world/world';
 import { bookerOf, jobLabel, likeOf, type Orientation } from '../../world/people';
@@ -8,7 +8,7 @@ import { homeOf, schoolOf } from '../../world/social';
 import { commit, Head, Nm, Screen, useWords } from './parts';
 import { TraitChips } from './Traits';
 
-interface Props { c: Career; onBack: () => void }
+interface Props { c: Career; onBack: () => void; onMessage?: (id: string) => void }
 
 const KIND_CLASS: Record<string, string> = {
   Enemy: 'c-eff bad', Rival: 'c-eff bad', 'Friendly rival': 'c-eff gold', Mentor: 'c-eff gold', 'Protégé': 'c-eff up', 'Best friend': 'c-eff up', Friend: 'c-eff up',
@@ -29,7 +29,7 @@ function Dial({ v }: { v: number }) {
 }
 
 /** Career → Relationships: you (wellbeing, home, school), the people in your life, and the bookers and promoters who know you. */
-export function Relationships({ c, onBack }: Props) {
+export function Relationships({ c, onBack, onMessage }: Props) {
   const { w } = useWords();
   const [tab, setTab] = useState(0);
   const [file, setFile] = useState<string | null>(null);
@@ -70,13 +70,14 @@ export function Relationships({ c, onBack }: Props) {
         {['People', 'Bookers'].map((t, i) => <button key={t} className={i === tab ? 'c-st on' : 'c-st'} style={{ border: 0 }} onClick={() => setTab(i)}>{w(t)}</button>)}
       </div>
       <div className="c-body">
+        {tab === 0 && phoneOn() && onMessage && people.length > 0 && <span className="c-hint">{w('Tap someone to message them.')}</span>}
         {tab === 0 && (people.length ? people.map(({ id, r }) => {
           const label = relLabel(c, id);
           const read = readOf(r);
           const why = r.log[0];
           const folk = P?.folk?.[id];
           return (
-            <div key={id} className="c-ans" style={{ padding: '8px 10px', gap: 5 }}>
+            <div key={id} className="c-ans" style={{ padding: '8px 10px', gap: 5, cursor: phoneOn() && onMessage ? 'pointer' : undefined }} {...(phoneOn() && onMessage ? { role: 'button', tabIndex: 0, onClick: () => onMessage(id), onKeyDown: (e: KeyboardEvent) => { if (e.key === 'Enter') onMessage(id); } } : {})}>
               <span className="c-rowsb">{folk ? <b className="c-at" style={{ fontSize: 16 }}>{folk.name}</b> : <Nm id={id} />}<span className={KIND_CLASS[label] ?? 'c-eff'}>{w(folk?.kind === 'family' ? FAMILY_WORD[folk.rel ?? ''] ?? 'Family' : folk?.kind === 'trainer' ? 'Your trainer' : label)}</span></span>
               {read === 'none' ? <span className="c-hint">{w('You don’t know them well enough to tell how they feel.')}</span> : (
                 <>

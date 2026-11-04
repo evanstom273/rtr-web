@@ -18,9 +18,9 @@ export const defaultOrders = (): AwayOrders => ({
 export const ordersOf = (c: Career): AwayOrders => (routineOf(c).away ??= defaultOrders());
 
 const TONE: Record<Exclude<AwayOrders['people'], 'leave'>, string[]> = {
-  gracious: ['gracious', 'thanks', 'high', 'understood', 'thank_bk', 'humble', 'congrats', 'wish', 'deny', 'share', 'decline'],
-  cocky: ['cocky', 'brag', 'laugh', 'i_cocky', 'bigger', 'more', 'coy', 'share', 'congrats'],
-  fiery: ['fire', 'accept', 'i_callout', 'shot', 'complain', 'rematch', 'confirm', 'cocky'],
+  gracious: ['gracious', 'thanks', 'high', 'understood', 'thank_bk', 'humble', 'congrats', 'wish', 'deny', 'share', 'decline', 'chat', 'happy', 'there', 'help', 'rise'],
+  cocky: ['cocky', 'brag', 'laugh', 'i_cocky', 'bigger', 'more', 'coy', 'share', 'congrats', 'tease', 'laugh_off', 'tip', 'brief', 'happy'],
+  fiery: ['fire', 'accept', 'i_callout', 'shot', 'complain', 'rematch', 'confirm', 'cocky', 'fire_back', 'brush', 'jealous', 'brief'],
 };
 const money = (n: number) => `£${Math.round(n).toLocaleString('en-GB')}`;
 

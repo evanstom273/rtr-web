@@ -704,7 +704,7 @@ export const DEV = {
 export const BACKDATE = { debut: [19, 22] as [number, number], potentialSpread: 25, avgWork: 1.15, fanExp: 1.5, maxYears: 10 };
 /** Shipped wrestlers retire as if this many years younger (Lyra's call: the names you know stay a bit longer). */
 export const SHIPPED_RETIRE_YOUNGER = 3;
-export const FEATURES = { livingCosts: true, social: true, days: true, jobs: true, skip: true, mail: true, hustles: true, history: true };
+export const FEATURES = { livingCosts: true, social: true, days: true, jobs: true, skip: true, mail: true, hustles: true, history: true, phone: false };
 
 /**
  * Pay (Lyra's call: how many dates you get decides your income). A major promotion's weekly-show fee:
@@ -998,3 +998,37 @@ export const MOOD_FX = { low: 30, high: 85, dice: 1, trainLow: 0.85, trainHigh: 
 export const GOALS = { moveMood: 35, moveBooker: -30, windDown: 37, teach: 33, young: 25, evenChance: 0.5 };
 /** Backstage news (Lyra's call: news and profiles): at most this many lines a month about other people's friendships and fall-outs. */
 export const SOCIAL_NEWS_MAX = 3;
+
+// --- The phone (Lyra's relationships redesign, stage 2: PROPOSALS) ------------------------------------
+/**
+ * Messages you send: whom you can message (you know them this well); how much each topic moves how they feel about
+ * you (like, respect), with a random swing (sd); how a second and third message to the same person in a day wear
+ * thin; asking for the same favour again waits this long. A reply reads as good from +3, bad from −2.
+ */
+export const PHONE = {
+  knowAt: 10, noise: 1.5, again: 0.4, pester: 3, pesterLike: -2, favourDays: 60, good: 3, bad: -2,
+  topic: {
+    catchup: { like: 3, respect: 0 }, congrats: { like: 5, respect: 1 }, console: { like: 6, respect: 0 }, advice: { like: 2, respect: 1 },
+    gossip: { like: 1, respect: 0 }, word: { like: -2, respect: 0 }, sorry: { like: 5, respect: 0 }, goat: { like: -8, respect: -2 },
+  },
+  /** An apology makes up this share of how far below nothing they are. */
+  sorryShare: 0.3,
+  /** Putting a word in: the chance from how they feel (like plus half their respect, over this), between these. */
+  word: { per: 80, min: 0.05, max: 0.9 },
+};
+/** How a tone lands with someone: by their voice (and family), and a cheeky one with friends or someone who dislikes you. */
+export const TONE_FIT = {
+  warm: { warm: 0.6, fam: 0.6, plain: 0.2, pro: 0, hot: -0.1, cocky: -0.2, sly: -0.2 },
+  plain: { pro: 0.4, hot: 0.2, plain: 0.1, warm: 0, fam: 0, cocky: 0, sly: 0 },
+  cocky: { cocky: 0.3, fam: 0.2, sly: 0.1, plain: 0, warm: -0.1, pro: -0.4, hot: -0.6, friends: 0.5, dislikes: -0.8 },
+  blunt: { hot: 0.3, pro: 0.2, plain: 0, sly: -0.1, cocky: -0.1, warm: -0.5, fam: -0.3, dislikes: -0.4 },
+} as const;
+/** Having a go hits harder or softer by tone. */
+export const GOAT_TONE = { warm: 0.5, plain: 1, cocky: 1.2, blunt: 1.5 };
+/**
+ * What people send you: a chance each day (and more with each close friend, up to so many), at most so many a week;
+ * who counts as close; who'll have a dig (how much they dislike you); who asks your advice (how young, how much they rate you).
+ */
+export const PHONE_IN = { daily: 0.25, perFriend: 0.04, friendsMax: 10, weekCap: 6, closeLike: 25, closeFam: 30, digLike: -50, askAge: 25, askRespect: 20 };
+/** Replies to what people send you: how far each moves how they feel about you. */
+export const PHONE_REPLY = { chat: 4, brief: 1, tease: 3, teaseCold: -2, happy: 5, jealous: -4, there: 6, help: 8, tip: 3, brush: -6, rise: 0, fireBack: -8, laughOff: -3 };

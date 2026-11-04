@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { activeWorld } from '../../world/world';
 import { findWrestler, TITLES } from '../../data/rtr';
-import { activityAt, dropGig, ordersOf, hustleOf, showWorkPay, workShow, countersWaiting, cupLabel, firstAskable, myBoutToday, phaseOf, promoName, roundName, routineOf, showsOn, type Activity, type Career, type Show, type SkipTarget } from '../../career';
+import { activityAt, dropGig, isPhoneLetter, ordersOf, phoneOn, phoneUnread, hustleOf, showWorkPay, workShow, countersWaiting, cupLabel, firstAskable, myBoutToday, phaseOf, promoName, roundName, routineOf, showsOn, type Activity, type Career, type Show, type SkipTarget } from '../../career';
 import { FEATURES } from '../../career/tuning';
 import type { ReqRoute } from './Requests';
 import { addDays, dateOf, dayOf, daysInMonth, fmtDay, MONTHS, monthOf, weekday, yearOf } from '../../career/dates';
@@ -23,7 +23,7 @@ interface Props {
   onAwayDone?: () => void;
   onAdvance: () => void;
   onShowDay: () => void;
-  onOpen: (screen: 'letters' | 'profile' | 'training' | 'records' | 'requests') => void;
+  onOpen: (screen: 'letters' | 'profile' | 'training' | 'records' | 'requests' | 'phone') => void;
   onAsk: (r: ReqRoute) => void;
   onNegotiate: (offerId: string) => void;
 }
@@ -95,7 +95,8 @@ export function Calendar({ c, busy, skipping, onStop, onSkip, note, awayLog, onA
     p.injury ? `injured to ${fmtDay(p.injury.until, 'dm')}` : p.fatigue >= 60 ? 'tired' : p.fatigue >= 30 ? 'worn' : 'fresh',
   ].join(' · ');
   const waiting = countersWaiting(c).length;
-  const unread = c.letters.filter((l) => !l.read).length;
+  const unread = c.letters.filter((l) => !l.read && !isPhoneLetter(l)).length;
+  const texts = phoneUnread(c);
   const next = useMemo(() => {
     for (let i = 1; i < 60; i++) {
       const d = addDays(c.today, i);
@@ -123,12 +124,13 @@ export function Calendar({ c, busy, skipping, onStop, onSkip, note, awayLog, onA
 
   return (
     <Screen>
-      <div className="c-hdr">
+      <div className={`c-hdr${phoneOn() ? ' withphone' : ''}`}>
         <span className="c-edge" style={{ background: `var(--cr-${me.disposition === 'HEEL' ? 'heel' : 'face'})` }} />
         <button className="c-who" onClick={() => onOpen('profile')} style={{ background: 'none', border: 0, textAlign: 'left', color: 'inherit' }}>
           <b>{me.name}</b>
           <span>{sub}</span>
         </button>
+        {phoneOn() && <button className="c-phoneb" onClick={() => onOpen('phone')} aria-label={`Phone${texts ? `, ${texts} unread` : ''}`}>{w('Phone')}{texts > 0 && <span className="c-badge">{texts}</span>}</button>}
         <div className="c-date">
           <span>{fmtDay(c.today).split(' ')[0]!.toUpperCase().replace(',', '')}{days ? ` · ${ph.toUpperCase()}` : ''}</span>
           <b>{dateOf(c.today)} {MONTHS[monthOf(c.today)]!.slice(0, 3).toUpperCase()}</b>
