@@ -274,6 +274,8 @@ export interface Career {
   v: 1;
   /** A world running with nobody playing (history being simulated): no letters, no offers, nothing for 'you'. */
   spectator?: boolean;
+  /** Backdated history: wrestlers too young to have debuted yet, and the day they do. */
+  waiting?: { w: import('../data/rtr').Wrestler; on: Day }[];
   player: string;
   startedOn: Day;
   today: Day;

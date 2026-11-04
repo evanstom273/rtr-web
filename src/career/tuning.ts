@@ -579,6 +579,13 @@ export const DEV = {
   declineFrom: 34, declineSteep: 38, decline: [2, 4] as [number, number], declineSteepRate: [5, 8] as [number, number],
   declineWeights: { speed: 3, stamina: 3, strength: 2, striking: 1.5, skill: 1, charisma: 0.5 },
 };
+/**
+ * Backdated history (Lyra's calls): everyone is rewound N years. Anyone younger than their debut age (19–22) then
+ * debuts on the indies when they reach it. A shipped wrestler's potential is their shipped total ±25; they start where
+ * the development curve puts them at the younger age, and their fans scale with the years they'd been in the business
+ * ((years then + 1) ÷ (years now + 1))^1.5, never below a newcomer's.
+ */
+export const BACKDATE = { debut: [19, 22] as [number, number], potentialSpread: 25, avgWork: 1.15, fanExp: 1.5, maxYears: 10 };
 /** Shipped wrestlers retire as if this many years younger (Lyra's call: the names you know stay a bit longer). */
 export const SHIPPED_RETIRE_YOUNGER = 3;
 export const FEATURES = { livingCosts: true, social: true, days: true, jobs: true, skip: true, mail: true, hustles: true };
