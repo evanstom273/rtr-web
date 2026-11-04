@@ -31,13 +31,19 @@ const stars = (s: number) => `${Number.isInteger(s) ? s : s.toFixed(2).replace(/
 
 // ------------------------------------------------------------------ tabs
 
-export type MailTab = 'needs' | 'results' | 'people' | 'news';
+export type MailTab = 'needs' | 'results' | 'people' | 'news' | 'phone';
 export const MAIL_TABS: { id: MailTab; label: string }[] = [
   { id: 'needs', label: 'Needs you' }, { id: 'results', label: 'Results' }, { id: 'people', label: 'People' }, { id: 'news', label: 'News' },
 ];
 /** Waiting on you: an open decision, or a letter you'll pay for ignoring. */
 export const waitingOnYou = (l: Letter): boolean => (!!l.action && !l.done) || (!!l.ignore && !l.replied && !l.done && l.ignore.kind !== 'press');
+/**
+ * The phone (Lyra's relationships redesign): anything from a person (a note, a call-out, someone backstage) lives in
+ * your thread with them, not the mail. Mail keeps results, bookers, the press, offers and the digest.
+ */
+export const isPhoneLetter = (l: Letter): boolean => FEATURES.phone && !!l.fromId && (l.kind === 'person' || l.kind === 'event');
 export function tabOf(l: Letter): MailTab {
+  if (isPhoneLetter(l)) return 'phone';
   if (waitingOnYou(l)) return 'needs';
   if (l.kind === 'result') return 'results';
   if (l.kind === 'person' || l.kind === 'booker' || l.kind === 'press' || l.kind === 'offer' || l.kind === 'contract' || l.kind === 'event') return 'people';
@@ -203,6 +209,9 @@ const EFFECTS: Record<string, Effect> = {
   wish: (c, l) => { rel(c, l.ctx?.target, MAIL_REL.warm, 'You wished them well'); lean(c, 'loyal', 2); return 'A kind word.'; },
   share: (c, l) => { lean(c, 'showboat', 1); return say(c, l, 'humble'); },
 };
+
+/** More ways to answer (the phone's replies to what people send you). */
+export function registerReplies(more: Record<string, Effect>): void { Object.assign(EFFECTS, more); }
 
 /** Answer a letter. Returns what came of it. */
 export function replyTo(c: Career, id: string, reply: string): string {

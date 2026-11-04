@@ -25,6 +25,7 @@ import { commit, Head, Screen, useCareer, useWords } from './parts';
 import { Profile, type ProfileLink } from './Profile';
 import { Records } from './Records';
 import { Relationships } from './Relationships';
+import { Phone } from './Phone';
 import { RequestFlow, Requests, showAnswersNext, type ReqRoute } from './Requests';
 import { ShowDay } from './ShowDay';
 import { Start, type StartDeal } from './Start';
@@ -38,8 +39,8 @@ import './career.css';
 import './career-app.css';
 
 export type CareerScreen =
-  | 'cal' | 'show' | 'profile' | 'letters' | 'contract' | 'training' | 'finances' | 'history' | 'stats' | 'records' | 'moveset' | 'start' | 'create' | 'requests' | 'relationships' | 'week' | 'social' | 'ownshow' | 'history'
-  | { negotiate: string } | { requests: number } | ReqRoute;
+  | 'cal' | 'show' | 'profile' | 'letters' | 'contract' | 'training' | 'finances' | 'history' | 'stats' | 'records' | 'moveset' | 'start' | 'create' | 'requests' | 'relationships' | 'week' | 'social' | 'ownshow' | 'history' | 'phone'
+  | { negotiate: string } | { requests: number } | { phone: string } | ReqRoute;
 
 interface Props {
   initial?: CareerScreen;
@@ -225,6 +226,7 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
   // You've left a promotion that owned your name: pick a new one before anything else.
   if (c.rebrand) return <Rebrand c={c} onDone={() => setStack((st) => [...st])} />;
   if (typeof screen === 'object') {
+    if ('phone' in screen) return <Phone c={c} onBack={back} start={screen.phone} />;
     if ('negotiate' in screen) return <Negotiate c={c} offerId={screen.negotiate} onBack={back} onDone={home} />;
     if ('requests' in screen) return <Requests c={c} tab={screen.requests} onBack={back} onFlow={(r) => go(r)} onNegotiate={(id) => go({ negotiate: id })} />;
     if ('req' in screen && screen.req === 'creative') return <Creative c={c} onBack={back} />;
@@ -243,7 +245,8 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
     case 'history': return <History c={c} onBack={back} onStats={() => go('stats')} />;
     case 'stats': return <Stats c={c} onBack={back} onHistory={() => go('history')} />;
     case 'records': return <Records c={c} onBack={back} onMoveset={() => go('moveset')} onNewCareer={() => go('start')} onRequest={(r) => go(r)} />;
-    case 'relationships': return <Relationships c={c} onBack={back} />;
+    case 'relationships': return <Relationships c={c} onBack={back} onMessage={(id) => go({ phone: id })} />;
+    case 'phone': return <Phone c={c} onBack={back} />;
     case 'week': return <Week c={c} onBack={back} onOwnShow={() => go('ownshow')} />;
     case 'ownshow': return <OwnShow c={c} onBack={back} />;
     case 'social': return <Social c={c} onBack={back} />;

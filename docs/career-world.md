@@ -1173,3 +1173,46 @@ The world is then brought to life around them, and the player gets their circle.
 Most of the people without a friend are indie wrestlers, who seldom share a card with the same people twice. A day costs about 1–2 ms more than without the social engine. A one-year contracts run stays healthy: full rosters and no titles held off-roster.
 
 **Next stages:** the phone (messages, topics and tones), plans and activities, romance and family, politics (booking, chemistry, the locker room, cliques, enemies), and gossip and angles.
+
+## Relationships and social life, stage 2: the phone (built; off until Lyra approves the screens)
+
+The engine is in `career/phone.ts`, the words in `career/phoneLines.ts` and the screen in `ui/career/Phone.tsx`. `FEATURES.phone` switches it on. Every number is in `tuning.ts` under *The phone*, and all of them are **proposals**.
+
+**Threads.** There's one thread per person. It holds what you've texted each other, plus everything they've sent you that wants an answer:
+- notes after a match;
+- call-outs;
+- check-ins;
+- in-person moments, which are career events from that person, shown as "In person" cards with their choices.
+
+A thread reads as the story of the two of you. Anything that wants an answer is still a letter underneath, so ignoring it, standing orders while you skip, and skip stops all behave exactly as they do for mail. With the phone on, Mail keeps results, bookers' check-ins, the press, offers and the Monday digest. Person letters move to the phone.
+
+**Getting there.**
+- **The hub:** a Phone button in the header, with an unread count.
+- **Relationships:** tap someone to open your thread.
+- **New message:** lists everyone you know (familiarity 10+), closest first.
+
+**Messaging someone.** Pick what it's about, then how you say it (Warm, Straight, Cheeky, Blunt). You see what you'd say, and your guess at how it'll land, as clear as how well you know them.
+
+| Topic | Moves their like (before tone) | When |
+|---|---|---|
+| Catch up | +3 | Always |
+| Congratulate them | +5 (and +1 respect) | A title in the last fortnight, a move, a win in the last 3 days |
+| Check they're alright | +6 | Injured, or a loss in the last 3 days |
+| Ask their advice | +2 (+3 more for a mentor) | Not family. A good answer comes with a tip from your weakest grade. |
+| Ask about someone | +1 (a gossip-lover +3, a professional −1) | Someone you both know. You learn what they make of them. |
+| Ask them to put a word in | −2 | They're on a major you're not. A yes means that promotion hears of you. The chance comes from like + half their respect, out of 80 (5–90%). Once per promotion every 60 days. |
+| Apologise | +5 plus 30% of how far below zero they are | They dislike you, or something soured it in the last 60 days. Hot-heads and egotists hold grudges; team players forgive. |
+| Have a go at them | −8 and −2 respect (Warm ×0.5, Cheeky ×1.2, Blunt ×1.5) | Not family. Makes rivals; a hot-head comes back at you. |
+
+**How a tone lands.** It depends on their voice: warm ones like warmth, professionals like it straight, hot-heads hate cheek. Cheek goes down well with friends (+0.5) and badly with anyone who dislikes you (−0.8). There's a random swing of ±1.5. A second message in a day counts for 40%; a third is pestering (−2).
+
+**What people send you.**
+- **Their news**, from someone close (like 25+, familiarity 30+): a title, a move, an injury.
+- **Otherwise,** a 25% chance a day, plus 4% per close person (up to 10), capped at 6 a week (news aside). It's one of:
+  - friends and family checking in (family have their own voice);
+  - a young wrestler who rates you asking for advice (sit down with them properly and you become their mentor);
+  - an enemy (like −50 or worse, a hot, cocky or sly voice) having a dig.
+
+Replies to them move feelings by the `PHONE_REPLY` numbers. Ignoring family or a best friend's check-in costs a little, and ignoring a dig makes you look scared, as with mail. Standing orders know the new replies.
+
+**Tone of the writing** (Lyra's call): grown-up and sweary where it fits the person.

@@ -19,6 +19,7 @@ import './body';
 import './shape';
 import './conduct';
 import './socialLife';
+import './phone';
 
 export * from './career';
 export * from './contracts';
@@ -41,6 +42,7 @@ export { bookHoliday, holidays, refuseStip, setPartTime, setTours, skipTour } fr
 export { announceRetirement, pickMentor, setWalk, takeOption } from './shape';
 export { noShow } from './conduct';
 export { GOAL_TEXT, MOOD_WHY, moodLabel, moodOf, moodTarget, whereIs } from './socialLife';
+export { contacts, GUESS_TEXT, markRead, phoneOn, phoneUnread, preview, pvoice, send, threadList, threadOf, TONE_LABEL, TOPIC_LABEL, topicsFor, type Guess, type PhoneMsg, type ThreadItem, type Tone, type Topic, type TopicOption } from './phone';
 export { CREATIVE_LABEL, creativeAsk, creativeBlock, creativeBouts, creativeOdds, creativeTier, opponentsFor, vetoNext, type CreativeKind, type CreativeReq } from './creative';
 export { trainingPrice, attributeTotal, contractFee, indieFee, matchPay, travelCost } from './economy';
 export { buyBlock, buyTrait, offerAt, offerDue, traitPrice, lean } from './personality';
@@ -53,7 +55,7 @@ export { answerForMe, defaultOrders, ordersOf } from './away';
 export { developMonth, ensurePotential, rollRoom } from './development';
 export { addNobody, backdate, careerFrom, debuts, dropNobody, NOBODY, simulateTo, startSpectator } from './worldSim';
 export { beginHistory, checkpoint, debutYear, headline, historyOf, onesToWatch, runHistoryYear, summarise, type Summary } from './historySim';
-export { MAIL_TABS, replyTo, tabOf, waitingOnYou, type MailTab } from './mail';
+export { isPhoneLetter, MAIL_TABS, replyTo, tabOf, waitingOnYou, type MailTab } from './mail';
 export {
   blocked as hustleBlocked, bookConvention, buyStock, classFee, conventionsAhead, conventionTake, dropGig, fundTotal, hireable, hireFee, hustleOf, isCoaching,
   merchUnits, ownBudget, ownDraw, putOnShow, recentSessions, setCoaching, showWorkPay, subsHeading, subsTarget, venues, workShow, type Gig, type HustleState, type OwnPlan,
