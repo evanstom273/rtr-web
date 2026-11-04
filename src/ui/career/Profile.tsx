@@ -71,7 +71,7 @@ export function Profile({ c, onBack, onOpen, onShowDay, onHub }: Props) {
           </div>
           <div className="c-bars">
             <span className="c-sec" style={{ marginTop: 0 }}>{w('Fans')} · {fmtFans(fansTotal(me))}</span>
-            {pops.map(([l, v]) => <div key={l} className="c-barrow"><span className="c-lab">{l}</span><i><b className={v === most ? 'best' : ''} style={{ width: `${Math.max(2, (v / most) * 100)}%` }} /></i><b>{fmtFans(v)}</b></div>)}
+            {pops.map(([l, v]) => <div key={l} className="c-barrow fans"><span className="c-lab">{l}</span><i><b className={v === most ? 'best' : ''} style={{ width: `${Math.max(2, (v / most) * 100)}%` }} /></i><b>{fmtFans(v)}</b></div>)}
           </div>
         </div>
         <span className="c-sec">{w('Signatures & finishers')}</span>
