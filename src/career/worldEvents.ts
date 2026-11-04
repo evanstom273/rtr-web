@@ -2,7 +2,7 @@
 // retire (after a farewell) and now and then come back; rookies break through; long reigns and injured
 // champions make the news; your own career milestones get noticed. All of it goes into the world's
 // history (Records), and only the bits that touch you, or are big news, reach your mail.
-import { PROMOTIONS, TITLES, WRESTLERS, findWrestler, type Wrestler } from '../data/rtr';
+import { findWrestler, globalScore, PROMOTIONS, TITLES, type Wrestler, WRESTLERS } from '../data/rtr';
 import { seededRng, type Rng } from '../engine/rng';
 import { activeWorld } from '../world/world';
 import { addEvent, type WorldEvent } from '../world/history';
@@ -27,7 +27,7 @@ const ord = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th',
 /** Whether news about someone reaches your mail: your roster, someone you know well, or a big name. */
 function newsworthy(c: Career, w: Wrestler, big = 60): boolean {
   const mine = findWrestler(c.player)?.promotion;
-  return (w.promotion === mine && mine !== 'TIS') || Math.abs(relOf(c, w.id)) >= 15 || w.popularity.global >= big;
+  return (w.promotion === mine && mine !== 'TIS') || Math.abs(relOf(c, w.id)) >= 15 || globalScore(w) >= big;
 }
 
 // ------------------------------------------------------------------ retirement and comebacks
@@ -68,7 +68,7 @@ function retire(c: Career, w: Wrestler): void {
 function comebacks(c: Career, rnd: Rng): void {
   for (const w of WRESTLERS) {
     const p = c.people[w.id];
-    if (!p?.retired || !p.retiredOn || daysBetween(p.retiredOn, c.today) < RETURN_MIN_DAYS || w.popularity.global < RETURN_MIN_POP || w.age > 52) continue;
+    if (!p?.retired || !p.retiredOn || daysBetween(p.retiredOn, c.today) < RETURN_MIN_DAYS || globalScore(w) < RETURN_MIN_POP || w.age > 52) continue;
     if (rnd() >= RETURN_MONTHLY) continue;
     p.retired = false;
     delete p.retiredOn;
@@ -81,7 +81,7 @@ function breakthroughs(c: Career): void {
   const seen = world(c).seen;
   const me = findWrestler(c.player)!;
   for (const w of WRESTLERS) {
-    if (!w.id.startsWith('rookie_') || seen[`break:${w.id}`] || w.popularity.global < BREAKTHROUGH_POP) continue;
+    if (!w.id.startsWith('rookie_') || seen[`break:${w.id}`] || globalScore(w) < BREAKTHROUGH_POP) continue;
     seen[`break:${w.id}`] = c.today;
     person(c, w.id).breakthrough = c.today;
     record({ day: c.today, kind: 'breakthrough', who: w.id, name: w.name, promo: w.promotion });

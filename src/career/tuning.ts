@@ -52,7 +52,6 @@ export const POP_LOSS = -0.3;
 /** Gains shrink near the top: × (1 − popularity ÷ this). */
 export const POP_CEILING = 120;
 export const POP_TITLE_WIN = 3;
-export const POP_GLOBAL_SHARE = 0.25;
 export const POP_IDLE_DAYS = 30;
 export const POP_IDLE_DECAY = 1;
 export const REP_START = 50;
@@ -348,10 +347,6 @@ export const INDIE_ARCHETYPES = {
 export const INDIE_FEMALE_SHARE = 0.35;
 /** Where the indie scene is: each region's share of generated wrestlers and of indie brands. */
 export const INDIE_REGION_SHARES: Record<PopRegion, number> = { northAmerica: 0.26, europe: 0.22, asia: 0.16, southAmerica: 0.12, africa: 0.12, oceania: 0.12 };
-/** Popularity away from home, as a share of home popularity: worldwide, next-door regions, everywhere else. */
-export const INDIE_GLOBAL_SHARE = 0.5;
-export const INDIE_NEIGHBOUR_SHARE = 0.3;
-export const INDIE_ELSEWHERE_SHARE = 0.15;
 
 /** Indie shows a week (Lyra's call): 6 to 10, never more than 10 in a calendar week, one-offs and cups included. */
 export const INDIE_SHOWS_PER_WEEK: [number, number] = [6, 10];
@@ -500,3 +495,27 @@ export const RATING_CURVE = {
 };
 /** A title on the line adds a touch (the Big-Match trait's own bonus is TRAIT_FX.big_match.stars). */
 export const RATING_TITLE_BONUS = 0.05;
+
+/**
+ * Starting fans for someone new (Lyra's call; converted wrestlers keep theirs exactly). Most at home, a
+ * few next door, hardly any elsewhere. Generated indies' home fans are their archetype's old home
+ * popularity through the curve (INDIE_ARCHETYPES.pop); rookies start like prospects.
+ */
+export const NEWCOMER_NEIGHBOUR_SHARE: [number, number] = [0.05, 0.15];
+export const NEWCOMER_ELSEWHERE_SHARE: [number, number] = [0, 0.03];
+export const ROOKIE_HOME_SCORE: [number, number] = [8, 18];
+export const CREATED_FANS = { home: 500, neighbour: 25, elsewhere: 5 };
+
+/**
+ * Promotion popularity (Lyra's call: it moves). Starts at 10 + 70 × the old budget factor; each month it
+ * moves at most a point towards 10 + 70 × (roster's average score ÷ PROMO_POP_REF) + (90-day average
+ * stars − 3) × PROMO_POP_PER_STAR. PROMO_POP_REF is TCG's shipped roster average, the old budget's base.
+ */
+export const PROMO_POP_BOUNDS: [number, number] = [10, 95];
+export const PROMO_POP_STEP = 1;
+export const PROMO_POP_REF = 43.5;
+export const PROMO_POP_PER_STAR = 8;
+/** Indie brands: 5–30, moving a point a month towards 15 + (90-day average stars − 3) × 10. */
+export const BRAND_POP_BOUNDS: [number, number] = [5, 30];
+export const BRAND_POP_BASE = 15;
+export const BRAND_POP_PER_STAR = 10;

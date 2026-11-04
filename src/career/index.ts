@@ -9,6 +9,7 @@ import './worldEvents';
 import './indieScene';
 import './personality';
 import './staff';
+import './promoPopularity';
 
 export * from './career';
 export * from './contracts';
@@ -22,7 +23,7 @@ export { roundName, tourneyOf, tourneyPairs } from './tourney';
 export { patienceOf, patienceLog, promoOfBooker, bookerKey, indieKey, showBooker } from './patience';
 export * from './types';
 export { drawCalendar } from './calendar';
-export { CLAUSES, C, BUDGET, attitude } from './clauses';
+export { CLAUSES, C, BUDGET, budgetOf, attitude } from './clauses';
 export { trainingPrice, attributeTotal, contractFee, indieFee, matchPay, travelCost } from './economy';
 export { buyBlock, buyTrait, offerAt, offerDue, traitPrice, lean } from './personality';
 export { handover, promisesOnHandover } from './staff';

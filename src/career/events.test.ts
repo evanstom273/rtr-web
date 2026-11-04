@@ -1,7 +1,7 @@
 // Career events (expansion stage 3): pacing, cooldowns, contract gating, effects, follow-ups, expiry,
 // one answer per letter, and a long run answering whatever comes in. EVENT_STATS=1 prints how often each fires.
 import { describe, expect, it } from 'vitest';
-import { findWrestler } from '../data/rtr';
+import { findWrestler, globalScore } from '../data/rtr';
 import { seededRng } from '../engine/rng';
 import { freshWorld, setWorld } from '../world/world';
 import { C } from './clauses';
@@ -13,7 +13,7 @@ import type { Career, Contract } from './types';
 
 const quick = async (jobs: SimJob[]): Promise<SimOut[]> => jobs.map((j) => {
   const a = findWrestler(j.you)!, b = findWrestler(j.them)!;
-  const pa = a.popularity.global / (a.popularity.global + b.popularity.global);
+  const pa = globalScore(a) / (globalScore(a) + globalScore(b));
   return { key: j.key, winner: (j.seed % 1000) / 1000 < pa ? 'you' : 'them', finish: 'PINFALL', t: 600, stars: 3, stats: { you: {} as never, them: {} as never } };
 });
 
@@ -116,10 +116,10 @@ describe('career events', () => {
     sign(c, { [C.outside]: 2 });
     const l = fire(ctxFor(c), def('documentary'))!;
     answerEvent(c, l.id, 'yes');
-    const pop = findWrestler(c.player)!.popularity.global;
+    const pop = globalScore(findWrestler(c.player)!);
     for (let i = 0; i < 31; i++) await day(c, i);
     expect(c.letters.some((y) => y.subject === 'The documentary is out')).toBe(true);
-    expect(findWrestler(c.player)!.popularity.global).toBeGreaterThan(pop - 3);
+    expect(globalScore(findWrestler(c.player)!)).toBeGreaterThan(pop - 3);
     expect(c.events!.follow ?? []).toHaveLength(0);
   });
 

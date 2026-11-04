@@ -370,6 +370,52 @@ Noise is about ±2 points. Aggressive and Defensive got gentler downsides afterw
 - Each change is recorded in history.
 - Veterans with Mentor bring on a young wrestler near them: +1 a month to their weakest attribute, up to +4, and a mentor bond.
 
+## Fans and promotion popularity (world rev 7)
+
+Lyra's calls:
+- Wrestlers have real **fan counts** in each of the six regions, and **worldwide is their sum**. There's no global pool.
+- They replace the old 0–100 popularity, on **five times the base curve**: `fans = 150 × 10^(old ÷ 20)` per region.
+  - old 20 → 1,500 fans;
+  - old 50 → 47,000;
+  - old 80 → 1.5M;
+  - old 95 → 8.4M.
+- Promotions keep a separate 0–100 popularity, which now moves.
+
+**Converting** (`world/world.ts: toFans`; the shipped data through `scripts/to-fans.ts`):
+- Exact, with no jitter:
+  - every regional score comes back as it was, to 0.1;
+  - regional order never changes;
+  - equal old values stay equal.
+- The shipped 400 have a median of 604k fans worldwide (q1 167k, q3 1.5M, max 10M). Friedrich Hoffman has 3.0M; Buck Stratton 7.3M.
+- Worldwide rankings differ from the old "global", which was the regions' average. With the approved curve, a regional peak outweighs being known everywhere.
+
+**New wrestlers** (`career/fanStart.ts`):
+
+| Who | Home region | Each neighbouring region | Each other region |
+| --- | --- | --- | --- |
+| Created wrestler | 500 | 25 | 5 |
+| Generated indie | Their archetype's old home range through the curve (prospect 380–1,200, journeyman 750–3,800, veteran 1,500–7,500) | 5–15% of home | 0–3% of home |
+| Rookie | Start like prospects | 5–15% of home | 0–3% of home |
+
+**Formulas built on the old scale:**
+- Weights, odds, contender scores and thresholds read `fanScore` (a region) or `globalScore` (the six averaged).
+- `fanScore` is the log of a wrestler's fans: exactly their old popularity for a converted wrestler, never below 0, with no ceiling.
+- So nothing the AI decides shifted when the counts arrived. Rankings, bookings and event eligibility are the same on day one, and they move with fans from then on.
+- `globalScore` is the regions' exact mean, where the old global was rounded; that's within 0.5 for shipped wrestlers.
+- Results, cups and events now report fans gained ("+1.2k fans in Europe").
+- Until the fan-growth stage, a match moves fans by the old popularity rules applied on the log scale (+1 old point is about +12% fans).
+
+**Promotion popularity** (`career/promoPopularity.ts`, monthly, no randomness):
+- It starts at 10 + 70 × the old budget factor: TCG 80, VWF and NWGP 70.9, ZWA 68.1, SLN 64.6, IVW 57.6, SSWC 56.9, AAWA and END 52, UFC 46.4.
+- Each month it moves at most a point towards 10 + 70 × (roster's average score ÷ 43.5) + (90-day average stars − 3) × 8, bounded 10–95. 43.5 is TCG's shipped average, the old budget's base.
+- Pay reads it through `budgetOf` (popularity − 10) ÷ 70, so pay at the start is exactly what it was.
+- Signed contracts keep their fee whatever happens to it.
+- **Indie brands:** 5–30, moving a point a month towards 15 + (90-day average stars − 3) × 10.
+
+**Screens:**
+- Until the new screens are approved, wrestler screens show the same 0–100 bars, now computed from fans.
+- The approved screens will show fan counts everywhere. Promotion popularity stays 0–100.
+
 ## Match ratings (recalibrated)
 
 Lyra's targets, long-run and never quotas:

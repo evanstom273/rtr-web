@@ -2,7 +2,7 @@
 // off and never pair the A.R.I.S.E. promotions, farewells book the retiring wrestler, champions don't retire,
 // and the retired are never booked again.
 import { describe, expect, it } from 'vitest';
-import { PROMOTIONS, TITLES, WRESTLERS, findWrestler } from '../data/rtr';
+import { findWrestler, globalScore, PROMOTIONS, TITLES, WRESTLERS } from '../data/rtr';
 import { activeWorld, freshWorld, setWorld } from '../world/world';
 import { addDays } from './dates';
 import { answerEvent, applyBout, arrangeFarewell, finishDay, makeSpecial, myBoutToday, startCareer, tourneyPairs } from './index';
@@ -15,7 +15,7 @@ import type { Career } from './types';
 
 const quick = async (jobs: SimJob[]): Promise<SimOut[]> => jobs.map((j) => {
   const a = findWrestler(j.you)!, b = findWrestler(j.them)!;
-  const pa = a.popularity.global / (a.popularity.global + b.popularity.global);
+  const pa = globalScore(a) / (globalScore(a) + globalScore(b));
   return { key: j.key, winner: (j.seed % 1000) / 1000 < pa ? 'you' : 'them', finish: 'PINFALL', t: 600, stars: 3, stats: { you: {} as never, them: {} as never } };
 });
 
@@ -117,7 +117,7 @@ describe('one-off shows', () => {
 
   it('a benefit night goes on for someone out long-term', () => {
     const c = begin();
-    const w = WRESTLERS.filter((x) => x.id !== c.player).sort((a, b) => b.popularity.global - a.popularity.global)[3]!;
+    const w = WRESTLERS.filter((x) => x.id !== c.player).sort((a, b) => globalScore(b) - globalScore(a))[3]!;
     c.people[w.id]!.injury = { until: addDays(c.today, 50), what: 'knee' } as never;
     expect(makeSpecial(c, 'benefit')).toBe(true);
     const s = Object.values(c.shows).find((x) => x.special?.kind === 'benefit')!;

@@ -1,8 +1,11 @@
 // Create-a-wrestler rules (the Mount & Blade-style life story) and moveset templates. The create
 // screens use these, and so do generated rookies, so a rookie is built exactly like you are.
-import { MOVES, rollCount, rollTraits, type Attributes, type Move, type MoveType, type TraitId, type Wrestler, type WrestlerClass } from '../data/rtr';
+import { type Attributes, fansFromScore, type Move, MOVES, type MoveType, rollCount, rollTraits, type TraitId, type Wrestler, type WrestlerClass } from '../data/rtr';
 import { wrestlerGimmick, wrestlerName } from '../data/rtr/names';
+import { newcomerFans } from './fanStart';
 import { CITIES } from './places';
+import { ROOKIE_HOME_SCORE } from './tuning';
+import type { PopRegion } from './types';
 import type { Rng } from '../engine/rng';
 
 export const ATTR_KEYS: (keyof Attributes)[] = ['strength', 'speed', 'stamina', 'skill', 'striking', 'charisma'];
@@ -169,12 +172,12 @@ export function makeRookie(rnd: Rng, roster: readonly Wrestler[], id: string): W
     classes, gender: model.gender, disposition: heel ? 'HEEL' : 'FACE', age: 19 + Math.floor(rnd() * 6),
     height: model.height, weight: model.weight, region: model.region, regionLabel: model.regionLabel, country,
     promotion: 'TIS', division: model.division, stats,
-    popularity: { global: 5, northAmerica: 5, southAmerica: 5, europe: 5, asia: 5, africa: 5, oceania: 5, [regionKeyOf(model.region)]: 10 },
+    fans: newcomerFans(rnd, regionKeyOf(model.region), fansFromScore(ROOKIE_HOME_SCORE[0] + rnd() * (ROOKIE_HOME_SCORE[1] - ROOKIE_HOME_SCORE[0]))),
     ...kit,
   };
   w.traits = rollTraits(w, rnd, rollCount(rnd));
   return w;
 }
 
-const regionKeyOf = (r: string): string =>
-  ({ NORTH_AMERICA: 'northAmerica', SOUTH_AMERICA: 'southAmerica', EUROPE: 'europe', ASIA: 'asia', AFRICA: 'africa', OCEANIA: 'oceania' })[r] ?? 'europe';
+const regionKeyOf = (r: string): PopRegion =>
+  (({ NORTH_AMERICA: 'northAmerica', SOUTH_AMERICA: 'southAmerica', EUROPE: 'europe', ASIA: 'asia', AFRICA: 'africa', OCEANIA: 'oceania' }) as Record<string, PopRegion>)[r] ?? 'europe';

@@ -8,6 +8,7 @@ import type { Move, Promotion, Staffer, Title, Weapon, Wrestler } from './types'
 
 export * from './types';
 export * from './traits';
+export * from './fans';
 
 export const MOVES = movesJson as Move[];
 export const WEAPONS = weaponsJson as Weapon[];

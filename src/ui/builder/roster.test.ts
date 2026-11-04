@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TITLES, WRESTLERS } from '../../data/rtr';
+import { fanScore, TITLES, WRESTLERS } from '../../data/rtr';
 import { NO_FILTERS, filterRoster } from './roster';
 
 describe('match builder roster', () => {
@@ -21,7 +21,7 @@ describe('match builder roster', () => {
     expect(list.every((w) => w.gender === 'FEMALE' && w.classes.includes('TECHNICIAN'))).toBe(true);
     for (let i = 1; i < list.length; i++) expect(list[i - 1]!.stats.strength).toBeGreaterThanOrEqual(list[i]!.stats.strength);
     const asia = filterRoster({ ...NO_FILTERS, sort: 'pop-asia' });
-    expect(asia[0]!.popularity.asia).toBe(Math.max(...WRESTLERS.map((w) => w.popularity.asia)));
+    expect(fanScore(asia[0]!, 'asia')).toBe(Math.max(...WRESTLERS.map((w) => fanScore(w, 'asia'))));
   });
 
   it('title status: champions, everyone else not', () => {

@@ -1,5 +1,5 @@
 // Shared helpers for the career's tests and long-run harnesses (not used by the game itself).
-import { TITLES, WRESTLERS, findWrestler } from '../data/rtr';
+import { findWrestler, globalScore, TITLES, WRESTLERS } from '../data/rtr';
 import { freshWorld, setWorld } from '../world/world';
 import { applyBout, finishDay, myBoutToday, startCareer } from './index';
 import type { SimJob, SimOut } from './sim';
@@ -13,7 +13,7 @@ const statLine = { movesTried: 20, movesLanded: 12, finTried: 1, finHit: 1, sigT
 export const quick: Runner = async (jobs) => jobs.map((j) => {
   const a = findWrestler(j.you)!, b = findWrestler(j.them)!;
   const h = (j.seed % 1000) / 1000;
-  const pa = a.popularity.global / (a.popularity.global + b.popularity.global);
+  const pa = globalScore(a) / (globalScore(a) + globalScore(b));
   return { key: j.key, winner: h < pa ? 'you' : 'them', finish: 'PINFALL', t: 600 + (j.seed % 600), stars: 2 + (j.seed % 30) / 10, stats: { you: statLine, them: statLine } };
 });
 
@@ -29,7 +29,7 @@ export function who(player: string): string {
   const gender = player === '@indie-f' ? 'FEMALE' : 'MALE';
   const pool = WRESTLERS.filter((w) => w.promotion === 'TIS' && w.gender === gender && !held.has(w.id));
   const na = pool.filter((w) => w.region === 'NORTH_AMERICA');
-  return (na.length ? na : pool).sort((a, b) => b.popularity.global - a.popularity.global || (a.id < b.id ? -1 : 1))[0]!.id;
+  return (na.length ? na : pool).sort((a, b) => globalScore(b) - globalScore(a) || (a.id < b.id ? -1 : 1))[0]!.id;
 }
 
 /** A fresh world and a career in it. */

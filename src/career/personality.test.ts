@@ -27,8 +27,11 @@ describe('earning traits', () => {
     const c = begin('jamie_mercer', 11);
     me(c).traits = ['loyal'];
     let taken = 0;
+    // Counted as they arrive: the mailbox only keeps the latest 200 letters.
+    const seen = new Set<string>();
     for (let i = 0; i < 365; i++) {
       await day(c, flyer);
+      for (const l of offers(c)) seen.add(l.id);
       for (const l of offers(c).filter((x) => !x.done)) {
         // The card waits: nothing changes until you choose, even with slots free.
         const t = l.subject.replace('You’re becoming a ', '');
@@ -40,7 +43,7 @@ describe('earning traits', () => {
         taken++;
       }
     }
-    const n = offers(c).length;
+    const n = seen.size;
     expect(n).toBeGreaterThanOrEqual(1);
     expect(n).toBeLessThanOrEqual(2);
     expect(me(c).traits).toContain('risk_taker');

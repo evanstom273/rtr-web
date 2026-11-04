@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { CLASS_LABEL } from '../../data/commentary';
-import { getMove, getPromotion, titlesHeldBy, type MoveType, type Wrestler } from '../../data/rtr';
+import { fanScore, getMove, getPromotion, globalScore, type MoveType, titlesHeldBy, type Wrestler } from '../../data/rtr';
 import { useBackLayer } from '../backStack';
 import { Name } from '../common/Name';
 import type { TeamKey } from './useDragSort';
@@ -94,9 +94,9 @@ export function Profile({ w, team, locked, onAdd, onRemove, onClose }: Props) {
               <div key={k} className={`pf-bar${k === 'global' ? ' global' : ''}`}>
                 <span>{l}</span>
                 <span className="bt">
-                  <i style={{ width: `${w.popularity[k]}%` }} />
+                  <i style={{ width: `${Math.min(100, k === 'global' ? globalScore(w) : fanScore(w, k))}%` }} />
                 </span>
-                <b>{w.popularity[k]}</b>
+                <b>{Math.round(k === 'global' ? globalScore(w) : fanScore(w, k))}</b>
               </div>
             ))}
           </div>

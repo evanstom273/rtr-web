@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PROMOTIONS, TITLES, WRESTLERS, findWrestler } from '../data/rtr';
+import { findWrestler, globalScore, PROMOTIONS, TITLES, WRESTLERS } from '../data/rtr';
 import { activeWorld, freshWorld, setWorld } from '../world/world';
 import { acceptLetter, applyBout, finishDay, myBoutToday, runToday, showsOn, startCareer } from './index';
 import { daysBetween } from './dates';
@@ -10,7 +10,7 @@ import { who } from './testkit';
 const quick = async (jobs: SimJob[]): Promise<SimOut[]> => jobs.map((j) => {
   const a = findWrestler(j.you)!, b = findWrestler(j.them)!;
   const h = (j.seed % 1000) / 1000;
-  const pa = a.popularity.global / (a.popularity.global + b.popularity.global);
+  const pa = globalScore(a) / (globalScore(a) + globalScore(b));
   const zero = { movesTried: 20, movesLanded: 12, finTried: 1, finHit: 1, sigTried: 1, sigHit: 1, reversalTries: 5, reversalWins: 2, kickouts: 2, pinTries: 3 };
   return { key: j.key, winner: h < pa ? 'you' : 'them', finish: 'PINFALL', t: 600 + (j.seed % 600), stars: 2 + (j.seed % 30) / 10, stats: { you: zero, them: zero } };
 });

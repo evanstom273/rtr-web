@@ -1,5 +1,5 @@
 // Work coming your way: indie bookings, asking for a spot, tryouts and contract offers.
-import { PROMOTIONS, TITLES, WRESTLERS, findWrestler } from '../data/rtr';
+import { findWrestler, globalScore, PROMOTIONS, TITLES, WRESTLERS } from '../data/rtr';
 import type { Rng } from '../engine/rng';
 import { seededRng } from '../engine/rng';
 import { activeWorld } from '../world/world';
@@ -100,7 +100,7 @@ export function askForSpot(c: Career, show: Show): { ok: boolean; text: string }
   if (!allowed.ok) return { ok: false, text: allowed.why ?? 'You can’t make that date.' };
   if (c.indie[show.id]) return { ok: false, text: 'You’re already on it.' };
   const me = findWrestler(c.player)!;
-  const chance = Math.min(ASK_SPOT_MAX_PCT, ASK_SPOT_BASE_PCT + me.popularity.global) / 100;
+  const chance = Math.min(ASK_SPOT_MAX_PCT, ASK_SPOT_BASE_PCT + globalScore(me)) / 100;
   const asked = (c.asked ??= {});
   if (asked[show.id]) return { ok: false, text: 'They’ve already said no.' };
   asked[show.id] = true;
@@ -117,7 +117,7 @@ function indieOffers(c: Career, rnd: Rng): void {
   const me = findWrestler(c.player)!;
   // A champion draws more interest.
   const champ = TITLES.some((t) => t.holder === c.player);
-  const n = INDIE_OFFERS_BASE + Math.floor(me.popularity.global / INDIE_OFFERS_PER_POP) + (champ ? 1 : 0);
+  const n = INDIE_OFFERS_BASE + Math.floor(globalScore(me) / INDIE_OFFERS_PER_POP) + (champ ? 1 : 0);
   const home = me.region;
   const shows = Object.values(c.shows)
     .filter((s) => s.promo === 'TIS' && s.date > addDays(c.today, 1) && s.date <= addDays(c.today, INDIE_OFFER_WINDOW_DAYS) && indieAllowed(c, s.date).ok)

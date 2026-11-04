@@ -1,7 +1,7 @@
 // The world over years with the quick stand-in sim (opt-in, slow).
 // LONG=1 npx vitest run src/career/longrun.test.ts  [YEARS=3 SEEDS=7,11,23]
 import { it } from 'vitest';
-import { WRESTLERS } from '../data/rtr';
+import { globalScore, WRESTLERS } from '../data/rtr';
 import { activeWorld } from '../world/world';
 import { addDays, weekStart } from './dates';
 import { REGION_OF } from './places';
@@ -51,7 +51,7 @@ function bookingReport(c: Career): string[] {
   const perMonth = (xs: typeof indies) => xs.map((x) => ((yr.get(x.id) ?? 0) * 30) / 365);
   const f = (xs: number[]) => `p10 ${pct(xs, 0.1).toFixed(1)} · median ${pct(xs, 0.5).toFixed(1)} · p90 ${pct(xs, 0.9).toFixed(1)}`;
   const idle = (xs: typeof indies, m: Map<string, number>) => `${Math.round((xs.filter((x) => !m.has(x.id)).length / Math.max(1, xs.length)) * 100)}%`;
-  const byPop = [...indies].sort((a, b) => a.popularity.global - b.popularity.global);
+  const byPop = [...indies].sort((a, b) => globalScore(a) - globalScore(b));
   const q = (i: number) => byPop.slice(Math.floor((byPop.length * i) / 4), Math.floor((byPop.length * (i + 1)) / 4));
   const weeks = new Map<string, number>();
   for (const sh of year) if (sh.promo === 'TIS' && !sh.promos?.length) weeks.set(weekStart(sh.date), (weeks.get(weekStart(sh.date)) ?? 0) + 1);

@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef } from 'react';
 import { TraitChips } from './Traits';
-import { findWrestler, getMove, titlesHeldBy } from '../../data/rtr';
+import { fanScore, findWrestler, getMove, globalScore, titlesHeldBy } from '../../data/rtr';
 import { C, CLAUSES, myBoutToday, person, promoName, type Career } from '../../career';
 import { ATTR_KEYS, ATTR_LONG, CLASS_NAME, divisionName } from '../../career/create';
 import { daysBetween, fmtDay } from '../../career/dates';
@@ -26,8 +26,8 @@ export function Profile({ c, onBack, onOpen, onShowDay, onHub }: Props) {
   const wins = c.history.filter((m) => m.result === 'win').length, losses = c.history.filter((m) => m.result === 'loss').length;
   const vals = ATTR_KEYS.map((key) => me.stats[key]);
   const best = Math.max(...vals);
-  const pops = [['GLOBAL', me.popularity.global] as const, ...REGIONS.map((r) => [SHORT[r], me.popularity[r]] as const)];
-  const bestPop = Math.max(...REGIONS.map((r) => me.popularity[r]));
+  const pops = [['GLOBAL', globalScore(me)] as const, ...REGIONS.map((r) => [SHORT[r], fanScore(me, r)] as const)];
+  const bestPop = Math.max(...REGIONS.map((r) => fanScore(me, r)));
   const health = p.injury ? `Injured to ${fmtDay(p.injury.until, 'dm')}` : p.fatigue >= 60 ? 'Tired' : p.fatigue >= 30 ? 'Worn' : 'Healthy';
   const ini = me.name.replace(/"[^"]*"\s*/g, '').split(' ').map((s) => s[0]).join('').slice(0, 2);
   const clauseList = k ? k.clauses.map((t, i) => (t ? `${CLAUSES[i]!.name} T${t}` : '')).filter(Boolean) : [];
@@ -98,7 +98,7 @@ export function Profile({ c, onBack, onOpen, onShowDay, onHub }: Props) {
         <button onClick={() => onOpen('relationships')}>{w('Relationships')}</button>
         <button onClick={onHub}>{w('The hub', 'Hub')}</button>
       </div>
-      <span className="c-hint" style={{ marginTop: 6, textAlign: 'center' }}>{money(c.money)} {w('in the bank')} · {REGION_LABEL[REGIONS.reduce((a, b) => (me.popularity[b] > me.popularity[a] ? b : a))]} {w('is your strongest region')}</span>
+      <span className="c-hint" style={{ marginTop: 6, textAlign: 'center' }}>{money(c.money)} {w('in the bank')} · {REGION_LABEL[REGIONS.reduce((a, b) => (fanScore(me, b) > fanScore(me, a) ? b : a))]} {w('is your strongest region')}</span>
     </Screen>
   );
 }

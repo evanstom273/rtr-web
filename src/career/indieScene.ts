@@ -1,7 +1,7 @@
 // The indie scene, month to month: when it's crowded, idle unknowns quietly leave the business; when
 // it's thin, new faces debut on the circuit. Rolls with its own seed (a career hook), so it never shifts
 // anything else's results.
-import { TITLES, WRESTLERS, databaseChanged } from '../data/rtr';
+import { databaseChanged, globalScore, TITLES, WRESTLERS } from '../data/rtr';
 import { hashSeed, seededRng } from '../engine/rng';
 import { activeWorld } from '../world/world';
 import { addEvent } from '../world/history';
@@ -23,7 +23,7 @@ function monthly(c: Career): void {
     const idle = indies.filter((w) => {
       const p = c.people[w.id];
       const last = p?.last ?? null;
-      return !champs.has(w.id) && !p?.retiring && w.popularity.global < INDIE_IDLE_LEAVE_POP && (!last || daysBetween(last, c.today) >= INDIE_IDLE_LEAVE_DAYS);
+      return !champs.has(w.id) && !p?.retiring && globalScore(w) < INDIE_IDLE_LEAVE_POP && (!last || daysBetween(last, c.today) >= INDIE_IDLE_LEAVE_DAYS);
     });
     let over = indies.length - INDIE_POOL_MAX;
     for (const w of idle) {

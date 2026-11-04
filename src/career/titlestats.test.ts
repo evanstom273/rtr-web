@@ -1,14 +1,14 @@
 // Title rhythm and stability over simulated years, by title class (balance sheet section 14).
 // Opt-in (slow): TITLE_STATS=1 npx vitest run src/career/titlestats.test.ts  [DAYS=730 LABEL=...]
 import { it } from 'vitest';
-import { PROMOTIONS, TITLES, findWrestler } from '../data/rtr';
+import { findWrestler, globalScore, PROMOTIONS, TITLES } from '../data/rtr';
 import { freshWorld, setWorld } from '../world/world';
 import { applyBout, finishDay, myBoutToday, showsOn, startCareer } from './index';
 import type { SimJob, SimOut } from './sim';
 
 const quick = async (jobs: SimJob[]): Promise<SimOut[]> => jobs.map((j) => {
   const a = findWrestler(j.you)!, b = findWrestler(j.them)!;
-  const pa = a.popularity.global / (a.popularity.global + b.popularity.global);
+  const pa = globalScore(a) / (globalScore(a) + globalScore(b));
   return { key: j.key, winner: (j.seed % 1000) / 1000 < pa ? 'you' : 'them', finish: 'PINFALL', t: 600, stars: 3, stats: { you: {} as never, them: {} as never } };
 });
 

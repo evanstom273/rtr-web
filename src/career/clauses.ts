@@ -1,4 +1,5 @@
 // The ten contract clauses (Lyra's wording) and each promotion's attitude to them.
+import { getPromotion } from '../data/rtr';
 export interface ClauseDef { id: string; name: string; tiers: [string, string, string]; none: string; short: [string, string, string] }
 
 export const CLAUSES: ClauseDef[] = [
@@ -39,10 +40,19 @@ export const NO_CLAUSES = (): number[] => [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
 export type Attitude = 'resist' | 'neutral' | 'flexible';
 
-/** Budget = the promotion's average roster popularity ÷ TCG's (the most popular roster). */
+/**
+ * The old budget factors (average roster popularity ÷ TCG's). Promotions now carry a 0–100 popularity
+ * that starts at 10 + 70 × this and moves; `budgetOf` reads that. Kept for converting older saves.
+ */
 export const BUDGET: Record<string, number> = {
   TCG: 1, VWF: 0.87, NWGP: 0.87, ZWA: 0.83, SLN: 0.78, IVW: 0.68, SSWC: 0.67, AAWA: 0.6, END: 0.6, UFC: 0.52, TIS: 0.4,
 };
+
+/** How much a promotion can spend, from its popularity: TCG at 80 is 1, UFC at 46 about 0.52. */
+export function budgetOf(promo: string): number {
+  const pop = getPromotion(promo)?.popularity;
+  return pop === undefined ? BUDGET[promo] ?? 0.5 : (pop - 10) / 70;
+}
 
 const R: Attitude = 'resist', F: Attitude = 'flexible';
 const ATT: Record<string, Partial<Record<keyof typeof C, Attitude>>> = {
@@ -64,4 +74,4 @@ export function attitude(promo: string, clause: number): Attitude {
 }
 
 /** Rounds they'll negotiate before walking: richer promotions are less patient. */
-export const patience = (promo: string): number => ((BUDGET[promo] ?? 0.5) >= 0.8 ? 3 : (BUDGET[promo] ?? 0.5) >= 0.65 ? 4 : 5);
+export const patience = (promo: string): number => (budgetOf(promo) >= 0.8 ? 3 : budgetOf(promo) >= 0.65 ? 4 : 5);

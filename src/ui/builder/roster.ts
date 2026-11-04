@@ -1,6 +1,6 @@
 // Match builder roster: the Godot filters and sorts (match_setup_popup.gd), over the imported data.
 import { CLASS_LABEL } from '../../data/commentary';
-import { PROMOTIONS, TITLES, WRESTLERS, getPromotion, isChampion, titlesHeldBy, type Popularity, type Wrestler, type WrestlerClass } from '../../data/rtr';
+import { fanScore, type FanRegion, getPromotion, globalScore, isChampion, PROMOTIONS, TITLES, titlesHeldBy, type Wrestler, type WrestlerClass, WRESTLERS } from '../../data/rtr';
 
 export type SortMode =
   | 'alpha' | 'alpha-desc' | 'strength' | 'speed' | 'stamina' | 'skill' | 'striking' | 'charisma'
@@ -69,7 +69,8 @@ function haystack(w: Wrestler): string {
 
 export function sortValue(w: Wrestler, sort: SortMode): number | null {
   if (sort === 'alpha' || sort === 'alpha-desc') return null;
-  if (sort.startsWith('pop-')) return w.popularity[sort.slice(4) as keyof Popularity];
+  if (sort === 'pop-global') return globalScore(w);
+  if (sort.startsWith('pop-')) return fanScore(w, sort.slice(4) as FanRegion);
   return w.stats[sort as keyof Wrestler['stats']];
 }
 

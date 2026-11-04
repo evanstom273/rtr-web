@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PROMOTIONS, TITLES, WRESTLERS, findWrestler } from '../data/rtr';
+import { FAN_REGIONS, fansForScore, findWrestler, globalScore, PROMOTIONS, TITLES, WRESTLERS } from '../data/rtr';
 import { freshWorld, setWorld } from '../world/world';
 import { addDays } from './dates';
 import { bookerKey, showBooker } from './patience';
@@ -15,7 +15,7 @@ import type { Ask, Career } from './types';
 /** A stand-in for the engine: popularity and the seed decide it. `fix` forces your result. */
 const runner = (fix?: () => 'you' | 'them' | null) => async (jobs: SimJob[]): Promise<SimOut[]> => jobs.map((j) => {
   const a = findWrestler(j.you)!, b = findWrestler(j.them)!;
-  const pa = a.popularity.global / (a.popularity.global + b.popularity.global);
+  const pa = globalScore(a) / (globalScore(a) + globalScore(b));
   const zero = { movesTried: 20, movesLanded: 12, finTried: 1, finHit: 1, sigTried: 1, sigHit: 1, reversalTries: 5, reversalWins: 2, kickouts: 2, pinTries: 3 };
   const o: SimOut = { key: j.key, winner: (j.seed % 1000) / 1000 < pa ? 'you' : 'them', finish: 'PINFALL', t: 600, stars: 3, stats: { you: zero, them: zero } };
   return fix && o.key === 'mine' ? { ...o, winner: fix() } : o;
@@ -116,7 +116,7 @@ describe('requests', () => {
     const c = begin();
     charm(c, 'VWF');
     const target = WRESTLERS.filter((w) => w.promotion === 'VWF' && w.id !== c.player && !TITLES.some((t) => t.holder === w.id) && !c.feuds.some((f) => f.a === w.id || f.b === w.id))
-      .sort((a, b) => a.popularity.global - b.popularity.global)[0]!;
+      .sort((a, b) => globalScore(a) - globalScore(b))[0]!;
     const show = askableShows(c)[1]!;
     expect(askChallenge(c, target.id, show.id).answer).toBe('yes');
     while (c.today < show.date) await day(c);
@@ -152,16 +152,16 @@ describe('requests', () => {
     const me = findWrestler(c.player)!;
     const promo = 'TCG';
     const st = standingWith(c, promo);
-    me.popularity.northAmerica = st.median + 1;
+    me.fans.northAmerica = fansForScore(st.median + 1);
     expect(askApproach(c, promo).answer).toBe('yes');
     expect(c.offers.some((o) => o.promo === promo && o.status === 'open')).toBe(true);
     const d = begin('@indie');
-    findWrestler(d.player)!.popularity.northAmerica = st.q1 + 0.5;
+    findWrestler(d.player)!.fans.northAmerica = fansForScore(st.q1 + 0.5);
     const a = askApproach(d, promo);
     expect(a.answer).toBe('counter');
     expect(a.counter!.kind).toBe('tryout');
     const e = begin('@indie');
-    findWrestler(e.player)!.popularity.northAmerica = st.q1 - 5;
+    findWrestler(e.player)!.fans.northAmerica = fansForScore(st.q1 - 5);
     expect(askApproach(e, promo).answer).toBe('no');
   });
 
@@ -218,7 +218,7 @@ describe('requests', () => {
     const target = WRESTLERS.find((w) => w.promotion !== 'TIS' && (c.people[w.id]?.contract?.clauses[1] ?? 0) >= 1 && !Object.values(c.shows).some((s) => s.date === show.date && s.promo === w.promotion))
       ?? WRESTLERS.find((w) => w.promotion !== 'TIS')!;
     c.people[target.id]!.contract!.clauses[1] = 3;
-    findWrestler(c.player)!.popularity.global = 99;
+    for (const r of FAN_REGIONS) findWrestler(c.player)!.fans[r] = fansForScore(99);
     let a: Ask | undefined;
     for (let i = 0; i < 30 && a?.answer !== 'yes'; i++) {
       const s = askableIndieShows(c).filter((x) => x.date === show.date)[i % 3] ?? show;
@@ -254,7 +254,7 @@ describe('requests', () => {
   it('a free agent can ask an indie promoter for a shot at an indie title: a yes puts you in it on their show', async () => {
     const c = begin('@indie');
     const me = findWrestler(c.player)!;
-    for (const k of Object.keys(me.popularity) as (keyof typeof me.popularity)[]) me.popularity[k] = 99;
+    for (const r of FAN_REGIONS) me.fans[r] = fansForScore(99);
     const t = askableIndieTitles(c)[0]!;
     const show = askableIndieShows(c).find((x) => x.date >= addDays(c.titles[t.id]!.since, 30))!;
     charm(c, showBooker(show));
@@ -272,7 +272,7 @@ describe('requests', () => {
   it('an indie promoter whose champion isn’t free that night offers a different show', () => {
     const c = begin('@indie');
     const me = findWrestler(c.player)!;
-    for (const k of Object.keys(me.popularity) as (keyof typeof me.popularity)[]) me.popularity[k] = 99;
+    for (const r of FAN_REGIONS) me.fans[r] = fansForScore(99);
     const t = askableIndieTitles(c)[0]!;
     const show = askableIndieShows(c).find((x) => x.date >= addDays(c.titles[t.id]!.since, 30))!;
     charm(c, showBooker(show));

@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { TITLES, WRESTLERS, findWrestler } from '../../data/rtr';
+import { findWrestler, globalScore, TITLES, WRESTLERS } from '../../data/rtr';
 import {
   C, PATIENCE_FLOOR, PATIENCE_START, answerCounter, askApproach, askChallenge, askDayOff, askFinish, askIndieChallenge, askMore, askRelease, askReview,
   askRival, askShow, askSpot, askTitleShot, askTryout, askIndieTitleShot, askableIndieShows, askableIndieTitles, askableShows, askableTitles, caughtChance, cooldownLeft, counterLabel,
@@ -521,7 +521,7 @@ export function RequestFlow({ c, route, onBack, onNegotiate, onAnswered }: FlowP
     const them = indie || !promo ? WRESTLERS : WRESTLERS.filter((x) => x.promotion === promo);
     const needle = q.trim().toLowerCase();
     return them.filter((x) => x.id !== c.player && !c.people[x.id]?.retired && (!needle || x.name.toLowerCase().includes(needle)))
-      .sort((a, b) => b.popularity.global - a.popularity.global).slice(0, 60);
+      .sort((a, b) => globalScore(b) - globalScore(a)).slice(0, 60);
   }, [route.req, indie, promo, q, c.player]);
 
   return (
@@ -543,7 +543,7 @@ export function RequestFlow({ c, route, onBack, onNegotiate, onAnswered }: FlowP
             {pickList.map((x) => (
               <button key={x.id} className={target === x.id ? 'c-ans on' : 'c-ans'} onClick={() => { setTarget(x.id); setPicking(false); setI(0); if (promo && x.promotion !== promo) setIndie(true); }} style={{ padding: '7px 10px' }}>
                 <span className="c-rowsb"><Nm id={x.id} /><span className="c-hint">{x.promotion === 'TIS' ? 'INDIE' : x.promotion}</span></span>
-                <span className="c-ad">{x.gimmick} · popularity {Math.round(x.popularity.global)}</span>
+                <span className="c-ad">{x.gimmick} · popularity {Math.round(globalScore(x))}</span>
               </button>
             ))}
           </div>

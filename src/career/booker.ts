@@ -1,7 +1,7 @@
 // The AI bookers: who wrestles on each card, title defences, feuds and planned finishes.
 import { changeLean, contenderBias, stipMult, titleBooker } from './bookerLeans';
 import { contenderLean } from './leans';
-import { PROMOTIONS, TITLES, findWrestler, type Title, type Wrestler } from '../data/rtr';
+import { fanScore, findWrestler, PROMOTIONS, type Title, TITLES, type Wrestler } from '../data/rtr';
 import type { StipulationId } from '../engine/types';
 import { hashSeed, seededRng, type Rng } from '../engine/rng';
 import { addDays, daysBetween, type Day } from './dates';
@@ -28,7 +28,8 @@ export const HARDCORE_STIPS = new Set<StipulationId>(['no_dq', 'falls_count_anyw
 export { hashSeed };
 
 export const promoRegion = (initials: string): PopRegion => REGION_KEY[PROMOTIONS.find((p) => p.initials === initials)?.region ?? ''] ?? 'europe';
-export const regionalPop = (w: Wrestler, r: PopRegion): number => w.popularity[r] ?? w.popularity.global;
+/** Someone's draw in a region on the old 0–100 scale (from their fans there): what the booking formulas weigh. */
+export const regionalPop = (w: Wrestler, r: PopRegion): number => fanScore(w, r);
 
 /** Everyone who works for a show's promotion(s) right now. */
 export function showRoster(show: Show, roster: readonly Wrestler[]): Wrestler[] {
