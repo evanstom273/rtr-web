@@ -1138,3 +1138,22 @@ export const ENEMY = { badmouth: -2, badmouthLike: 20, fight: 0.15, fightLike: -
 export const PULL = { friend: 1.5, friendMax: 6, partner: 8, enemy: -3 };
 /** Bookers personally (every one, not just politicians): a push for people they like (points per 100 like), second chances, softer fines. */
 export const BOOKER_LIKE = { push: 3, patience: 250, fines: 300 };
+
+// --- Gossip and angles (Lyra's relationships redesign, stage 6: PROPOSALS) ------------------------------
+/**
+ * The rumour mill (Lyra's call: true or false, started on purpose by anyone): at most so many going at once, for so
+ * long. Each week, each holder tells each friend (liking them this much, knowing them this well) with this chance
+ * (gossips more, the discreet less), up to so many hearing each. They believe a friend more. New true ones arise
+ * from what's happening (a chance a week each), and liars start false ones about people they can't stand. What
+ * believing each does; what you can do about one about you (denying works more often when it isn't true), and
+ * starting one yourself (the chance each week it's traced back to you, and what that costs).
+ */
+export const RUMOURS = {
+  keep: 40, days: 120, spread: 0.25, gossip: 1.6, discreet: 0.5, tellLike: 30, tellFam: 30, maxHeard: 30,
+  believe: { friend: 0.75, other: 0.4, friendLike: 20 },
+  arise: 0.5, liars: 0.2, liarHate: -40,
+  effect: { badmouth: -8, cheating: -15, cheatingOthers: -2, leaving: -3, favourite: -2, faking: -3, drunk: -2, dating: 0 },
+  you: { tellChance: 0.6, perWeek: 1, denyFalse: 0.7, denyTrue: 0.25, denyRoom: 1, denyBackfire: -2, confront: -5, confrontRoom: -3, traced: 0.2, tracedLike: -25, tracedRoom: -4, spreadLean: 4 },
+};
+/** Angles from real life: how often a booker uses real heat for a new feud; best friends kept apart (on-screen allies). */
+export const ANGLES = { chance: 0.5, bestFriends: 0.6 };

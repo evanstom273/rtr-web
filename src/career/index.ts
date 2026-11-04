@@ -23,6 +23,7 @@ import './phone';
 import './plans';
 import './romance';
 import './politics';
+import './rumours';
 
 export * from './career';
 export * from './contracts';
@@ -48,6 +49,7 @@ export { GOAL_TEXT, MOOD_WHY, moodLabel, moodOf, moodTarget, whereIs } from './s
 export { cancelMeet, freeSlots, upcoming, type Meet } from './plans';
 export { attraction, couldFall, LOVE_LABEL, loversOf, partnerOf } from './romance';
 export { cliqueOf, cliquesOf, leadersOf, roomLabel, standingOf, type Clique } from './politics';
+export { claim, rumoursOf, type Rumour } from './rumours';
 export { MEET_LABEL } from './phoneLines';
 export { contacts, GUESS_TEXT, markRead, phoneOn, phoneUnread, preview, pvoice, send, threadList, threadOf, TONE_LABEL, TOPIC_LABEL, topicsFor, type Guess, type PhoneMsg, type ThreadItem, type Tone, type Topic, type TopicOption } from './phone';
 export { CREATIVE_LABEL, creativeAsk, creativeBlock, creativeBouts, creativeOdds, creativeTier, opponentsFor, vetoNext, type CreativeKind, type CreativeReq } from './creative';

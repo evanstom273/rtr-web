@@ -204,6 +204,8 @@ export interface TitleState { since: Day; defences: number; last: Day | null }
 
 export interface Feud {
   id: string;
+  /** An angle from real life: the heat's real (relationships stage 6). */
+  real?: boolean;
   promo: string;
   a: string;
   b: string;
@@ -379,6 +381,8 @@ export interface Career {
   room?: Record<string, { v: number }>;
   leaders?: Record<string, string[]>;
   cliques?: import('./politics').Clique[];
+  /** Gossip: the stories going round. */
+  rumours?: import('./rumours').Rumour[];
   /** Living with someone (a partner or a mate): your living costs are shared. */
   home?: { with: string; since: Day };
   offered?: Record<string, Day>;

@@ -22,7 +22,7 @@ import { ctxFor, eventLibrary, fire, onAnswer } from './events';
 import { setSigningPull } from './scouting';
 import { registerReplies } from './mail';
 import { phoneOn, sendIn } from './phone';
-import { CHEM, CLIQUE, ENEMY, PAIRING, PULL, ROOM } from './tuning';
+import { ANGLES, CHEM, CLIQUE, ENEMY, PAIRING, PULL, ROOM } from './tuning';
 import type { Bout, Career, PlayerMatch, Show } from './types';
 
 const P = (): People => activeWorld().people!;
@@ -52,7 +52,7 @@ setPairBias((a, b) => {
   const x = bondOf(P(), a, b);
   if (!x) return 1;
   const k = kindOf(x);
-  return k === 'enemy' ? PAIRING.enemies : k === 'rival' ? PAIRING.rival : Math.min(x.la, x.lb) >= 50 ? PAIRING.friends : 1;
+  return k === 'enemy' ? PAIRING.enemies : k === 'rival' ? PAIRING.rival : k === 'best_friend' ? ANGLES.bestFriends : Math.min(x.la, x.lb) >= 50 ? PAIRING.friends : 1;
 });
 
 // ------------------------------------------------------------------ the locker room
