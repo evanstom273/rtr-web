@@ -10,11 +10,12 @@ import { tx } from '../storage/db';
 import type { Career } from '../career/types';
 import { weekStart, type Day } from '../career/dates';
 import { emptyHistory, type WorldHistory } from './history';
-import { bookerOf, freshPeople, pairKey, type Bond, type People } from './people';
+import { bookerOf, freshPeople, fromOldBond, pairKey, type People } from './people';
+import { ensureCircle, seedWorld } from './social';
 import { crownIndies, growIndies, populateIndies } from './populate';
 
 /** The world save's revision: each step in `upgrade` runs once, in order, on older saves. */
-export const WORLD_REV = 9;
+export const WORLD_REV = 10;
 
 export interface World {
   v: 1;
@@ -90,6 +91,22 @@ function upgrade(w: World): void {
   if (rev < 8) raiseToFloor(w);
   // Rev 6: the indie scene is a straight 200 (Lyra's call), so an older one grows to it.
   if (rev < 6 && w.indies) w.indies.generated += growIndies({ seed: w.seed, wrestlers: w.db.wrestlers, people: w.people, retired: (id) => !!w.career?.people[id]?.retired });
+  // Rev 10 (Lyra's relationships redesign): two dials each way. Older bonds convert, and a world with a career in it
+  // is brought to life around what's already there (Lyra's call), the player given their circle.
+  if (rev < 10) toTwoWay(w);
+}
+
+/** Rev 10: every bond becomes two-way (like and respect each way, and familiarity); a played world is given its relationships. */
+export function toTwoWay(w: World): void {
+  const P = w.people!;
+  for (const [k, b] of Object.entries(P.bonds)) if ('v' in (b as object)) P.bonds[k] = fromOldBond(b as unknown as Parameters<typeof fromOldBond>[0]);
+  for (const c of [w.career, w.sim?.career]) {
+    if (!c) continue;
+    const out = (id: string) => id.startsWith('__') || !!c.people[id]?.retired;
+    seedWorld({ seed: w.seed, day: c.today, wrestlers: w.db.wrestlers, people: P, out });
+    const me = w.db.wrestlers.find((x) => x.id === c.player);
+    if (me && !c.spectator) ensureCircle({ seed: w.seed, day: c.today, player: me, wrestlers: w.db.wrestlers, people: P, out });
+  }
 }
 
 /**
@@ -194,11 +211,8 @@ export function meetThePeople(w: World): void {
   }
   for (const [id, r] of Object.entries(c.relations ?? {})) {
     const k = pairKey(c.player, id);
-    const bond: Bond = { a: c.player < id ? c.player : id, b: c.player < id ? id : c.player, v: r.v, met: r.met, last: r.last, log: r.log };
-    if (r.kind === 'mentor') { bond.kind = 'mentor'; bond.mentor = id; }
-    else if (r.kind === 'protege') { bond.kind = 'mentor'; bond.mentor = c.player; }
-    else if (r.kind) bond.kind = r.kind;
-    P.bonds[k] = bond;
+    const mentor = r.kind === 'mentor' ? id : r.kind === 'protege' ? c.player : undefined;
+    P.bonds[k] = fromOldBond({ a: c.player < id ? c.player : id, b: c.player < id ? id : c.player, v: r.v, kind: mentor ? 'mentor' : r.kind, mentor, met: r.met, last: r.last, log: r.log.map((l) => ({ day: l.day, d: l.d ?? 0, t: l.t })) });
   }
   delete c.relations;
 }

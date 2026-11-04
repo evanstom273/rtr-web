@@ -141,6 +141,8 @@ export interface Side {
   big: boolean;
   /** Inconsistent: tonight's form, −2 to +2 on every roll (0 for everyone else). */
   form: number;
+  /** Wellbeing: in a good place (+) or not right (−), on every roll. */
+  mood?: number;
   regular: Move[];
   signatures: Move[];
   finishers: Move[];
@@ -576,6 +578,8 @@ export interface MatchRulesConfig {
   big?: boolean;
   /** Career: fatigue carried in, as the share of stamina each side starts with (1 = fresh). */
   freshness?: Partial<Record<SideKey, number>>;
+  /** Wellbeing: a bonus (or penalty) on every roll for each side. */
+  mood?: Partial<Record<SideKey, number>>;
 }
 
 export interface MatchState {

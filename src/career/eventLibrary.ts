@@ -34,7 +34,7 @@ const promoterOf = (x: EvCtx, d: Record<string, string | number>) => { const s =
 const veteran = (x: EvCtx) => scene(x).filter((w) => w.age >= 35 && healthy(w, x) && !(relationOf(x.c, w.id)?.kind === 'mentor'));
 const youngster = (x: EvCtx) => scene(x).filter((w) => w.age <= 24 && globalScore(w) < globalScore(x.me) - 3 && healthy(w, x));
 const colleague = (x: EvCtx) => scene(x).filter((w) => healthy(w, x));
-const rivals = (x: EvCtx) => relationsList(x.c).filter((r) => r.r.v <= -25 || r.r.kind === 'rival').map((r) => findWrestler(r.id)!).filter((w) => w && healthy(w, x));
+const rivals = (x: EvCtx) => relationsList(x.c).filter((r) => r.r.v <= -25 || r.r.kind === 'rival' || r.r.kind === 'enemy' || r.r.tie === 'rival').map((r) => findWrestler(r.id)!).filter((w) => w && healthy(w, x));
 const friendly = (x: EvCtx, min = 15) => relationsList(x.c).filter((r) => r.r.v >= min).map((r) => findWrestler(r.id)!).filter((w) => w && healthy(w, x));
 const withKind = (x: EvCtx, kind: string) => relationsList(x.c).filter((r) => r.r.kind === kind).map((r) => findWrestler(r.id)!).filter(Boolean);
 const lowestAttr = (x: EvCtx) => [...ATTR_KEYS].sort((a, b) => x.me.stats[a] - x.me.stats[b])[Math.floor(x.rnd() * 2)]!;

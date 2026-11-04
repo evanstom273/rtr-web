@@ -2,7 +2,9 @@ import { useMemo, useState } from 'react';
 import { REGION_KEY, REGION_LABEL } from '../../career/places';
 import { TraitChips } from './Traits';
 import { FAN_REGIONS, fansTotal, findWrestler, fmtFans, getMove, globalScore, PROMOTIONS, TITLES, titlesHeldBy, WRESTLERS, worksFor } from '../../data/rtr';
-import { askableIndieTitles, askableTitles, person, promoName, type Career } from '../../career';
+import { askableIndieTitles, askableTitles, GOAL_TEXT, moodLabel, moodOf, person, promoName, readOf, relationOf, type Career } from '../../career';
+import { bondsOf, kindOf } from '../../world/people';
+import { homeOf, schoolOf } from '../../world/social';
 import { ATTR_KEYS, ATTR_LONG, CLASS_NAME, divisionName } from '../../career/create';
 import { daysBetween, fmtDay } from '../../career/dates';
 import { stipulation } from '../../engine';
@@ -310,6 +312,46 @@ function Lineage({ id, today, onClose, onWrestler, onAsk }: { id: string; today:
 }
 
 /** Any wrestler's file: today's profile, and their matches, title reigns and moves on record. */
+/**
+ * Their life (Lyra's call: news and profiles): where they live and trained, what they're after, how they seem
+ * (if you know them well enough to tell), and who they're close to, compete with and can't stand.
+ */
+function Life({ c, id }: { c: Career; id: string }) {
+  const { w } = useWords();
+  const x = findWrestler(id)!;
+  const W = activeWorld();
+  const P = W.people;
+  const life = P?.lives?.[id];
+  const me = id === c.player;
+  const home = homeOf(W.seed, id, x.country, life);
+  const school = schoolOf(W.seed, id, x.country);
+  const nameOf = (o: string) => findWrestler(o)?.name ?? P?.staff[o]?.name ?? P?.folk?.[o]?.name ?? o;
+  const list = (want: (k: ReturnType<typeof kindOf>, theirs: number) => boolean) => (P ? bondsOf(P, id) : [])
+    .filter((b) => !P!.folk?.[b.other] && want(kindOf(b.bond, c.today), b.bond.a === id ? b.bond.la : b.bond.lb))
+    .sort((a, b) => Math.abs((b.bond.a === id ? b.bond.la : b.bond.lb)) - Math.abs((a.bond.a === id ? a.bond.la : a.bond.lb))).slice(0, 4).map((b) => nameOf(b.other));
+  const close = list((k) => k === 'best_friend' || k === 'friend');
+  const rivals = list((k) => k === 'rival');
+  const hates = list((_k, l) => l <= -60);
+  const mentor = P ? bondsOf(P, id).find((b) => b.bond.mentor) : undefined;
+  const goal = me ? undefined : life?.goal;
+  const read = me ? 'clear' : readOf(relationOf(c, id));
+  return (
+    <>
+      <span className="c-sec">{w('Life')}</span>
+      <div className="c-kv">
+        <span className="c-lab">{w('Lives in')}</span><span className="c-val">{home ? `${home}, ` : ''}{me ? c.base ?? x.country : x.country}</span>
+        <span className="c-lab">{w('Trained at')}</span><span className="c-val">{school.name}</span>
+        {goal && <><span className="c-lab">{w('After')}</span><span className="c-val">{GOAL_TEXT[goal.kind]}{goal.kind === 'even' && goal.on ? `: ${nameOf(goal.on)}` : ''}</span></>}
+        <span className="c-lab">{w(me ? 'Wellbeing' : 'Seems')}</span><span className="c-val">{read === 'none' ? 'Hard to say: you don’t know them well enough' : moodLabel(moodOf(id))}</span>
+        {close.length > 0 && <><span className="c-lab">{w('Close to')}</span><span className="c-val">{close.join(', ')}</span></>}
+        {rivals.length > 0 && <><span className="c-lab">{w('Rivals')}</span><span className="c-val">{rivals.join(', ')}</span></>}
+        {hates.length > 0 && <><span className="c-lab">{w('Can’t stand')}</span><span className="c-val">{hates.join(', ')}</span></>}
+        {mentor && <><span className="c-lab">{w(mentor.bond.mentor === id ? 'Mentoring' : 'Mentored by')}</span><span className="c-val">{nameOf(mentor.other)}</span></>}
+      </div>
+    </>
+  );
+}
+
 function File({ id, c, tab, setTab, onClose, onShow, onTitle, onMoveset, onChallenge }: {
   id: string; c: Career; tab: number; setTab: (n: number) => void; onClose: () => void; onShow: (id: string) => void; onTitle: (id: string) => void; onMoveset: () => void; onChallenge: () => void;
 }) {
@@ -383,6 +425,7 @@ function File({ id, c, tab, setTab, onClose, onShow, onTitle, onMoveset, onChall
               <span className="c-lab">{w('Signatures')}</span><span className="c-val">{x.signatures.map((m) => getMove(m).name).join(', ')}</span>
               {x.id === c.player && <><span className="c-lab">{w('Bank')}</span><span className="c-val">{money(c.money)}</span></>}
             </div>
+            <Life c={c} id={x.id} />
           </>
         )}
       </div>

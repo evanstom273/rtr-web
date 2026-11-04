@@ -1,19 +1,20 @@
-// Relationships and promoter memory (career expansion, stage 2).
+// Relationships and promoter memory (career expansion, stage 2; Lyra's relationships redesign).
 //
-// Wrestlers: an affinity from −100 to +100 with everyone you've dealt with, and sometimes a kind
-// (friend, rival, mentor, protégé) that events and matches give it. Promoters: each booker (a
-// promotion's, or each indie promoter, by show name) remembers how you've worked for them, and that
-// memory sets how much they trust you. Patience is short-term (requests); trust is the long memory.
+// People: everyone you've dealt with feels their own way about you, on two dials (like you as a person, respect
+// your work), and you about them; how well you know each other decides how clearly you can read them. What it's
+// become (friend, best friend, rival, enemy) comes from the dials; a mentorship sits alongside. Promoters: each
+// booker (a promotion's, or each indie promoter, by show name) remembers how you've worked for them, and that
+// memory sets how much they trust you, which is their respect for your work. Patience is short-term (requests).
 import { trustWeights } from './bookerLeans';
 import { playerHas, relationMult } from './leans';
 import { findWrestler } from '../data/rtr';
 import { activeWorld } from '../world/world';
-import { bondOf, bondsOf, freshPeople, moveBond, type Bond, type BondKind, type People } from '../world/people';
+import { bondOf, bondsOf, feelPair, freshPeople, kindOf, likeOf, mark, type Bond, type People } from '../world/people';
 import { setCareerHooks } from './career';
 import type { Day } from './dates';
 import { bookerKey, showBooker } from './patience';
 import {
-  REL_FEUD, REL_FRIEND_AT, REL_GREAT_MATCH, REL_OFF_SCRIPT_ON, REL_RIVAL_AT, TRUST_BOTCHED, TRUST_FAVOUR, TRUST_GOOD, TRUST_KEPT, TRUST_NO_SHOW,
+  BOND_KIND, BOND_LOG, REL_GREAT_MATCH, REL_OFF_SCRIPT_ON, SOCIAL_READ, SOCIAL_TOUCH, TRUST_BOTCHED, TRUST_FAVOUR, TRUST_GOOD, TRUST_KEPT, TRUST_NO_SHOW,
   TRAIT_BACKSTAGE, TRUST_OFF_SCRIPT, TRUST_SNUB, TRUST_START,
 } from './tuning';
 import type { Bout, BookerMemory, Career, PlayerMatch, RelKind, Relation, Show } from './types';
@@ -24,46 +25,75 @@ import type { Bout, BookerMemory, Career, PlayerMatch, RelKind, Relation, Show }
 
 const people = (): People => (activeWorld().people ??= freshPeople());
 
-/** A bond, as your relationship with the other person: their mentorship of you, or yours of them. */
-function asRelation(b: Bond, other: string): Relation {
-  const kind: RelKind | undefined = b.kind === 'mentor' ? (b.mentor === other ? 'mentor' : 'protege')
-    : b.kind === 'friend' || b.kind === 'best_friend' ? 'friend'
-      : b.kind === 'rival' || b.kind === 'enemy' ? 'rival' : undefined;
-  return { v: b.v, met: b.met, last: b.last, log: b.log, ...(kind ? { kind } : {}) };
+/** Someone you can have a relationship with: a wrestler, a booker or promoter, or someone outside the ring. */
+export const knowable = (id: string): boolean => !!findWrestler(id) || !!people().staff[id] || !!people().folk?.[id];
+
+/** A bond, as your relationship with the other person (a booker's respect is their trust in your work). */
+function asRelation(c: Career, b: Bond, other: string): Relation {
+  const meA = b.a === c.player;
+  const like = meA ? b.lb : b.la;
+  const respect = people().staff[other] ? (trust(c, other) - 50) * 2 : meA ? b.rb : b.ra;
+  const tie = kindOf(b, c.today);
+  const kind: RelKind | undefined = b.mentor ? (b.mentor === other ? 'mentor' : 'protege') : tie;
+  return {
+    v: like, like, respect, mine: { like: meA ? b.la : b.lb, respect: meA ? b.ra : b.rb }, fam: b.f, met: b.met ?? b.last, last: b.last, log: b.log ?? [],
+    ...(kind ? { kind } : {}), ...(tie ? { tie } : {}),
+  };
 }
 
 export const relationOf = (c: Career, id: string): Relation | undefined => {
   const b = bondOf(people(), c.player, id);
-  return b ? asRelation(b, id) : undefined;
+  return b ? asRelation(c, b, id) : undefined;
 };
-export const affinity = (c: Career, id: string): number => bondOf(people(), c.player, id)?.v ?? 0;
+/** How someone feels about you (their like). */
+export const affinity = (c: Career, id: string): number => likeOf(people(), id, c.player);
 
-/** Move how someone feels about you, and say why (the last few reasons are kept). */
+/**
+ * Move how someone feels about you, and say why (the last few reasons are kept). You've dealt with them, so you
+ * know each other a little better, and you take to them a share of how they've taken to you. `kind` marks it:
+ * friends, rivals, or a mentorship (theirs of you, or yours of them).
+ */
 export function moveRelation(c: Career, id: string, d: number, why: string, kind?: RelKind): Relation | undefined {
-  if (!id || id === c.player || !findWrestler(id)) return undefined;
-  const k: BondKind | undefined = kind === 'protege' ? 'mentor' : kind;
+  if (!id || id === c.player || !knowable(id)) return undefined;
   d = Math.round(d * relationMult(c, d));
-  const b = moveBond(people(), c.player, id, d, why, c.today, k, kind === 'mentor' ? id : kind === 'protege' ? c.player : undefined);
-  return asRelation(b, id);
+  const P = people();
+  const b = feelPair(P, id, c.player, [d, 0], [Math.round(d * SOCIAL_TOUCH.reciprocal), 0], why, c.today, { keep: BOND_LOG.mine, fam: SOCIAL_TOUCH.fam });
+  if (kind === 'mentor') mark(b, 'mentor', c.today, id);
+  else if (kind === 'protege') mark(b, 'mentor', c.today, c.player);
+  else if (kind === 'friend' || kind === 'best_friend') mark(b, 'friend', c.today);
+  else if (kind === 'rival' || kind === 'enemy') mark(b, 'rival', c.today);
+  return asRelation(c, b, id);
 }
 
-/** How a relationship reads: an explicit kind first, then how strong the feeling is. */
+/**
+ * How a relationship reads to you (Lyra's call: clearer the closer). Mentorships and what it's become first; past
+ * that, how they feel, if you know them well enough to tell. Someone who can't stand you, but whom you don't know
+ * well, can hide it.
+ */
 export function relLabel(c: Career, id: string): string {
   const r = relationOf(c, id);
   if (!r) return 'Stranger';
+  const fam = r.fam ?? 0;
   if (r.kind === 'mentor') return 'Mentor';
   if (r.kind === 'protege') return 'Protégé';
-  if (r.kind === 'friend' || r.v >= REL_FRIEND_AT) return 'Friend';
-  if (r.kind === 'rival' || r.v <= REL_RIVAL_AT) return 'Rival';
+  if (r.kind === 'enemy' && ((r.mine?.like ?? 0) <= BOND_KIND.enemy || fam >= SOCIAL_READ.clear)) return 'Enemy';
+  if (r.kind === 'best_friend') return 'Best friend';
+  if (r.kind === 'rival') return (r.like ?? 0) >= BOND_KIND.friend && (r.mine?.like ?? 0) >= BOND_KIND.friend ? 'Friendly rival' : 'Rival';
+  if (r.kind === 'friend') return 'Friend';
+  if (fam < SOCIAL_READ.rough) return 'Acquaintance';
   if (r.v >= 15) return 'Trusted colleague';
   if (r.v <= -15) return 'Disliked';
   return 'Colleague';
 }
 
-/** People you know, closest (or most hostile) first. */
+/** How clearly you can read someone: not at all, roughly, or clearly. */
+export const readOf = (r: Relation | undefined): 'none' | 'rough' | 'clear' => (!r || (r.fam ?? 0) < SOCIAL_READ.rough ? 'none' : (r.fam ?? 0) < SOCIAL_READ.clear ? 'rough' : 'clear');
+
+/** People you know (wrestlers, and people outside the ring), closest (or most hostile) first. */
 export function relationsList(c: Career): { id: string; r: Relation }[] {
-  return bondsOf(people(), c.player).filter((x) => !!findWrestler(x.other)).map((x) => ({ id: x.other, r: asRelation(x.bond, x.other) }))
-    .sort((a, b) => Math.abs(b.r.v) - Math.abs(a.r.v) || (a.r.last < b.r.last ? 1 : -1));
+  const P = people();
+  return bondsOf(P, c.player).filter((x) => !!findWrestler(x.other) || !!P.folk?.[x.other]).map((x) => ({ id: x.other, r: asRelation(c, x.bond, x.other) }))
+    .sort((a, b) => (Math.abs(b.r.v) + (b.r.fam ?? 0)) - (Math.abs(a.r.v) + (a.r.fam ?? 0)) || (a.r.last < b.r.last ? 1 : -1));
 }
 
 // ------------------------------------------------------------------ promoters
@@ -125,11 +155,8 @@ function afterMine(c: Career, show: Show, bout: Bout, m: PlayerMatch): void {
   const opp = m.opp;
   if (m.stars >= 4) moveRelation(c, opp, REL_GREAT_MATCH, `A ${m.stars}★ match on ${show.name}`);
   if (m.planned === 'off-script') moveRelation(c, opp, REL_OFF_SCRIPT_ON, `You went off-script on them at ${show.name}`);
-  const feud = bout.feud ? c.feuds.find((f) => f.id === bout.feud) : undefined;
-  if (feud) {
-    const r = moveRelation(c, opp, REL_FEUD, `Feuding: ${show.name}`);
-    if (r && r.v <= REL_RIVAL_AT && !r.kind) r.kind = 'rival';
-  }
+  // A feud makes you rivals; whether it gets personal is down to who you both are (socialLife.ts, Lyra's call).
+  if (bout.feud && c.feuds.some((f) => f.id === bout.feud)) { const b = bondOf(people(), c.player, opp); if (b) mark(b, 'rival', c.today); }
 }
 
 /** A promoter you let down by not turning up. */

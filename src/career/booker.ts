@@ -10,7 +10,7 @@ import { hashSeed, seededRng, type Rng } from '../engine/rng';
 import { addDays, daysBetween, type Day } from './dates';
 import { NEIGHBOURS, REGION_KEY } from './places';
 import { activeWorld } from '../world/world';
-import { bondOf } from '../world/people';
+import { likeOf } from '../world/people';
 import {
   CARD_SIZE, CAUGHT_BOOK_MULT, CIRCUIT_DAYS, CONTENDER_T1_BONUS, FEATURES, FEUD_WEEKS, FEUDS_PER_PROMOTION, INDIE_CHAMP_DRAW, INDIE_DEFENCE_CHANCE, INDIE_DEFENCE_OVERDUE, INDIE_PICK_BOND_WEIGHT, INDIE_PICK_REP_WEIGHT, INDIE_REGION_WEIGHT, INDIE_TITLE_BOUTS_MAX, INTERGENDER_CHANCE, INTERGENDER_CHANCE_INDIE, PLEDGE_LOG_MAX, REGIONAL_CONTENDER_PER_DATE, REGIONAL_DEFENCE_CHANCE, REGIONAL_DEFENCE_OVERDUE, REGIONAL_ELIGIBLE_DATES, REGIONAL_HOME_DAYS, REGIONAL_WINDOW_DAYS, SCHEDULE_T2_MAX_PER_MONTH, STIP_CHANCE, REIGN_PROTECT_DAYS, TITLE_CHANGE_MAX, TITLE_CHANGE_PER_REIGN_YEAR, TITLE_PLANNED_CHANGE, TITLE_RHYTHM, type TitleClass, TRUST_HIGH, TRUST_LOW, TRUST_RETAIN_SWING_HIGH, TRUST_RETAIN_SWING_LOW,
 } from './tuning';
@@ -179,7 +179,7 @@ export function indieWeight(c: Career, w: Wrestler, show: Show, promoter: string
   const p = c.people[w.id];
   const rep = 1 + (((p?.rep ?? 50) - 50) / 50) * INDIE_PICK_REP_WEIGHT;
   const P = activeWorld().people;
-  const bond = P ? 1 + ((bondOf(P, promoter, w.id)?.v ?? 0) / 100) * INDIE_PICK_BOND_WEIGHT : 1;
+  const bond = P ? 1 + (likeOf(P, promoter, w.id) / 100) * INDIE_PICK_BOND_WEIGHT : 1;
   const tired = Math.max(0.2, 1 - (p?.fatigue ?? 0) / 100);
   return Math.max(0.01, (1 + regionalPop(w, show.region) / 10) * rep * bond * tired);
 }

@@ -495,14 +495,27 @@ export interface Ask {
 
 export interface PatienceLog { day: Day; d: number; t: string }
 
-export type RelKind = 'friend' | 'rival' | 'mentor' | 'protege';
+export type RelKind = 'friend' | 'best_friend' | 'rival' | 'enemy' | 'mentor' | 'protege';
+/**
+ * Your relationship with someone, from your side (Lyra's redesign): how they feel about you (like, and respect for
+ * your work; a booker's respect is their trust in you), how you feel about them, how well you know each other, and
+ * what it's become. Older saves' relationships (before bonds lived in the world) were just `v`, `kind` and the log.
+ */
 export interface Relation {
-  /** −100 (can't stand you) to +100. */
+  /** Their like for you, −100 (can't stand you) to +100. */
   v: number;
+  like?: number;
+  respect?: number;
+  mine?: { like: number; respect: number };
+  /** How well you know each other, 0–100. */
+  fam?: number;
+  /** A mentorship (theirs of you, or yours of them) first, else what it's become. */
   kind?: RelKind;
+  /** What it's become, alongside a mentorship. */
+  tie?: 'friend' | 'best_friend' | 'rival' | 'enemy';
   met: Day;
   last: Day;
-  log: PatienceLog[];
+  log: { day: Day; t: string; d?: number }[];
 }
 
 export interface BookerMemory {

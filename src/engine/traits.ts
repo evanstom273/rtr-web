@@ -22,6 +22,7 @@ export function rollForm(s: Side, rnd: Rng): number {
 export function anyRollMods(s: Side): { label: string; value: number }[] {
   const out: { label: string; value: number }[] = [];
   if (s.form) out.push({ label: s.form > 0 ? 'On form' : 'Off night', value: s.form });
+  if (s.mood) out.push({ label: s.mood > 0 ? 'In a good place' : 'Head’s not right', value: s.mood });
   if (s.big && has(s, 'big_match')) out.push({ label: 'Big match', value: FX.big_match.dice });
   return out;
 }

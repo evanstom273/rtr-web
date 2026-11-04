@@ -13,7 +13,7 @@ import { dealsOf, dealWith } from './deals';
 import { round5 } from './economy';
 import { arrangeFarewell } from './specials';
 import {
-  COMMIT_BREACH_WALK, COMMIT_DATES, COMMIT_MAIN_SHARE, OPTION_MONTHS, OPTION_TAKE_CHANCE, PENSION_FEES, PROTEGE_AGE, PROTEGE_REP, PROTEGES_MAX, PUSH_MULT, REMATCH_DAYS,
+  BOND_LOG, COMMIT_BREACH_WALK, COMMIT_DATES, COMMIT_MAIN_SHARE, OPTION_MONTHS, OPTION_TAKE_CHANCE, PENSION_FEES, PROTEGE_AGE, PROTEGE_REP, PROTEGES_MAX, PUSH_MULT, REMATCH_DAYS,
   RENEWAL_RAISE, RENEWAL_TALKS_DAYS, RETIRE_NOTICE_DAYS, SENDOFF_FEES,
 } from './tuning';
 import type { Bout, Career, Contract, PlayerMatch, Show } from './types';
@@ -225,22 +225,22 @@ function mentorship(c: Career): void {
   for (const k of dealsOf(c.people[c.player])) {
     const t = tierOf(k, 'mentorship');
     if (!t) continue;
-    const mine = bondsOf(P, c.player).filter((b) => b.bond.kind === 'mentor');
+    const mine = bondsOf(P, c.player).filter((b) => !!b.bond.mentor);
     if (me.age < PROTEGE_AGE) {
       if (mine.some((b) => b.bond.mentor !== c.player)) continue;
       const vets = rosterOf(k.promo).filter((w) => w.id !== c.player && w.age >= 30 && !c.people[w.id]?.retired).sort((a, b) => globalScore(b) - globalScore(a));
       const picked = t >= 3 && c.mentorPick ? vets.find((w) => w.id === c.mentorPick) : undefined;
       const who = picked ?? (t >= 2 ? vets[0] : vets[Math.floor(seededRng(hashSeed(c.seed, 'mentor', c.today))() * Math.min(8, vets.length))]);
       if (!who) continue;
-      moveBond(P, who.id, c.player, 15, `${k.promo} paired you up`, c.today, 'mentor', who.id);
+      moveBond(P, who.id, c.player, 15, `${k.promo} paired you up`, c.today, 'mentor', who.id, BOND_LOG.mine);
       letter(c, { kind: 'person', from: who.name, subject: 'I’m your mentor now', body: [`${k.promo} asked me to keep an eye on you. Ask me anything.`], fromId: who.id });
     } else if (t >= 3) {
       const proteges = mine.filter((b) => b.bond.mentor === c.player);
       if (proteges.length < PROTEGES_MAX) {
-        const young = rosterOf(k.promo).filter((w) => w.age <= 23 && w.id !== c.player && !bondsOf(P, w.id).some((b) => b.bond.kind === 'mentor')).sort((a, b) => globalScore(b) - globalScore(a))[0];
-        if (young) moveBond(P, c.player, young.id, 15, `${k.promo} paired you up`, c.today, 'mentor', c.player);
+        const young = rosterOf(k.promo).filter((w) => w.age <= 23 && w.id !== c.player && !bondsOf(P, w.id).some((b) => !!b.bond.mentor)).sort((a, b) => globalScore(b) - globalScore(a))[0];
+        if (young) moveBond(P, c.player, young.id, 15, `${k.promo} paired you up`, c.today, 'mentor', c.player, BOND_LOG.mine);
       }
-      const n = Math.min(PROTEGES_MAX, bondsOf(P, c.player).filter((b) => b.bond.kind === 'mentor' && b.bond.mentor === c.player).length);
+      const n = Math.min(PROTEGES_MAX, bondsOf(P, c.player).filter((b) => b.bond.mentor === c.player).length);
       if (n) person(c, c.player).rep = Math.min(100, person(c, c.player).rep + PROTEGE_REP * n);
     }
   }
@@ -253,7 +253,7 @@ export function pickMentor(c: Career, id: string): string {
   if (!w) return 'Who?';
   c.mentorPick = id;
   const P = activeWorld().people;
-  if (P) for (const b of bondsOf(P, c.player)) if (b.bond.kind === 'mentor' && b.bond.mentor !== c.player) delete b.bond.kind;
+  if (P) for (const b of bondsOf(P, c.player)) if (b.bond.mentor && b.bond.mentor !== c.player) { delete b.bond.mentor; delete b.bond.given; }
   return `${w.name} it is: they’ll take you on.`;
 }
 
