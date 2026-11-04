@@ -567,6 +567,20 @@ export const OWN_SHOW = {
   /** Your shows build a following: hype multiplies the draw (×1 to ×3); a full house with a good match builds it, an empty one costs it. */
   hypeUp: 0.2, hypeDown: 0.15, hypeMax: 2, hypeFade: 0.03,
 };
+/**
+ * Development and decline (Lyra's calls): every AI wrestler has a hidden potential (an attribute total) and a
+ * hidden peak age. Before the peak they close 1.2% of the gap a month (×1.3 working 3+ dates a month, ×1.2 with a
+ * mentor); after 34 they lose 2–4 points a year, 5–8 from 38, speed and stamina first. A rookie's room is 20–120
+ * (most 40–70), shrinking from 25 and gone by 30. Your own wrestler only changes through training.
+ */
+export const DEV = {
+  room: [20, 120] as [number, number], roomShrinkFrom: 24, roomGoneAt: 30, peak: [27, 33] as [number, number], cap: 98,
+  grow: 0.012, working: 1.3, workingDates: 3, mentor: 1.2,
+  declineFrom: 34, declineSteep: 38, decline: [2, 4] as [number, number], declineSteepRate: [5, 8] as [number, number],
+  declineWeights: { speed: 3, stamina: 3, strength: 2, striking: 1.5, skill: 1, charisma: 0.5 },
+};
+/** Shipped wrestlers retire as if this many years younger (Lyra's call: the names you know stay a bit longer). */
+export const SHIPPED_RETIRE_YOUNGER = 3;
 export const FEATURES = { livingCosts: true, social: true, days: true, jobs: true, skip: true, mail: true, hustles: true };
 
 /**

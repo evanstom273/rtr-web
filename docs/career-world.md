@@ -801,3 +801,18 @@ Lyra's calls: all eight earners, effort-based, and genuinely lucrative for an in
 | Stocking shirts only | £1,700 | mostly the merch table at shows they wrestled anyway |
 
 Wrestling paid £1,345 over the same 12 weeks.
+
+## Development and decline (on)
+
+Lyra's calls, approved numbers. `career/development.ts`, `DEV` in `tuning.ts`.
+- Every AI wrestler has a **hidden potential** (an attribute total they can grow to) and a **hidden peak age** (27–33). Both are rolled from the world's seed the first time they're needed, so every wrestler gets one and it's always the same.
+- **Room to grow:** 20–120 points above where they start, most 40–70. It shrinks from age 25 and is gone by 30.
+- **Before the peak:** each month a wrestler closes 1.2% of the gap to their potential. That's ×1.3 when working 3+ dates a month and ×1.2 with a mentor. Points go mostly to what they're already good at.
+- **From 34:** they lose 2–4 points a year, and 5–8 from 38. Speed and stamina go first, charisma last.
+- **Your own wrestler** only changes through training.
+- **Shipped wrestlers** retire as if 3 years younger (`SHIPPED_RETIRE_YOUNGER`).
+
+**Five years (seed 7, `LONG=1`):**
+- Signed median ability holds at 444–445, and the top 10% rises from 477 to 486.
+- The indie median rises from 412 to 432 as the young develop.
+- The median age holds at 29.
