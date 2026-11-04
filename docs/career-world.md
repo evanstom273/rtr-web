@@ -693,3 +693,8 @@ Every switch on: days, jobs, skipping, social, living costs.
   - nobody runs away (the max stays at about 10M).
 - Indie shows a week: median 10, at the cap. The low minimums are the part-weeks at the year edges.
 - The regional titles test (three years) passes with travel on, now that overdue regional champions stay home.
+
+**`PERF=1`: real engine, 14 days, two seeds.**
+- 13–15 matches a day to sim, at about 70 ms each.
+- That's about 1 s a day on one thread, with the main thread taking 5–7 ms a day.
+- In the browser the pool of up to 4 workers shares that out. A 30-day skip should take roughly 8–12 s on a 4-core phone (target 15 s). This is worked out from the per-day figures, not measured in a browser.
