@@ -2,7 +2,7 @@
 // retire (after a farewell) and now and then come back; rookies break through; long reigns and injured
 // champions make the news; your own career milestones get noticed. All of it goes into the world's
 // history (Records), and only the bits that touch you, or are big news, reach your mail.
-import { findWrestler, globalScore, PROMOTIONS, TITLES, type Wrestler, WRESTLERS } from '../data/rtr';
+import { findWrestler, globalScore, PROMOTIONS, shippedWrestler, TITLES, type Wrestler, WRESTLERS } from '../data/rtr';
 import { seededRng, type Rng } from '../engine/rng';
 import { activeWorld } from '../world/world';
 import { addEvent, type WorldEvent } from '../world/history';
@@ -13,7 +13,7 @@ import { affinity } from './relations';
 import { arrangeFarewell } from './specials';
 import {
   BREAKTHROUGH_POP, CAREER_MILESTONES, CHAMP_INJURY_NEWS_DAYS, REIGN_MILESTONES, RETIRE_AGE_MIN, RETIRE_MONTHLY_BASE, RETIRE_MONTHLY_PER_YEAR,
-  RETURN_MIN_DAYS, RETURN_MIN_POP, RETURN_MONTHLY,
+  RETURN_MIN_DAYS, RETURN_MIN_POP, RETURN_MONTHLY, SHIPPED_RETIRE_YOUNGER,
 } from './tuning';
 import type { Career } from './types';
 
@@ -35,9 +35,11 @@ function newsworthy(c: Career, w: Wrestler, big = 60): boolean {
 function announceRetirements(c: Career, rnd: Rng): void {
   for (const w of WRESTLERS) {
     const p = c.people[w.id];
-    if (!p || w.id === c.player || p.retired || p.retiring || w.age < RETIRE_AGE_MIN || titleHolder(w.id)) continue;
+    // Shipped wrestlers retire as if a little younger (Lyra's call: the names you know stay a bit longer).
+    const age = w.age - (shippedWrestler(w.id) ? SHIPPED_RETIRE_YOUNGER : 0);
+    if (!p || w.id === c.player || p.retired || p.retiring || age < RETIRE_AGE_MIN || titleHolder(w.id)) continue;
     if (c.feuds.some((f) => !f.done && f.title && (f.a === w.id || f.b === w.id))) continue;
-    if (rnd() >= RETIRE_MONTHLY_BASE + RETIRE_MONTHLY_PER_YEAR * (w.age - RETIRE_AGE_MIN)) continue;
+    if (rnd() >= RETIRE_MONTHLY_BASE + RETIRE_MONTHLY_PER_YEAR * (age - RETIRE_AGE_MIN)) continue;
     const day = arrangeFarewell(c, w, rnd);
     p.retiring = day;
     // Their deal runs to the farewell, whatever it said.

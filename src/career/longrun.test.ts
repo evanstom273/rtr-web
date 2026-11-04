@@ -6,6 +6,7 @@ import { activeWorld } from '../world/world';
 import { addDays, weekStart } from './dates';
 import { REGION_OF } from './places';
 import { begin, day, pct } from './testkit';
+import { attributeTotal } from './economy';
 import type { Career } from './types';
 
 it.skipIf(!process.env.LONG)('years of the world', async () => {
@@ -63,6 +64,7 @@ function bookingReport(c: Career): string[] {
     `    by popularity quarter (low → high), dates a month: ${[0, 1, 2, 3].map((i) => pct(perMonth(q(i)), 0.5).toFixed(1)).join(' · ')}; none in 120 days: ${[0, 1, 2, 3].map((i) => idle(q(i), d120)).join(' · ')}`,
     `    signed dates a month: ${f(perMonth(signed))}; none in 60 days ${idle(signed, d60)}`,
     `    indie shows a week: min ${Math.min(...wk)} · median ${pct(wk, 0.5)} · max ${Math.max(...wk)}; by region a year: ${regionShows}`,
+    `    ability (attribute total): signed p10 ${pct(signed.map(attributeTotal), 0.1)} · median ${pct(signed.map(attributeTotal), 0.5)} · p90 ${pct(signed.map(attributeTotal), 0.9)}; indies median ${pct(indies.map(attributeTotal), 0.5)} · p90 ${pct(indies.map(attributeTotal), 0.9)}; age median ${pct([...signed, ...indies].map((w) => w.age), 0.5)}`,
     `    fans worldwide: signed p10 ${fmtFans(pct(signed.map(fansTotal), 0.1))} · median ${fmtFans(pct(signed.map(fansTotal), 0.5))} · max ${fmtFans(Math.max(...signed.map(fansTotal)))}; indies median ${fmtFans(pct(indies.map(fansTotal), 0.5))} · p90 ${fmtFans(pct(indies.map(fansTotal), 0.9))} · max ${fmtFans(Math.max(...indies.map(fansTotal)))}`,
   ];
 }

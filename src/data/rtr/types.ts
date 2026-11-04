@@ -118,6 +118,10 @@ export interface Wrestler {
   finishers: string[];
   /** Personality: one to three traits (data/rtr/traits.ts). Missing on saves from before traits. */
   traits?: TraitId[];
+  /** Hidden (never shown): the attribute total they can grow to, the age they peak, and a running fraction of a point. */
+  potential?: number;
+  peak?: number;
+  dev?: number;
 }
 
 /** A job behind the curtain: booking a promotion, or running an indie brand. */

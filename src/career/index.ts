@@ -33,6 +33,7 @@ export { nextMatch, reach as socialReach, socialAct, socialPreview, weekCap as s
 export { activityAt, advancePhase, baseCountry, bookings, defaultRoutine, fits, isShift, jobBoard, phaseOf, pkey, quitJob, relocate, relocateCost, routineOf, shiftPay, takeJob, timeOff, trainSession, type Activity } from './day';
 export { baseRegion, livingCost } from './economy';
 export { skip, type SkipTarget } from './skip';
+export { developMonth, ensurePotential, rollRoom } from './development';
 export { MAIL_TABS, replyTo, tabOf, waitingOnYou, type MailTab } from './mail';
 export {
   blocked as hustleBlocked, bookConvention, buyStock, classFee, conventionsAhead, conventionTake, dropGig, fundTotal, hireable, hireFee, hustleOf, isCoaching,
