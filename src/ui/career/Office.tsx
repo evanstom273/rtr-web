@@ -11,6 +11,7 @@ import { OfficeCard } from './OfficeCard';
 import { OfficeStories, OfficeTitles } from './OfficeStories';
 import { OfficeBooks } from './OfficeBooks';
 import { OfficeRoster, OfficeSignings, OfficeStaff } from './OfficeRoster';
+import { Boss, TakeOn } from './OfficeTakeOn';
 
 const TAB_LABEL = { overview: 'Overview', card: 'Card', stories: 'Stories', titles: 'Titles', roster: 'Roster', signings: 'Signings', staff: 'Staff', books: 'Books', schedule: 'Schedule' } as const;
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -39,19 +40,20 @@ export function Office({ c, onBack }: { c: Career; onBack: () => void }) {
   const [tab, setTab] = useState<keyof typeof TAB_LABEL>('overview');
   const [founding, setFounding] = useState(!roles.length);
   const indieFree = !roles.some((r) => !isMajorTier(companyTier(r.promo)));
+  const majorFree = !roles.some((r) => isMajorTier(companyTier(r.promo)));
   const promo = sel && roles.some((r) => r.promo === sel) ? sel : roles[0]?.promo ?? null;
 
   return (
     <Screen>
       <Head title={skin === 'paper' ? 'The Office' : 'THE OFFICE'} meta={w(fmtDay(c.today, 'long'), fmtDay(c.today))} onBack={onBack} />
       <div className="c-body">
-        {(roles.length > 0 || indieFree) && (
+        {(roles.length > 0 || indieFree || majorFree) && (
           <div className="c-chips">
             {roles.map((r) => <button key={r.promo} className={`c-chip${!founding && r.promo === promo ? ' on' : ''}`} onClick={() => { setSel(r.promo); setFounding(false); }}>{r.promo}</button>)}
-            {indieFree && <button className={`c-chip${founding ? ' on' : ''}`} onClick={() => setFounding(true)}>{w('+ Found a promotion')}</button>}
+            {(indieFree || majorFree) && <button className={`c-chip${founding ? ' on' : ''}`} onClick={() => setFounding(true)}>{w('+ Take one on')}</button>}
           </div>
         )}
-        {founding || !promo ? <Found c={c} say={say} onDone={(ini) => { setSel(ini); setFounding(false); setTab('overview'); }} />
+        {founding || !promo ? <TakeOn c={c} say={say} found={indieFree ? <Found c={c} say={say} onDone={(ini) => { setSel(ini); setFounding(false); setTab('overview'); }} /> : <span className="c-note">You already run an indie: one at a time.</span>} />
           : (
             <>
               <div className="c-chips">
@@ -113,6 +115,7 @@ function Overview({ c, promo, say }: { c: Career; promo: string; say: (s: string
           <button key={`${d}${p}`} className={`c-chip${on(d, p) ? ' on' : ''}`} onClick={() => toggle(d, p)}>{slotLabel([d, p])}</button>
         )))}
       </div>
+      <Boss c={c} promo={promo} say={say} />
       <span className="c-note">Booking takes {need} half-day{need === 1 ? '' : 's'} a week ({rolesOf(c).map((x) => `${x.promo} ${COMPANY.officeDays[companyTier(x.promo)]}`).join(', ')}). Miss them for shows, travel or plans and your staff cover{o.short ? `: last week they covered ${o.short}` : ''}.</span>
     </>
   );

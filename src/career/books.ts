@@ -15,7 +15,7 @@ import { addDays, monthOf, MONTHS } from './dates';
 import { hireFee } from './hustle';
 import { registerReplies } from './mail';
 import { regionOfCountry } from './places';
-import { BIZ, FEATURES, SHOW_MULT, STAFF } from './tuning';
+import { BIZ, FEATURES, SHOW_MULT, STAFF, WAR } from './tuning';
 import type { Career, Show } from './types';
 
 export const IN_LINES = ['gate', 'merch', 'ppv', 'tv', 'sponsors', 'invest', 'loan'] as const;
@@ -67,7 +67,9 @@ export function settleShow(c: Career, show: Show): void {
   if (!co || co.closed || !show.card?.some((b) => b.result)) return;
   const rnd = seededRng(hashSeed(c.seed, 'gate', show.id));
   const ids = onShow(show).filter((id) => id !== c.player || !playerRuns(show.promo));
-  const draw = showDraw(co, show, onShow(show)) * (1 - BIZ.swing + rnd() * 2 * BIZ.swing);
+  // Booker mode's war: a rival show the same night in the same region splits your crowd.
+  const rivals = playerRuns(show.promo) ? Object.values(c.shows).filter((s) => s.id !== show.id && s.date === show.date && s.region === show.region && s.promo !== show.promo && s.promo !== 'TIS' && !s.promos).length : 0;
+  const draw = showDraw(co, show, onShow(show)) * (1 - BIZ.swing + rnd() * 2 * BIZ.swing) * Math.max(0.6, 1 - WAR.counter * rivals);
   const v = venueFor(co, draw);
   const sold = Math.round(Math.min(v.cap, draw));
   const gate = sold * ticketPrice(co), merch = sold * BIZ.merchPerHead[co.tier]!;
@@ -259,7 +261,7 @@ function offers(c: Career, co: Company): void {
   if (!playerRuns(co.promo) || co.tier === 'local' || (co.rep ?? 0) < BIZ.offerFrom) return;
   const rnd = seededRng(hashSeed(c.seed, 'biz', co.promo, c.today));
   const pop = promotion(co.promo)?.popularity ?? 20;
-  if (!co.tv && !c.letters.some((l) => l.ctx?.tvFor === co.promo && !l.replied && l.day > addDays(c.today, -60)) && rnd() < 0.5) {
+  if (!co.tv && !(co.tvBlocked && co.tvBlocked > c.today) && !c.letters.some((l) => l.ctx?.tvFor === co.promo && !l.replied && l.day > addDays(c.today, -60)) && rnd() < 0.5) {
     const fee = r5(BIZ.tv[co.tier]! * (pop / 50) * (0.8 + rnd() * 0.4));
     const network = NETWORKS[Math.floor(rnd() * NETWORKS.length)]!;
     letter(c, { kind: 'news', from: network, subject: `${network} wants ${promoName(co.promo)}`, body: [`We’d air your weekly show: ${money(fee)} an episode, for a year.`],
