@@ -29,6 +29,8 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'],
+        // The game's one bundle is past workbox's 2 MiB default; it has to be precached to play offline.
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         navigateFallback: '/index.html',
         cleanupOutdatedCaches: true,
         runtimeCaching: [

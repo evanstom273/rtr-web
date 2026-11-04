@@ -14,6 +14,7 @@ import './social';
 import './day';
 import './exclusive';
 import './creative';
+import './money';
 
 export * from './career';
 export * from './contracts';
@@ -30,6 +31,7 @@ export { drawCalendar } from './calendar';
 export { CLAUSES, C, BUDGET, budgetOf, attitude, BONUS_TRIGGERS, CHARACTER, GROUPS, PACKAGES, PLAYER_PACKAGES, tierOf, triggerSlots, type BonusTrigger, type ClauseId, type PackageId } from './clauses';
 export { dealsOf, dealWith, exclusivityOf, sideWork } from './deals';
 export { nonExclusive } from './exclusive';
+export { advanceAvailable, rebrand, takeAdvance, takings } from './money';
 export { CREATIVE_LABEL, creativeAsk, creativeBlock, creativeBouts, creativeOdds, creativeTier, opponentsFor, vetoNext, type CreativeKind, type CreativeReq } from './creative';
 export { trainingPrice, attributeTotal, contractFee, indieFee, matchPay, travelCost } from './economy';
 export { buyBlock, buyTrait, offerAt, offerDue, traitPrice, lean } from './personality';

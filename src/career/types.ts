@@ -132,8 +132,11 @@ export interface Contract {
   holidays?: Day[];
   /** International Touring Tier 2+: you've opted in to their tours. */
   tours?: boolean;
-  /** Anniversaries already paid out (Loyalty, yearly raises), as years since `since`/`start`. */
+  /** Anniversaries already paid out (Loyalty, from `since`) and raised (Wage Matching, from `start`). */
   paidYears?: number;
+  raisedYears?: number;
+  /** Performance Bonuses: wins in a row on their shows. */
+  streak?: number;
   /** Booking Commitments: the last month checked ('YYYY-MM'). */
   checked?: string;
   /** Championship Opportunities Tier 2/3: a title match is owed by this day. */
@@ -318,6 +321,10 @@ export interface Career {
   v: 1;
   /** A world running with nobody playing (history being simulated): no letters, no offers, nothing for 'you'. */
   spectator?: boolean;
+  /** Character & Image Rights: you've left a promotion that owned your name; pick a new one. */
+  rebrand?: { from: string; old: string; lost: number };
+  /** Cards drawn with you on them (Guaranteed Pay pays if you're pulled): show id → the promotion. */
+  drawnMe?: Record<string, string>;
   /** Backdated history: wrestlers too young to have debuted yet, and the day they do. */
   waiting?: { w: import('../data/rtr').Wrestler; on: Day }[];
   player: string;
