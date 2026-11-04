@@ -37,7 +37,8 @@ describe('title matches', () => {
           if (!b.title || !b.result) continue;
           bouts++;
           const h = holder.get(b.title);
-          if (h !== b.a && h !== b.b) bad.push(`${b.title}: ${b.a} v ${b.b}, champion ${h}`);
+          // A vacant title (its champion left the promotion, say) is wrestled for by contenders: no champion to include.
+          if (h && h !== b.a && h !== b.b) bad.push(`${b.title}: ${b.a} v ${b.b}, champion ${h}`);
           if (b.result.newChamp) holder.set(b.title, b.result.winner);
         }
       }
