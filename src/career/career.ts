@@ -1,15 +1,17 @@
 // The career loop: starting one, a day at a time, and what every match changes in the world.
 import { poachMult, renewLean, retryAdjust } from './leans';
-import { PROMOTIONS, TITLES, WRESTLERS, databaseChanged, fanScore, findWrestler, fmtFans, globalScore, hasTrait, shiftFans, shippedWomenShare, type Wrestler } from '../data/rtr';
+import {
+  databaseChanged, fanScore, fansTotal, findWrestler, fmtFans, globalScore, hasTrait, PROMOTIONS, shiftFans, shippedWomenShare, TITLES, type Wrestler, WRESTLERS,
+} from '../data/rtr';
 import { seededRng, type Rng } from '../engine/rng';
 import type { MatchRulesConfig } from '../engine/types';
 import { HARDCORE_STIPS, available, bookAhead, hashSeed, heated, isIndieTitle, promoRegion, regionalDates, regionalPop, titleRegion } from './booker';
 import { bondOf } from '../world/people';
 import { drawCalendar } from './calendar';
-import { BUDGET, C, NO_CLAUSES, attitude } from './clauses';
+import { attitude, BUDGET, C, feeFloor, NO_CLAUSES } from './clauses';
 import { makeRookie } from './create';
-import { addDays, addMonths, daysBetween, fmtDay, type Day } from './dates';
-import { contractFee, indieFee, matchPay, round5 } from './economy';
+import { addDays, addMonths, type Day, daysBetween, fmtDay, weekday } from './dates';
+import { baseRegion, contractFee, indieFee, isWeeklyFlagship, livingCost, matchPay, round5 } from './economy';
 import { REGION_KEY, REGION_LABEL } from './places';
 import type { SimJob, SimOut } from './sim';
 import { activeWorld } from '../world/world';
@@ -17,12 +19,7 @@ import { addEvent, type ArchivedShow, type WorldHistory } from '../world/history
 import { bookerKey, movePatience, showBooker } from './patience';
 import { remember } from './relations';
 import {
-  BOOK_AHEAD_DAYS, CONTRACT_MONTHS, FATIGUE_HARDCORE_EXTRA, FATIGUE_PER_MATCH, FATIGUE_RECOVERY_PER_DAY, FATIGUE_STAMINA_DIVISOR,
-  INJURY_BASE_PCT, INJURY_HARDCORE_MULT, INJURY_PER_FATIGUE, INJURY_SEVERITY, MEDICAL_BILL_COVER, MEDICAL_PAY_COVER, MEDICAL_PER_DAY, MERCH_INDIE,
-  MERCH_SHARE, MERCH_SIGNED, OFF_SCRIPT_TITLE_BAN_DAYS, PLANNED_NUDGE, PLANNED_RETRIES, POACH_CHANCE, POP_CEILING, POP_IDLE_DAYS,
-  POP_IDLE_DECAY, POP_LOSS, POP_PER_STAR, POP_STAR_PIVOT, POP_TITLE_WIN, POP_WIN, RELEASE_MONTHLY_BOTTOM, RENEW_CHANCE_REST,
-  CIRCUIT_KEEP, TRAIT_BACKSTAGE, TRAIT_FX, RENEW_CHANCE_TOP, REP_FOUR_STAR, REP_OFF_SCRIPT, REP_PER_DATE, REP_START, ROOKIE_EVERY_DAYS, ROSTER_FLOOR, ROSTER_SCOUT_DAYS, ROSTER_TARGET,
-  START_CONTRACT_MONTHS_LEFT, START_MONEY_CREATED, START_MONEY_PER_POP, TRYOUT_MIN_STARS, PATIENCE_NO_SHOW,
+  BOOK_AHEAD_DAYS, CIRCUIT_KEEP, CONTRACT_MONTHS, FATIGUE_HARDCORE_EXTRA, FATIGUE_PER_MATCH, FATIGUE_RECOVERY_PER_DAY, FATIGUE_STAMINA_DIVISOR, FEATURES, INJURY_BASE_PCT, INJURY_HARDCORE_MULT, INJURY_PER_FATIGUE, INJURY_SEVERITY, LIVING_GRACE_DAYS, LOSS_CUT_BY_TIER, MEDICAL_BILL_COVER, MEDICAL_PAY_COVER, MEDICAL_PER_DAY, MERCH_PER_FAN_FREE, MERCH_PER_FAN_SIGNED, MERCH_SHARE, OFF_SCRIPT_TITLE_BAN_DAYS, PATIENCE_NO_SHOW, PLANNED_NUDGE, PLANNED_RETRIES, POACH_CHANCE, POP_CEILING, POP_IDLE_DAYS, POP_IDLE_DECAY, POP_LOSS, POP_PER_STAR, POP_STAR_PIVOT, POP_TITLE_WIN, POP_WIN, RELEASE_MONTHLY_BOTTOM, RENEW_CHANCE_REST, RENEW_CHANCE_TOP, REP_FOUR_STAR, REP_OFF_SCRIPT, REP_PER_DATE, REP_START, ROOKIE_EVERY_DAYS, ROSTER_FLOOR, ROSTER_SCOUT_DAYS, ROSTER_TARGET, START_CONTRACT_MONTHS_LEFT, START_MONEY_BASE, START_MONEY_CREATED, START_MONEY_PER_DECADE, TRAIT_BACKSTAGE, TRAIT_FX, TRYOUT_MIN_STARS,
 } from './tuning';
 import type { Bout, Career, Contract, Letter, Person, PlayerMatch, PopRegion, Show } from './types';
 
@@ -92,7 +89,9 @@ export function startCareer(o: StartOptions): Career {
   }
   activeWorld().day = o.today;
   const me = findWrestler(o.player)!;
-  c.money = o.created ? START_MONEY_CREATED : START_MONEY_PER_POP * globalScore(me);
+  // A career started with living costs on pays from its first Monday (no notice needed).
+  if (FEATURES.livingCosts) c.livingFrom = o.today;
+  c.money = o.created ? START_MONEY_CREATED : round5(Math.max(START_MONEY_BASE, START_MONEY_BASE + START_MONEY_PER_DECADE * Math.log10(fansTotal(me) / 1000)));
   c.ledger.push({ day: o.today, text: 'Starting money', amount: c.money, kind: 'start' });
   extendCalendar(c);
   bookAhead(c, o.today, BOOK_AHEAD_DAYS, WRESTLERS);
@@ -114,6 +113,14 @@ export function letter(c: Career, l: Omit<Letter, 'id' | 'day' | 'read'> & { day
 }
 
 export function spend(c: Career, amount: number, text: string, kind: Career['ledger'][number]['kind']): void {
+  // Lifetime totals by kind (the ledger itself keeps the last 400 entries). Seeded from it the first time.
+  if (!c.totals) {
+    c.totals = {};
+    for (const e of c.ledger) { const t = (c.totals[e.kind] ??= { amount: 0, n: 0 }); t.amount += e.amount; t.n++; }
+  }
+  const t = (c.totals[kind] ??= { amount: 0, n: 0 });
+  t.amount += amount;
+  t.n++;
   c.money += amount;
   c.ledger.unshift({ day: c.today, text, amount, kind });
   if (c.ledger.length > 400) c.ledger.length = 400;
@@ -312,15 +319,15 @@ function settleMine(c: Career, show: Show, bout: Bout, out: SimOut, aIsYou: bool
   }
   const indie = show.promo === 'TIS';
   if (indie) {
-    const deal = c.indie[show.id] ?? { fee: indieFee(findWrestler(c.player)!, show.region), travel: 0 };
-    fee = result === 'loss' ? round5(deal.fee * 0.75) : deal.fee;
+    const deal = c.indie[show.id] ?? { fee: indieFee(findWrestler(c.player)!, show), travel: 0 };
+    fee = result === 'loss' ? round5(deal.fee * (1 - LOSS_CUT_BY_TIER[0]!)) : deal.fee;
     if (deal.travel) spend(c, -deal.travel, `Travel · ${show.city}`, 'travel');
     delete c.indie[show.id];
   } else if (me.contract) {
-    const p = matchPay(me.contract, show.kind, result === 'loss');
+    const p = matchPay(me.contract, show.kind, result === 'loss', isWeeklyFlagship(show));
     fee = p.pay; bonus = p.bonus;
   } else if (bout.tryout) {
-    fee = indieFee(findWrestler(c.player)!, show.region);
+    fee = indieFee(findWrestler(c.player)!, show);
   }
   if (planned === 'off-script' && (me.contract?.clauses[C.creative] ?? 0) < 3) {
     fee = 0; bonus = 0;
@@ -360,7 +367,8 @@ export function makeOffer(c: Career, promo: string, why: string): void {
   const me = findWrestler(c.player)!;
   const mine = c.people[c.player]!.contract;
   const start = mine ? addDays(mine.end, 1) : c.today;
-  const fee = round5(contractFee(me, promo) * 0.85);
+  // Opening offers start at the promotion's floor at least (Lyra's call: about £2,500 at the bottom).
+  const fee = round5(Math.max(feeFloor(promo), contractFee(me, promo) * 0.85));
   const id = `o${++c.seq}`;
   c.offers.push({ id, promo, day: c.today, fee, months: 12, clauses: NO_CLAUSES(), start, rounds: 0, said: `£${fee.toLocaleString('en-GB')} a match for 12 months. No extras.`, status: 'open' });
   letter(c, {
@@ -461,6 +469,7 @@ export function endOfDay(c: Career): void {
   }
   if (tomorrow.endsWith('-01')) monthly(c, tomorrow, rnd);
   contractsEnding(c, tomorrow, rnd);
+  if (FEATURES.livingCosts) livingCosts(c, tomorrow);
   if (tomorrow >= c.nextRookie) {
     const rookie = makeRookie(rnd, WRESTLERS, `rookie_${tomorrow.replace(/-/g, '')}`);
     WRESTLERS.push(rookie);
@@ -524,9 +533,9 @@ function monthly(c: Career, day: Day, rnd: Rng): void {
   }
   const me = findWrestler(c.player)!;
   const mine = c.people[c.player]!;
-  const pop = globalScore(me);
   const pleaser = hasTrait(findWrestler(c.player), 'crowd_pleaser') ? TRAIT_FX.crowd_pleaser.merch : 1;
-  const merch = mine.contract ? round5(pop * pop * MERCH_SIGNED * (MERCH_SHARE[mine.contract.clauses[C.merch] ?? 0] ?? 0) * pleaser) : round5(pop * pop * MERCH_INDIE * pleaser);
+  // Merch follows your fans: signed, your Merchandise Rights share of it; a free agent sells their own, at a lower rate.
+  const merch = mine.contract ? round5(fansTotal(me) * MERCH_PER_FAN_SIGNED * (MERCH_SHARE[mine.contract.clauses[C.merch] ?? 0] ?? 0) * pleaser) : round5(fansTotal(me) * MERCH_PER_FAN_FREE * pleaser);
   spend(c, merch, mine.contract && !(mine.contract.clauses[C.merch] ?? 0) ? 'Merch (no Merchandise Rights)' : 'Merch', 'merch');
   // Mid-contract releases at the bottom of each roster.
   for (const p of PROMOTIONS.filter((x) => !x.indie)) {
@@ -563,6 +572,25 @@ function sign(c: Career, w: Wrestler, promo: string, day: Day, rnd: Rng): void {
   }
   const myPromo = findWrestler(c.player)?.promotion;
   if (promo === myPromo || (from === myPromo && from !== 'TIS')) letter(c, { kind: 'news', from: 'The news desk', subject: `${w.name} signs with ${promo}`, body: [from === 'TIS' ? `${promo} have signed ${w.name} from The Indie Scene.` : `${w.name} leaves ${from} for ${promo}.`] });
+}
+
+/**
+ * Rent and food (Lyra's call), every Monday where you live. A career that was running before living
+ * costs existed gets four weeks' notice first; one started since pays from its first Monday. Keyed to
+ * the Monday, so a replayed night can never charge twice.
+ */
+export function livingCosts(c: Career, day: Day): void {
+  if (weekday(day) !== 1 || c.people[c.player]?.retired) return;
+  if (!c.livingFrom) {
+    c.livingFrom = addDays(day, LIVING_GRACE_DAYS);
+    const region = baseRegion(c);
+    letter(c, { kind: 'news', from: 'Your landlord', subject: 'Rent and food from now on', body: [`From ${fmtDay(c.livingFrom, 'long')}, living costs come out every Monday: about £${livingCost(region).toLocaleString('en-GB')} a week in ${REGION_LABEL[region]}.`] });
+    return;
+  }
+  if (day < c.livingFrom || (c.livingPaidThrough && c.livingPaidThrough >= day)) return;
+  const region = baseRegion(c);
+  spend(c, -livingCost(region), `Living costs · ${REGION_LABEL[region]}`, 'living');
+  c.livingPaidThrough = day;
 }
 
 /**

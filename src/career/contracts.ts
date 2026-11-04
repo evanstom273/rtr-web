@@ -1,20 +1,18 @@
 // Negotiating contracts clause by clause, signing, pay reviews and getting out of a deal.
 import { roundsAdjust, willingnessMult } from './bookerLeans';
 import { leanFrom, playerHas } from './leans';
-import { fansForScore, findWrestler, fmtFans, globalScore, WRESTLERS } from '../data/rtr';
+import { fansForScore, findWrestler, fmtFans, WRESTLERS } from '../data/rtr';
 import { seededRng } from '../engine/rng';
 import { hashSeed, promoRegion, regionalPop } from './booker';
-import { budgetOf, C, CLAUSES, attitude, patience } from './clauses';
+import { attitude, C, CLAUSES, patience } from './clauses';
 import { letter, person, promoName, spend, indieBeltOnSigning } from './career';
 import { addDays, addMonths, daysBetween, fmtDay } from './dates';
-import { round5 } from './economy';
+import { contractFee, round5 } from './economy';
 import { startTitlePromise } from './offers';
 import { activeWorld } from '../world/world';
 import { addEvent } from '../world/history';
 import {
-  ATTITUDE_MULT, BUYOUT_SHARE, CLAUSE_COST, FEE_BASE, FEE_PER_POP, NEGO_ACCEPT, NEGO_COUNTER, NEGO_FORM_SWING, NEGO_GATE_POP_RESIST_T2,
-  NEGO_GATE_POP_RESIST_T3, NEGO_GATE_REP_T3, NEGO_REGION_WEIGHT, NEGO_REP_SWING, NEGO_RIVAL_LIFT, NOTICE_DAYS, RELEASE_GRANT_ABOVE_MEDIAN,
-  RELEASE_GRANT_BELOW_MEDIAN, REP_ASK_RELEASE, SHOW_MULT, WAGE_MATCH_T2_MAX, WAGE_REVIEW_MONTHS, WAGE_REVIEW_POP_BAND, TRAIT_BACKSTAGE,
+  ATTITUDE_MULT, BUYOUT_SHARE, CLAUSE_COST, NEGO_ACCEPT, NEGO_COUNTER, NEGO_FORM_SWING, NEGO_GATE_POP_RESIST_T2, NEGO_GATE_POP_RESIST_T3, NEGO_GATE_REP_T3, NEGO_REP_SWING, NEGO_RIVAL_LIFT, NOTICE_DAYS, RELEASE_GRANT_ABOVE_MEDIAN, RELEASE_GRANT_BELOW_MEDIAN, REP_ASK_RELEASE, SHOW_MULT, TRAIT_BACKSTAGE, WAGE_MATCH_T2_MAX, WAGE_REVIEW_MONTHS, WAGE_REVIEW_POP_BAND,
 } from './tuning';
 import type { Career, Contract, Offer } from './types';
 
@@ -25,8 +23,8 @@ export type Mood = 'keen' | 'happy' | 'hesitant' | 'losing';
 export function willingness(c: Career, promo: string, excludeOffer?: string): number {
   const me = findWrestler(c.player)!;
   const p = person(c, c.player);
-  const pop = NEGO_REGION_WEIGHT * regionalPop(me, promoRegion(promo)) + (1 - NEGO_REGION_WEIGHT) * globalScore(me);
-  let base = (FEE_BASE + FEE_PER_POP * pop) * budgetOf(promo);
+  // The same fee model as their offers (fans in the promotion's home region), then reputation and form.
+  let base = contractFee(me, promo);
   base *= 1 + ((p.rep - 50) / 50) * NEGO_REP_SWING;
   const last = c.history.slice(0, 10);
   if (last.length) {

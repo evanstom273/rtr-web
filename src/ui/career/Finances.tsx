@@ -5,7 +5,8 @@ import { Head, money, Screen, useWords } from './parts';
 interface Props { c: Career; onBack: () => void }
 
 const KINDS: [Entry['kind'][], string][] = [
-  [['fee', 'bonus'], 'Match fees'], [['merch'], 'Merch'], [['travel'], 'Travel'], [['training'], 'Training'], [['medical'], 'Medical'], [['buyout'], 'Buyouts'], [['start'], 'Starting money'],
+  [['fee', 'bonus'], 'Match fees'], [['merch'], 'Merch'], [['event'], 'Appearances and events'], [['wage'], 'Wages'], [['travel'], 'Travel'], [['training'], 'Training'],
+  [['medical'], 'Medical'], [['living'], 'Living costs'], [['relocation'], 'Moving'], [['buyout'], 'Buyouts'], [['start'], 'Starting money'],
 ];
 
 /** Career → Finances: the bank, this month, and every pound in and out. */
@@ -32,9 +33,16 @@ export function Finances({ c, onBack }: Props) {
         <span className="c-sec">{w('Since you started', 'Since day one')}</span>
         <div className="c-kv">
           {KINDS.map(([kinds, label]) => {
-            const es = c.ledger.filter((e) => kinds.includes(e.kind));
-            const a = amt(es.reduce((t, e) => t + e.amount, 0));
-            return <span key={label} style={{ display: 'contents' }}><span className="c-lab">{w(label)}</span><span className="c-val"><span className={a.c}>{a.v}</span> <span className="c-hint">{es.length ? `${es.length} ${es.length === 1 ? 'entry' : 'entries'}` : ''}</span></span></span>;
+            // Lifetime totals (the ledger itself keeps only the latest 400 entries).
+            const sum = kinds.reduce((t, k) => {
+              const x = c.totals?.[k];
+              if (x) return { amount: t.amount + x.amount, n: t.n + x.n };
+              const es = c.ledger.filter((e) => e.kind === k);
+              return { amount: t.amount + es.reduce((u, e) => u + e.amount, 0), n: t.n + es.length };
+            }, { amount: 0, n: 0 });
+            if (!sum.n && !['fee', 'merch', 'travel', 'training', 'start'].includes(kinds[0]!)) return null;
+            const a = amt(sum.amount);
+            return <span key={label} style={{ display: 'contents' }}><span className="c-lab">{w(label)}</span><span className="c-val"><span className={a.c}>{a.v}</span> <span className="c-hint">{sum.n ? `${sum.n} ${sum.n === 1 ? 'entry' : 'entries'}` : ''}</span></span></span>;
           })}
         </div>
         <span className="c-sec">{w('The ledger', 'Ledger')}</span>

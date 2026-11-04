@@ -1,5 +1,6 @@
 // The ten contract clauses (Lyra's wording) and each promotion's attitude to them.
 import { getPromotion } from '../data/rtr';
+import { MAJOR_FEE_FLOOR, MAJOR_FEE_FLOOR_AT, MAJOR_FEE_MIN, MAJOR_FEE_PER_POINT } from './tuning';
 export interface ClauseDef { id: string; name: string; tiers: [string, string, string]; none: string; short: [string, string, string] }
 
 export const CLAUSES: ClauseDef[] = [
@@ -47,6 +48,11 @@ export type Attitude = 'resist' | 'neutral' | 'flexible';
 export const BUDGET: Record<string, number> = {
   TCG: 1, VWF: 0.87, NWGP: 0.87, ZWA: 0.83, SLN: 0.78, IVW: 0.68, SSWC: 0.67, AAWA: 0.6, END: 0.6, UFC: 0.52, TIS: 0.4,
 };
+
+/** A major promotion's lowest weekly-show fee (Lyra's call: about £2,500 at the bottom), from its popularity. */
+export const feeFloor = (promo: string): number => floorFor(getPromotion(promo)?.popularity);
+export const floorFor = (popularity = MAJOR_FEE_FLOOR_AT): number =>
+  Math.round(Math.max(MAJOR_FEE_MIN, MAJOR_FEE_FLOOR + (popularity - MAJOR_FEE_FLOOR_AT) * MAJOR_FEE_PER_POINT) / 5) * 5;
 
 /** How much a promotion can spend, from its popularity: TCG at 80 is 1, UFC at 46 about 0.52. */
 export function budgetOf(promo: string): number {

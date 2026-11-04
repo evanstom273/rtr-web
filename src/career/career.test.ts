@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { findWrestler, globalScore, TITLES, WRESTLERS } from '../data/rtr';
+import { fansTotal, findWrestler, globalScore, TITLES, WRESTLERS } from '../data/rtr';
 import { freshWorld, setWorld } from '../world/world';
 import { acceptLetter, applyBout, finishDay, myBoutToday, propose, showsOn, signOffer, startCareer, worldJobs } from './index';
 import { simJobs, type SimJob, type SimOut } from './sim';
@@ -36,7 +36,8 @@ describe('a career', () => {
     const c = begin();
     expect(c.today).toBe('2026-11-03');
     expect(c.people.jamie_mercer!.contract!.promo).toBe('VWF');
-    expect(c.money).toBe(Math.round(globalScore(findWrestler('jamie_mercer')!) * 100));
+    // £1,000 + £2,000 × log10(worldwide fans ÷ 1,000): Jamie's 3.9M fans make about £8,200.
+    expect(c.money).toBe(Math.round((1000 + 2000 * Math.log10(fansTotal(findWrestler('jamie_mercer')!) / 1000)) / 5) * 5);
     expect(Object.values(c.shows).length).toBeGreaterThan(100);
     const booked = Object.values(c.shows).filter((s) => s.card && s.card.length);
     expect(booked.length).toBeGreaterThan(10);

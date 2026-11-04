@@ -209,7 +209,7 @@ export interface Offer {
   rival?: number;
 }
 
-export interface Entry { day: Day; text: string; amount: number; kind: 'fee' | 'travel' | 'training' | 'medical' | 'merch' | 'bonus' | 'buyout' | 'start' }
+export interface Entry { day: Day; text: string; amount: number; kind: 'fee' | 'travel' | 'training' | 'medical' | 'merch' | 'bonus' | 'buyout' | 'start' | 'living' | 'wage' | 'relocation' | 'event' }
 
 export interface PlayerMatch {
   day: Day;
@@ -257,6 +257,13 @@ export interface Career {
   offers: Offer[];
   money: number;
   ledger: Entry[];
+  /** Every pound by kind since the career began (the ledger keeps only the last 400 entries). */
+  totals?: Partial<Record<Entry['kind'], { amount: number; n: number }>>;
+  /** The country you live in (your home country until you move). */
+  base?: string;
+  /** Living costs (Lyra's call): the first Monday they're due, and the last Monday paid. */
+  livingFrom?: Day;
+  livingPaidThrough?: Day;
   history: PlayerMatch[];
   /** Indie shows you've agreed to work: show id → fee and travel. */
   indie: Record<string, { fee: number; travel: number }>;
