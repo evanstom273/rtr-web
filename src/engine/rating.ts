@@ -138,7 +138,7 @@ export interface LiveRating {
  */
 export function rateSoFar(S: MatchState): LiveRating {
   const d = ratingDims(matchFeatures(S), true);
-  const stars = quarter(ratingCurve(ratingComposite(d)) + (S.rules.title ? RATING_TITLE_BONUS : 0));
+  const stars = quarter(ratingCurve(ratingComposite(d)) + (S.rules.title ? RATING_TITLE_BONUS : 0) + (S.rules.chemistry ?? 0));
   const c = S.crowd;
   const missing = !c.heatSeg ? 'Nobody has taken over yet'
     : !c.comeback ? 'Waiting on a comeback'
@@ -159,7 +159,7 @@ export function rate(S: MatchState): Rating {
   const d = ratingDims(f);
   const how = f.how;
   const bigMatch = f.big ? FX.big_match.stars : 0;
-  const raw = ratingCurve(ratingComposite(d)) + (S.rules.title ? RATING_TITLE_BONUS : 0) + bigMatch;
+  const raw = ratingCurve(ratingComposite(d)) + (S.rules.title ? RATING_TITLE_BONUS : 0) + bigMatch + (S.rules.chemistry ?? 0);
   const stars = quarter(raw);
 
   const T = RATING;

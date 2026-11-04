@@ -1337,3 +1337,52 @@ Lending is always yours to decide.
 - **Couples:** about 156 at the start (65 married, 74 living together, the rest newer), and 158 after a year. About 23 break-ups and new couples balance them out.
 - **Deaths:** no deaths in that year, as intended (about one every few years).
 - **Speed and size:** a day's time is about the same.
+
+## Relationships and social life, stage 5: politics (on)
+
+`career/politics.ts`, with hooks into the match engine (`rules.chemistry`), booking (`setPairBias`), signings (`setSigningPull`), contender pushes, patience and fines. Every number is in `tuning.ts` under *Politics*, and all of them are **proposals**.
+
+**In the ring.**
+- **Chemistry** adds to a match's stars:
+  - mutual respect (0.0025 per point);
+  - friends (+0.1);
+  - running spots together in the last fortnight (+0.15).
+
+  Enemies working stiff take off 0.25. It's capped at −0.3 to +0.35.
+- **Stiffing:** the one the other can't stand is 1.6× as likely to get hurt.
+- **Refusing to put someone over:** booked to lose to someone they can't stand, a wrestler halves the booker's nudge and gets fewer re-runs.
+
+**Who's booked with whom.** When picking an opponent, rivals are 1.4× as likely (heat sells), friends who lobby to work together 1.1×, and enemies 0.5× (they refuse).
+
+**Your locker room**, a standing in each major you're signed to (0–100, 50 to start).
+- **Moves:** putting someone over (a planned loss kept) +2, keeping to the plan +1, a great match +1, going off-script −8, failing to deliver −1.
+- **Each month:**
+  - it moves 20% of the way towards what the room's leaders think of you (its two most respected, 30 and over);
+  - friends on the roster add +1 each (up to +4), enemies −2 (down to −6).
+- **What it does:** a new face on that roster takes to you by it (0.2 per point over or under 50). At 70 or more you're respected (+4 wellbeing); at 30 or less you're frozen out (−6).
+- **Labels:** frozen out, on thin ice, accepted, respected, one of the boys.
+
+**Cliques.** Up to two per major, of three to five friends (they all like each other 25+, and the founder's friends 45+). Each has a name and a leader (the most respected). A clique falls apart when its members drift apart (under 20) or drop below three.
+- **Lobbying:** members get a push for title shots when the booker likes their leader (20+).
+- **Freezing out:** whoever crosses a member gets −4 from each of the rest every month, and −3 to your standing if it's you.
+- **Asked in:** close to two of them (45+ both ways) and you're asked in. Joining: +5 from each member, +3 standing.
+
+**Enemies all the way.**
+- **Badmouthing:** someone who can't stand you on a roster whose booker likes them (20+) costs you −2 of that booker's like every month, logged as "badmouthing you".
+- **Provoking:** on the same card as an enemy, 30% they provoke you (the in-person card, at most monthly). Biting back costs a fine of half a week's fee and −4 standing.
+- **Fights:** enemies on the same card where one's a hot-head come to blows 15% of the time: −5 like both ways and −1 reputation each. It's news if it's your roster.
+
+**Contracts and moves.** A signing leans towards:
+- friends on the roster (+1.5 each, up to +6);
+- a partner there (+8);
+
+and away from enemies (−3 each), as points on the signing grade.
+
+**Bookers personally** (every one, not just politicians):
+- a push for people they like (3 points per 100 like);
+- second chances: patience lost shrinks by their like ÷ 250;
+- softer fines: by their like ÷ 300.
+
+**Screens.**
+- **Relationships:** your standing in each locker room, its leaders, and your clique.
+- **A wrestler's file:** their clique (and whether they lead it).

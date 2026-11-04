@@ -208,6 +208,11 @@ export function boutRules(c: Career, show: Show, bout: Bout, you: string, them: 
   // Wellbeing (Lyra's call: it matters): in a good place, or not right in the head, on every roll.
   const mood = { you: moodDice(c, you), them: moodDice(c, them) };
   if (mood.you || mood.them) rules.mood = mood;
+  // Chemistry (relationships stage 5): how two work together shows in the stars.
+  const chem = politics.chem(c, you, them);
+  if (chem) rules.chemistry = chem;
+  // Someone booked to lose to a person they can't stand won't make it easy.
+  if (rules.booked && bout.planned) { const loser = bout.planned === bout.a ? bout.b : bout.a; const refuse = politics.refuse(c, loser, bout.planned); if (refuse) rules.booked = { ...rules.booked, bonus: rules.booked.bonus * (1 - refuse) }; }
   return rules;
 }
 
@@ -291,7 +296,8 @@ export function applyBout(c: Career, show: Show, index: number, out: SimOut, aIs
     // Resilient wrestlers take more punishment; Reliable ones look after themselves.
     // Contract clauses (Match Conditions' safer matches) scale the risk and the wear.
     const injuryPct = (INJURY_BASE_PCT + p.fatigue / INJURY_PER_FATIGUE) * (hardcore ? INJURY_HARDCORE_MULT : 1)
-      * (hasTrait(w, 'resilient') ? TRAIT_FX.resilient.injury : 1) * (hasTrait(w, 'reliable') ? TRAIT_FX.reliable.injury : 1) * mod('injury', c, id, show);
+      * (hasTrait(w, 'resilient') ? TRAIT_FX.resilient.injury : 1) * (hasTrait(w, 'reliable') ? TRAIT_FX.reliable.injury : 1) * mod('injury', c, id, show)
+      * politics.stiff(c, id, id === bout.a ? bout.b : bout.a);
     p.fatigue = clamp(p.fatigue + (FATIGUE_PER_MATCH + (hardcore ? FATIGUE_HARDCORE_EXTRA : 0)) * mod('fatigue', c, id, show), 0, 100);
     p.last = show.date;
     p.circuit = [{ r: show.region, d: show.date }, ...(p.circuit ?? [])].slice(0, CIRCUIT_KEEP);
@@ -481,7 +487,7 @@ async function runNight(c: Career, run: (jobs: SimJob[]) => Promise<SimOut[]>): 
     return b?.planned ? (b.planned === j.you ? 'you' : 'them') : null;
   };
   // The would-be loser's personality: professionals do the job, the rebellious push back (fewer re-runs).
-  const allowed = (j: SimJob) => { const want = plannedSide(j); return PLANNED_RETRIES + retryAdjust(findWrestler(want === 'you' ? j.them : j.you)); };
+  const allowed = (j: SimJob) => { const want = plannedSide(j); const loser = want === 'you' ? j.them : j.you; return PLANNED_RETRIES + retryAdjust(findWrestler(loser)) - Math.round(politics.refuse(c, loser, want === 'you' ? j.you : j.them) * 2); };
   for (let attempt = 1; attempt <= PLANNED_RETRIES + 2; attempt++) {
     const again = jobs.filter((j) => { const want = plannedSide(j); return want && attempt <= allowed(j) && byKey.get(j.key)?.winner !== want; })
       .map((j) => ({ ...j, seed: hashSeed(j.seed, 'again', attempt) }));
@@ -855,6 +861,9 @@ type BoutHook = (c: Career, show: Show, bout: Bout) => void;
 /** Wellbeing on the dice (wellbeing.ts plugs in): + or − on every roll for each side. */
 let moodDice: (c: Career, id: string) => number = () => 0;
 export const setMoodDice = (f: typeof moodDice): void => { moodDice = f; };
+/** Politics plugs in here: chemistry between two (stars), how stiff someone works another (injury), whether a loser refuses (0–1). */
+let politics: { chem: (c: Career, a: string, b: string) => number; stiff: (c: Career, victim: string, other: string) => number; refuse: (c: Career, loser: string, winner: string) => number } = { chem: () => 0, stiff: () => 1, refuse: () => 0 };
+export const setPolitics = (p: typeof politics): void => { politics = p; };
 
 /** Clauses plug in here: someone protected from release, a deal that stays on past its end, you leaving a deal. */
 type ProtectHook = (c: Career, id: string, promo: string) => boolean;
