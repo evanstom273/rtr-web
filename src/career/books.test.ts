@@ -80,7 +80,7 @@ describe('booker mode: the books', () => {
     const c = begin('@indie', 7);
     own(c);
     const co = companyOf('NLW')!;
-    for (let m = 0; m < BIZ.redMonths.player && !co.closed; m++) { co.bank = -BIZ.overdraft.local - 1000; await toMonthEnd(c); }
+    for (let m = 0; m < BIZ.redMonths.player && !co.closed; m++) { co.bank = -BIZ.overdraft.local! - 1000; await toMonthEnd(c); }
     expect(co.closed).toBeTruthy();
     expect(PROMOTIONS.find((p) => p.initials === 'NLW')!.closed).toBeTruthy();
     expect(Object.values(c.shows).some((s) => s.promo === 'NLW' && !s.done)).toBe(false);
