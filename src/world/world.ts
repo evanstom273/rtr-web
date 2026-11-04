@@ -35,6 +35,8 @@ export interface World {
   people?: People;
   /** The indie scene's been generated (or topped up, for a world played before it existed). */
   indies?: { generated: number; brands: number };
+  /** A history being simulated before a career (Lyra's call): the world with nobody playing, and how far it's got. */
+  sim?: { career: import('../career/types').Career; start: Day; end: Day; years: number; reached: number; totals?: Record<string, number>; prev?: Record<string, number> };
 }
 
 const KEY = 'current';

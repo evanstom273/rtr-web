@@ -1,8 +1,9 @@
 import { fmtDay } from '../../career/dates';
 import { activeWorld, worldPlayed } from '../../world/world';
+import { FEATURES } from '../../career/tuning';
 import { useWords } from './parts';
 
-interface Props { hasCareer: boolean; onCancel: () => void; onGo: (fresh: boolean) => void }
+interface Props { hasCareer: boolean; onCancel: () => void; onGo: (fresh: boolean | 'history') => void }
 
 /** Before picking anyone (Lyra's call): keep the world that's been played in, or start a fresh one. */
 export function WorldChoice({ hasCareer, onCancel, onGo }: Props) {
@@ -18,6 +19,7 @@ export function WorldChoice({ hasCareer, onCancel, onGo }: Props) {
           Keep this world and carry on from {world.day ? fmtDay(world.day, 'long') : 'today'}: champions, rosters, rookies and its history ({shows} shows) stay.
           Or start a fresh world, as it ships, on today’s date. Then pick or create your wrestler from it.
         </p>
+        {FEATURES.history && <button className="c-b3" onClick={() => onGo('history')}>{w('Fresh world with history… ›')}</button>}
         <div className="c-nav">
           <button className="c-b2" onClick={() => onGo(true)}>{w('Fresh world')}</button>
           <button className="c-b1" onClick={() => onGo(false)}>{w('Keep this world')}</button>

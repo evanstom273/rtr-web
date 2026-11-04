@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { findWrestler, shippedWrestler, TITLES, WRESTLERS } from '../data/rtr';
 import { activeWorld, freshWorld, setWorld } from '../world/world';
-import { backdate, careerFrom, NOBODY, simulateTo, startSpectator } from './index';
+import { backdate, beginHistory, careerFrom, headline, historyOf, NOBODY, onesToWatch, runHistoryYear, simulateTo, startSpectator, summarise } from './index';
 import { addDays } from './dates';
 import { quick } from './testkit';
 
@@ -59,4 +59,29 @@ describe('backdated history (Lyra’s calls)', () => {
     expect(WRESTLERS.filter((w) => w.promotion === 'TIS' && !sim.people[w.id]?.retired && w.id !== NOBODY).length).toBeGreaterThanOrEqual(150);
     expect(activeWorld().history.events.filter((e) => e.kind === 'debut').length).toBeGreaterThanOrEqual(due);
   }, 300000);
+});
+
+describe('the history sim, year by year (Lyra’s calls)', () => {
+  it('begins, runs a year at a time with a summary, and starts a career at the end', async () => {
+    setWorld(freshWorld(21));
+    beginHistory(2, '2026-11-04');
+    const s = historyOf()!;
+    expect(s.start).toBe('2024-11-04');
+    const seen: string[] = [];
+    let last = activeWorld().history.events.length;
+    expect(await runHistoryYear(quick, () => { const ev = activeWorld().history.events; for (const e of ev.slice(last)) { const h = headline(e); if (h) seen.push(h); } last = ev.length; })).toBe(true);
+    expect(s.reached).toBe(1);
+    expect(seen.length).toBeGreaterThan(5);
+    const y1 = summarise(s.start, s.career.today);
+    expect(y1.champions.length).toBeGreaterThanOrEqual(10);
+    expect(y1.best.length).toBeGreaterThan(0);
+    expect(await runHistoryYear(quick)).toBe(true);
+    expect(s.career.today).toBe('2026-11-04');
+    expect(await runHistoryYear(quick)).toBe(false);
+    expect(onesToWatch().length).toBeGreaterThan(0);
+    const pick = WRESTLERS.find((w) => w.promotion === 'VWF' && w.id !== NOBODY)!;
+    const c = careerFrom(s.career, pick.id);
+    expect(c.today).toBe('2026-11-04');
+    expect(findWrestler(NOBODY)).toBeUndefined();
+  }, 600000);
 });

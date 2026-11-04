@@ -35,6 +35,7 @@ export { baseRegion, livingCost } from './economy';
 export { skip, type SkipTarget } from './skip';
 export { developMonth, ensurePotential, rollRoom } from './development';
 export { addNobody, backdate, careerFrom, debuts, dropNobody, NOBODY, simulateTo, startSpectator } from './worldSim';
+export { beginHistory, checkpoint, debutYear, headline, historyOf, onesToWatch, runHistoryYear, summarise, type Summary } from './historySim';
 export { MAIL_TABS, replyTo, tabOf, waitingOnYou, type MailTab } from './mail';
 export {
   blocked as hustleBlocked, bookConvention, buyStock, classFee, conventionsAhead, conventionTake, dropGig, fundTotal, hireable, hireFee, hustleOf, isCoaching,

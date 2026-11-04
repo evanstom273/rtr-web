@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { WRESTLERS, databaseChanged, type Wrestler } from '../../data/rtr';
-import { advancePhase, ctxFor, eventLibrary, fire, makeOffer, makeSpecial, person, phaseOf, routineOf, skip, startCareer, type SkipTarget } from '../../career';
+import { advancePhase, beginHistory, careerFrom, ctxFor, eventLibrary, fire, makeOffer, makeSpecial, person, phaseOf, routineOf, skip, startCareer, type SkipTarget } from '../../career';
 import { simMyMatch } from './simMine';
 import { FEATURES } from '../../career/tuning';
 import { calledOut } from '../../career/mail';
 import { todayReal } from '../../career/dates';
 import { runJobs } from '../../career/runner';
-import { activeWorld, freshWorld, reloadWorld, resetCareer, saveWorld, setWorld, type World } from '../../world/world';
+import { activeWorld, freshWorld, reloadWorld, resetCareer, saveWorld, setWorld, worldPlayed, type World } from '../../world/world';
 import { useBackLayer } from '../backStack';
 import { Calendar } from './Calendar';
 import { Contract } from './Contract';
@@ -16,6 +16,7 @@ import { History } from './History';
 import { Letters } from './Letters';
 import { MovesetEditor } from './MovesetEditor';
 import { Negotiate } from './Negotiate';
+import { HistoryScreen, HistorySetup } from './HistorySim';
 import { commit, Head, Screen, useCareer, useWords } from './parts';
 import { Profile, type ProfileLink } from './Profile';
 import { Records } from './Records';
@@ -33,7 +34,7 @@ import './career.css';
 import './career-app.css';
 
 export type CareerScreen =
-  | 'cal' | 'show' | 'profile' | 'letters' | 'contract' | 'training' | 'finances' | 'history' | 'stats' | 'records' | 'moveset' | 'start' | 'create' | 'requests' | 'relationships' | 'week' | 'social' | 'ownshow'
+  | 'cal' | 'show' | 'profile' | 'letters' | 'contract' | 'training' | 'finances' | 'history' | 'stats' | 'records' | 'moveset' | 'start' | 'create' | 'requests' | 'relationships' | 'week' | 'social' | 'ownshow' | 'history'
   | { negotiate: string } | { requests: number } | ReqRoute;
 
 interface Props {
@@ -52,7 +53,8 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
     const special = (kind: Parameters<typeof makeSpecial>[1]) => { const ok = makeSpecial(activeWorld().career!, kind, String(Date.now())); commit(); return ok; };
     (window as unknown as { __career: unknown }).__career = { world: activeWorld, commit, makeOffer, event, special, features: FEATURES, calledOut: (id: string) => { calledOut(activeWorld().career!, id); commit(); } };
   }
-  const [stack, setStack] = useState<CareerScreen[]>(() => [c ? initial ?? 'cal' : 'start']);
+  // A history mid-simulation picks up where it left off.
+  const [stack, setStack] = useState<CareerScreen[]>(() => [c ? initial ?? 'cal' : activeWorld().sim ? 'history' : 'start']);
   const [busy, setBusy] = useState<number | null>(null);
   const screen = stack[stack.length - 1]!;
   const go = useCallback((s: CareerScreen) => setStack((st) => [...st, s]), []);
@@ -74,7 +76,19 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
     }
     setUniverse(null);
   }, []);
-  const choose = (fresh: boolean) => {
+  // The history sim (Lyra's call): a fresh world wound back 1–10 years, played out to today before you choose.
+  const [histSetup, setHistSetup] = useState(false);
+  const startHistory = (years: number) => {
+    kept.current = null;
+    setUniverse(null);
+    setHistSetup(false);
+    setWorld(freshWorld());
+    beginHistory(years, todayReal());
+    databaseChanged();
+    setStack(['history']);
+  };
+  const choose = (fresh: boolean | 'history') => {
+    if (fresh === 'history') { setHistSetup(true); return; }
     if (fresh) {
       kept.current = structuredClone(activeWorld());
       setWorld(freshWorld());
@@ -102,6 +116,16 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
     if (extra) {
       WRESTLERS.push(extra);
       databaseChanged();
+    }
+    // After a simulated history: your career carries on from the world it made.
+    if (world.sim) {
+      const sim = world.sim;
+      delete world.sim;
+      world.career = careerFrom(sim.career, player, { created: !!extra, ...(deal !== undefined ? { deal } : {}) });
+      await saveWorld(world);
+      commit();
+      setStack(['cal']);
+      return;
     }
     world.career = startCareer({
       player, today: fresh ? todayReal() : world.day ?? todayReal(), seed: world.seed, created: !!extra,
@@ -165,18 +189,27 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
     }
   };
 
+  const setup = histSetup && <HistorySetup onCancel={() => setHistSetup(false)} onGo={startHistory} />;
   const startScreen = (s: 'start' | 'create') => {
-    if (universe === null && needsWorldChoice(hadCareer)) {
+    if (universe === null && !activeWorld().sim && needsWorldChoice(hadCareer)) {
       return (
         <Screen>
           <Head title={skin === 'paper' ? 'A New Career' : 'NEW CAREER'} onBack={leaveStart} />
-          <WorldChoice hasCareer={hadCareer} onCancel={leaveStart} onGo={choose} />
+          {!histSetup && <WorldChoice hasCareer={hadCareer} onCancel={leaveStart} onGo={choose} />}
+          {setup}
         </Screen>
       );
     }
     if (s === 'create') return <Create hasCareer={hadCareer} onBack={back} onDone={(w) => void begin(w.id, w)} />;
-    return <Start hasCareer={hadCareer} fresh={universe === 'fresh'} onBack={leaveStart} onPick={(id, deal) => void begin(id, undefined, deal)} onCreate={() => go('create')} />;
+    return (
+      <>
+        <Start hasCareer={hadCareer} fresh={universe === 'fresh'} onBack={activeWorld().sim ? () => setStack(['history']) : leaveStart} onPick={(id, deal) => void begin(id, undefined, deal)} onCreate={() => go('create')}
+          onHistory={FEATURES.history && !activeWorld().sim && (universe === 'fresh' || !worldPlayed()) ? () => setHistSetup(true) : undefined} />
+        {setup}
+      </>
+    );
   };
+  if (screen === 'history' && activeWorld().sim) return <HistoryScreen onPick={() => setStack(['start'])} onQuit={onMenu} />;
   if (screen === 'start' || screen === 'create') return startScreen(screen);
   if (!c) return startScreen('start');
 

@@ -816,3 +816,47 @@ Lyra's calls, approved numbers. `career/development.ts`, `DEV` in `tuning.ts`.
 - Signed median ability holds at 444–445, and the top 10% rises from 477 to 486.
 - The indie median rises from 412 to 432 as the young develop.
 - The median age holds at 29.
+
+## The history sim (behind `FEATURES.history` until approved)
+
+Lyra's calls: an optional history before choosing a wrestler, run on a fresh world, year by year. Code: `career/worldSim.ts`, `career/historySim.ts`, `ui/career/HistorySim.tsx`.
+
+**Starting it:** pick a fresh world with history from the world choice, or "Simulate history first" on the start screen of a fresh world, then choose 1–10 years.
+
+**Backdated:** the world is wound back N years and history plays out to today, so your career starts on today's date.
+- **Shipped wrestlers:**
+  - **Ages** go back by N.
+  - **Abilities** go back along the development curve, aiming at a potential of their shipped level ±25.
+  - **Fans** shrink with the years they'd been in the business: ((years then + 1) ÷ (years now + 1))^1.5, never below a newcomer's.
+- **Too young back then:** they debut on the indies at 19–22, capped so everyone shipped has debuted by today.
+- **The indie scene:** today's generated indies never existed. A fresh scene is generated for the start: 200 plus the majors' shortfall against 40-man rosters, so it's still a normal size once scouting has filled them.
+- **Starting champions:** each title starts with the biggest name on its roster (right gender, right region).
+
+**Running it:**
+- History runs through every system, with nobody playing. "You" is a hidden placeholder who's never booked or written to, and mail, side earners, events and offers stand down.
+- Every match goes through the full engine on the worker pool.
+- After each year: a summary of the champions, best matches, biggest moves, retirements and debuts you'll know. Then carry on, or start your career there.
+- After the last year: a review with the title histories, the greatest matches, moves, retirements and the rookies who made it.
+- It saves at each year's end. Closing mid-year loses only that year, and opening career mode resumes it.
+- Once the first year's saved, it replaces the previous world and career.
+
+**The hand-over:** your career carries on from the world history made. The calendar, every contract, title clocks, feuds, cups, injuries and reputations all carry over. If the wrestler you pick had announced a retirement, it's cancelled.
+
+**Picking afterwards:**
+- Sort by card, fans, ability, age or debut year, and filter by age.
+- Each wrestler shows their debut year.
+- "Ones to watch" lists the young wrestlers who grew most in the last year. Their potential stays hidden.
+
+**The shipped stars** retire as if 3 years younger, everywhere.
+
+**10 years (`HISTORY=1`, fast stand-in sims, seed 12):**
+
+| | Start of history | Year 1 | Today |
+| --- | --- | --- | --- |
+| Signed median ability | | 410 | 426 (a normal world: 444) |
+| Signed median fans | | 57k | 341k |
+| Indie scene | | 218 | 449 (left to grow, Lyra's call) |
+
+- **Shipped wrestlers still active today:** 336.
+- **Rosters:** full throughout, with no vacant titles at any point.
+- **Cost:** about 5 seconds a year with the stand-in sims, and a 13 MB save.
