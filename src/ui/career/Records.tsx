@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { REGION_KEY, REGION_LABEL } from '../../career/places';
 import { TraitChips } from './Traits';
 import { FAN_REGIONS, fansTotal, findWrestler, fmtFans, getMove, globalScore, PROMOTIONS, TITLES, titlesHeldBy, WRESTLERS, worksFor } from '../../data/rtr';
-import { askableIndieTitles, askableTitles, GOAL_TEXT, moodLabel, moodOf, person, promoName, readOf, relationOf, type Career } from '../../career';
+import { askableIndieTitles, askableTitles, GOAL_TEXT, LOVE_LABEL, partnerOf, moodLabel, moodOf, person, promoName, readOf, relationOf, type Career } from '../../career';
 import { bondsOf, kindOf } from '../../world/people';
 import { homeOf, schoolOf } from '../../world/social';
 import { ATTR_KEYS, ATTR_LONG, CLASS_NAME, divisionName } from '../../career/create';
@@ -39,6 +39,8 @@ function otherEvent(e: WorldEvent): { k: string; c: string; t: string } {
   switch (e.kind) {
     case 'retired': return { k: 'Retired', c: 'c-eff', t: `retired${e.what ? `, ${e.what}` : ''}` };
     case 'returned': return { k: 'Returned', c: 'c-eff up', t: 'came out of retirement' };
+    case 'died': return { k: 'Died', c: 'c-eff dn', t: `died${e.what ? `, ${e.what}` : ''}` };
+    case 'married': return { k: 'Married', c: 'c-eff gold', t: `got married${e.what ? ` to ${e.what}` : ''}` };
     case 'milestone': return { k: 'Milestone', c: 'c-eff gold', t: `reached a milestone: ${e.what ?? ''}` };
     case 'tournament': return { k: 'Cup', c: 'c-eff gold', t: `won ${e.what ?? 'a cup'}` };
     case 'breakthrough': return { k: 'Breakthrough', c: 'c-eff up', t: 'broke through, not long out of training' };
@@ -333,6 +335,7 @@ function Life({ c, id }: { c: Career; id: string }) {
   const rivals = list((k) => k === 'rival');
   const hates = list((_k, l) => l <= -60);
   const mentor = P ? bondsOf(P, id).find((b) => b.bond.mentor) : undefined;
+  const lover = partnerOf(id);
   const goal = me ? undefined : life?.goal;
   const read = me ? 'clear' : readOf(relationOf(c, id));
   return (
@@ -343,6 +346,8 @@ function Life({ c, id }: { c: Career; id: string }) {
         <span className="c-lab">{w('Trained at')}</span><span className="c-val">{school.name}</span>
         {goal && <><span className="c-lab">{w('After')}</span><span className="c-val">{GOAL_TEXT[goal.kind]}{goal.kind === 'even' && goal.on ? `: ${nameOf(goal.on)}` : ''}</span></>}
         <span className="c-lab">{w(me ? 'Wellbeing' : 'Seems')}</span><span className="c-val">{read === 'none' ? 'Hard to say: you don’t know them well enough' : moodLabel(moodOf(id))}</span>
+        {lover && <><span className="c-lab">{w('With')}</span><span className="c-val">{nameOf(lover.other)} · {LOVE_LABEL[lover.bond.love!.st].toLowerCase()}{P?.folk?.[lover.other] ? ' (not in the business)' : ''}</span></>}
+        {life?.died && <><span className="c-lab">{w('Died')}</span><span className="c-val">{fmtDay(life.died, 'long')}</span></>}
         {close.length > 0 && <><span className="c-lab">{w('Close to')}</span><span className="c-val">{close.join(', ')}</span></>}
         {rivals.length > 0 && <><span className="c-lab">{w('Rivals')}</span><span className="c-val">{rivals.join(', ')}</span></>}
         {hates.length > 0 && <><span className="c-lab">{w('Can’t stand')}</span><span className="c-val">{hates.join(', ')}</span></>}

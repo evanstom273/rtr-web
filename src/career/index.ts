@@ -21,6 +21,7 @@ import './conduct';
 import './socialLife';
 import './phone';
 import './plans';
+import './romance';
 
 export * from './career';
 export * from './contracts';
@@ -44,6 +45,7 @@ export { announceRetirement, pickMentor, setWalk, takeOption } from './shape';
 export { noShow } from './conduct';
 export { GOAL_TEXT, MOOD_WHY, moodLabel, moodOf, moodTarget, whereIs } from './socialLife';
 export { cancelMeet, freeSlots, upcoming, type Meet } from './plans';
+export { attraction, couldFall, LOVE_LABEL, loversOf, partnerOf } from './romance';
 export { MEET_LABEL } from './phoneLines';
 export { contacts, GUESS_TEXT, markRead, phoneOn, phoneUnread, preview, pvoice, send, threadList, threadOf, TONE_LABEL, TOPIC_LABEL, topicsFor, type Guess, type PhoneMsg, type ThreadItem, type Tone, type Topic, type TopicOption } from './phone';
 export { CREATIVE_LABEL, creativeAsk, creativeBlock, creativeBouts, creativeOdds, creativeTier, opponentsFor, vetoNext, type CreativeKind, type CreativeReq } from './creative';

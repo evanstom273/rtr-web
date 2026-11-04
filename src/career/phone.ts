@@ -59,7 +59,7 @@ export function pvoice(id: string): PVoice {
 
 /** People you can message: anyone you know at least a little. */
 export function contacts(c: Career): string[] {
-  const out = bondsOf(P(), c.player).filter((b) => b.bond.f >= PHONE.knowAt && (findWrestler(b.other) || P().staff[b.other] || P().folk?.[b.other]));
+  const out = bondsOf(P(), c.player).filter((b) => b.bond.f >= PHONE.knowAt && !P().lives?.[b.other]?.died && !P().folk?.[b.other]?.died && (findWrestler(b.other) || P().staff[b.other] || P().folk?.[b.other]));
   const close = (b: (typeof out)[number]) => (b.bond.a === c.player ? b.bond.lb : b.bond.la) + b.bond.f;
   return out.sort((a, b) => close(b) - close(a)).map((b) => b.other);
 }
@@ -138,14 +138,17 @@ function sharedPeople(c: Career, id: string): string[] {
 function newsOf(c: Career, id: string): { good?: string; bad?: string } {
   const p = c.people[id];
   const w = findWrestler(id);
-  if (!p || !w) return {};
+  const sh = (P().lives?.[id]?.shocks ?? []).filter((s) => s.until > c.today);
+  const life = { good: sh.find((s) => s.k === 'baby' || s.k === 'wedding'), bad: sh.find((s) => ['grief', 'ill', 'heartbreak', 'death'].includes(s.k)) };
+  if (!p || !w) return { ...(life.good ? { good: 'their news' } : {}), ...(life.bad ? { bad: 'what they’re going through' } : {}) };
   const title = TITLES.find((t) => t.holder === id && daysBetween(c.titles[t.id]?.since ?? '1900-01-01', c.today) <= 14);
   const moved = (p.moves ?? []).some((d) => daysBetween(d, c.today) <= 14) && w.promotion !== 'TIS';
   const won = p.last && daysBetween(p.last, c.today) <= 3 && p.recent?.at(-1) === 1;
   const lost = p.last && daysBetween(p.last, c.today) <= 3 && p.recent?.at(-1) === 0;
   return {
     ...(title ? { good: `winning the ${title.name}` } : moved ? { good: `signing with ${w.promotion}` } : won ? { good: 'the win' } : {}),
-    ...(p.injury ? { bad: 'the injury' } : lost ? { bad: 'the loss' } : {}),
+    ...(p.injury ? { bad: 'the injury' } : lost ? { bad: 'the loss' } : life.bad ? { bad: 'what they’re going through' } : {}),
+    ...(!title && !moved && !won && life.good ? { good: 'their news' } : {}),
   };
 }
 

@@ -9,7 +9,7 @@ import type { Gender, Staffer, TraitId, Wrestler } from '../data/rtr';
 import { personName } from '../data/rtr/names';
 import { hashSeed, seededRng, type Rng } from '../engine/rng';
 import { CITIES } from '../career/places';
-import { CHEMISTRY, CIRCLE, ORIENTATION, SCHOOLS_PER_COUNTRY, SOCIAL_RESPECT, SOCIAL_SEED } from '../career/tuning';
+import { CHEMISTRY, CIRCLE, ORIENTATION, ROMANCE, SCHOOLS_PER_COUNTRY, SOCIAL_RESPECT, SOCIAL_SEED } from '../career/tuning';
 import type { Day } from '../career/dates';
 import { bondOf, bondsOf, ensureBond, feelPair, type Folk, type Life, type Orientation, type People } from './people';
 
@@ -314,4 +314,62 @@ export function ensureCircle(o: CircleOptions): void {
     x.f = 90;
   }
   life.circle = o.day;
+}
+
+// ------------------------------------------------------------------ attraction and couples (stage 4)
+
+/** Someone's gender, whoever they are. */
+export function genderOf(P: People, wrestlers: readonly Wrestler[], id: string): Gender | undefined {
+  return wrestlers.find((w) => w.id === id)?.gender ?? P.staff[id]?.gender ?? P.folk?.[id]?.gender;
+}
+
+/** Could `a` be into `b` at all: their orientation against b's gender (an orientation not set yet: no). */
+export function into(o: Orientation | undefined, ga: Gender | undefined, gb: Gender | undefined): boolean {
+  if (!o || !ga || !gb || o === 'ace') return false;
+  if (o === 'bi') return true;
+  return o === 'gay' ? ga === gb : ga !== gb;
+}
+
+/** The spark between two people (seeded, the same both ways): 0 to 1. */
+export const spark = (seed: number, a: string, b: string): number => frac(seed, 'spark', a < b ? a : b, a < b ? b : a);
+
+/**
+ * A lived-in world's couples (Lyra's call: couples already exist): pairs who know each other, like each other, fit
+ * each other and have the spark get together (dating, partners, living together or married); some of the rest have a
+ * partner from outside the business. Once per world.
+ */
+export function seedCouples(o: SeedOptions & { orient: (id: string) => Orientation | undefined; age: (id: string) => number }): void {
+  const P = o.people;
+  if (P.loves) return;
+  const R = ROMANCE;
+  const rnd = seededRng(hashSeed(o.seed, 'couples'));
+  const taken = new Set<string>();
+  const live = new Map(o.wrestlers.filter((w) => !o.out(w.id)).map((w) => [w.id, w]));
+  for (const x of Object.values(P.bonds)) {
+    const a = live.get(x.a), b = live.get(x.b);
+    if (!a || !b || taken.has(a.id) || taken.has(b.id)) continue;
+    if (Math.min(x.la, x.lb) < 40 || x.f < 40 || Math.abs(a.age - b.age) > R.ageGap) continue;
+    if (!into(o.orient(a.id), a.gender, b.gender) || !into(o.orient(b.id), b.gender, a.gender)) continue;
+    if (spark(o.seed, a.id, b.id) < R.spark || rnd() >= R.seed.couple) continue;
+    const r = rnd();
+    const st = r < 0.25 ? 'dating' : r < 0.5 ? 'partner' : r < 0.55 + R.seed.married * 0.45 ? 'married' : 'living';
+    x.love = { st, since: o.day };
+    x.la = Math.max(x.la, 60); x.lb = Math.max(x.lb, 60); x.f = Math.max(x.f, 70);
+    taken.add(a.id); taken.add(b.id);
+  }
+  // Partners from outside the business.
+  const folk = (P.folk ??= {});
+  for (const w of live.values()) {
+    if (taken.has(w.id) || w.age < R.seed.outsiderAge || rnd() >= R.seed.outsider) continue;
+    const o2 = o.orient(w.id);
+    if (!o2 || o2 === 'ace') continue;
+    const g: Gender = o2 === 'gay' ? w.gender : o2 === 'straight' ? (w.gender === 'MALE' ? 'FEMALE' : 'MALE') : rnd() < 0.5 ? 'MALE' : 'FEMALE';
+    const id = `folk_${w.id}_partner`;
+    const age = Math.max(20, w.age + Math.round((rnd() - 0.5) * 10));
+    folk[id] = { id, name: personName(rnd, w.country, g), kind: 'outsider', rel: 'partner', of: w.id, gender: g, country: w.country, born: `${Number(o.day.slice(0, 4)) - age}${o.day.slice(4)}` };
+    const x = feelPair(P, id, w.id, [75, 20], [75, 20], 'Together', o.day);
+    x.f = 85;
+    x.love = { st: rnd() < R.seed.married ? 'married' : 'living', since: o.day };
+  }
+  P.loves = o.day;
 }

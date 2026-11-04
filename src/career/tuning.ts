@@ -1046,6 +1046,9 @@ export const MEETS = {
   gym: { ph: ['am', 'pm'], cost: 0, like: 4, fam: 5, respect: 2, mood: 1, fatigue: 0 },
   spots: { ph: ['am', 'pm'], cost: 0, like: 5, fam: 5, respect: 3, mood: 1, fatigue: 0 },
   visit: { ph: ['am', 'pm'], cost: 0, like: 8, fam: 8, respect: 0, mood: 3, fatigue: -2 },
+  /** Romance (stage 4): a date; someone's wedding (the cost is your present). */
+  date: { ph: ['pm'], cost: 50, like: 10, fam: 8, respect: 0, mood: 4, fatigue: 2 },
+  wedding: { ph: ['pm'], cost: 100, like: 8, fam: 4, respect: 0, mood: 3, fatigue: 4 },
 } as const;
 /**
  * Making plans: up to this many days ahead. Whether they say yes: from how they like you (a base plus per point,
@@ -1071,3 +1074,38 @@ export const BORROW = { amounts: [250, 500, 1000], minLike: 40, minFam: 30, base
 export const LEND = { ask: 0.25, amounts: [200, 400, 800], weeks: [4, 8], repay: 0.8, reliable: 0.95, mercenary: 0.6, yesLike: 8, noLike: -3, late: 14, chaseYes: 0.5, chaseLike: -2 };
 /** What people invite you to (part of the phone's weekly cap): a chance each day; an introduction to another major's booker no more than every so often. */
 export const PLANS_IN = { daily: 0.12, introDays: 120 };
+
+// --- Romance and family (Lyra's relationships redesign, stage 4: PROPOSALS) -----------------------------
+/**
+ * Attraction: orientation and gender have to fit; then the spark between two people (seeded, 0–1), at least this
+ * much, and an age gap no bigger than this. Flirting: how far it moves them (they're into you, or not, or they're with
+ * someone). Asking out, making it official, moving in, proposing: how long you've been at the stage before, and how
+ * much they need to like you. The wedding: this long after the proposal, at this cost (the ring before it). Ending it:
+ * what it does to both of you, and moving out. A partner you neglect (no plans or messages) cools; below this they
+ * end it. Two at once: each month a partner finds out with this chance. Wellbeing: a partner by stage; apart a lot.
+ */
+export const ROMANCE = {
+  spark: 0.45, ageGap: 15,
+  flirt: { yes: 4, no: -1, taken: -3 },
+  date: { minLike: 30, minFam: 20 },
+  commit: { days: 30, like: 55 }, movein: { days: 90, like: 60 }, propose: { days: 180, like: 70 },
+  wedding: { days: [90, 180], cost: 3000 }, ring: 1500,
+  split: { like: -30, moveOut: 400 },
+  neglect: { days: 21, like: -3 }, dumpAt: 25, cheatFound: 0.35,
+  mood: { dating: 5, partner: 8, living: 10, engaged: 10, married: 10, apart: -4 },
+  livingSplit: 0.4, meetSomeone: 0.15,
+  /** The rest of the world, each month: a couple forming; moving on to the next stage (after so many days, with this chance); splitting (more if it's gone cold); straying. */
+  ai: { start: 0.15, minLike: 40, minFam: 35, spark: 0.35, partner: [90, 0.25], living: [180, 0.1], engaged: [365, 0.05], married: [120, 0.2], split: { dating: 0.03, partner: 0.02, living: 0.012, engaged: 0.008, married: 0.005 }, splitCold: 0.25, cheat: 0.003 },
+  /** A lived-in world: pairs who click become couples (this often), and some of the rest have a partner from outside the business. */
+  seed: { couple: 0.5, outsider: 0.3, outsiderAge: 24, married: 0.45 },
+};
+/**
+ * Life events, each month for each person: a baby (couples), illness in the family, a death in the family, moving
+ * house; and, rarely, anyone's own death (a base chance, more each year past this age). What each does to wellbeing,
+ * and for how long.
+ */
+export const LIFE = {
+  baby: 0.008, ill: 0.004, died: 0.0012, move: 0.004,
+  death: { base: 0.00003, perYear: 0.00002, from: 40 },
+  shock: { grief: [-15, 90], ill: [-8, 60], baby: [10, 120], heartbreak: [-12, 60], wedding: [10, 90], death: [-20, 120] },
+};

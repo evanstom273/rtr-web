@@ -38,7 +38,8 @@ export interface Meet {
 export interface Lent { who: string; amount: number; due: Day; repay: boolean; chased?: Day }
 
 const P = (): People => activeWorld().people!;
-const KINDS = Object.keys(MEETS) as MeetKind[];
+/** What you can invite people to (dates and weddings come from romance). */
+const KINDS = (Object.keys(MEETS) as MeetKind[]).filter((k) => k !== 'date' && k !== 'wedding');
 const money = (n: number) => `£${Math.round(n).toLocaleString('en-GB')}`;
 const costOf = (c: Career, kind: MeetKind, pay?: boolean) => Math.round(MEETS[kind].cost * COST_INDEX[baseRegion(c)] * (pay ? 2 : 1));
 const theirLike = (c: Career, id: string) => likeOf(P(), id, c.player);
@@ -52,6 +53,16 @@ export const slotLabel = (c: Career, day: Day, ph: PhaseName): string => {
   return `${name} ${ph === 'am' ? 'morning' : 'evening'}`;
 };
 export const meetsOf = (c: Career): Meet[] => (c.meets ??= []);
+/** Others who care how a get-together went (romance: a date, a wedding, meeting someone on a night out). */
+type MeetHook = (c: Career, m: Meet, rnd: () => number) => string | void;
+const meetHooks: MeetHook[] = [];
+export const onMeet = (f: MeetHook): void => { meetHooks.push(f); };
+/** Put something in the diary (romance's dates and weddings). */
+export function makeMeet(c: Career, m: Omit<Meet, 'id' | 'status'>): Meet {
+  const x: Meet = { id: `m${++c.seq}`, status: 'on', ...m };
+  meetsOf(c).push(x);
+  return x;
+}
 /** What's on with someone, from today. */
 export const upcoming = (c: Career, id?: string): Meet[] => meetsOf(c).filter((m) => m.status === 'on' && m.day >= c.today && (!id || m.with === id)).sort((a, b) => (a.day + a.ph < b.day + b.ph ? -1 : 1));
 
@@ -265,6 +276,7 @@ function happen(c: Career, m: Meet): void {
   if (m.kind === 'gym' || m.kind === 'spots') extra.push(`Training: ${trainSession(c)}`);
   if (m.purpose === 'intro' && m.promo) extra.push(introduce(c, m.promo, m.with));
   if (m.purpose === 'mentor') { const me = findWrestler(c.player)!; const k = (['strength', 'speed', 'stamina', 'skill', 'striking', 'charisma'] as const).reduce((a, b) => (me.stats[b] < me.stats[a] ? b : a)); me.stats[k] = Math.min(100, me.stats[k] + 1); extra.push(`+1 ${k} from their notes`); }
+  for (const f of meetHooks) { const s = f(c, m, rnd); if (s) extra.push(s); }
   add(c, m.with, { text: pickLine(AFTER[m.kind], pvoice(m.with), rnd) });
   add(c, m.with, { sys: true, text: [`${MEET_LABEL[m.kind]} in ${where}`, 'closer', cost ? `−${money(cost)}` : '', ...extra].filter(Boolean).join(' · ') });
 }

@@ -65,7 +65,14 @@ export interface Bond {
   log?: BondLog[];
   /** What it last was (for news when that changes). */
   k?: BondKind;
+  /** Romance (Lyra's call: full life): a crush (one-sided: `by` has it), dating, partners, living together, engaged, married, or exes. */
+  love?: Love;
 }
+
+export type LoveStage = 'crush' | 'dating' | 'partner' | 'living' | 'engaged' | 'married' | 'ex';
+export interface Love { st: LoveStage; since: Day; by?: string; wedding?: Day }
+/** Together (not a crush, not exes). */
+export const together = (x: Bond): boolean => !!x.love && x.love.st !== 'crush' && x.love.st !== 'ex';
 
 export type Orientation = 'straight' | 'gay' | 'bi' | 'ace';
 export type GoalKind = 'title' | 'top' | 'signed' | 'money' | 'move' | 'stay' | 'even' | 'teach' | 'wind_down';
@@ -88,6 +95,10 @@ export interface Life {
   met?: Day;
   /** The player's circle (trainer, school mates, family) has been made. */
   circle?: Day;
+  /** Things that happened to them, lifting or weighing on wellbeing for a while (a death in the family, a wedding, a break-up). */
+  shocks?: { k: string; d: number; until: Day }[];
+  /** They've died (rarely: Lyra's call). */
+  died?: Day;
 }
 
 /** People outside the ring (Lyra's call: outsiders and family): trainers, family, partners from outside the business. */
@@ -95,7 +106,7 @@ export interface Folk {
   id: string;
   name: string;
   kind: 'trainer' | 'family' | 'outsider';
-  /** For family: what they are to `of` (mother, father, sibling...). */
+  /** What they are to `of`: family (mother, father, sibling, child), or an outsider's partner. */
   rel?: string;
   of?: string;
   gender: import('../data/rtr').Gender;
@@ -115,8 +126,9 @@ export interface People {
   lives?: Record<string, Life>;
   /** Trainers, family and outsiders. */
   folk?: Record<string, Folk>;
-  /** The day the world was given its relationships (lived-in seeding), so it only happens once. */
+  /** The day the world was given its relationships (lived-in seeding), so it only happens once; and its couples. */
   lived?: Day;
+  loves?: Day;
 }
 
 /** The people a fresh world starts with: the promotions' bookers as shipped. */

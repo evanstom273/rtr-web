@@ -1283,3 +1283,57 @@ Lending is always yours to decide.
   - Lending earns +8; refusing costs −3.
   - They pay you back in 4–8 weeks if they're the sort: 80% usually, 95% if reliable, 60% if mercenary.
   - If they don't, you can chase it with *Ask for your money back*. They might pay up; if not, −2.
+
+## Relationships and social life, stage 4: romance and family (on)
+
+`career/romance.ts`, with attraction and couple seeding in `world/social.ts` and the words in `phoneLines.ts`. Every number is in `tuning.ts` under *Romance and family*, and all of them are **proposals**. Romance fades to black.
+
+**Attraction.**
+- **Orientation:** everyone has one (straight 82%, gay 7%, bi 9%, ace 2%). Yours is whatever you set on Relationships; until you set it, nobody makes a move on you.
+- **Who can fall for whom:** gender has to fit, nobody under 18, never family or your trainer, and an age gap of 15 years at most.
+- **The spark:** each pair has a seeded spark (0–1), warmed or cooled by how they feel about each other.
+
+**A lived-in world's couples.**
+- Pairs who know and like each other, fit each other and have the spark (0.45+) are couples half the time: dating, partners, living together or married.
+- About 30% of the rest (24 and over) have a partner from outside the business. They're "folk", like your family.
+
+**Your love life** (the phone):
+1. **Flirt.** It works if they're into you (attraction 0.35+) and not with someone (mostly). It warms them +4, and they may develop a crush. If not: −1, or −3 if they're taken. Get to know someone and you'll be told when you're not their type.
+2. **Ask them out.** Needs like 30+ and familiarity 20+. The chance is attraction × (0.5 + like/100), much less if they're taken. A yes puts a date in your week (evening, about £50: +10 like, +4 wellbeing), and once it happens you're dating. Already together? It's date night.
+3. **Make it official.** After 30 days dating, if they like you 55+.
+4. **Move in.** After 90 days as partners, in the same country, like 60+. Your living costs drop by 40%.
+5. **Propose.** After 180 days, like 70+, and a ring (about £1,500 × where you live). The wedding goes in your week 90–180 days later. It costs about £3,000 × where you live, and makes you married (+10 wellbeing for 90 days, family warm to it).
+6. **End it.** −30 like both ways and heartbreak (−12 wellbeing for 60 days). If you lived together, you move out (about £400).
+
+**Keeping it going.**
+- **Neglect:** a partner you haven't seen in 21 days or texted in 14 cools by −3 every Monday. Below 45 they want to talk; below 25 they end it.
+- **Two at once:** each month each partner finds out with a 35% chance, and it's over (−40 like).
+- **Admirers:** if you've set your orientation, someone who likes you (50+), knows you (30+), fits you and has the spark may develop a crush and flirt. A fortnight later they ask you out.
+- **Wellbeing:** dating +5, partner +8, living together, engaged or married +10. Apart a lot (another country or another major) −4.
+
+**The rest of the world**, each month:
+- **Getting together:** singles who like (40+) and know (35+) each other, fit each other and have the spark (0.35+), 15% a month.
+- **Moving on:** partners after 90 days, living together after 180, engaged after a year, married 120 days later (each a chance a month, if they still like each other).
+- **Splitting:** more likely the newer it is (dating 3% a month, married 0.5%), much more if it's gone cold. Now and then someone strays.
+- **News and weddings:** news of people you'd care about (at most 3 a month). You're invited to a close friend's wedding: say yes and it's an evening in your week (a present, about £100).
+
+**Life events**, each month:
+- **For everyone:**
+  - a baby for couples living together or married (0.8%, +10 wellbeing);
+  - a parent ill (0.4%, −8 for 60 days);
+  - a death in the family (0.12%, −15 for 90 days);
+  - moving house (0.4%).
+
+  Close friends tell you, and you can be there for them.
+- **Your own family** can fall ill or die, more likely the older they are. You hear from the rest of your family, and it hits your wellbeing. With a partner you live with or are married to, you can have a baby of your own.
+- **Death** (Lyra's call: rarely, anyone): a tiny chance a month, more each year past 40. A wrestler who dies:
+  - their titles are vacated and their cards cleared;
+  - the news comes as a tribute;
+  - everyone who cared about them grieves (−15 for 90 days).
+
+  A booker is replaced. It never happens to you.
+
+**Validation** (a year, seed 7, stand-in sims):
+- **Couples:** about 156 at the start (65 married, 74 living together, the rest newer), and 158 after a year. About 23 break-ups and new couples balance them out.
+- **Deaths:** no deaths in that year, as intended (about one every few years).
+- **Speed and size:** a day's time is about the same.

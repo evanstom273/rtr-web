@@ -38,6 +38,7 @@ function asRelation(c: Career, b: Bond, other: string): Relation {
   return {
     v: like, like, respect, mine: { like: meA ? b.la : b.lb, respect: meA ? b.ra : b.rb }, fam: b.f, met: b.met ?? b.last, last: b.last, log: b.log ?? [],
     ...(kind ? { kind } : {}), ...(tie ? { tie } : {}),
+    ...(b.love && b.love.st !== 'crush' ? { love: b.love.st } : {}), ...(b.love?.st === 'crush' && b.love.by === other ? { crush: true } : {}),
   };
 }
 
@@ -74,6 +75,8 @@ export function relLabel(c: Career, id: string): string {
   const r = relationOf(c, id);
   if (!r) return 'Stranger';
   const fam = r.fam ?? 0;
+  if (r.love) return LOVE_WORD[r.love] ?? 'Partner';
+  if (r.crush && fam >= SOCIAL_READ.clear) return 'Fancies you';
   if (r.kind === 'mentor') return 'Mentor';
   if (r.kind === 'protege') return 'Protégé';
   if (r.kind === 'enemy' && ((r.mine?.like ?? 0) <= BOND_KIND.enemy || fam >= SOCIAL_READ.clear)) return 'Enemy';
@@ -85,6 +88,8 @@ export function relLabel(c: Career, id: string): string {
   if (r.v <= -15) return 'Disliked';
   return 'Colleague';
 }
+
+const LOVE_WORD: Record<string, string> = { dating: 'Dating', partner: 'Partner', living: 'Partner', engaged: 'Engaged', married: 'Married', ex: 'Ex' };
 
 /** How clearly you can read someone: not at all, roughly, or clearly. */
 export const readOf = (r: Relation | undefined): 'none' | 'rough' | 'clear' => (!r || (r.fam ?? 0) < SOCIAL_READ.rough ? 'none' : (r.fam ?? 0) < SOCIAL_READ.clear ? 'rough' : 'clear');
