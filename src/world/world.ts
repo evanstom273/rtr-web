@@ -13,9 +13,10 @@ import { emptyHistory, type WorldHistory } from './history';
 import { bookerOf, freshPeople, fromOldBond, pairKey, type People } from './people';
 import { ensureCircle, seedWorld } from './social';
 import { crownIndies, growIndies, populateIndies } from './populate';
+import { ensureCompanies, type Company } from './companies';
 
 /** The world save's revision: each step in `upgrade` runs once, in order, on older saves. */
-export const WORLD_REV = 10;
+export const WORLD_REV = 11;
 
 export interface World {
   v: 1;
@@ -39,6 +40,8 @@ export interface World {
   indies?: { generated: number; brands: number };
   /** A history being simulated before a career (Lyra's call): the world with nobody playing, and how far it's got. */
   sim?: { career: import('../career/types').Career; start: Day; end: Day; years: number; reached: number; totals?: Record<string, number>; prev?: Record<string, number> };
+  /** Booker mode (rev 11): every promotion's company (owner, tier, bank, its own schedule). */
+  companies?: Record<string, Company>;
 }
 
 const KEY = 'current';
@@ -80,6 +83,8 @@ function upgrade(w: World): void {
   if (rev < 3) meetThePeople(w);
   w.people ??= freshPeople();
   w.rev = WORLD_REV;
+  // Rev 11 (booker mode): every promotion is a company with an owner. Run every load: cheap, and founded ones need their homes.
+  ensureCompanies(w);
   ensurePopulation(w);
   if (rev < 4) addRegionalTitles(w);
   // Rev 5: promises know who made them (the promotion's booker now) and have a status.

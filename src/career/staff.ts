@@ -134,6 +134,15 @@ const concernsYou = (c: Career, promo: string, ids: string[]): boolean => {
   return promo === mine || ids.some((id) => !!c.bookers?.[id]);
 };
 
+/** Booker mode: a promotion you booked needs a booker again (you quit, were sacked or sold up). */
+export function appointBooker(c: Career, promo: string, rnd: Rng): Staffer {
+  const P = people();
+  const { s, why } = successor(c, promo, rnd, { id: c.player } as Staffer);
+  takeJob(P, s, { kind: 'booker', promo }, c.today, why);
+  addEvent(history(), { day: c.today, kind: 'hired', who: s.id, name: s.name, promo, what: 'hired as booker' });
+  return s;
+}
+
 /** A promotion's booker goes (fired, quit, retired) and someone takes over. Exported for tests and the dev console. */
 export function handover(c: Career, promo: string, old: Staffer, why: 'fired' | 'quit' | 'retired', rnd: Rng): Staffer {
   const P = people();
@@ -185,7 +194,9 @@ function monthly(c: Career): void {
   const rnd = seededRng(hashSeed(c.seed, 'staff', c.today));
   const P = people();
   // Promotion bookers.
-  for (const p of PROMOTIONS.filter((x) => !x.indie)) {
+  for (const p of PROMOTIONS.filter((x) => !x.indie && !x.closed)) {
+    // Booker mode: a promotion you book has no other booker.
+    if (activeWorld().companies?.[p.initials]?.booker === 'player') continue;
     const b = bookerOf(P, p.initials);
     if (!b) { const s = successor(c, p.initials, rnd, { id: '' } as Staffer); takeJob(P, s.s, { kind: 'booker', promo: p.initials }, c.today, s.why); continue; }
     const years = age(b, c.today);

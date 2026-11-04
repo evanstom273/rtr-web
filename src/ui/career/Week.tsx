@@ -16,7 +16,7 @@ interface Props { c: Career; onBack: () => void; onOwnShow?: () => void }
 const DAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 /** Plans that half-day: what, and with whom. */
 const meetLine = (c: Career, d: string, p: 'am' | 'pm') => { const m = c.meets?.find((x) => x.status === 'on' && x.day === d && x.ph === p); const P = activeWorld().people; return m ? `${MEET_LABEL[m.kind]} · ${findWrestler(m.with)?.name ?? P?.folk?.[m.with]?.name ?? P?.staff[m.with]?.name ?? ''}` : ''; };
-const ACT: Record<Activity, string> = { show: 'Show', travel: 'Travel', moving: 'Moving', work: 'Work', train: 'Train', rest: 'Rest', hustle: 'Gig', content: 'Content', social: 'Plans' };
+const ACT: Record<Activity, string> = { show: 'Show', travel: 'Travel', moving: 'Moving', work: 'Work', train: 'Train', rest: 'Rest', hustle: 'Gig', content: 'Content', social: 'Plans', office: 'Office' };
 
 /** "Mon–Fri AM", "Mon, Wed, Fri AM", "Thu–Sat PM". */
 export function shiftText(shifts: readonly (readonly [number, string])[]): string {

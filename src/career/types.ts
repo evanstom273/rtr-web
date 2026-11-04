@@ -295,7 +295,7 @@ export interface Offer {
   lines?: number[];
 }
 
-export interface Entry { day: Day; text: string; amount: number; kind: 'fee' | 'travel' | 'training' | 'medical' | 'merch' | 'bonus' | 'buyout' | 'start' | 'living' | 'wage' | 'relocation' | 'event' }
+export interface Entry { day: Day; text: string; amount: number; kind: 'fee' | 'travel' | 'training' | 'medical' | 'merch' | 'bonus' | 'buyout' | 'start' | 'living' | 'wage' | 'relocation' | 'event' | 'company' }
 
 export interface PlayerMatch {
   day: Day;
@@ -383,6 +383,8 @@ export interface Career {
   cliques?: import('./politics').Clique[];
   /** Gossip: the stories going round. */
   rumours?: import('./rumours').Rumour[];
+  /** Booker mode: the promotions you run, and your office hours. */
+  office?: import('./company').OfficeState;
   /** Living with someone (a partner or a mate): your living costs are shared. */
   home?: { with: string; since: Day };
   offered?: Record<string, Day>;

@@ -127,7 +127,9 @@ export interface Wrestler {
 }
 
 /** A job behind the curtain: booking a promotion, or running an indie brand. */
-export type Job = { kind: 'booker'; promo: string } | { kind: 'promoter'; brand: string };
+export type Job = { kind: 'booker'; promo: string } | { kind: 'promoter'; brand: string }
+  /** Booker mode: a promotion's owner, and the staff you hire (head writer, road agent and so on). */
+  | { kind: 'owner'; promo: string } | { kind: 'staff'; promo: string; role: string };
 export type SpellWhy = 'start' | 'hired' | 'founded' | 'promoted' | 'fired' | 'quit' | 'poached' | 'retired' | 'closed';
 /** One stretch in a job: from, to (null while it's still going), and how it began or ended. */
 export interface Spell { job: Job; from: string; to: string | null; why?: SpellWhy; end?: SpellWhy }
@@ -165,6 +167,8 @@ export interface Promotion {
   titles: string[];
   /** 0–100: how big the promotion is, which sets its reach and pay. Moves a little each month (world rev 7). */
   popularity?: number;
+  /** Booker mode: a promotion that's closed down (its history stays). */
+  closed?: string;
 }
 
 export interface Title {
@@ -177,6 +181,10 @@ export interface Title {
   weeksHeld: number;
   /** Regional indie titles: the region they're defended in ('EUROPE'…, the same convention as Promotion.region). */
   region?: string;
+  /** Booker mode: its division (world, mid-card, cruiserweight, women's), when it was retired, and who made it. */
+  division?: 'world' | 'midcard' | 'cruiser' | 'women' | 'open';
+  retired?: string;
+  createdBy?: string;
 }
 
 export type WeaponKind = 'HANDHELD' | 'TABLE' | 'LADDER' | 'THUMBTACKS';

@@ -393,7 +393,7 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
   const away = FEATURES.days ? farAway(c, show) : null;
   // ...so a regional champion whose belt is overdue isn't flown to indie shows abroad: they stay free for home.
   if (away && indie) for (const t of TITLES) if (t.holder && t.region && titleRegion(t) !== show.region && sinceLastDefence(c, t.id, show) >= REGIONAL_HOME_DAYS) away.add(t.holder);
-  let pool = (indie ? indiePool(c, show, roster, rnd, promisedHere) : showRoster(show, roster))
+  let pool = (indie ? indiePool(c, show, roster, rnd, promisedHere) : [...showRoster(show, roster), ...(extraPool?.(c, show, roster, rnd) ?? [])])
     .filter((w) => w.id !== c.player && !busy.has(w.id) && !reserved.has(w.id) && !away?.has(w.id) && available(c.people[w.id], show.date));
   // Agreed dates used up this month (part-timers, special attractions, stars split between majors).
   if (!indie) { const full = capped(c, show, pool); if (full.size) pool = pool.filter((w) => !full.has(w.id) || promisedHere.has(w.id)); }
@@ -646,6 +646,9 @@ export const setAngles = (pick: typeof heatPick, news: typeof angleNews): void =
 /** How keen a booker is to put two in the ring (politics plugs in: rivals, friends who lobby, enemies who refuse). */
 let pairBias: (a: string, b: string) => number = () => 1;
 export const setPairBias = (f: typeof pairBias): void => { pairBias = f; };
+/** Booker mode: who else a show can draw on (a small promotion books free agents in the region per show). */
+let extraPool: ((c: Career, show: Show, roster: readonly Wrestler[], rnd: Rng) => Wrestler[]) | null = null;
+export const setExtraPool = (f: typeof extraPool): void => { extraPool = f; };
 
 function opponentFor(rnd: Rng, a: Wrestler, pool: Wrestler[], region: PopRegion, indie: boolean): Wrestler | undefined {
   const mixed = rnd() < (indie ? INTERGENDER_CHANCE_INDIE : INTERGENDER_CHANCE);

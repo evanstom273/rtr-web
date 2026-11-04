@@ -23,13 +23,13 @@ interface Props {
   onAwayDone?: () => void;
   onAdvance: () => void;
   onShowDay: () => void;
-  onOpen: (screen: 'letters' | 'profile' | 'training' | 'records' | 'requests' | 'phone') => void;
+  onOpen: (screen: 'letters' | 'profile' | 'training' | 'records' | 'requests' | 'phone' | 'office') => void;
   onAsk: (r: ReqRoute) => void;
   onNegotiate: (offerId: string) => void;
 }
 
 const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-const DOING: Record<Activity, string> = { show: 'wrestling', travel: 'travelling', moving: 'moving house', work: 'at work', train: 'training', rest: 'resting', hustle: 'on a side gig', content: 'making content', social: 'seeing people' };
+const DOING: Record<Activity, string> = { show: 'wrestling', travel: 'travelling', moving: 'moving house', work: 'at work', train: 'training', rest: 'resting', hustle: 'on a side gig', content: 'making content', social: 'seeing people', office: 'in the office' };
 
 function mineOn(c: Career, day: string): { show: Show; indie: boolean } | null {
   for (const s of showsOn(c, day)) {
@@ -194,12 +194,13 @@ export function Calendar({ c, busy, skipping, onStop, onSkip, note, awayLog, onA
         </div>
       </div>
 
-      <nav className="c-tabs4 five">
+      <nav className={`c-tabs4 ${FEATURES.booker ? 'six' : 'five'}`}>
         <button onClick={() => onOpen('letters')}>{skin === 'paper' ? 'Letters' : 'Mail'}{unread > 0 && <span className="c-badge">{unread}</span>}</button>
         <button onClick={() => onOpen('profile')}>{w('Career')}</button>
         <button onClick={() => onOpen('training')}>{w('Training')}</button>
         <button onClick={() => onOpen('records')}>{skin === 'paper' ? 'Records' : 'DATABASE'}</button>
         <button onClick={() => onOpen('requests')}>{w('Requests')}{waiting > 0 && <span className="c-badge">{waiting}</span>}</button>
+        {FEATURES.booker && <button onClick={() => onOpen('office')}>{w('Office')}</button>}
       </nav>
 
       {sheet && (

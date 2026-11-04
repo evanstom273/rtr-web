@@ -13,8 +13,10 @@ import {
 import type { Brand } from '../world/people';
 import type { PopRegion, Show, ShowKind } from './types';
 
-type When =
+export type When =
   | { every: string }
+  /** Every so many weeks on a weekday, counted from a Monday (booker mode: a fortnightly show). */
+  | { everyN: { day: string; weeks: number; anchor: Day } }
   | { nth: number | 'last'; day: string; month: string }
   | { date: number; month: string }
   | { irregular: { minGapDays: number; maxGapDays: number; day: string | null } }
@@ -23,7 +25,7 @@ type When =
   | { procedural: { eventsPerWeek: [number, number]; countries: string; sameDayAllowed: boolean } }
   | { dates: { date: number; month: string; optional?: boolean }[] };
 
-interface Rule {
+export interface Rule {
   name: string;
   kind: ShowKind;
   when: When;
@@ -41,6 +43,12 @@ export interface CalendarState {
   nextIrregular: Record<string, Day>;
   /** The indie scene's brands: when there are any, they run the indie week (each brand's last show is kept here). */
   indie?: IndieCalendar;
+  /** Booker mode: companies' own schedules (in place of schedules.json), where they're based, and which have closed. */
+  schedules?: Record<string, Rule[]>;
+  homes?: Record<string, { country: string; city: string; local: boolean }>;
+  closed?: string[];
+  /** Draw only this promotion's shows (a changed schedule being redrawn). */
+  only?: string;
 }
 
 export interface IndieCalendar {
@@ -154,12 +162,16 @@ const TOUR_DAYS: Record<number, number[]> = { 1: [6], 2: [3, 6], 3: [2, 4, 6], 4
 function draftWeek(state: CalendarState, ws: Day): Draft[] {
   const we = addDays(ws, 6);
   const out: Draft[] = [];
-  for (const [promo, rules] of Object.entries(SCHEDULES)) {
+  const all = state.schedules ? { ...SCHEDULES, ...state.schedules } : SCHEDULES;
+  for (const [promo, rules] of Object.entries(all)) {
+    if (state.closed?.includes(promo) || (state.only && promo !== state.only)) continue;
     for (const rule of rules) {
       const w = rule.when;
       const key = `${promo}:${rule.name}`;
       if ('every' in w) {
         for (const d of weekdaysIn(ws, we, weekdayIndex(w.every))) out.push({ date: d, promo, rule });
+      } else if ('everyN' in w) {
+        for (const d of weekdaysIn(ws, we, weekdayIndex(w.everyN.day))) if (Math.floor(daysBetween(w.everyN.anchor, d) / 7) % w.everyN.weeks === 0 && d >= w.everyN.anchor) out.push({ date: d, promo, rule });
       } else if ('date' in w || 'nth' in w) {
         for (const d of fixedDates(w, ws, we)) out.push({ date: d, promo, rule });
       } else if ('irregular' in w) {
@@ -248,11 +260,13 @@ export function drawWeek(state: CalendarState, ws: Day): Show[] {
       name = showName(d.rule, d.date, 0);
     }
     const r = rngFor(state.seed, 'venue', d.date, i);
-    const countries = PROMO_COUNTRIES[d.promo] ?? ['USA'];
+    const home = state.homes?.[d.promo];
+    const countries = home ? [home.country] : PROMO_COUNTRIES[d.promo] ?? ['USA'];
     const country = d.country ?? (d.rule.kind === 'tour' || countries.length > 1 ? countries[Math.floor(r() * countries.length)]! : countries[0]!);
-    const cities = CITIES[country] ?? ['Philadelphia'];
+    // A local promotion runs in its home town; bigger ones move around the country.
+    const cities = home?.local ? [home.city] : CITIES[country] ?? ['Philadelphia'];
     shows.push({
-      id: `${d.date}|${d.promo}|${i}`,
+      id: state.only ? `${d.date}|${d.promo}|r${i}` : `${d.date}|${d.promo}|${i}`,
       promo: d.promo,
       ...(d.promos?.length ? { promos: d.promos } : {}),
       name,
