@@ -1174,9 +1174,9 @@ Most of the people without a friend are indie wrestlers, who seldom share a card
 
 **Next stages:** the phone (messages, topics and tones), plans and activities, romance and family, politics (booking, chemistry, the locker room, cliques, enemies), and gossip and angles.
 
-## Relationships and social life, stage 2: the phone (built; off until Lyra approves the screens)
+## Relationships and social life, stage 2: the phone (on)
 
-The engine is in `career/phone.ts`, the words in `career/phoneLines.ts` and the screen in `ui/career/Phone.tsx`. `FEATURES.phone` switches it on. Every number is in `tuning.ts` under *The phone*, and all of them are **proposals**.
+The engine is in `career/phone.ts`, the words in `career/phoneLines.ts` and the screen in `ui/career/Phone.tsx`. `FEATURES.phone` is on (Lyra approved the screens). Every number is in `tuning.ts` under *The phone*, and all of them are **proposals**.
 
 **Threads.** There's one thread per person. It holds what you've texted each other, plus everything they've sent you that wants an answer:
 - notes after a match;
