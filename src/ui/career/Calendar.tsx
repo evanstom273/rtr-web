@@ -29,7 +29,7 @@ interface Props {
 }
 
 const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-const DOING: Record<Activity, string> = { show: 'wrestling', travel: 'travelling', moving: 'moving house', work: 'at work', train: 'training', rest: 'resting', hustle: 'on a side gig', content: 'making content' };
+const DOING: Record<Activity, string> = { show: 'wrestling', travel: 'travelling', moving: 'moving house', work: 'at work', train: 'training', rest: 'resting', hustle: 'on a side gig', content: 'making content', social: 'seeing people' };
 
 function mineOn(c: Career, day: string): { show: Show; indie: boolean } | null {
   for (const s of showsOn(c, day)) {

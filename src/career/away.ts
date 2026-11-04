@@ -10,6 +10,8 @@ import { answerEvent, eventChoices, eventLibrary } from './events';
 import { acceptLetter, declineLetter, indieAllowed } from './offers';
 import { regionOfCountry } from './places';
 import { replyTo } from './mail';
+import { activeWorld } from '../world/world';
+import { likeOf } from '../world/people';
 import type { AwayOrders, Career } from './types';
 
 export const defaultOrders = (): AwayOrders => ({
@@ -69,6 +71,21 @@ export function answerForMe(c: Career): string[] {
       out.push(`Signed with ${offer.promo}: ${offer.months} months at ${money(offer.fee)} a match.`);
       continue;
     }
+    // Invitations and offers to share the drive: yes to people close to you (family, your partner, good friends), or no.
+    const inv = l.replies?.find((r) => r.id === 'meet_yes' || r.id === 'share_yes');
+    if (inv && !a) {
+      const want = o.invites ?? 'close';
+      if (want === 'leave') continue;
+      const who = l.ctx?.who ?? '';
+      const P = activeWorld().people;
+      const close = !!P && (P.folk?.[who]?.kind === 'family' || likeOf(P, who, c.player) >= 40);
+      const r = want === 'close' && close ? inv : l.replies!.find((x) => x.id === 'meet_no' || x.id === 'share_no')!;
+      const said = replyTo(c, l.id, r.id);
+      out.push(`${l.from}: ${r.id.endsWith('yes') ? 'you said yes' : 'you said no'}.${said ? ` ${said}` : ''}`);
+      continue;
+    }
+    // Money: lending is always yours to decide.
+    if (l.replies?.some((r) => r.id === 'lend_yes')) continue;
     // People and press.
     if (l.replies?.length && o.people !== 'leave' && !a) {
       const prefs = TONE[o.people];
