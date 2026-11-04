@@ -416,7 +416,11 @@ function daily(c: Career): void {
 /** With mail on, the news desk's stories about other people wait for Monday's digest. */
 function toDigest(c: Career, l: Pick<Letter, 'kind' | 'from' | 'subject' | 'body'>): boolean {
   if (!FEATURES.mail) return false;
-  const world = (l.kind === 'news' && l.from === 'The news desk' && !/^Your /.test(l.subject)) || (l.kind === 'injury' && l.from !== 'The doctor');
+  // News about you or your promotion stays a letter.
+  const k = c.people[c.player]?.contract;
+  const text = `${l.subject} ${l.body.join(' ')}`;
+  const mine = /^Your /.test(l.subject) || text.includes(findWrestler(c.player)?.name ?? '\u0000') || (!!k && (text.includes(k.promo) || text.includes(promoName(k.promo))));
+  const world = !mine && ((l.kind === 'news' && l.from === 'The news desk') || (l.kind === 'injury' && l.from !== 'The doctor'));
   if (!world) return false;
   (c.mailBox ??= []).push({ day: c.today, subject: l.subject, body: l.body[0] ?? '', kind: l.kind === 'injury' ? 'injury' : 'news' });
   return true;

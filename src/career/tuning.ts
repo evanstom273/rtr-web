@@ -541,7 +541,7 @@ export const MAIL_BACKFIRE = { humble: 0, cocky: 0.2, hot: 0.35 } as const;
 export const MAIL_BACKFIRE_LOSS = 0.02;
 /** Lines per digest section before "and N more". */
 export const DIGEST_LINES = 8;
-export const FEATURES = { livingCosts: true, social: true, days: true, jobs: true, skip: true, mail: false };
+export const FEATURES = { livingCosts: true, social: true, days: true, jobs: true, skip: true, mail: true };
 
 /**
  * Pay (Lyra's call: how many dates you get decides your income). A major promotion's weekly-show fee:

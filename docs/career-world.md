@@ -698,3 +698,72 @@ Every switch on: days, jobs, skipping, social, living costs.
 - 13–15 matches a day to sim, at about 70 ms each.
 - That's about 1 s a day on one thread, with the main thread taking 5–7 ms a day.
 - In the browser the pool of up to 4 workers shares that out. A 30-day skip should take roughly 8–12 s on a 4-core phone (target 15 s). This is worked out from the per-day figures, not measured in a browser.
+
+## Mail (on)
+
+Lyra's calls: everything in a result letter, wrestlers writing, weekly check-ins, a weekly digest, the press, tabs by type, replies on anything, bundled volume, in-character voices, world news from everywhere, ignoring sometimes matters, every kind of mail can stop a skip, a year kept. `career/mail.ts`, `career/voice.ts`, `FEATURES.mail`.
+
+**Tabs:**
+- **Needs you:** open decisions, plus letters you'll pay for ignoring.
+- **Results.**
+- **People:** wrestlers, bookers, the press, and settled offers and events.
+- **News:** the digest and world news.
+
+**A result letter has:**
+- the five grades with their notes, and the recap, the same as the results screen;
+- your booker or promoter's verdict, in their voice, depending on whether you followed the plan and how good the match was;
+- what it did: pay (and travel), fans worldwide and by region, reputation, form, your opponent's relationship label, and the booker's patience;
+- two to five posts online (fans, your opponent, a friend), more for a better match.
+
+You can reply: thank the booker, ask for a bigger spot, or ask for the opponent again. Your history keeps the five grades for check-ins and mentors.
+
+**Voices:** picked from traits.
+- hot (hot-headed, aggressive, rebellious);
+- cocky (egotistical, showboat, ambitious);
+- pro (professional, reliable, methodical);
+- warm (mentor, loyal, team player, crowd-pleaser);
+- sly (politician, opportunist, mercenary, dirty fighter);
+- otherwise plain.
+
+**People who write:**
+- **Your opponent:** after a match, 45% of the time.
+- **A friend:** after a title or a 4★+ match (a bond of 30+). Answer within 7 days, or the bond drops by 3.
+- **A rival calling you out:** this replaces the old online call-out notice. Answer within 5 days, or they tell everyone you're scared: −1 reputation, −2% of your reach in fans, and a line in the digest.
+- **A mentor:** a tip from the weakest part of your last four weeks of grades, about every other Monday.
+
+**Mondays:**
+- **Booker check-in.** Your booker writes, or for a free agent the indie promoter you've worked for most this month. It covers:
+  - your trend (up, down, steady or quiet), plus a grudge line if you went off-script;
+  - what they want, from your weakest grade;
+  - this week, the last four weeks, patience, and the top title.
+  - You can reply: understood (+1 patience), I want more (−2), complain (−5).
+- **The Weekly digest.** Sections:
+  - your week;
+  - match of the week and the best matches;
+  - title changes;
+  - moves;
+  - comings and goings;
+  - injuries;
+  - milestones;
+  - business and headlines;
+  - power rankings (the last 30 days, wins and stars);
+  - online.
+  - Up to 8 lines a section.
+  - News-desk stories about other people wait for it. News about you or your promotion stays a letter.
+
+**The press** (2,000+ fans, a 40% chance a week, at least 21 days apart):
+- **An interview:**
+  - humble: 1% of reach;
+  - cocky: 3%, with a 20% chance of backfiring;
+  - calling out a rival or your promotion's champion: 5%, with a 35% chance of backfiring;
+  - no comment.
+- **A rumour, when another promotion has an open offer:**
+  - deny it: +2 patience, loyal;
+  - play coy: politician;
+  - talk it up: −4 patience, mercenary, public.
+
+Public replies' fans count against the weekly social cap, so mail can't out-earn wrestling. A backfire costs 2% of reach and 1 reputation.
+
+**Skips** stop for new mail by kind: decisions, people, check-ins, news and results. All are on by default, and each can be switched off in the skip sheet.
+
+**Keeping:** a year of mail, up to 1,500 letters. Undecided offers are always kept.

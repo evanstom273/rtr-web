@@ -173,6 +173,8 @@ describe('time skipping (Lyra’s call: Football Manager style)', () => {
     on();
     const run = async (useSkip: boolean) => {
       const c = begin('jamie_mercer', 21);
+      // Mail stops a skip (Lyra's call); this checks the world comes out the same, so it mustn't stop.
+      c.routine = { ...routineOf(c), stopFor: { decisions: false, people: false, checkins: false, news: false } };
       if (useSkip) await skip(c, { days: 12 }, quick, { mine: async (x) => { const m = myBoutToday(x)!; const [o] = await quick([{ key: 'mine', seed: 1, you: m.bout.a, them: m.bout.b, rules: {} }]); applyBout(x, m.show, m.index, o!, true, 'simmed'); return true; } });
       else for (let i = 0; i < 24; i++) await step(c);
       const w = activeWorld();
@@ -186,7 +188,7 @@ describe('time skipping (Lyra’s call: Football Manager style)', () => {
     const c = begin('@indie');
     c.money = -2000;
     const r = await skip(c, { days: 20 }, quick, { mine: async () => false });
-    expect(r.stopped).toMatch(/letter|match/);
+    expect(r.stopped).toMatch(/letter|match|mail/);
     expect(r.phases).toBeLessThan(40);
   }, 120000);
 });
