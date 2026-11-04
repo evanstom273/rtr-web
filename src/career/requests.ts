@@ -542,7 +542,7 @@ export function standingWith(c: Career, promo: string): Standing {
   const pops = rosterOf(promo).map((w) => regionalPop(w, region)).sort((a, b) => a - b);
   return { mine: regionalPop(me(c), region), q1: pops[Math.floor(pops.length / 4)] ?? 0, median: pops[Math.floor(pops.length / 2)] ?? 0, roster: pops.length, region };
 }
-export const otherPromotions = (c: Career): string[] => PROMOTIONS.filter((p) => !p.indie && p.initials !== myPromo(c)).map((p) => p.initials);
+export const otherPromotions = (c: Career): string[] => PROMOTIONS.filter((p) => !p.indie && !p.closed && p.initials !== myPromo(c)).map((p) => p.initials);
 
 /** The chance your own promotion hears you've been talking to another. */
 export function caughtChance(c: Career, promo: string): number {

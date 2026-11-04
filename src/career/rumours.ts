@@ -69,7 +69,7 @@ function arise(c: Career, rnd: Rng): void {
     // A new couple.
     if (x.love?.st === 'dating' && recent(x.love.since) && findWrestler(x.a) && findWrestler(x.b) && rnd() < R.arise) start(c, { kind: 'dating', a: x.a, b: x.b, truth: true, by: x.a }, [x.a]);
   }
-  for (const p of PROMOTIONS.filter((y) => !y.indie)) {
+  for (const p of PROMOTIONS.filter((y) => !y.indie && !y.closed)) {
     const bk = bookerOf(P0, p.initials);
     if (!bk) continue;
     for (const { other, bond } of bondsOf(P0, bk.id)) {

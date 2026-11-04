@@ -352,7 +352,7 @@ function afterMatch(c: Career, show: Show, _bout: Bout, m: PlayerMatch): void {
   const rnd = seededRng(hashSeed(c.seed, 'scouts', show.id));
   const big = !!show.special || show.kind === 'special' || show.kind === 'flagship' || (show.brand && (activeWorld().people?.brands[show.brand]?.popularity ?? 0) >= 20);
   const news = !!m.wonTitle || m.stars >= 4;
-  for (const p of PROMOTIONS.filter((x) => !x.indie)) {
+  for (const p of PROMOTIONS.filter((x) => !x.indie && !x.closed)) {
     const promo = p.initials;
     if (dealsOf(person(c, c.player)).some((k) => k.promo === promo)) continue;
     const home = promoRegion(promo) === show.region;
@@ -399,7 +399,7 @@ function monthly(c: Career, rnd: Rng): void {
       for (const promo of [o.promotion, ...(o.also ?? [])]) if (rnd() < SCOUT_WORD) know(c, promo, `${o.name} mentioned you`);
     }
   }
-  for (const p of PROMOTIONS.filter((x) => !x.indie)) {
+  for (const p of PROMOTIONS.filter((x) => !x.indie && !x.closed)) {
     if (!knows(c, p.initials) || rnd() >= NOTICE_CHANCE) continue;
     evaluate(c, p.initials, 'We’ve been watching you');
   }

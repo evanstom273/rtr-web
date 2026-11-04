@@ -125,7 +125,7 @@ function cliqueMonth(c: Career, rnd: Rng): void {
   c.cliques = all.filter((q) => q.members.length >= CLIQUE.size[0]! && cohesion(q) >= CLIQUE.dissolve);
   for (const q of c.cliques) if (!q.members.includes(q.leader)) q.leader = mostRespected(q.members);
   // New ones: friends who band together.
-  for (const p of PROMOTIONS.filter((x) => !x.indie)) {
+  for (const p of PROMOTIONS.filter((x) => !x.indie && !x.closed)) {
     if (cliquesOf(c, p.initials).length >= CLIQUE.perPromo) continue;
     const roster = rosterOf(p.initials).filter((w) => !c.people[w.id]?.retired && w.id !== c.player && !cliqueOf(c, w.id));
     const ids = new Set(roster.map((w) => w.id));

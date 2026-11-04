@@ -5,18 +5,18 @@ import type { Rng } from '../engine/rng';
 import { addEvent } from '../world/history';
 import { activeWorld } from '../world/world';
 import { available, promoRegion } from './booker';
-import { letter, person, setCareerHooks } from './career';
+import { letter, person, rosterTargetOf, setCareerHooks } from './career';
 import { tierOf } from './clauses';
 import { addDeal, aiContract, dealsOf, openToSecond } from './deals';
-import { AI_SECOND_DATES, AI_SECOND_DEAL_CHANCE, CONTRACT_MONTHS, FIRST_REFUSAL_BLOCK, MAX_MAJORS, ROSTER_TARGET, SPLIT_DATES_TOTAL } from './tuning';
+import { AI_SECOND_DATES, AI_SECOND_DEAL_CHANCE, CONTRACT_MONTHS, FIRST_REFUSAL_BLOCK, MAX_MAJORS, SPLIT_DATES_TOTAL } from './tuning';
 import type { Career } from './types';
 
 /** The first of the month: a promotion with room might bring in a non-exclusive star from another major. */
 function secondDeals(c: Career, rnd: Rng): void {
-  for (const p of PROMOTIONS.filter((x) => !x.indie)) {
+  for (const p of PROMOTIONS.filter((x) => !x.indie && !x.closed)) {
     if (rnd() >= AI_SECOND_DEAL_CHANCE) continue;
     const roster = rosterOf(p.initials);
-    if (roster.length >= ROSTER_TARGET) continue;
+    if (roster.length >= rosterTargetOf(p.initials)) continue;
     // Stars on other majors whose deals let them work elsewhere, biggest names first.
     const cands = WRESTLERS.filter((w) => {
       if (w.id === c.player || w.promotion === 'TIS' || w.promotion === p.initials) return false;

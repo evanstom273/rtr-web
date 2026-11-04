@@ -123,7 +123,7 @@ export function backdate(years: number, today: Day, seed: number): { start: Day;
   WRESTLERS.splice(0, WRESTLERS.length, ...keep);
   // The indie scene of back then (Lyra's call: bigger at the start): a normal scene's worth plus however many the
   // majors are short of their rosters, so it's still about a normal size once scouting has filled them.
-  const short = PROMOTIONS.filter((p) => !p.indie).reduce((t, p) => t + Math.max(0, ROSTER_TARGET - keep.filter((w) => w.promotion === p.initials).length), 0);
+  const short = PROMOTIONS.filter((p) => !p.indie && !p.closed).reduce((t, p) => t + Math.max(0, ROSTER_TARGET - keep.filter((w) => w.promotion === p.initials).length), 0);
   const rnd = seededRng(hashSeed(seed, 'history-indies', start));
   for (let i = 0; i < INDIE_POOL_MIN + short; i++) {
     const w = makeIndie(rnd, WRESTLERS, `hist_${start.replace(/-/g, '')}_${i}`);

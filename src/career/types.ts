@@ -36,6 +36,8 @@ export interface Show {
   segments?: Segment[];
   booked?: 'player' | 'staff';
   rating?: ShowRating;
+  /** The night's books (booker mode, stage 4): who came, where, what came in and went out. */
+  books?: { sold: number; cap: number; venue: string; in: number; out: number };
 }
 
 /** Booker mode: how a booked match ends (Lyra's call: clean, cheating, DQ, count-out or no contest). */
