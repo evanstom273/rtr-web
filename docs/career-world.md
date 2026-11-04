@@ -1426,3 +1426,101 @@ and away from enemies (−3 each), as points on the signing grade.
 - **Messages:** you'd get about five person-to-person messages a week (the phone's cap is 6, plus match notes).
 - **Speed:** a day takes about 15–17 ms with every stage on, against about 13 before stages 2–6.
 - **World health:** a year's contracts run is healthy (rosters 39–40, no titles held off-roster).
+
+## Booker mode (off: `FEATURES.booker`)
+
+Lyra's design, six rounds of questions: booking is part of career, not a separate path. You can run one major and one indie at a time and keep wrestling the whole while, for anyone. Every number is in `src/career/tuning.ts` and listed in `docs/booker-numbers.md`.
+
+**Companies** (`src/world/companies.ts`, world rev 11):
+- Every promotion except The Indie Scene is a company. Each has:
+  - an owner (seeded for every major);
+  - a tier: local, regional, national or global;
+  - a bank, monthly books, its own schedule once someone changes it, staff, a TV deal, sponsors and a loan.
+- Tiers follow popularity (global 70+, national 45+, regional 25+) until play moves them. Shipped majors all start national or global.
+- A local or regional promotion books free agents from its region a night at a time, alongside anyone it signs.
+- Nobody signs to a promotion you run except you.
+
+**Your roles** (`src/career/company.ts`):
+- Your own promotion makes you owner and booker. Someone else's makes you their booker, answering to its owner.
+- **Ways in:** found one; be offered or ask for a booking job; buy one or buy out the one you book; be handed one; or book for anyone from career start.
+- **Office hours:** booking takes half-days a week by tier (local 1, regional 2, national 3, global 4) as a new `office` activity. Miss them and your staff cover.
+- **Schedule:** you set it (weekly, fortnightly or monthly shows; specials; a flagship), capped by tier. Changing it redraws everything more than a week out.
+
+**The card** (`src/career/card.ts`):
+- **Matches:** in running order, with winners, titles and stipulations.
+- **Finishes:** clean, cheating, DQ, count-out or no contest.
+  - Cheating leans the engine's AI on dirty tactics.
+  - DQ, count-out and no contest are how the match ends whatever happened; the new finish type is `NO_CONTEST`.
+- **Segments:** promo, run-in, beat-down, contract signing, debut, celebration, interview, betrayal. Each is scored 0–5 from charisma, heat, the crowd, the kind of segment and your producer, and moves fans.
+- **Your staff** book any show you leave, the night before. A head writer books it better.
+- **Watching:** on the night, any match can be watched. It's wrestled there and then in the full engine and the commentary plays back; that result stands.
+- **The whole show is judged:** matches by slot (main event ×2, opener ×1.2), segments, flow, payoffs by heat, star power and running to time. The rating feeds popularity, reputation and pay-per-view.
+- **Booking yourself to win** costs locker-room standing and your opponent's goodwill. Three wins in 45 days starts a glory-hog rumour. Putting someone over earns both back.
+
+**Storylines and titles** (`src/career/stories.ts`, `belts.ts`):
+- **Heat** runs 0–100. It's built by segments and matches between the two, worn by repetition and cooled by a quiet week. It builds slower face against face.
+- **The blow-off** at the show you set pays by the heat. A storyline that hits zero has gone cold.
+- **Turns** land if the next show shows them. Flip-flopping falls flat.
+- **Alliances** can end in a betrayal segment, which starts a storyline hot.
+- **Titles:** create (by tier), rename, set the division (with a cruiserweight weight limit), vacate, retire, unify.
+- **Tournaments** of 4 or 8 run a round a show, for a vacant belt or a shot at one.
+- When a champion is injured, the office asks whether to strip them.
+
+**The books** (`src/career/books.ts`):
+- **Each show is settled the night after.**
+  - Draw: tier base + Σ√(fans where it is) × size × kind × reputation × ticket price. It goes in the smallest venue that holds it.
+  - In: tickets, merch, TV for weekly shows, pay-per-view for big nights.
+  - Out: wages per date for the contracted, fees for free agents, venue, production by kind, and travel.
+- **Each month:**
+  - sponsors, insurance, staff, a salary or owner's wage, and loan repayments;
+  - the accounts close and come to you;
+  - tiers move with popularity, bank and roster;
+  - TV and sponsors come calling from regional tier, once your shows average 2.8★.
+- **Moving money:** put your own in, take it out, pay yourself, or borrow.
+- **Bust:** past the overdraft for 3 months running (6 for the AI) and the company closes. The roster goes free, the titles are retired, and the history stays.
+- **Tuning** (`BIZ=1 src/career/bizprobe.test.ts`): AI majors run healthy margins. A founded local promotion booked weekly by its staff runs about even.
+
+**Roster and staff** (`src/career/signing.ts`, `morale.ts`):
+- **Signing from the other side of the table:**
+  - What they ask comes from their fans where you are, your size against theirs, their traits and how they feel about you, plus the 25 clauses.
+  - Three rounds: they counter, walk, or are insulted.
+  - Buyouts are paid to their promotion. Releases pay off what's left.
+  - You're asked about renewals 30 days out. Someone who can't stand you won't re-sign.
+- **How your roster feels about you** runs through relationships:
+  - wins, titles and main events warm them;
+  - weeks off the cards, underpay and broken promises cool them;
+  - the unhappy write in and ask for their release;
+  - conduct lands on your desk: fine, suspend or ignore.
+- **Staff:**
+  - head writer: smarter staff booking;
+  - road agents: better matches;
+  - producer: better segments and more TV money;
+  - scout: monthly picks;
+  - doctor: fewer injuries.
+
+**Owners and the war** (`src/career/owners.ts`, `war.ts`):
+- **Owners:**
+  - two goals a quarter;
+  - patience like any booker (goals, bad shows, budget, the red, crossing their champion, agreeing with or defying them);
+  - meddling about their favourite;
+  - the sack at zero. You can resign any time.
+- **The war:**
+  - rivals poach your roster: match the offer, or let them go;
+  - a rival show the same night in your region splits the crowd;
+  - a bigger rival can take your TV slot;
+  - indie brands that make a name become promotions;
+  - struggling promotions merge.
+
+**The Office** (`src/ui/career/Office.tsx` and `Office*.tsx`): a tab on the calendar, with:
+- Overview (your boss, or selling up)
+- Card
+- Stories
+- Titles
+- Roster
+- Signings
+- Staff
+- Books
+- Schedule
+- Take one on
+
+**Long runs** (`BOOKER=1 src/career/bookerrun.test.ts`): see the numbers in the PR for stage 7.

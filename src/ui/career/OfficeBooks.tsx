@@ -5,7 +5,7 @@ import {
 import { PROMOTIONS, rosterOf } from '../../data/rtr';
 import { fmtDay } from '../../career/dates';
 import { BIZ } from '../../career/tuning';
-import { commit, money, useWords } from './parts';
+import { commit, money, shortMoney, useWords } from './parts';
 
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -26,7 +26,7 @@ export function OfficeBooks({ c, promo, say }: { c: Career; promo: string; say: 
     <>
       <div className="c-start">
         <div className="c-facts">
-          <span className="c-fact"><span className="c-lab">{w('Bank')}</span><b className={co.bank < 0 ? 'c-amt neg' : ''}>{money(co.bank)}</b></span>
+          <span className="c-fact"><span className="c-lab">{w('Bank')}</span><b className={co.bank < 0 ? 'c-amt neg' : ''}>{shortMoney(co.bank)}</b></span>
           <span className="c-fact"><span className="c-lab">{w('Tier')}</span><b>{TIER_LABEL[co.tier]}</b></span>
           <span className="c-fact"><span className="c-lab">{w('Popularity')}</span><b>{pop}</b></span>
           <span className="c-fact"><span className="c-lab">{w('Shows rated')}</span><b>{co.rep ? `${co.rep}★` : '—'}</b></span>

@@ -24,6 +24,11 @@ export function useWords(): { skin: Skin; w: (paper: string, other?: string) => 
 }
 
 export const money = (v: number): string => `${v < 0 ? '−' : ''}£${Math.abs(Math.round(v)).toLocaleString('en-GB')}`;
+/** Big money in a small box: £2.5m, £84k. */
+export const shortMoney = (v: number): string => {
+  const a = Math.abs(v), s = v < 0 ? '−' : '';
+  return a >= 1e6 ? `${s}£${(a / 1e6).toFixed(a >= 1e7 ? 0 : 1)}m` : a >= 1e4 ? `${s}£${Math.round(a / 1000)}k` : money(v);
+};
 
 export function tone(w: Wrestler | undefined): 'face' | 'heel' | 'champ' {
   if (!w) return 'face';
