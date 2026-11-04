@@ -259,7 +259,18 @@ export function Calendar({ c, busy, skipping, onStop, onSkip, note, onAdvance, o
                 <button key={String(l)} className={`c-chip${routineOf(c).simMine === v ? ' on' : ''}`} onClick={() => { routineOf(c).simMine = v as boolean; commit(); }}>{w(l as string)}</button>
               ))}
             </div>
-            <span className="c-note">A skip does everything pressing on does, and stops for anything that needs you: your match, a letter to answer, an injury, a contract, news from work.</span>
+            {FEATURES.mail && (
+              <>
+                <span className="c-lab" style={{ marginTop: 4 }}>{w('Stop for mail')}</span>
+                <div className="c-chips">
+                  {([['decisions', 'Decisions'], ['people', 'People'], ['checkins', 'Check-ins'], ['news', 'News & results']] as const).map(([k, label]) => {
+                    const f = routineOf(c).stopFor ?? { decisions: true, people: true, checkins: true, news: true };
+                    return <button key={k} className={`c-chip${f[k] ? ' on' : ''}`} onClick={() => { routineOf(c).stopFor = { ...f, [k]: !f[k] }; commit(); }}>{w(label)}</button>;
+                  })}
+                </div>
+              </>
+            )}
+            <span className="c-note">A skip does everything pressing on does, and stops for anything that needs you: your match, {FEATURES.mail ? 'the mail you’ve ticked' : 'a letter to answer'}, an injury, a contract, news from work.</span>
           </div>
         </div>
       )}

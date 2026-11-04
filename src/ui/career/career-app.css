@@ -215,3 +215,28 @@
 [data-skin=building] .cr .c-wk{border-radius:4px}
 .cr select.c-fld{font:inherit;color:var(--cr-fg);background:var(--cr-panel2);border:1px solid var(--cr-line);min-height:44px;padding:0 8px;width:100%}
 .cr .c-busy .c-b2{text-transform:var(--cr-upper)}
+
+/* ---- mail (FEATURES.mail): report card, quotes, posts, the digest ---- */
+.cr .c-st .c-badge{top:2px;right:3px}
+.cr .c-mrep{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:center;margin:2px 0 4px}
+.cr .c-mstar{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:92px;padding:8px 10px;background:var(--cr-hi);color:var(--cr-hi-fg)}
+.cr .c-mstar b{font-family:var(--cr-display);font-weight:900;font-size:34px;line-height:.9}
+.cr .c-mstar span{margin-top:4px;font-family:var(--cr-mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;text-align:center}
+.cr .c-grades{display:flex;flex-direction:column;gap:3px}
+.cr .c-grade{display:grid;grid-template-columns:34px 64px minmax(0,1fr);gap:8px;align-items:center;background:var(--cr-panel);padding:5px 8px 5px 0}
+.cr .c-grade>b{font-family:var(--cr-display);font-weight:900;font-size:22px;text-align:center;line-height:1}
+.cr .c-grade>.c-ad{font-size:13px;line-height:1.25}
+.cr .c-grade.g-A>b,.cr .c-grade.g-B>b{color:var(--cr-hi)}
+.cr .c-grade.g-D>b,.cr .c-grade.g-E>b{color:var(--cr-dim)}
+.cr .c-quote{display:flex;flex-direction:column;gap:2px;border-left:4px solid var(--cr-hi);padding:6px 10px;background:var(--cr-panel)}
+.cr .c-quote .c-val,.cr .c-said{font-style:italic}
+.cr .c-posts{display:flex;flex-direction:column;gap:3px}
+.cr .c-post{display:flex;flex-direction:column;background:var(--cr-panel);padding:6px 10px;border-left:3px solid var(--cr-face)}
+.cr .c-post b{font-family:var(--cr-mono);font-size:11px;font-weight:600;color:var(--cr-dim)}
+.cr .c-post span{font-size:14px;line-height:1.25}
+.cr .c-dsec{display:flex;flex-direction:column;gap:2px}
+.cr .c-dline{font-size:14px;line-height:1.3;padding:2px 0;border-bottom:1px solid var(--cr-line)}
+[data-skin=paper] .cr .c-grade,[data-skin=paper] .cr .c-quote,[data-skin=paper] .cr .c-post{background:transparent;border-bottom:1px dotted #8a8476}
+[data-skin=paper] .cr .c-dline{border-bottom:1px dotted #8a8476}
+[data-skin=building] .cr .c-grade,[data-skin=building] .cr .c-post,[data-skin=building] .cr .c-quote{border-radius:4px}
+[data-skin=building] .cr .c-mstar{border-radius:8px}
