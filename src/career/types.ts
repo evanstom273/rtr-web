@@ -305,6 +305,8 @@ export interface Career {
   routine?: Routine;
   /** One-off plans for a phase (`2026-11-03|am`): train, rest, or a gig shift. */
   plans?: Record<string, 'train' | 'rest' | 'work' | 'trained'>;
+  /** Side earners: merch stock, coaching, one-off gigs, subscribers, sponsors, a fundraiser, your own shows. */
+  hustle?: import('./hustle').HustleState;
   /** Your day job. */
   job?: DayJob | null;
   /** A move in progress. */
@@ -449,7 +451,7 @@ export interface EventChoice { id: string; label: string; detail?: string; block
 export type PhaseName = 'am' | 'pm';
 export interface Routine {
   /** For each weekday (0 = Sunday): what a free AM and PM are for. */
-  week: { am: 'train' | 'rest'; pm: 'train' | 'rest' }[];
+  week: { am: 'train' | 'rest' | 'content'; pm: 'train' | 'rest' | 'content' }[];
   /** Which attribute training sessions build first, and the most a session may spend. */
   focus?: string;
   spendCap?: number;

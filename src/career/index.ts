@@ -34,3 +34,7 @@ export { activityAt, advancePhase, baseCountry, bookings, defaultRoutine, fits, 
 export { baseRegion, livingCost } from './economy';
 export { skip, type SkipTarget } from './skip';
 export { MAIL_TABS, replyTo, tabOf, waitingOnYou, type MailTab } from './mail';
+export {
+  blocked as hustleBlocked, bookConvention, buyStock, classFee, conventionsAhead, conventionTake, dropGig, fundTotal, hireable, hireFee, hustleOf, isCoaching,
+  merchUnits, ownBudget, ownDraw, putOnShow, recentSessions, setCoaching, showWorkPay, subsHeading, subsTarget, venues, workShow, type Gig, type HustleState, type OwnPlan,
+} from './hustle';

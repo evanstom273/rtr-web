@@ -49,7 +49,7 @@ export function Training({ c, onBack, onMoveset }: Props) {
   const half = ph === 'am' ? 'this morning' : 'this evening';
   const shut = session
     ? trained ? `You’ve trained ${half}.${ph === 'am' ? ' Next session: this evening.' : ' Next session: tomorrow morning.'}`
-      : act === 'work' ? `You’re at work ${half}.` : act === 'travel' ? `You’re travelling ${half}.` : act === 'moving' ? 'You’re moving house.' : act === 'show' ? `You’re wrestling ${half}.`
+      : act === 'work' ? `You’re at work ${half}.` : act === 'hustle' ? `You’re on a side gig ${half}.` : act === 'travel' ? `You’re travelling ${half}.` : act === 'moving' ? 'You’re moving house.' : act === 'show' ? `You’re wrestling ${half}.`
         : c.money < 0 ? 'You’re overdrawn: no training until you’re back in the black.' : null
     : booked ? 'You’re booked today, so the gym’s shut. Come back on a free day.' : null;
   const canAdd = (i: number) => !shut && after >= next && vals[i]! + pending[i]! < ATTRIBUTE_CAP && (!session || n < TRAIN_SESSION_POINTS);

@@ -541,7 +541,33 @@ export const MAIL_BACKFIRE = { humble: 0, cocky: 0.2, hot: 0.35 } as const;
 export const MAIL_BACKFIRE_LOSS = 0.02;
 /** Lines per digest section before "and N more". */
 export const DIGEST_LINES = 8;
-export const FEATURES = { livingCosts: true, social: true, days: true, jobs: true, skip: true, mail: true };
+/**
+ * Side earners (Lyra's calls): a merch table, conventions, coaching, working shows, content and subscriptions,
+ * sponsors, crowdfunding when hurt, and your own show. They take half-days (content, sponsors and crowdfunding
+ * tick along in the background), signed wrestlers need Outside Appearances, injured wrestlers can do the quiet
+ * ones, and together they're a real second income: a hard-working mid-level indie can earn what wrestling pays.
+ */
+export const MERCH_TABLE = { cost: 8, price: 20, batches: [10, 25, 50], base: 2, perLog: 3, stars: [[4, 1.4], [3, 1], [0, 0.6]] as [number, number][], kind: { indie: 1, weekly: 1.2, special: 1.6, flagship: 2 } as Record<string, number> };
+/** Names (25k+ fans) get a guarantee: £60 × (fans in thousands)^0.6, at most £6,000 (about £400 at 25k, £950 at 100k, £3,800 at 1M). */
+export const CONVENTION = { table: 40, photo: 15, photoPerDecade: 5, perFan: 0.9, exp: 0.35, guaranteeFans: 25000, guaranteeK: 60, guaranteeExp: 0.6, guaranteeMax: 6000, weeksAhead: 4, swing: 0.3, fatigue: 2 };
+/** A class pays on reputation and skill, and more as you get experienced: up to ×2.5 after about 90 classes. */
+export const COACHING = { base: 25, perRep: 0.4, perSkill: 0.5, skillFrom: 60, fatigue: 1, maxSlots: 8, expPer: 60, expMax: 1.5 };
+export const SHOW_WORK = { ref: 45, crew: 35, commentary: 50, patience: 1, fatigue: { ref: 3, crew: 4, commentary: 0 } } as const;
+/** Subscribers head for 2.5% of fans^0.95 (slower past 100k fans), £3 a month each: ~£245 a month at 5k fans, ~£26k at 4M. */
+/** Content sessions (half-days) raise where subscribers are heading: ×(1 + 0.4 per session in the last 14 days), up to ×3. Weeks vary ±30%. */
+export const CONTENT = { share: 0.025, exp: 0.95, bigFrom: 100000, bigExp: 0.5, price: 3, grow: 0.15, decay: 0.03, idleDays: 14, perSession: 0.4, maxSessions: 5, swing: 0.3 };
+/** Merch sold online each week from your stock: per subscriber and per √fan, ±30%. */
+export const MERCH_ONLINE = { perSub: 0.03, perRootFan: 0.02, swing: 0.3 };
+/** Sponsors once a region has 5k of your fans; they renew at +25% only if you've kept posting. */
+export const SPONSOR = { minFans: 5000, perFan: 0.02, months: [3, 6] as [number, number], chance: 0.35, max: 3, renew: 1.25, postedDays: 30 };
+export const FUND = { base: 500, k: 2, exp: 0.7, minDays: 14, overDays: 14, againDays: 365, againMult: 0.5 };
+export const OWN_SHOW = {
+  venues: [{ id: 'hall', name: 'Community hall', cap: 150, cost: 300 }, { id: 'club', name: 'Nightclub', cap: 400, cost: 900 }, { id: 'arena', name: 'Small arena', cap: 1200, cost: 3000 }],
+  production: 550, ticket: 12, prices: [10, 15, 20], priceExp: 0.8, merchPerHead: 1.5, drawBase: 10, drawK: 0.6, feeMult: 1.2, minLead: 14, maxLead: 60, hires: 4, swing: 0.15,
+  /** Your shows build a following: hype multiplies the draw (×1 to ×3); a full house with a good match builds it, an empty one costs it. */
+  hypeUp: 0.2, hypeDown: 0.15, hypeMax: 2, hypeFade: 0.03,
+};
+export const FEATURES = { livingCosts: true, social: true, days: true, jobs: true, skip: true, mail: true, hustles: true };
 
 /**
  * Pay (Lyra's call: how many dates you get decides your income). A major promotion's weekly-show fee:

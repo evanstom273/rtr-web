@@ -767,3 +767,37 @@ Public replies' fans count against the weekly social cap, so mail can't out-earn
 **Skips** stop for new mail by kind: decisions, people, check-ins, news and results. All are on by default, and each can be switched off in the skip sheet.
 
 **Keeping:** a year of mail, up to 1,500 letters. Undecided offers are always kept.
+
+## Side earners (on)
+
+Lyra's calls: all eight earners, effort-based, and genuinely lucrative for an indie who puts the time in, though never guaranteed or effortless. They take half-days; content earnings, sponsors and fundraisers tick along in the background. Signed wrestlers need Outside Appearances (Approval Required: only while patience is 50+; your own show needs Limited Freedom). Injured wrestlers can do the quiet ones: coaching, commentary, conventions, content and sponsors. Medical bills are unchanged. `career/hustle.ts`, My week › Earn, `FEATURES.hustles`.
+
+**The earners:**
+
+| Earner | How it works |
+| --- | --- |
+| Merch table | Stock at £8 a shirt, sold at £20. Sales at each show you work: (2 + 3 × log10(local fans ÷ 100 + 1)) × stars (×1.4 at 4★+, ×0.6 under 3★) × show size. Stock also sells online each Monday: 0.03 a subscriber + 0.02 × √fans, ±30%. |
+| Conventions | Saturdays and Sundays, somewhere in your region. Photos: 0.9 × local fans^0.35, at £15 + £5 per tenfold fans over 1k. Under 25k fans you pay a £40 table; from 25k you get a guarantee of £60 × (fans/1k)^0.6, capped at £6,000. Turnout varies ±30%. +2 fatigue, the whole day, plus travel. |
+| Coaching | Up to 8 half-days a week. £25 + 0.4 × reputation + skill, multiplied by up to 2.5 with experience (every 60 classes adds +100%). +1 fatigue. |
+| Working a show | Referee £45, ring crew £35, commentary £50 (×1.2 outside your region). Booked from an indie show's sheet. |
+| Content | Subscribers head for 2.5% × fans^0.95 (more slowly past 100k fans). Each Content half-day in the last 14 days multiplies that by 1.4, up to ×3. Posting and wrestling keep them growing at half the rate; doing nothing loses 3% a week. £3 a subscriber a month, paid weekly, ±30%. |
+| Sponsors | Once a region has 5k of your fans: a 35% chance a month of an offer of £0.02 a fan there a month, for 3–6 months, up to 3 at once. They renew at +25% if you've posted in the last 30 days. |
+| Fundraiser | Offered when you're out for 14+ days. Total: (500 + 2 × fans^0.7) × (0.5 + reputation ÷ 100), capped at the injury's bills and rent, and halved if you've run one in the last year. Paid over 14 days. |
+| Your own show | A Saturday 14–60 days out in your region. A hall (150 seats, £300), a nightclub (400, £900) or a small arena (1,200, £3,000), plus £550 for the ring and crew. You choose your opponent and up to 4 hires, at their indie fee ×1.2. Tickets £10, £15 or £20. |
+
+**Own show numbers:**
+- Draw: 10 + 0.6 × Σ√(local fans) across everyone on the card, × (1 + following) × (12 ÷ price)^0.8, ±15% on the night.
+- Merch: £1.50 a head, scaled by the best match.
+- Following:
+  - +0.2 for a 90%-full house with a 3.5★+ match, +0.1 for either one;
+  - −0.15 for neither;
+  - it runs from 0 to 2 and fades 0.03 a month.
+
+**12 weeks at 5k fans (`hustle.test.ts`):**
+
+| Approach | Side earnings | Breakdown |
+| --- | --- | --- |
+| Grinding: 6 coaching classes and 3 content half-days a week, plus conventions | £9,300, about £3,100 a month | coaching £4,900 (fee about doubled after 63 classes), online merch £1,500, subscribers £1,350, merch table £1,100 |
+| Stocking shirts only | £1,700 | mostly the merch table at shows they wrestled anyway |
+
+Wrestling paid £1,345 over the same 12 weeks.

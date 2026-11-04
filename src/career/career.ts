@@ -721,14 +721,18 @@ export interface MailHooks {
   after: (c: Career, show: Show, m: PlayerMatch) => void;
 }
 export interface MailBefore { fans: Record<string, number>; rep: number; patience: number; bond: number; label: string }
-const hooks: { notice: Hook[]; daily: Hook[]; monthly: Hook[]; mine: ((c: Career, show: Show, bout: Bout, m: PlayerMatch) => void)[]; mail: MailHooks | null } = { notice: [], daily: [], monthly: [], mine: [], mail: null };
+type PhaseHook = (c: Career, ph: 'am' | 'pm', activity: string) => void;
+const hooks: { notice: Hook[]; daily: Hook[]; monthly: Hook[]; mine: ((c: Career, show: Show, bout: Bout, m: PlayerMatch) => void)[]; mail: MailHooks | null; phase: PhaseHook[] } = { notice: [], daily: [], monthly: [], mine: [], mail: null, phase: [] };
+/** Your half-day happened (days on): side earners pay out here. */
+export function phaseHooks(c: Career, ph: 'am' | 'pm', activity: string): void { for (const f of hooks.phase) f(c, ph, activity); }
 /** Other career modules (offers, requests) plug in here; each adds to the list. */
-export function setCareerHooks(h: { notice?: Hook; daily?: Hook; monthly?: Hook; mine?: (c: Career, show: Show, bout: Bout, m: PlayerMatch) => void; mail?: MailHooks }): void {
+export function setCareerHooks(h: { notice?: Hook; daily?: Hook; monthly?: Hook; mine?: (c: Career, show: Show, bout: Bout, m: PlayerMatch) => void; mail?: MailHooks; phase?: PhaseHook }): void {
   if (h.notice) hooks.notice.push(h.notice);
   if (h.daily) hooks.daily.push(h.daily);
   if (h.monthly) hooks.monthly.push(h.monthly);
   if (h.mine) hooks.mine.push(h.mine);
   if (h.mail) hooks.mail = h.mail;
+  if (h.phase) hooks.phase.push(h.phase);
 }
 const noticePlayer = (c: Career, rnd: Rng) => { for (const f of hooks.notice) f(c, rnd); };
 const dailyPlayer = (c: Career, rnd: Rng) => { for (const f of hooks.daily) f(c, rnd); };

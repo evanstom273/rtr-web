@@ -23,6 +23,7 @@ import { Relationships } from './Relationships';
 import { RequestFlow, Requests, showAnswersNext, type ReqRoute } from './Requests';
 import { ShowDay } from './ShowDay';
 import { Start } from './Start';
+import { OwnShow } from './OwnShow';
 import { Social } from './Social';
 import { Stats } from './Stats';
 import { Training } from './Training';
@@ -32,7 +33,7 @@ import './career.css';
 import './career-app.css';
 
 export type CareerScreen =
-  | 'cal' | 'show' | 'profile' | 'letters' | 'contract' | 'training' | 'finances' | 'history' | 'stats' | 'records' | 'moveset' | 'start' | 'create' | 'requests' | 'relationships' | 'week' | 'social'
+  | 'cal' | 'show' | 'profile' | 'letters' | 'contract' | 'training' | 'finances' | 'history' | 'stats' | 'records' | 'moveset' | 'start' | 'create' | 'requests' | 'relationships' | 'week' | 'social' | 'ownshow'
   | { negotiate: string } | { requests: number } | ReqRoute;
 
 interface Props {
@@ -196,7 +197,8 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
     case 'stats': return <Stats c={c} onBack={back} onHistory={() => go('history')} />;
     case 'records': return <Records c={c} onBack={back} onMoveset={() => go('moveset')} onNewCareer={() => go('start')} onRequest={(r) => go(r)} />;
     case 'relationships': return <Relationships c={c} onBack={back} />;
-    case 'week': return <Week c={c} onBack={back} />;
+    case 'week': return <Week c={c} onBack={back} onOwnShow={() => go('ownshow')} />;
+    case 'ownshow': return <OwnShow c={c} onBack={back} />;
     case 'social': return <Social c={c} onBack={back} />;
     case 'requests': return <Requests c={c} onBack={back} onFlow={(r) => go(r)} onNegotiate={(id) => go({ negotiate: id })} />;
     case 'moveset': {

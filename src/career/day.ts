@@ -6,7 +6,8 @@ import { findWrestler, type Wrestler } from '../data/rtr';
 import { hashSeed, seededRng } from '../engine/rng';
 import { activeWorld } from '../world/world';
 import { bondsOf } from '../world/people';
-import { letter, person, setCareerHooks, spend, finishDay, myBoutToday, showsOn } from './career';
+import { letter, person, phaseHooks, setCareerHooks, spend, finishDay, myBoutToday, showsOn } from './career';
+import { contentSession, isCoaching, setGigFits, type Gig } from './hustle';
 import { addDays, daysBetween, fmtDay, weekday, type Day } from './dates';
 import { attributeTotal, trainingPrice } from './economy';
 import { fire, ctxFor, registerEvents, type EventDef } from './events';
@@ -32,17 +33,20 @@ export const baseCountry = (c: Career): string => c.base ?? me(c).country;
 
 // ------------------------------------------------------------------ bookings and the itinerary
 
-interface Booking { day: Day; country: string; show: string; name: string; ph: PhaseName }
+interface Booking { day: Day; country: string; show: string; name: string; ph: PhaseName; gig?: boolean }
 
-/** Everything you're booked on from today: promotion cards, indie dates, tryouts (and a candidate). */
-export function bookings(c: Career, extra?: Show): Booking[] {
+/** Everything you're booked on from today: promotion cards, indie dates, tryouts, side gigs (and a candidate). */
+export function bookings(c: Career, extra?: Show, extraGig?: Gig): Booking[] {
   const out = new Map<string, Booking>();
   const add = (s: Show) => out.set(s.id, { day: s.date, country: s.country, show: s.id, name: s.name, ph: s.phase ?? 'pm' });
+  const addGig = (g: Gig) => { for (const ph of g.phases) out.set(`${g.id}|${ph}`, { day: g.day, country: g.country, show: g.id, name: g.name, ph, gig: true }); };
   for (const s of Object.values(c.shows)) {
     if (s.date < c.today || s.done) continue;
     if (c.indie[s.id] || c.tryouts?.[s.id] || s.card?.some((b) => (b.a === c.player || b.b === c.player) && !b.result)) add(s);
   }
   if (extra) add(extra);
+  for (const g of Object.values(c.hustle?.gigs ?? {})) if (g.day >= c.today) addGig(g);
+  if (extraGig) addGig(extraGig);
   return [...out.values()].sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : 0));
 }
 
@@ -62,11 +66,14 @@ export function occupied(c: Career, list = bookings(c)): Map<string, string[]> {
   const put = (k: string, what: string) => occ.set(k, [...(occ.get(k) ?? []), what]);
   const base = baseCountry(c);
   list.forEach((b, i) => {
-    put(pkey(b.day, b.ph), `the show (${b.name})`);
+    put(pkey(b.day, b.ph), b.gig ? `the gig (${b.name})` : `the show (${b.name})`);
+    // A whole-day gig's two halves are one trip.
+    if (b.gig && list[i - 1]?.show === b.show) return;
     const prev = list[i - 1], next = list[i + 1];
     const from = prev && daysBetween(prev.day, b.day) <= TOUR_DAYS ? prev.country : base;
     for (const k of legPhases(place(from), place(b.country), b.day, false)) put(k, `travelling to ${b.country}`);
-    if (!next || daysBetween(b.day, next.day) > TOUR_DAYS) for (const k of legPhases(place(b.country), place(base), b.day, true)) put(k, `travelling home from ${b.country}`);
+    const after = next?.show === b.show ? list[i + 2] : next;
+    if (!(next?.show === b.show) && (!after || daysBetween(b.day, after.day) > TOUR_DAYS)) for (const k of legPhases(place(b.country), place(base), b.day, true)) put(k, `travelling home from ${b.country}`);
   });
   if (c.moving) for (let d = c.today; d < c.moving.until; d = addDays(d, 1)) { put(pkey(d, 'am'), 'moving house'); put(pkey(d, 'pm'), 'moving house'); }
   return occ;
@@ -86,6 +93,22 @@ export function fits(c: Career, show: Show): { ok: boolean; why?: string } {
   return { ok: true };
 }
 
+/** Would a side gig fit: no clash with shows, travel, other gigs, shifts or coaching. */
+function fitsGig(c: Career, g: Gig): string | null {
+  const before = new Set([...occupied(c)].filter(([, v]) => v.length > 1).map(([k]) => k));
+  for (const [k, v] of occupied(c, bookings(c, undefined, g))) {
+    if (v.length > 1 && !before.has(k)) {
+      const other = v.find((x) => !x.includes(g.name)) ?? v[0]!;
+      return `You’d be ${other.replace(/^the (show|gig) \((.*)\)$/, 'at $2')} then (${fmtDay(k.slice(0, 10), 'dm')} ${k.slice(11).toUpperCase()}).`;
+    }
+  }
+  for (const ph of g.phases) {
+    if (c.job && isShift(c, g.day, ph) && !c.job.off.includes(g.day)) return 'You’re at work then.';
+    if (isCoaching(c, g.day, ph)) return 'You’re coaching then.';
+  }
+  return null;
+}
+
 // ------------------------------------------------------------------ what you do with a phase
 
 /** A day job's shifts on a weekday. */
@@ -102,18 +125,21 @@ export function jobClashes(c: Career, show: Show): string[] {
   return [...mine.keys()].filter((k) => isShift(c, k.slice(0, 10), k.slice(11) as PhaseName) && !c.job!.off.includes(k.slice(0, 10)));
 }
 
-export type Activity = 'show' | 'travel' | 'moving' | 'work' | 'train' | 'rest';
+export type Activity = 'show' | 'travel' | 'moving' | 'work' | 'train' | 'rest' | 'hustle' | 'content';
 export function activityAt(c: Career, day: Day, ph: PhaseName): Activity {
   const occ = occupied(c).get(pkey(day, ph));
   if (occ?.some((x) => x.startsWith('the show'))) return 'show';
+  if (occ?.some((x) => x.startsWith('the gig'))) return 'hustle';
   if (occ?.some((x) => x === 'moving house')) return 'moving';
   if (occ?.length) return 'travel';
   if (FEATURES.jobs && isShift(c, day, ph) && !c.job!.off.includes(day)) return 'work';
+  if (FEATURES.hustles && isCoaching(c, day, ph)) return 'hustle';
   const plan = c.plans?.[pkey(day, ph)];
   if (plan) return plan === 'work' ? 'work' : plan === 'trained' ? 'train' : plan;
   const r = routineOf(c);
   const want = r.week[weekday(day)]![ph];
   const matchDay = bookings(c).some((b) => b.day === day);
+  if (want === 'content' && FEATURES.hustles) return 'content';
   if (want === 'train' && (!matchDay || r.trainMatchDays) && person(c, c.player).fatigue <= r.maxTrainFatigue) return 'train';
   return 'rest';
 }
@@ -157,12 +183,14 @@ export function runPhase(c: Career, ph: PhaseName): Activity {
   const a = activityAt(c, c.today, ph);
   const p = person(c, c.player);
   if (a === 'rest') p.fatigue = Math.max(0, p.fatigue - REST_RECOVERY);
+  if (a === 'content') contentSession(c);
   // A session already done in the gym this phase isn't done twice.
   if (a === 'train' && c.plans?.[pkey(c.today, ph)] !== 'trained') trainSession(c);
   if (a === 'work' && c.job) {
     c.job.worked++;
     p.fatigue = Math.min(100, p.fatigue + JOBS[c.job.id].fatigue);
   }
+  phaseHooks(c, ph, a);
   // A shift missed without arranging it: a strike.
   if (FEATURES.jobs && c.job && isShift(c, c.today, ph) && a !== 'work' && !c.job.off.includes(c.today)) strike(c, `Missed your ${ph.toUpperCase()} shift`);
   return a;
@@ -328,6 +356,7 @@ const promoHome = (promo: string) => regionOfCountry(PROMO_COUNTRY[promo] ?? 'US
 
 setCareerHooks({ daily });
 setAvailability(fits, onBooked);
+setGigFits(fitsGig);
 
 // ------------------------------------------------------------------ moving the clock
 
