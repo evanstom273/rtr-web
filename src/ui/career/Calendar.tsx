@@ -57,7 +57,10 @@ export function Calendar({ c, busy, skipping, onStop, onSkip, note, awayLog, onA
   const [toast, say] = useToast();
   const [skipSheet, setSkipSheet] = useState(false);
   // Skip a number of days of your choosing (1–365).
-  const [nDays, setNDays] = useState(14);
+  // What's typed (so the box can be cleared mid-edit) and the number it means: 0 while it's empty.
+  const [nText, setNText] = useState('14');
+  const nDays = Math.min(365, Number(nText) || 0);
+  const setNDays = (n: number) => setNText(String(Math.max(1, Math.min(365, n))));
   useEffect(() => { if (note) say(note.text); }, [note, say]);
   // When the day moves on, the calendar follows it.
   useEffect(() => {
@@ -264,13 +267,14 @@ export function Calendar({ c, busy, skipping, onStop, onSkip, note, awayLog, onA
               </button>
             ))}
             <div className="c-ans c-skipn" style={{ padding: '8px 10px' }}>
-              <span className="c-rowsb"><b className="c-at" style={{ fontSize: 16 }}>{w('A number of days')}</b><span className="c-ad">To {fmtDay(addDays(c.today, nDays), 'long')}</span></span>
+              <span className="c-rowsb"><b className="c-at" style={{ fontSize: 16 }}>{w('A number of days')}</b><span className="c-ad">{nDays ? `To ${fmtDay(addDays(c.today, nDays), 'long')}` : '1 to 365'}</span></span>
               <div className="c-cyc">
                 <button className="c-stepb" onClick={() => setNDays(Math.max(1, nDays - 1))} aria-label="One day fewer">−</button>
-                <input className="c-fld mid" type="number" inputMode="numeric" min={1} max={365} value={nDays} aria-label="Days to skip"
-                  onChange={(e) => setNDays(Math.max(1, Math.min(365, Math.round(Number(e.target.value) || 1))))} style={{ textAlign: 'center', fontSize: 18 }} />
+                <input className="c-fld mid" type="text" inputMode="numeric" pattern="[0-9]*" maxLength={3} value={nText} aria-label="Days to skip"
+                  onChange={(e) => { const d = e.target.value.replace(/\D/g, ''); setNText(d && Number(d) > 365 ? '365' : d); }}
+                  onBlur={() => { if (nText) setNDays(Number(nText)); }} style={{ textAlign: 'center', fontSize: 18 }} />
                 <button className="c-stepb" onClick={() => setNDays(Math.min(365, nDays + 1))} aria-label="One day more">+</button>
-                <button className="c-b1" style={{ minHeight: 44, padding: '0 14px' }} onClick={() => { setSkipSheet(false); onSkip({ days: nDays }); }}>{w('Go ›')}</button>
+                <button className="c-b1" style={{ minHeight: 44, padding: '0 14px' }} disabled={!nDays} onClick={() => { setSkipSheet(false); onSkip({ days: nDays }); }}>{w('Go ›')}</button>
               </div>
             </div>
             <span className="c-lab" style={{ marginTop: 4 }}>{w('Your mail')}</span>
