@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { findWrestler, TITLES } from '../../data/rtr';
-import { C, dealWith, matchPay, myBoutToday, person, roundName, runToday, showsOn, type Career } from '../../career';
+import { C, dealWith, matchPay, noShow, refuseStip, skipTour, tierOf, myBoutToday, person, roundName, runToday, showsOn, type Career } from '../../career';
 import { fmtDay } from '../../career/dates';
 import { runJobs } from '../../career/runner';
 import { FATIGUE_PER_MATCH, OFF_SCRIPT_TITLE_BAN_DAYS, REP_OFF_SCRIPT } from '../../career/tuning';
@@ -17,7 +17,9 @@ interface Props {
 /** Your night: the card, the booker's plan if it's a title match, and Play or Sim. */
 export function ShowDay({ c, onBack, onPlay }: Props) {
   const { skin, w } = useWords();
-  const [toast] = useToast();
+  const [toast, say] = useToast();
+  const [noShowAsk, setNoShowAsk] = useState(false);
+  const [, bump] = useState(0);
   const [working, setWorking] = useState(false);
   const mine = myBoutToday(c);
   // After your match: the show you were on (now with results).
@@ -105,6 +107,17 @@ export function ShowDay({ c, onBack, onPlay }: Props) {
             <span className="c-lab">{w('Your match')}{opp ? ` · vs ${opp.name}` : ''}</span>
             <div className="c-facts">{facts.map((f) => <span key={f.l} className="c-fact"><span className="c-lab">{f.l}</span><b>{f.v}</b></span>)}</div>
           </div>
+          <div className="c-effs" style={{ marginTop: 6 }}>
+            {bout.stip && tierOf(k, 'conditions') >= 2 && !indie && <button className="c-eff gold" onClick={() => { say(refuseStip(c, show.id)); commit(); bump((n) => n + 1); }}>{w('Turn down the stipulation')}</button>}
+            {show.kind === 'tour' && tierOf(k, 'touring') >= 1 && <button className="c-eff" onClick={() => { say(skipTour(c, show.id)); commit(); onBack(); }}>{w('Skip this tour date')}</button>}
+            <button className="c-eff dn" onClick={() => setNoShowAsk(true)}>{w('Don’t turn up')}</button>
+          </div>
+          {noShowAsk && (
+            <div className="c-warn" style={{ marginTop: 6 }}>
+              <b>{w('Not turning up?')}</b> Reputation and the booker’s patience take a hit{!indie && k ? `, and ${show.promo} fine you by your Conduct & Discipline` : ''}. Three in 90 days is a suspension.
+              <span className="c-effs" style={{ marginTop: 6 }}><button className="c-eff dn" onClick={() => { say(noShow(c, show.id)); commit(); setNoShowAsk(false); onBack(); }}>{w('Stay home')}</button><button className="c-eff" onClick={() => setNoShowAsk(false)}>{w('I’ll be there')}</button></span>
+            </div>
+          )}
           <div className="c-nav">
             <button className="c-b2" onClick={() => void sim()} disabled={working}>{working ? w('Simming…') : w('Sim it', 'Sim')}</button>
             <button className="c-b1" onClick={() => mine && onPlay(show.id, mine.index)} disabled={working}>{w('Play it', 'Play')}</button>

@@ -12,7 +12,7 @@ import { NEIGHBOURS, REGION_KEY } from './places';
 import { activeWorld } from '../world/world';
 import { bondOf } from '../world/people';
 import {
-  CARD_SIZE, CAUGHT_BOOK_MULT, CIRCUIT_DAYS, CONTENDER_T1_BONUS, FEATURES, FEUD_WEEKS, FEUDS_PER_PROMOTION, INDIE_CHAMP_DRAW, INDIE_DEFENCE_CHANCE, INDIE_DEFENCE_OVERDUE, INDIE_PICK_BOND_WEIGHT, INDIE_PICK_REP_WEIGHT, INDIE_REGION_WEIGHT, INDIE_TITLE_BOUTS_MAX, INTERGENDER_CHANCE, INTERGENDER_CHANCE_INDIE, PLEDGE_LOG_MAX, REGIONAL_CONTENDER_PER_DATE, REGIONAL_DEFENCE_CHANCE, REGIONAL_DEFENCE_OVERDUE, REGIONAL_ELIGIBLE_DATES, REGIONAL_HOME_DAYS, REGIONAL_WINDOW_DAYS, SCHEDULE_T2_MAX_PER_MONTH, STIP_CHANCE, TITLE_CHANGE_MAX, TITLE_CHANGE_PER_REIGN_YEAR, TITLE_PLANNED_CHANGE, TITLE_RHYTHM, type TitleClass, TRUST_HIGH, TRUST_LOW, TRUST_RETAIN_SWING_HIGH, TRUST_RETAIN_SWING_LOW,
+  CARD_SIZE, CAUGHT_BOOK_MULT, CIRCUIT_DAYS, CONTENDER_T1_BONUS, FEATURES, FEUD_WEEKS, FEUDS_PER_PROMOTION, INDIE_CHAMP_DRAW, INDIE_DEFENCE_CHANCE, INDIE_DEFENCE_OVERDUE, INDIE_PICK_BOND_WEIGHT, INDIE_PICK_REP_WEIGHT, INDIE_REGION_WEIGHT, INDIE_TITLE_BOUTS_MAX, INTERGENDER_CHANCE, INTERGENDER_CHANCE_INDIE, PLEDGE_LOG_MAX, REGIONAL_CONTENDER_PER_DATE, REGIONAL_DEFENCE_CHANCE, REGIONAL_DEFENCE_OVERDUE, REGIONAL_ELIGIBLE_DATES, REGIONAL_HOME_DAYS, REGIONAL_WINDOW_DAYS, SCHEDULE_T2_MAX_PER_MONTH, STIP_CHANCE, REIGN_PROTECT_DAYS, TITLE_CHANGE_MAX, TITLE_CHANGE_PER_REIGN_YEAR, TITLE_PLANNED_CHANGE, TITLE_RHYTHM, type TitleClass, TRUST_HIGH, TRUST_LOW, TRUST_RETAIN_SWING_HIGH, TRUST_RETAIN_SWING_LOW,
 } from './tuning';
 import type { Bout, Career, Feud, Person, Pledge, PopRegion, Show } from './types';
 import { BRACKET, tourneyOf, tourneyPairs } from './tourney';
@@ -137,8 +137,16 @@ export function playerBookable(c: Career, show: Show): boolean {
   if (me.daysOff?.includes(show.date)) return false;
   // The whole trip has to fit (days on): travel there and back around everything else.
   if (!fitsTrip(c, show).ok) return false;
+  // Clauses with a say (International Touring's opt-in, a suspension).
+  if (bookableHooks.some((f) => !f(c, show))) return false;
   return true;
 }
+/** Clauses that can keep you off a show (set by body.ts and conduct.ts). */
+let bookableHooks: ((c: Career, show: Show) => boolean)[] = [];
+export const setBookableHook = (f: (c: Career, show: Show) => boolean): void => { bookableHooks = [...bookableHooks, f]; };
+/** Clauses that make the booker want you (Booking Commitments' dates; set by shape.ts). */
+let promiseHooks: ((c: Career, show: Show) => boolean)[] = [];
+export const setPromiseHook = (f: (c: Career, show: Show) => boolean): void => { promiseHooks = [...promiseHooks, f]; };
 
 /**
  * How likely an indie wrestler is to be around for a show in `region`: at home, in a region they've
@@ -214,6 +222,12 @@ function planRetainWith(c: Career, titleId: string, show: Show, champ: string, c
   // The booker's personality: the rebellious and the unpredictable plan more changes.
   let r = planRetain(c, titleId, show.date) - changeLean(showBooker(show));
   if (champ !== c.player && challenger !== c.player) return r;
+  // Championship Opportunities (Tier 2+): a new champion can't lose it too soon.
+  if (champ === c.player) {
+    const k = (show.promos ?? [show.promo]).map((x) => dealWith(c.people[c.player], x)).find(Boolean);
+    const since = c.titles[titleId]?.since;
+    if (k && since && daysBetween(since, show.date) < (REIGN_PROTECT_DAYS[tierOf(k, 'title')] ?? 0)) return 0.98;
+  }
   const t = trust(c, showBooker(show));
   const swing = t < TRUST_LOW ? TRUST_RETAIN_SWING_LOW : t >= TRUST_HIGH ? -TRUST_RETAIN_SWING_HIGH : 0;
   r += champ === c.player ? -swing : swing;
@@ -391,7 +405,7 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
   const matchPledge = pledges.find((p) => p.kind === 'match' && (p.show === show.id || (!p.show && !!p.from && show.date >= p.from && (show.promos ?? [show.promo]).includes(p.promo))));
   const datesPledge = pledges.find((p) => p.kind === 'dates' && (show.promos ?? [show.promo]).includes(p.promo) && show.date.startsWith(p.month!));
   const promised = pledges.some((p) => (p.kind === 'show' && p.show === show.id) || shotHere(p)) || !!matchPledge
-    || (!!datesPledge && datesThisMonth(c, c.player, show.date) < (datesPledge.min ?? 0));
+    || (!!datesPledge && datesThisMonth(c, c.player, show.date) < (datesPledge.min ?? 0)) || (!indie && promiseHooks.some((f) => f(c, show)));
   const wantMe = me && meFree && (mineIndie || tryout
     || (!indie && playerBookable(c, show) && (promised || rnd() < bookChance(me, show, roster) * (hot ? CAUGHT_BOOK_MULT : 1))));
   for (const p of pledges.filter((x) => x.kind === 'show' && x.show === show.id)) pledgeDone(c, p, wantMe ? `Booked on ${show.name}.` : `Couldn’t be booked on ${show.name}.`);
@@ -503,7 +517,9 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
     }
     const sinceLast = sinceLastDefence(c, t.id, show);
     const feudLive = c.feuds.some((f) => f.title === t.id && !f.done);
-    const owedShot = c.people[c.player]?.contract?.titleShotBy && me && me.gender === t.gender && me.id !== champ.id;
+    // A shot your contract guarantees (Championship Opportunities), or a rematch you're owed for this title.
+    const myDeal = (show.promos ?? [show.promo]).map((x) => dealWith(c.people[c.player], x)).find(Boolean);
+    const owedShot = (!!myDeal?.titleShotBy || myDeal?.rematch?.title === t.id) && me && me.gender === t.gender && me.id !== champ.id;
     let challenger: Wrestler | undefined;
     if (feud) challenger = findWrestler(feud.a === champ.id ? feud.b : feud.a);
     // Otherwise a defence when it's due, unless a title feud is already building to one (or you've been promised it).

@@ -15,6 +15,9 @@ import './day';
 import './exclusive';
 import './creative';
 import './money';
+import './body';
+import './shape';
+import './conduct';
 
 export * from './career';
 export * from './contracts';
@@ -32,6 +35,9 @@ export { CLAUSES, C, BUDGET, budgetOf, attitude, BONUS_TRIGGERS, CHARACTER, GROU
 export { dealsOf, dealWith, exclusivityOf, sideWork } from './deals';
 export { nonExclusive } from './exclusive';
 export { advanceAvailable, rebrand, takeAdvance, takings } from './money';
+export { bookHoliday, holidays, refuseStip, setPartTime, setTours, skipTour } from './body';
+export { announceRetirement, pickMentor, setWalk, takeOption } from './shape';
+export { noShow } from './conduct';
 export { CREATIVE_LABEL, creativeAsk, creativeBlock, creativeBouts, creativeOdds, creativeTier, opponentsFor, vetoNext, type CreativeKind, type CreativeReq } from './creative';
 export { trainingPrice, attributeTotal, contractFee, indieFee, matchPay, travelCost } from './economy';
 export { buyBlock, buyTrait, offerAt, offerDue, traitPrice, lean } from './personality';
