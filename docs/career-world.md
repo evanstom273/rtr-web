@@ -817,7 +817,7 @@ Lyra's calls, approved numbers. `career/development.ts`, `DEV` in `tuning.ts`.
 - The indie median rises from 412 to 432 as the young develop.
 - The median age holds at 29.
 
-## The history sim (behind `FEATURES.history` until approved)
+## The history sim (on)
 
 Lyra's calls: an optional history before choosing a wrestler, run on a fresh world, year by year. Code: `career/worldSim.ts`, `career/historySim.ts`, `ui/career/HistorySim.tsx`.
 

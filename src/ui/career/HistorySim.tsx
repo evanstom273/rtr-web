@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { databaseChanged } from '../../data/rtr';
 import { headline, historyOf, runHistoryYear, summarise, type Summary } from '../../career';
-import { addMonths } from '../../career/dates';
+import { addMonths, fmtDay } from '../../career/dates';
 import { runJobs } from '../../career/runner';
 import { activeWorld, reloadWorld } from '../../world/world';
 import { Head, Screen, stars, useWords } from './parts';
@@ -84,7 +84,7 @@ export function HistoryScreen({ onPick, onQuit }: { onPick: () => void; onQuit: 
             <span className="c-lab">{w('Now playing out')}</span>
             <b className="c-sbig" style={{ fontSize: 34 }}>{y}–{String(y + 1).slice(2)}</b>
             <i className="c-hbar"><b style={{ width: `${Math.round(pct * 100)}%` }} /></i>
-            <span className="c-hint">{Math.round(pct * 100)}% · {cur.career.today}</span>
+            <span className="c-hint">{Math.round(pct * 100)}% · {fmtDay(cur.career.today, 'dm')} {cur.career.today.slice(0, 4)}</span>
           </div>
           <span className="c-sec">{w('Headlines')}</span>
           {ticker.length === 0 && <span className="c-note">The world gets going…</span>}
