@@ -1018,3 +1018,63 @@ Lyra's design, built across stages 1–8: `clauses.ts` (the clauses, groups, pro
   - Licensed or higher is needed for sponsors and your own gear.
 
 **Requests › Your contract** gathers the actions: leaving any of your deals, holiday weeks, part-time, tours, your option year, letting a T3 deal run out, and announcing your retirement.
+
+## Scouting: how majors judge wrestlers (on)
+
+Lyra's redesign of contracts and tryouts lives in `career/scouting.ts`, with the Scouting reports screen in `ui/career/Scouting.tsx`. Every number is in `tuning.ts` under *Scouting*, and all of them are **proposals**.
+
+**The grade.** Each major grades you on twelve factors.
+- **Ranked against their roster** (a percentile):
+  - fans: their region counts 70%, worldwide 30%;
+  - online following;
+  - reputation;
+  - attributes: the total, plus the attribute that promotion cares about most;
+  - results: recent form, weighted by how established each opponent was;
+  - match quality: recent stars;
+  - experience: years in the business, matches wrestled and big nights;
+  - relationships: their booker, friends and enemies on their roster, and introductions;
+  - age and potential: youth, plus how much you've improved in the last year.
+- **On their own scale**, because most rosters are flat at them:
+  - championships, by prestige;
+  - professionalism: no-shows, fines, the plan, reliability, and what bookers think of you;
+  - personality traits.
+- **Weights:** the base weights are multiplied by the promotion's taste (`SCOUT_STYLE`) and then shifted by its booker's personality (`SCOUT_BOOKER`).
+
+**The bar.** Their roster is graded the same way, and the bars move with it.
+- Above the roster's bottom quarter: a tryout.
+- Above the median: an offer.
+- Up to 4 points under the tryout bar: on their radar.
+- A standout (95+ at something they weight 2.5 or more) lifts you a step.
+
+**The ladder.**
+1. **Pass.**
+2. **On our radar:** they watch your next 3 matches. An average of 3.25★, or 2 wins, gets you a tryout.
+3. **Tryout:** a scout's report scores stars (40%), execution (25%), the crowd (20%) and the plan (15%).
+   - 60+ passes: a full deal if your grade is at their median or you have a standout, otherwise a developmental deal.
+   - 45–59: another look (back on the radar).
+   - Under 45: no.
+   - The report stays on file and moves your grade with them by (score − 50) × 0.3.
+4. **Developmental deal.**
+5. **Full deal.**
+
+The fee still follows your draw.
+
+**Being seen.** Promotions only look at people they've heard of:
+- **scouts at indie shows:** 15% in their region, 3% elsewhere, plus 15% on big nights; a 3.5★ match in front of one gets you looked at straight away;
+- **news:** a title win or a 4★ match reaches each major 50% of the time in its region, 15% elsewhere;
+- **word of mouth:** a friend on their roster, 40% a month;
+- **getting in touch:** Approach and Ask for a tryout in Requests;
+- **standing:** a major's roster is known to everyone, and so is anyone with fans at or above a promotion's bottom quarter in its region.
+
+Every major that knows you takes a look each month, with a 30% chance.
+
+**Introductions** (the "I know someone at…" event) are a guaranteed tryout.
+
+**Memory.** After a pass or a failed tryout, they look again once your grade with them is 5 points higher.
+
+**AI signings** pick from the free pool by the same grade, each promotion to its own taste.
+
+**Calibration** (seed 7, after 8 months):
+- The old rule (fans in their region against their roster) would give 3 indies an offer somewhere and 2 a tryout.
+- The grade gives 9 offers and 14 tryouts, going to the talented, not just the locally popular.
+- An elite, unknown 21-year-old indie champion like Lyra's Jamie Diaz is offered deals by the purists and the young-talent promotions, and tryouts by the TV and money promotions.

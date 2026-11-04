@@ -849,3 +849,76 @@ export const MONEY_TROUBLE_EVERY = 28;
 export const FRIEND_LOAN = 1000;
 export const FRIEND_LOAN_BOND = 40;
 export const FRIEND_LOAN_REPAY = 0.2;
+
+// --- Scouting: how majors judge wrestlers (Lyra's redesign; these numbers are proposals, to approve) ----------
+/**
+ * A promotion's grade of you: twelve factors, each scored 0–100 as where you'd rank on their roster (a
+ * percentile), weighted. These are the base weights; each promotion's taste multiplies them (SCOUT_STYLE), and
+ * its booker's personality shifts them again (SCOUT_BOOKER).
+ */
+export const SCOUT_WEIGHTS = { fans: 5, online: 1.5, rep: 0.75, attributes: 3, results: 2, performance: 2, titles: 2, experience: 1.5, relations: 1.5, pro: 1.5, youth: 1.5, traits: 1 };
+/**
+ * Factors scored on their own scale (0–100) rather than as a rank on the roster, because most rosters are flat at
+ * them (few champions, few people with a record either way): championships (points ÷ this × 100), professionalism
+ * (as it stands), personality (50 ± this per point).
+ */
+export const SCOUT_ABSOLUTE = { titlesFull: 150, traitStep: 12.5 };
+export type ScoutFactor = keyof typeof SCOUT_WEIGHTS;
+/** Each promotion's taste: weight multipliers, and the attribute it counts twice. */
+export const SCOUT_STYLE: Record<string, { w: Partial<Record<ScoutFactor, number>>; focus?: 'strength' | 'speed' | 'stamina' | 'skill' | 'striking' | 'charisma' }> = {
+  TCG: { w: { fans: 1.5, rep: 1.2, pro: 1.3, attributes: 0.8 } },
+  VWF: { w: { fans: 1.5, online: 2, performance: 0.8, traits: 1.3, attributes: 0.6 }, focus: 'charisma' },
+  SLN: { w: { relations: 2, pro: 1.3, youth: 1.3, fans: 0.7 }, focus: 'speed' },
+  END: { w: { youth: 1.5, performance: 1.5, attributes: 1.2, fans: 0.6, online: 1.5 } },
+  IVW: { w: { attributes: 1.7, performance: 1.8, results: 1.2, fans: 0.5, online: 0.5 }, focus: 'skill' },
+  NWGP: { w: { experience: 1.8, results: 1.5, youth: 1.5, pro: 1.3, online: 0.4 }, focus: 'striking' },
+  ZWA: { w: { fans: 1.3, online: 1.5, pro: 1.6, traits: 1.5, rep: 1.2 } },
+  UFC: { w: { performance: 1.3, attributes: 1.2, fans: 0.8, relations: 1.2 }, focus: 'strength' },
+  SSWC: { w: { fans: 1.3, performance: 1.4, online: 1.3, pro: 0.7 }, focus: 'charisma' },
+  AAWA: { w: { performance: 1.5, attributes: 1.2, traits: 1.2, titles: 0.8 }, focus: 'skill' },
+};
+/** The booker's personality on top: what each kind of booker leans on. */
+export const SCOUT_BOOKER: Partial<Record<string, Partial<Record<ScoutFactor, number>>>> = {
+  politician: { relations: 1.6 }, mentor: { youth: 1.5 }, mercenary: { fans: 1.4 }, professional: { pro: 1.4 }, reliable: { pro: 1.2 },
+  showboat: { online: 1.4 }, crowd_pleaser: { performance: 1.2, fans: 1.1 }, ambitious: { titles: 1.3 }, loyal: { experience: 1.2, relations: 1.2 },
+  rebellious: { pro: 0.7 }, egotistical: { rep: 1.3 }, big_match: { titles: 1.2, performance: 1.1 },
+};
+/** Fans: their region counts this much, the rest of the world the remainder (in log terms). */
+export const SCOUT_FANS_HOME = 0.7;
+/** Championships by prestige: points for a reign, current or past (past ones count this share), plus defences and years. */
+export const SCOUT_TITLES = { world: 100, secondary: 60, indieWorld: 40, indie: 30, regional: 20, past: 0.4, perDefence: 2, perYear: 10 };
+/**
+ * Results: what a result is worth by how established the opponent is (their standing, 0–100): a win is worth
+ * win + standing ÷ winPer, a loss standing ÷ lossPer, a draw half of each. Beating nobodies counts for little;
+ * losing to stars isn't a disaster. Recent form is a running average.
+ */
+export const SCOUT_RESULT = { win: 0.4, winPer: 100, lossPer: 250, alpha: 0.12 };
+/** Experience: points for each year in the business (from 19), each match, each big night. */
+export const SCOUT_EXPERIENCE = { perYear: 10, perMatch: 0.1, perBig: 0.5 };
+/** Professionalism: a base, and what each thing costs or earns. */
+export const SCOUT_PRO = { base: 60, noShow: -15, fine: -5, offScript: -8, botched: -4, injury: -3, dayOff: -1, patience: 0.5, trait: 10 };
+/** Age and potential: full marks at 22 and under, nothing at 35; each attribute point gained in the last year adds this. */
+export const SCOUT_YOUTH = { young: 22, old: 35, perGrowth: 4 };
+/** Personality traits as a signing risk or a plus. */
+export const SCOUT_TRAITS: Partial<Record<string, number>> = { professional: 2, reliable: 2, team_player: 1, crowd_pleaser: 1, loyal: 1, mentor: 1, hot_headed: -2, egotistical: -1, rebellious: -1, mercenary: -1, unpredictable: -1 };
+/** Relationships: their booker's view of you, friends and enemies on their roster, and an introduction. */
+export const SCOUT_RELATIONS = { perFriend: 10, perEnemy: -10, intro: 30 };
+/** The ladder: within this many grade points under their tryout bar, you're on their radar; a standout (their top 10% at something) lifts you a step. */
+export const SCOUT_RADAR_MARGIN = 4;
+export const SCOUT_STANDOUT = 95;
+/** ...and only at something they really value (its weight with them at least this). */
+export const SCOUT_STANDOUT_WEIGHT = 2.5;
+/** On their radar: they watch this many of your matches; this average and this many wins earns the tryout. */
+export const SCOUT_RADAR_MATCHES = 3;
+export const SCOUT_RADAR_STARS = 3.25;
+export const SCOUT_RADAR_WINS = 2;
+/** Memory (Lyra's call): after a pass or a failed tryout, they look again once your grade's up this much. */
+export const SCOUT_MEMORY_JUMP = 5;
+/** The tryout's scout report: what it weighs, the bar to pass and to be given another look, and how far it moves your grade with them. */
+export const SCOUT_REPORT = { stars: 0.4, execution: 0.25, crowd: 0.2, plan: 0.15, pass: 60, again: 45, gradeShift: 0.3 };
+/** Being seen: a scout's chance of being at your indie match (their region; elsewhere; a big night adds), and what impresses them. */
+export const SCOUT_SEEN = { home: 0.15, away: 0.03, bigNight: 0.15, impress: 3.5 };
+/** News (an indie title, a cup, a 4-star match) reaches each major with this chance: their region, elsewhere. */
+export const SCOUT_NEWS = { home: 0.5, away: 0.15 };
+/** Word of mouth: a friend or mentor on their roster mentions you, each month. */
+export const SCOUT_WORD = 0.4;

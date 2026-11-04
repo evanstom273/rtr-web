@@ -21,7 +21,7 @@ import { addEvent, type ArchivedShow, type WorldHistory } from '../world/history
 import { bookerKey, movePatience, showBooker } from './patience';
 import { remember } from './relations';
 import {
-  BOOK_AHEAD_DAYS, CIRCUIT_KEEP, CONTRACT_MONTHS, FAN_IDLE_LOSS, FATIGUE_HARDCORE_EXTRA, FATIGUE_PER_MATCH, FATIGUE_RECOVERY_PER_DAY, FATIGUE_STAMINA_DIVISOR, FEATURES, FRIEND_LOAN_REPAY, INJURY_BASE_PCT, INJURY_HARDCORE_MULT, INJURY_PER_FATIGUE, INJURY_SEVERITY, LIVING_GRACE_DAYS, LOSS_CUT_BY_TIER, MAIL_MAX, MEDICAL_BILL_COVER, MEDICAL_PAY_COVER, MEDICAL_PER_DAY, MERCH_PER_FAN_FREE, MERCH_PER_FAN_SIGNED, MERCH_SHARE, OFF_SCRIPT_TITLE_BAN_DAYS, PATIENCE_NO_SHOW, PLANNED_NUDGE, PLANNED_RETRIES, POACH_CHANCE, POP_IDLE_DAYS, RELEASE_MONTHLY_BOTTOM, RENEW_CHANCE_REST, RENEW_CHANCE_TOP, REP_FOUR_STAR, REP_OFF_SCRIPT, REP_PER_DATE, REP_START, ROOKIE_EVERY_DAYS, ROSTER_FLOOR, ROSTER_SCOUT_DAYS, ROSTER_TARGET, SLEEP_RECOVERY, SLEEP_RECOVERY_AFTER_MATCH, SOCIAL_PROMOTE_BOOST, START_CONTRACT_MONTHS_LEFT, START_MONEY_BASE, START_MONEY_CREATED, START_MONEY_PER_DECADE, TRAIT_BACKSTAGE, TRAIT_FX, TRYOUT_MIN_STARS,
+  BOOK_AHEAD_DAYS, CIRCUIT_KEEP, CONTRACT_MONTHS, FAN_IDLE_LOSS, FATIGUE_HARDCORE_EXTRA, FATIGUE_PER_MATCH, FATIGUE_RECOVERY_PER_DAY, FATIGUE_STAMINA_DIVISOR, FEATURES, FRIEND_LOAN_REPAY, INJURY_BASE_PCT, INJURY_HARDCORE_MULT, INJURY_PER_FATIGUE, INJURY_SEVERITY, LIVING_GRACE_DAYS, LOSS_CUT_BY_TIER, MAIL_MAX, MEDICAL_BILL_COVER, MEDICAL_PAY_COVER, MEDICAL_PER_DAY, MERCH_PER_FAN_FREE, MERCH_PER_FAN_SIGNED, MERCH_SHARE, OFF_SCRIPT_TITLE_BAN_DAYS, PATIENCE_NO_SHOW, PLANNED_NUDGE, PLANNED_RETRIES, POACH_CHANCE, POP_IDLE_DAYS, RELEASE_MONTHLY_BOTTOM, RENEW_CHANCE_REST, RENEW_CHANCE_TOP, REP_FOUR_STAR, REP_OFF_SCRIPT, REP_PER_DATE, REP_START, ROOKIE_EVERY_DAYS, ROSTER_FLOOR, ROSTER_SCOUT_DAYS, ROSTER_TARGET, SCOUT_RESULT, SLEEP_RECOVERY, SLEEP_RECOVERY_AFTER_MATCH, SOCIAL_PROMOTE_BOOST, START_CONTRACT_MONTHS_LEFT, START_MONEY_BASE, START_MONEY_CREATED, START_MONEY_PER_DECADE, TRAIT_BACKSTAGE, TRAIT_FX, TRYOUT_MIN_STARS,
 } from './tuning';
 import type { Bout, Career, Contract, Letter, Person, PlayerMatch, PopRegion, Show } from './types';
 
@@ -292,6 +292,8 @@ export function applyBout(c: Career, show: Show, index: number, out: SimOut, aIs
     p.last = show.date;
     p.circuit = [{ r: show.region, d: show.date }, ...(p.circuit ?? [])].slice(0, CIRCUIT_KEEP);
     p.recent = [...(p.recent ?? []), won ? 1 : 0].slice(-5);
+    // Scouting: recent form, by who they were against, and the big nights.
+    trackForm(p, w, findWrestler(id === bout.a ? bout.b : bout.a), won, lost, out.stars, show.kind === 'special' || show.kind === 'flagship' || !!bout.title || !!bout.tourney || show.card?.at(-1) === bout);
     if (rnd() * 100 < injuryPct) injure(c, id, show, rnd);
   }
 
@@ -302,6 +304,29 @@ export function applyBout(c: Career, show: Show, index: number, out: SimOut, aIs
   }
 
   if (mineHere) settleMine(c, show, bout, out, aIsYou, changes[c.player] ?? 0, titleChanged, how, was);
+}
+
+/** Expected stars before anything's been seen of someone: from their ability. */
+export const expectedStars = (w: Wrestler): number => clamp(2 + (w.stats.strength + w.stats.speed + w.stats.stamina + w.stats.skill + w.stats.striking + w.stats.charisma - 300) / 100, 2, 4.2);
+/** Someone's form so far (seeded from their ability before they've wrestled). */
+export const formOf = (p: Person, w: Wrestler): NonNullable<Person['form']> =>
+  (p.form ??= { stars: expectedStars(w), res: p.recent?.length ? r2(0.3 + 0.5 * (p.recent.reduce((a, b) => a + b, 0) / p.recent.length)) : r2(0.3 + globalScore(w) / 200), n: 0, big: 0 });
+function trackForm(p: Person, w: Wrestler, opp: Wrestler | undefined, won: boolean, lost: boolean, stars: number, big: boolean): void {
+  const f = formOf(p, w);
+  const res = resultWorth(opp, won, lost);
+  const a = SCOUT_RESULT.alpha;
+  f.res = r2(f.res + a * (res - f.res));
+  f.stars = r2(f.stars + a * (stars - f.stars));
+  f.n++;
+  if (big) f.big++;
+}
+const r2 = (v: number) => Math.round(v * 100) / 100;
+/** What a result's worth to a scout: by how established the opponent was. */
+export function resultWorth(opp: Wrestler | undefined, won: boolean, lost: boolean): number {
+  const s = opp ? globalScore(opp) : 20;
+  const R = SCOUT_RESULT;
+  const win = R.win + s / R.winPer, loss = s / R.lossPer;
+  return won ? win : lost ? loss : (win + loss) / 2;
 }
 
 function injure(c: Career, id: string, show: Show, rnd: Rng): void {
@@ -404,6 +429,8 @@ function settleMine(c: Career, show: Show, bout: Bout, out: SimOut, aIsYou: bool
 
 /** A tryout match went well (or didn't): the promotion writes either way. */
 function tryoutVerdict(c: Career, show: Show, passed: boolean): void {
+  // Scouting (Lyra's redesign): a scout's report decides it.
+  if (hooks.tryout) { hooks.tryout(c, show, c.history[0]!); return; }
   if (!passed) {
     letter(c, { kind: 'offer', from: promoName(show.promo), subject: 'Thanks, but not yet', body: ['We liked some of what we saw. Keep working and we’ll keep watching.'] });
     return;
@@ -413,7 +440,7 @@ function tryoutVerdict(c: Career, show: Show, passed: boolean): void {
 
 /** A promotion offers you a contract (it opens a negotiation). */
 /** A promotion wants you: contracts.ts makes the offer (packages, a second deal if you're non-exclusive). */
-export function makeOffer(c: Career, promo: string, why: string): void { hooks.offer?.(c, promo, why); }
+export function makeOffer(c: Career, promo: string, why: string, pkg?: import('./clauses').PackageId): void { hooks.offer?.(c, promo, why, pkg); }
 
 /**
  * A title match drawn before its title changed hands, without the new champion in it, goes ahead as an
@@ -665,7 +692,8 @@ function scoutRosters(c: Career, day: Day): void {
       const free = pool.filter((w) => w.promotion === 'TIS');
       const short = women / Math.max(1, wantWomen) < (n - women) / Math.max(1, ROSTER_TARGET - wantWomen) ? 'FEMALE' : 'MALE';
       const fits = free.some((w) => w.gender === short) ? free.filter((w) => w.gender === short) : free;
-      const best = fits.sort((a, b) => regionalPop(b, region) - regionalPop(a, region) || (a.id < b.id ? -1 : 1))[0];
+      // Lyra's call: the AI signs by the same grade it judges you by, each promotion to its own taste.
+      const best = signingPick ? signingPick(c, p.initials, fits) : fits.sort((a, b) => regionalPop(b, region) - regionalPop(a, region) || (a.id < b.id ? -1 : 1))[0];
       if (!best) break;
       sign(c, best, p.initials, day, rnd);
       n++;
@@ -679,6 +707,9 @@ function scoutRosters(c: Career, day: Day): void {
 }
 
 const between = (rnd: Rng, [lo, hi]: readonly [number, number]) => lo + Math.floor(rnd() * (hi - lo + 1));
+/** Who a promotion signs from the free pool (scouting.ts sets it: the same grade it judges you by). */
+let signingPick: ((c: Career, promo: string, pool: Wrestler[]) => Wrestler | undefined) | null = null;
+export const setSigningPick = (f: typeof signingPick): void => { signingPick = f; };
 
 function contractsEnding(c: Career, day: Day, rnd: Rng): void {
   for (const w of [...WRESTLERS]) {
@@ -819,14 +850,16 @@ type LeavingHook = (c: Career, k: Contract, how: 'ended' | 'left' | 'released' |
 type InjuredHook = (c: Career, id: string, days: number, show: Show) => void;
 const hooks: {
   notice: Hook[]; daily: Hook[]; monthly: Hook[]; mine: ((c: Career, show: Show, bout: Bout, m: PlayerMatch) => void)[]; mail: MailHooks | null; phase: PhaseHook[];
-  protect: ProtectHook[]; ending: EndingHook[]; leaving: LeavingHook[]; offer: ((c: Career, promo: string, why: string) => void) | null; injured: InjuredHook[];
-} = { notice: [], daily: [], monthly: [], mine: [], mail: null, phase: [], protect: [], ending: [], leaving: [], offer: null, injured: [] };
+  protect: ProtectHook[]; ending: EndingHook[]; leaving: LeavingHook[]; offer: ((c: Career, promo: string, why: string, pkg?: import('./clauses').PackageId) => void) | null; injured: InjuredHook[];
+  tryout: ((c: Career, show: Show, m: PlayerMatch) => void) | null;
+} = { notice: [], daily: [], monthly: [], mine: [], mail: null, phase: [], protect: [], ending: [], leaving: [], offer: null, injured: [], tryout: null };
 /** You're leaving a deal (it ended, you left, you were released, or you moved): clauses that care (Image Rights, Loyalty, Signing advances) run here. */
 export function leavingHooks(c: Career, k: Contract, how: 'ended' | 'left' | 'released' | 'moved'): void { for (const f of hooks.leaving) f(c, k, how); }
 /** Your half-day happened (days on): side earners pay out here. */
 export function phaseHooks(c: Career, ph: 'am' | 'pm', activity: string): void { for (const f of hooks.phase) f(c, ph, activity); }
 /** Other career modules (offers, requests) plug in here; each adds to the list. */
-export function setCareerHooks(h: { notice?: Hook; daily?: Hook; monthly?: Hook; mine?: (c: Career, show: Show, bout: Bout, m: PlayerMatch) => void; mail?: MailHooks; phase?: PhaseHook; protect?: ProtectHook; ending?: EndingHook; leaving?: LeavingHook; offer?: (c: Career, promo: string, why: string) => void; injured?: InjuredHook }): void {
+export function setCareerHooks(h: { notice?: Hook; daily?: Hook; monthly?: Hook; mine?: (c: Career, show: Show, bout: Bout, m: PlayerMatch) => void; mail?: MailHooks; phase?: PhaseHook; protect?: ProtectHook; ending?: EndingHook; leaving?: LeavingHook; offer?: (c: Career, promo: string, why: string, pkg?: import('./clauses').PackageId) => void; injured?: InjuredHook; tryout?: (c: Career, show: Show, m: PlayerMatch) => void }): void {
+  if (h.tryout) hooks.tryout = h.tryout;
   if (h.offer) hooks.offer = h.offer;
   if (h.injured) hooks.injured.push(h.injured);
   if (h.protect) hooks.protect.push(h.protect);

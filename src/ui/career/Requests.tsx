@@ -5,7 +5,7 @@ import {
   askRival, askShow, askSpot, askTitleShot, askTryout, askIndieTitleShot, askableIndieShows, askableIndieTitles, askableShows, askableTitles, caughtChance, cooldownLeft, counterLabel,
   announceRetirement, bookHoliday, holidays, leaveContract, setPartTime, setTours, setWalk, takeOption, tierOf,
   bookerName, countersWaiting, creativeTier, exitTerms, firstAskable, myPromo, otherPromotions, patienceOf, person, previewChallenge, previewIndieChallenge,
-  previewIndieTitle, previewMore, previewShow, previewSpot, previewTitle, promoName, standingWith, type Ask, type Career, type Preview, type Show,
+  previewIndieTitle, previewMore, previewShow, previewSpot, previewTitle, promoName, standingWith, gradeOf, FACTOR_NAME, type Ask, type Career, type Preview, type Show,
 } from '../../career';
 import { titleMinGap } from '../../career/booker';
 import { sideWork } from '../../career/deals';
@@ -24,7 +24,8 @@ export type ReqRoute =
   | { req: 'approach'; tab?: number; promo?: string }
   | { req: 'dayoff' }
   | { req: 'rival' }
-  | { req: 'creative' };
+  | { req: 'creative' }
+  | { req: 'scouting' };
 
 const showLine = (s: Show): string => `${fmtDay(s.date, 'dm')} · ${s.city}${s.promo === 'TIS' ? `, ${s.country}` : ''}`;
 
@@ -176,7 +177,8 @@ export function Requests({ c, tab: start, onBack, onFlow, onNegotiate }: ReqProp
   }
   groups.push({ t: w('Other promotions'), items: [
     { t: 'Approach a promotion', d: k ? `Ask about a contract. ${k.promo} might find out.` : 'Ask about a contract.', go: () => onFlow({ req: 'approach', tab: 0 }), tag: k ? 'Risky while signed' : null, tc: 'c-eff bad' },
-    { t: 'Ask for a tryout', d: 'One match on their show, judged on the result and the stars.', go: () => onFlow({ req: 'approach', tab: 1 }) },
+    { t: 'Ask for a tryout', d: 'One match on their show, written up by a scout.', go: () => onFlow({ req: 'approach', tab: 1 }) },
+    { t: 'Scouting reports', d: 'How every major rates you, what they value, and where you are with them.', go: () => onFlow({ req: 'scouting' }) },
   ] });
   const indieTitles = askableIndieTitles(c);
   groups.push({ t: w('The Indie Scene'), items: [
@@ -489,6 +491,8 @@ export function RequestFlow({ c, route, onBack, onNegotiate, onAnswered }: FlowP
     const start = Math.max(0, promos.indexOf(route.promo ?? ''));
     const pr = promos[(i + start) % promos.length]!;
     const st = standingWith(c, pr);
+    const g = gradeOf(c, findWrestler(c.player)!, pr);
+    const stepName = { pass: 'They’d pass', radar: 'On their radar', tryout: 'A tryout', offer: 'An offer' }[g.step];
     title = w('Approach'); who = w(`Asking ${pr}`); booker = pr;
     top = (
       <>
@@ -502,12 +506,16 @@ export function RequestFlow({ c, route, onBack, onNegotiate, onAnswered }: FlowP
     pv = {
       hard: p < PATIENCE_FLOOR ? `${pr} won’t hear it: patience too low.` : tab === 0 && c.offers.some((o) => o.promo === pr && o.status === 'open') ? `You’ve already got an offer from ${pr}.` : null,
       chance: 0, nag: 0,
-      stand: [['You there', `${Math.round(st.mine)} · ${REGION_LABEL[st.region as keyof typeof REGION_LABEL]}`], ['Bottom quarter', `${Math.round(st.q1)}`], ['Roster median', `${Math.round(st.median)}`], ['Your deal', k ? `${k.promo} until ${fmtDay(k.end, 'dm')} ${k.end.slice(0, 4)}` : 'Free agent']],
-      weigh: [{ t: 'Your standing there', s: st.mine >= st.median ? 1 : st.mine >= st.q1 ? 0 : -1 }, { t: 'What you’re worth to them', s: 0 }, { t: `Their patience ${Math.round(p)}`, s: p > PATIENCE_START ? 1 : p < PATIENCE_START ? -1 : 0 }],
+      stand: [['Their grade of you', `${Math.round(g.grade)}`], ['Tryout bar', `${Math.round(g.q1)}`], ['Offer bar', `${Math.round(g.median)}`], ['Right now', stepName], ['Your deal', k ? `${k.promo} until ${fmtDay(k.end, 'dm')} ${k.end.slice(0, 4)}` : 'Free agent']],
+      weigh: [
+        { t: g.standouts.length ? `Standout: ${g.standouts.map((f) => FACTOR_NAME[f]).join(', ')}` : 'No standout', s: g.standouts.length ? 1 : 0 },
+        { t: `Holding you back: ${g.weakest.slice(0, 2).map((f) => FACTOR_NAME[f]).join(', ')}`, s: -1 },
+        { t: `Their patience ${Math.round(p)}`, s: p > PATIENCE_START ? 1 : p < PATIENCE_START ? -1 : 0 },
+      ],
     };
     ask = () => (tab === 0 ? askApproach(c, pr) : askTryout(c, pr));
     nag = nagText(`promo:${pr}`, COOLDOWN_PROMOTION, pr);
-    notes = [tab === 0 ? 'At their median or above: a contract offer. Bottom quarter up to the median: they offer a tryout. Below: no.' : 'At their median or above they skip the tryout and make an offer. Signed, you can only take a tryout date your Indie Bookings clause allows.'];
+    notes = [tab === 0 ? 'They grade you on twelve things against their own roster, weighted to their taste. Above their median: an offer. Above their bottom quarter: a tryout. Just under it: they watch your next few matches. A standout (their top 10% at something) lifts you a step.' : 'Above their offer bar they skip the tryout and make an offer. Signed, you can only take a tryout date your contract allows.', 'Requests › Other promotions › Scouting reports has the full picture.'];
     if (k) notes.push(`You’re signed to ${k.promo}. ${Math.round(caughtChance(c, pr) * 100)}% chance they hear about it. If they do, for 30 days: patience −20, fewer dates, and lower on the card.`);
     body = cyc(promos.length, head);
   }

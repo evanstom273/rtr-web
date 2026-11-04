@@ -11,6 +11,7 @@ import { REGION_LABEL } from './places';
 import { letter, makeOffer, myBoutToday, person, promoName, setCareerHooks, spend } from './career';
 import { C } from './clauses';
 import { approves, sideWork } from './deals';
+import { getInTouch, gradeOf, holdingBack, startWatching } from './scouting';
 import { leaveContract, matchRival, payReview } from './contracts';
 import { addDays, daysBetween, fmtDay, weekday, type Day } from './dates';
 import { indieFee, travelCost } from './economy';
@@ -572,17 +573,23 @@ export function askApproach(c: Career, promo: string): Ask {
   if (c.offers.some((o) => o.promo === promo && o.status === 'open')) return record(c, { kind: 'approach', to: promo, what, key, answer: 'no', said: '“You’ve already got an offer from us.”' });
   nag(c, key, COOLDOWN_PROMOTION, promo);
   const caught = maybeCaught(c, promo);
-  const st = standingWith(c, promo);
   const then = caught ? `${myPromo(c)} heard about it.` : myPromo(c) ? `${myPromo(c)} didn’t hear about it.` : undefined;
-  if (st.mine >= st.median) {
+  // Scouting (Lyra's redesign): their grade of you, against their roster, decides.
+  getInTouch(c, promo);
+  const g = gradeOf(c, me(c), promo);
+  if (g.step === 'offer') {
     makeOffer(c, promo, 'You got in touch');
     const o = c.offers.find((x) => x.promo === promo && x.status === 'open');
     return record(c, { kind: 'approach', to: promo, what, key, answer: 'yes', said: `“We’d have you.”${o ? ` £${o.fee.toLocaleString('en-GB')} a match, ${o.months} months, from ${fmtDay(o.start, 'dm')}${o.start.slice(0, 4) !== c.today.slice(0, 4) ? ` ${o.start.slice(0, 4)}` : ''}. It’s in your mail.` : ''}`, then });
   }
-  const show = st.mine >= st.q1 ? tryoutShow(c, promo) : undefined;
+  const show = g.step === 'tryout' ? tryoutShow(c, promo) : undefined;
   if (show) return record(c, { kind: 'approach', to: promo, what, key, answer: 'counter', said: `“Not a contract yet. Come and have a tryout: ${showLine(show)}.”`, then,
     counter: { kind: 'tryout', tryout: { show: show.id, promo } } });
-  return record(c, { kind: 'approach', to: promo, what, key, answer: 'no', said: '“Not yet. We’ll keep an eye on you.”', then });
+  if (g.step === 'radar' || g.step === 'tryout') {
+    startWatching(c, promo);
+    return record(c, { kind: 'approach', to: promo, what, key, answer: 'no', said: '“Not yet. We’ll watch your next few matches.”', then });
+  }
+  return record(c, { kind: 'approach', to: promo, what, key, answer: 'no', said: `“Not yet.” What’s holding you back with them: ${holdingBack(g)}.`, then });
 }
 
 export function askTryout(c: Career, promo: string): Ask {
@@ -592,17 +599,22 @@ export function askTryout(c: Career, promo: string): Ask {
   nag(c, key, COOLDOWN_PROMOTION, promo);
   const caught = maybeCaught(c, promo);
   const then = caught ? `${myPromo(c)} heard about it.` : myPromo(c) ? `${myPromo(c)} didn’t hear about it.` : undefined;
-  const st = standingWith(c, promo);
-  if (st.mine >= st.median) {
+  getInTouch(c, promo);
+  const g = gradeOf(c, me(c), promo);
+  if (g.step === 'offer') {
     makeOffer(c, promo, 'You asked for a tryout; you don’t need one');
     return record(c, { kind: 'tryout', to: promo, what, key, answer: 'yes', said: '“You don’t need a tryout. We’ll make you an offer: it’s in your mail.”', then });
   }
-  const show = st.mine >= st.q1 ? tryoutShow(c, promo) : undefined;
-  if (!show) return record(c, { kind: 'tryout', to: promo, what, key, answer: 'no', said: '“Not yet. We’ll keep an eye on you.”', then });
+  if (g.step === 'radar') {
+    startWatching(c, promo);
+    return record(c, { kind: 'tryout', to: promo, what, key, answer: 'no', said: '“Not yet. We’ll watch your next few matches first.”', then });
+  }
+  const show = g.step === 'tryout' ? tryoutShow(c, promo) : undefined;
+  if (!show) return record(c, { kind: 'tryout', to: promo, what, key, answer: 'no', said: g.step === 'tryout' ? '“We’d see you, but there’s no date for it soon. Ask again.”' : `“Not yet.” What’s holding you back with them: ${holdingBack(g)}.`, then });
   const ok = !myPromo(c) || indieAllowed(c, show).ok;
   if (!ok) return record(c, { kind: 'tryout', to: promo, what, key, answer: 'no', said: `“Come in for ${showLine(show)}.”`, then: `You couldn’t take the date: your ${myPromo(c)} deal doesn’t allow it.` });
   c.tryouts[show.id] = promo;
-  return record(c, { kind: 'tryout', to: promo, what, key, answer: 'yes', said: `“Come in for ${showLine(show)}. Win, or put on a good match, and we’ll talk.”`, then });
+  return record(c, { kind: 'tryout', to: promo, what, key, answer: 'yes', said: `“Come in for ${showLine(show)}. A scout will write it up.”`, then });
 }
 
 // ------------------------------------------------------------------ indie spots
