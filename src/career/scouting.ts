@@ -425,10 +425,14 @@ function growth(c: Career): void {
  * The AI's signings use the same grade (Lyra's call): from the free pool, the one this promotion rates highest,
  * each promotion to its own taste.
  */
+/** Relationships pull on signings (politics plugs in: friends and a partner on the roster, enemies there). */
+let signingPull: (c: Career, w: Wrestler, promo: string) => number = () => 0;
+export const setSigningPull = (f: typeof signingPull): void => { signingPull = f; };
+
 export function bestSigning(c: Career, promo: string, pool: Wrestler[]): Wrestler | undefined {
   let best: Wrestler | undefined, top = -1;
   for (const w of pool) {
-    const g = gradeOf(c, w, promo).grade;
+    const g = gradeOf(c, w, promo).grade + signingPull(c, w, promo);
     if (g > top || (g === top && best && w.id < best.id)) { top = g; best = w; }
   }
   return best;

@@ -1109,3 +1109,32 @@ export const LIFE = {
   death: { base: 0.00003, perYear: 0.00002, from: 40 },
   shock: { grief: [-15, 90], ill: [-8, 60], baby: [10, 120], heartbreak: [-12, 60], wedding: [10, 90], death: [-20, 120] },
 };
+
+// --- Politics (Lyra's relationships redesign, stage 5: PROPOSALS) ---------------------------------------
+/**
+ * In the ring: chemistry adds to (or takes off) a match's stars: per point of mutual respect, friends (both like this
+ * much), running spots together lately; enemies working stiff take some off, and the hated one's injury risk goes up.
+ * Someone booked to lose to a person they can't stand puts up a fight about it (fewer re-runs, a weaker nudge).
+ */
+export const CHEM = { perRespect: 0.0025, friends: 0.1, friendLike: 40, spots: 0.15, spotsDays: 14, stiff: -0.25, max: 0.35, min: -0.3, stiffInjury: 1.6, refuseNudge: 0.5 };
+/** Bookers pairing people: rivals (heat sells), friends who lobby to work together, enemies who refuse to. */
+export const PAIRING = { rival: 1.4, friends: 1.1, enemies: 0.5 };
+/**
+ * Your standing in each major's locker room, 0–100 (50 to start): putting someone over, keeping to the plan, a great
+ * match, going off-script, failing to deliver; each month it moves this share towards what its leaders think of you,
+ * with friends and enemies on the roster; a new face takes to you by it (per point over or under 50). Leaders: the most
+ * respected this many.
+ */
+export const ROOM = { start: 50, putOver: 2, kept: 1, great: 1, offScript: -8, botched: -1, toLeaders: 0.2, friend: 1, friendMax: 4, enemy: -2, enemyMax: -6, firstImpression: 0.2, leaders: 2, high: 70, low: 30, moodHigh: 4, moodLow: -6, minAge: 30 };
+/**
+ * Cliques: up to so many per major, of 3 to 5 who like each other this much (the founder's friends at this, everyone
+ * else at that). Members get a push when the booker likes their leader; whoever crosses a member is frozen out (like
+ * from the rest, each month); you're asked in if you're close to this many of them.
+ */
+export const CLIQUE = { perPromo: 2, size: [3, 5], friendLike: 45, mutual: 25, dissolve: 20, lobby: 3, leaderLike: 20, freeze: -4, inviteFriends: 2, joinLike: 5, joinRoom: 3, frozenRoom: -3 };
+/** Enemies all the way: badmouthing you to a booker who likes them (each month), and backstage fights (a hot-head and someone they can't stand on the same card). */
+export const ENEMY = { badmouth: -2, badmouthLike: 20, fight: 0.15, fightLike: -5, fightRep: -1, fightRoom: -4, fineWeeks: 0.5, provoke: 0.3 };
+/** Contracts and moves: a signing leans towards friends on the roster (each), a partner on it, and away from enemies there. */
+export const PULL = { friend: 1.5, friendMax: 6, partner: 8, enemy: -3 };
+/** Bookers personally (every one, not just politicians): a push for people they like (points per 100 like), second chances, softer fines. */
+export const BOOKER_LIKE = { push: 3, patience: 250, fines: 300 };

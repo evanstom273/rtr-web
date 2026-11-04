@@ -6,7 +6,7 @@ import { hashSeed, seededRng } from '../engine/rng';
 import { activeWorld } from '../world/world';
 import { bookerOf, likeOf } from '../world/people';
 import { bookerKey } from './patience';
-import { BOOKER_FX as BF } from './tuning';
+import { BOOKER_FX as BF , BOOKER_LIKE, CLIQUE } from './tuning';
 import type { Career } from './types';
 
 /** The person behind a booker key (a promotion's initials, or a person id), if there is one. */
@@ -84,6 +84,13 @@ export function contenderBias(c: Career, booker: Staffer | undefined, w: Wrestle
   }
   if (has(booker, 'mentor') && w.age <= BF.mentor.youthAge) b += BF.mentor.youth;
   if (has(booker, 'loyal') && (c.people[w.id]?.renewals ?? 0) >= 1) b += BF.loyal.tenure;
+  // Every booker (relationships stage 5): a little push for people they like; a clique whose leader they like lobbies for its own.
+  const P = activeWorld().people;
+  if (P) {
+    if (!has(booker, 'politician')) b += (likeOf(P, booker.id, w.id) / 100) * BOOKER_LIKE.push;
+    const q = c.cliques?.find((x) => x.members.includes(w.id));
+    if (q && likeOf(P, booker.id, q.leader) >= CLIQUE.leaderLike) b += CLIQUE.lobby;
+  }
   return b;
 }
 

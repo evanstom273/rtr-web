@@ -6,18 +6,23 @@ import { findWrestler, globalScore, rosterOf, worksFor } from '../data/rtr';
 import { setBookableHook } from './booker';
 import { letter, person, promoName, setCareerHooks, spend } from './career';
 import { tierOf } from './clauses';
+import { activeWorld } from '../world/world';
+import { bookerOf, likeOf } from '../world/people';
 import { setSocialFine } from './social';
 import { addDays, daysBetween, fmtDay } from './dates';
 import { dealsOf, dealWith } from './deals';
 import { round5 } from './economy';
 import { movePatience, showBooker } from './patience';
 import { remember } from './relations';
-import { CONDUCT_FINES, CONDUCT_MULT, PATIENCE_NO_SHOW, REP_NO_SHOW, SOCIAL_FINE_FEES, SOCIAL_FINE_PATIENCE, SUSPENSION } from './tuning';
+import { CONDUCT_FINES, CONDUCT_MULT, PATIENCE_NO_SHOW, REP_NO_SHOW, SOCIAL_FINE_FEES, SOCIAL_FINE_PATIENCE, SUSPENSION , BOOKER_LIKE } from './tuning';
 import type { Bout, Career, Contract, PlayerMatch, Show } from './types';
 
 /** A fine under Conduct & Discipline: weekly fees × what the offence costs × how lenient your deal is. */
 function fine(c: Career, k: Contract, fees: number, why: string): number {
-  const amount = round5(k.fee * fees * (CONDUCT_MULT[tierOf(k, 'conduct')] ?? 1));
+  // A booker who likes you goes easier (relationships stage 5).
+  const P = activeWorld().people, bk = P ? bookerOf(P, k.promo) : undefined;
+  const soft = bk && P ? 1 - Math.max(0, likeOf(P, bk.id, c.player)) / BOOKER_LIKE.fines : 1;
+  const amount = round5(k.fee * fees * (CONDUCT_MULT[tierOf(k, 'conduct')] ?? 1) * soft);
   if (amount > 0) spend(c, -amount, `Fined by ${k.promo}: ${why}`, 'event');
   return amount;
 }

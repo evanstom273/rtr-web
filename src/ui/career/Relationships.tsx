@@ -1,6 +1,6 @@
 import { useState, type KeyboardEvent } from 'react';
 import { findWrestler, type Staffer } from '../../data/rtr';
-import { bookerName, memoryLine, memoryOf, MOOD_WHY, moodLabel, moodOf, patienceOf, phoneOn, promoName, readOf, relLabel, relationsList, trust, trustLabel, type Career } from '../../career';
+import { bookerName, cliqueOf, dealsOf, leadersOf, memoryLine, memoryOf, MOOD_WHY, moodLabel, moodOf, patienceOf, person, phoneOn, roomLabel, standingOf, promoName, readOf, relLabel, relationsList, trust, trustLabel, type Career } from '../../career';
 import { daysBetween, fmtDay } from '../../career/dates';
 import { activeWorld } from '../../world/world';
 import { bookerOf, jobLabel, likeOf, type Orientation } from '../../world/people';
@@ -66,6 +66,12 @@ export function Relationships({ c, onBack, onMessage }: Props) {
         <span className="c-val">{(life?.why ?? []).map((x) => MOOD_WHY[x.slice(1)] ?? x).join(' · ') || 'Wellbeing: how your life’s going, in and out of the ring.'}</span>
         <span className="c-hint">{summary}</span>
         <span className="c-hint">{home ? `${home}, ` : ''}{c.base ?? me.country} · trained at {school.name}</span>
+        {dealsOf(person(c, c.player)).map((k) => {
+          const v = standingOf(c, k.promo);
+          const leaders = leadersOf(c, k.promo).map((id) => findWrestler(id)?.name).filter(Boolean);
+          return <span key={k.promo} className="c-hint">{k.promo} locker room: <b>{roomLabel(v)}</b> ({Math.round(v)}){leaders.length ? ` · leaders ${leaders.join(', ')}` : ''}</span>;
+        })}
+        {cliqueOf(c, c.player) && <span className="c-hint">You’re in {cliqueOf(c, c.player)!.name} (led by {findWrestler(cliqueOf(c, c.player)!.leader)?.name ?? '?'})</span>}
       </div>
       <div className="c-steps cols2" style={{ marginTop: 8 }}>
         {['People', 'Bookers'].map((t, i) => <button key={t} className={i === tab ? 'c-st on' : 'c-st'} style={{ border: 0 }} onClick={() => setTab(i)}>{w(t)}</button>)}

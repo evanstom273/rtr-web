@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { REGION_KEY, REGION_LABEL } from '../../career/places';
 import { TraitChips } from './Traits';
 import { FAN_REGIONS, fansTotal, findWrestler, fmtFans, getMove, globalScore, PROMOTIONS, TITLES, titlesHeldBy, WRESTLERS, worksFor } from '../../data/rtr';
-import { askableIndieTitles, askableTitles, GOAL_TEXT, LOVE_LABEL, partnerOf, moodLabel, moodOf, person, promoName, readOf, relationOf, type Career } from '../../career';
+import { askableIndieTitles, askableTitles, cliqueOf, GOAL_TEXT, LOVE_LABEL, partnerOf, moodLabel, moodOf, person, promoName, readOf, relationOf, type Career } from '../../career';
 import { bondsOf, kindOf } from '../../world/people';
 import { homeOf, schoolOf } from '../../world/social';
 import { ATTR_KEYS, ATTR_LONG, CLASS_NAME, divisionName } from '../../career/create';
@@ -346,6 +346,7 @@ function Life({ c, id }: { c: Career; id: string }) {
         <span className="c-lab">{w('Trained at')}</span><span className="c-val">{school.name}</span>
         {goal && <><span className="c-lab">{w('After')}</span><span className="c-val">{GOAL_TEXT[goal.kind]}{goal.kind === 'even' && goal.on ? `: ${nameOf(goal.on)}` : ''}</span></>}
         <span className="c-lab">{w(me ? 'Wellbeing' : 'Seems')}</span><span className="c-val">{read === 'none' ? 'Hard to say: you don’t know them well enough' : moodLabel(moodOf(id))}</span>
+        {cliqueOf(c, id) && <><span className="c-lab">{w('In')}</span><span className="c-val">{cliqueOf(c, id)!.name}{cliqueOf(c, id)!.leader === id ? ' (leads it)' : ''}</span></>}
         {lover && <><span className="c-lab">{w('With')}</span><span className="c-val">{nameOf(lover.other)} · {LOVE_LABEL[lover.bond.love!.st].toLowerCase()}{P?.folk?.[lover.other] ? ' (not in the business)' : ''}</span></>}
         {life?.died && <><span className="c-lab">{w('Died')}</span><span className="c-val">{fmtDay(life.died, 'long')}</span></>}
         {close.length > 0 && <><span className="c-lab">{w('Close to')}</span><span className="c-val">{close.join(', ')}</span></>}

@@ -1,8 +1,8 @@
 // Booker patience (Requests): one meter per promotion's booker and per indie promoter.
 import { patienceMult } from './leans';
 import { activeWorld } from '../world/world';
-import { bookerOf, isPromotionKey } from '../world/people';
-import { BOOKER_FX, PATIENCE_PER_WEEK, PATIENCE_START } from './tuning';
+import { bookerOf, isPromotionKey, likeOf } from '../world/people';
+import { BOOKER_FX, BOOKER_LIKE, PATIENCE_PER_WEEK, PATIENCE_START } from './tuning';
 import type { Career, Show } from './types';
 
 /**
@@ -53,7 +53,9 @@ export const patienceLog = (c: Career, key: string) => c.patience?.[bookerKey(ke
 
 export function movePatience(c: Career, key: string, d: number, why: string): void {
   if (!d) return;
-  d = Math.round(d * patienceMult(c, d) * (d < 0 ? bookerLossMult(key) : 1) * 10) / 10;
+  // A booker who likes you gives you more rope (relationships stage 5: second chances).
+  const fond = d < 0 ? Math.max(0, likeOf(activeWorld().people ?? { staff: {}, brands: {}, bonds: {} }, bookerKey(key), c.player)) / BOOKER_LIKE.patience : 0;
+  d = Math.round(d * patienceMult(c, d) * (d < 0 ? bookerLossMult(key) * (1 - fond) : 1) * 10) / 10;
   const p = ((c.patience ??= {})[bookerKey(key)] ??= { v: PATIENCE_START, log: [] });
   p.v = Math.max(0, Math.min(100, Math.round((p.v + d) * 10) / 10));
   p.log.unshift({ day: c.today, d, t: why });

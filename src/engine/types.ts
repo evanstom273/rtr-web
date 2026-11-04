@@ -580,6 +580,8 @@ export interface MatchRulesConfig {
   freshness?: Partial<Record<SideKey, number>>;
   /** Wellbeing: a bonus (or penalty) on every roll for each side. */
   mood?: Partial<Record<SideKey, number>>;
+  /** Chemistry between the two: added to the stars. */
+  chemistry?: number;
 }
 
 export interface MatchState {

@@ -627,12 +627,16 @@ function pickStip(rnd: Rng): StipulationId {
   return weightedPick(rnd, STIPS, (s) => s[1])![0];
 }
 
+/** How keen a booker is to put two in the ring (politics plugs in: rivals, friends who lobby, enemies who refuse). */
+let pairBias: (a: string, b: string) => number = () => 1;
+export const setPairBias = (f: typeof pairBias): void => { pairBias = f; };
+
 function opponentFor(rnd: Rng, a: Wrestler, pool: Wrestler[], region: PopRegion, indie: boolean): Wrestler | undefined {
   const mixed = rnd() < (indie ? INTERGENDER_CHANCE_INDIE : INTERGENDER_CHANCE);
   const same = pool.filter((w) => mixed || w.gender === a.gender);
   const pa = regionalPop(a, region);
   const near = [...same].sort((x, y) => Math.abs(regionalPop(x, region) - pa) - Math.abs(regionalPop(y, region) - pa)).slice(0, 5);
-  return near[Math.floor(rnd() * near.length)];
+  return weightedPick(rnd, near, (w) => pairBias(a.id, w.id));
 }
 
 /** How likely the booker is to use you on a given show: busier for bigger names. */

@@ -375,6 +375,10 @@ export interface Career {
   meets?: import('./plans').Meet[];
   lent?: import('./plans').Lent[];
   shares?: Record<string, string>;
+  /** Politics: your standing in each major's locker room, its leaders, and the cliques on every roster. */
+  room?: Record<string, { v: number }>;
+  leaders?: Record<string, string[]>;
+  cliques?: import('./politics').Clique[];
   /** Living with someone (a partner or a mate): your living costs are shared. */
   home?: { with: string; since: Day };
   offered?: Record<string, Day>;

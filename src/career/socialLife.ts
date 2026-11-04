@@ -19,7 +19,7 @@ import { letter, setCareerHooks, setMod, setMoodDice, showsOn } from './career';
 import { addDays, daysBetween, weekday, type Day } from './dates';
 import { dealsOf } from './deals';
 import {
-  BOND_KIND, ROMANCE, BOND_LOG, GOALS, MOOD, MOOD_FX, SOCIAL_DRIFT, SOCIAL_ENCOUNTER, SOCIAL_MATCH, SOCIAL_NEWS_MAX, SOCIAL_PRUNE, SOCIAL_READ, SOCIAL_SEEK, SOCIAL_SPILL,
+  BOND_KIND, ROMANCE, ROOM, BOND_LOG, GOALS, MOOD, MOOD_FX, SOCIAL_DRIFT, SOCIAL_ENCOUNTER, SOCIAL_MATCH, SOCIAL_NEWS_MAX, SOCIAL_PRUNE, SOCIAL_READ, SOCIAL_SEEK, SOCIAL_SPILL,
 } from './tuning';
 import type { Bout, Career, Show } from './types';
 
@@ -67,9 +67,16 @@ export function encounter(c: Career, x: string, y: string, where: string, rnd: R
   const dx = Math.round(settle(E.warmth + chemistry(seed, px, py) * E.like + gauss(rnd) * E.noise, lx));
   const dy = Math.round(settle(E.warmth + chemistry(seed, py, px) * E.like + gauss(rnd) * E.noise, ly));
   const r = rnd() < E.respect ? 1 : 0;
+  // A new face on your roster takes to you by your standing in that locker room (stage 5).
+  let first = 0;
+  if (fresh && (x === c.player || y === c.player)) {
+    const other = findWrestler(x === c.player ? y : x);
+    const promo = other && other.promotion !== 'TIS' && dealsOf(c.people[c.player]).some((k) => worksFor(other, k.promo)) ? other.promotion : undefined;
+    if (promo) first = Math.round(((c.room?.[promo]?.v ?? ROOM.start) - ROOM.start) * ROOM.firstImpression);
+  }
   // First impressions of each other's work, the first time they meet.
   const rx = fresh ? firstRespect(px, py, rnd) : r, ry = fresh ? firstRespect(py, px, rnd) : r;
-  return feelPair(P, x, y, [dx, rx], [dy, ry], `Got talking at ${where}`, c.today, { keep: keepFor(c, x, y), fam: E.fam });
+  return feelPair(P, x, y, [dx + (y === c.player ? first : 0), rx], [dy + (x === c.player ? first : 0), ry], `Got talking at ${where}`, c.today, { keep: keepFor(c, x, y), fam: E.fam });
 }
 
 /** Who someone seeks out backstage: friends and people they know, rarely anyone they dislike. */
@@ -219,7 +226,7 @@ export const MOOD_WHY: Record<string, string> = {
   mentor: 'A mentorship', family: 'Family behind them', form_up: 'Winning', form_down: 'Losing', great: 'A great match lately', champ: 'Holding a title',
   goal_met: 'Got what they were after', goal_stuck: 'Getting nowhere', injured: 'Injured', idle: 'Not getting booked', tired: 'Worn out', broke: 'Money worries',
   dating: 'Seeing someone', partner: 'In love', apart: 'Apart from their partner a lot', grief: 'Grieving', death: 'A death in the family', ill: 'Someone they love is ill',
-  baby: 'A new baby', heartbreak: 'Heartbroken', wedding: 'Just married (or about to be)',
+  baby: 'A new baby', heartbreak: 'Heartbroken', wedding: 'Just married (or about to be)', room_up: 'Respected in the locker room', room_down: 'Frozen out in the locker room',
 };
 const LOVE_RANK = ['crush', 'dating', 'partner', 'living', 'engaged', 'married'];
 
@@ -269,6 +276,11 @@ export function moodTarget(c: Career, id: string): { v: number; why: string[] } 
   // Not getting booked (or never yet, since the career began).
   else if (p && daysBetween(p.last ?? c.startedOn, c.today) > M.idleDays) parts.push(['idle', M.idle]);
   if (id === c.player) {
+    // Your standing in your locker room (stage 5).
+    const k = c.people[c.player]?.contract;
+    const room = k ? c.room?.[k.promo]?.v : undefined;
+    if (room !== undefined && room >= ROOM.high) parts.push(['room_up', ROOM.moodHigh]);
+    if (room !== undefined && room <= ROOM.low) parts.push(['room_down', ROOM.moodLow]);
     if ((p?.fatigue ?? 0) >= M.tiredAt) parts.push(['tired', M.tired]);
     if (c.money < 0) parts.push(['broke', M.broke]);
   }
