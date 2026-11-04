@@ -5,7 +5,7 @@ import { fansForScore, findWrestler, fmtFans, WRESTLERS } from '../data/rtr';
 import { seededRng } from '../engine/rng';
 import { hashSeed, promoRegion, regionalPop } from './booker';
 import { attitude, C, CLAUSES, patience } from './clauses';
-import { letter, person, promoName, spend, indieBeltOnSigning } from './career';
+import { beltsOnMove, letter, person, promoName, spend } from './career';
 import { addDays, addMonths, daysBetween, fmtDay } from './dates';
 import { contractFee, round5 } from './economy';
 import { startTitlePromise } from './offers';
@@ -124,7 +124,7 @@ export function signOffer(c: Career, o: Offer): void {
     me.promotion = o.promo;
     for (const s of Object.values(c.shows)) if (!s.done && s.date > c.today && s.promo === o.promo) s.card = null;
     startTitlePromise(c);
-    indieBeltOnSigning(c, c.today);
+    beltsOnMove(c, c.today);
     letter(c, { kind: 'contract', from: promoName(o.promo), subject: `Signed: ${promoName(o.promo)}`, body: [`${o.months} months at £${o.fee.toLocaleString('en-GB')} a match, starting today. Welcome aboard.`] });
   } else {
     p.next = k;
@@ -186,6 +186,7 @@ export function leaveContract(c: Career): string {
     p.contract = null;
     me.promotion = 'TIS';
     for (const s of Object.values(c.shows)) if (!s.done && s.date > c.today && s.card) s.card = s.card.filter((b) => b.a !== c.player && b.b !== c.player);
+    beltsOnMove(c, c.today);
   };
   if (t.tier >= 3) { out(); return `You’ve left ${k.promo}. You’re a free agent.`; }
   if (t.tier === 2) { k.leaving = addDays(c.today, NOTICE_DAYS); k.end = k.leaving; return `Notice given: you leave ${k.promo} on ${fmtDay(k.leaving, 'dm')}.`; }
