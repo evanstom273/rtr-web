@@ -668,3 +668,33 @@ Budgets for the expansion:
 - **Social** (Career grid): one post a day with an estimate for each kind, who it's about, this week against the cap, and the feed.
 - **The gym:** a session in a free half-day, two points at most; shut while you're working, travelling, moving or overdrawn, or once you've trained that half-day.
 - **Finances:** living costs a week and your day job's pay.
+
+## Validation with everything on (stage V)
+
+Every switch on: days, jobs, skipping, social, living costs.
+
+**`ECON=1`: two years of six lives (balance at 3/6/12/18/24 months).**
+
+| Life | Balance | Notes |
+| --- | --- | --- |
+| Unknown, ~1 date a month, no job | −£1,030 → −£21,085 | The money-trouble letter keeps coming; living costs £22,880 against fees of £1,095. |
+| The same with part-time retail | £1,490 → £1,145 | Level: wages of £26,000 cover the rent. |
+| Indie regular (5k fans) with retail | £1,495 → £1,400 | Level, with 12 points of training bought. |
+| Successful indie (50k fans), full-time | £1,735 → £1,825 | Level on 6 dates a month, with 41 points bought. |
+| Newly signed, bottom of VWF | £1,665 → £6,615 | Climbing even after buying 96 points. |
+| Established star | £374k → £2.98M | |
+
+**`LONG=1`: three seeds × three years.**
+- A world day takes 6–8.5 ms (median) and 14–20 ms (p95). The save grows 2.6 MB → 5.0 MB.
+- Indie dates a month: median 1.6–1.8. Indies with no date in 120 days: 0–3%, or up to 9% in the lowest popularity quarter.
+- Fans worldwide:
+  - signed median: 572k–601k in year 1, rising to 726k–734k in year 3;
+  - indie median: 2.4k–2.8k rising to 4.5k–4.9k;
+  - nobody runs away (the max stays at about 10M).
+- Indie shows a week: median 10, at the cap. The low minimums are the part-weeks at the year edges.
+- The regional titles test (three years) passes with travel on, now that overdue regional champions stay home.
+
+**`PERF=1`: real engine, 14 days, two seeds.**
+- 13–15 matches a day to sim, at about 70 ms each.
+- That's about 1 s a day on one thread, with the main thread taking 5–7 ms a day.
+- In the browser the pool of up to 4 workers shares that out. A 30-day skip should take roughly 8–12 s on a 4-core phone (target 15 s). This is worked out from the per-day figures, not measured in a browser.
