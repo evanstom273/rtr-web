@@ -10,7 +10,7 @@ import { HARDCORE_STIPS, available, bookAhead, hashSeed, heated, isIndieTitle, p
 import { bondOf } from '../world/people';
 import { drawCalendar } from './calendar';
 import { BUDGET, C, tierOf } from './clauses';
-import { aiContract, dropDeal, promoteDeal, sideWork } from './deals';
+import { aiContract, dealWith, dropDeal, promoteDeal, sideWork } from './deals';
 import { makeRookie } from './create';
 import { addDays, addMonths, type Day, daysBetween, fmtDay, weekday } from './dates';
 import { baseRegion, indieFee, isWeeklyFlagship, livingCost, matchPay, round5 } from './economy';
@@ -352,19 +352,21 @@ function settleMine(c: Career, show: Show, bout: Bout, out: SimOut, aIsYou: bool
     planned = bout.planned === winner ? 'kept' : bout.planned === c.player ? 'botched' : winner === c.player && how === 'played' ? 'off-script' : 'upset';
   }
   const indie = show.promo === 'TIS';
+  // The deal this show's under (you might be on more than one major).
+  const deal = indie ? null : (show.promos ?? [show.promo]).map((x) => dealWith(me, x)).find(Boolean) ?? me.contract;
   if (indie) {
     const deal = c.indie[show.id] ?? { fee: indieFee(findWrestler(c.player)!, show), travel: 0 };
     travel = deal.travel;
     fee = result === 'loss' ? round5(deal.fee * (1 - LOSS_CUT_BY_TIER[0]!)) : deal.fee;
     if (deal.travel) spend(c, -deal.travel, `Travel · ${show.city}`, 'travel');
     delete c.indie[show.id];
-  } else if (me.contract) {
-    const p = matchPay(me.contract, show.kind, result === 'loss', isWeeklyFlagship(show));
+  } else if (deal) {
+    const p = matchPay(deal, show.kind, result === 'loss', isWeeklyFlagship(show));
     fee = p.pay; bonus = p.bonus;
   } else if (bout.tryout) {
     fee = indieFee(findWrestler(c.player)!, show);
   }
-  if (planned === 'off-script' && (me.contract?.clauses[C.creative] ?? 0) < 3) {
+  if (planned === 'off-script' && tierOf(deal, 'creative') < 3) {
     fee = 0; bonus = 0;
     me.rep = r1(clamp(me.rep + REP_OFF_SCRIPT, 0, 100));
     me.titleBanUntil = addDays(show.date, OFF_SCRIPT_TITLE_BAN_DAYS);

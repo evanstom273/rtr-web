@@ -1,9 +1,9 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { fansIn, fansTotal, findWrestler, fmtFans, globalScore, TITLES, WRESTLERS, rosterOf, worksFor } from '../../data/rtr';
 import {
-  C, PATIENCE_FLOOR, PATIENCE_START, answerCounter, askApproach, askChallenge, askDayOff, askFinish, askIndieChallenge, askMore, askRelease, askReview,
+  C, PATIENCE_FLOOR, PATIENCE_START, answerCounter, askApproach, askChallenge, askDayOff, askIndieChallenge, askMore, askRelease, askReview,
   askRival, askShow, askSpot, askTitleShot, askTryout, askIndieTitleShot, askableIndieShows, askableIndieTitles, askableShows, askableTitles, caughtChance, cooldownLeft, counterLabel,
-  bookerName, countersWaiting, exitTerms, finishAskable, firstAskable, myPromo, otherPromotions, patienceOf, person, previewChallenge, previewIndieChallenge,
+  bookerName, countersWaiting, creativeTier, exitTerms, firstAskable, myPromo, otherPromotions, patienceOf, person, previewChallenge, previewIndieChallenge,
   previewIndieTitle, previewMore, previewShow, previewSpot, previewTitle, promoName, standingWith, type Ask, type Career, type Preview, type Show,
 } from '../../career';
 import { titleMinGap } from '../../career/booker';
@@ -22,7 +22,8 @@ export type ReqRoute =
   | { req: 'spot'; show?: string }
   | { req: 'approach'; tab?: number; promo?: string }
   | { req: 'dayoff' }
-  | { req: 'rival' };
+  | { req: 'rival' }
+  | { req: 'creative' };
 
 const showLine = (s: Show): string => `${fmtDay(s.date, 'dm')} · ${s.city}${s.promo === 'TIS' ? `, ${s.country}` : ''}`;
 
@@ -137,7 +138,6 @@ export function Requests({ c, tab: start, onBack, onFlow, onNegotiate }: ReqProp
   const asked = (key: string, days: number) => { const d = cooldownLeft(c, key, days); return d ? `Asked ${fmtDay(addDays(c.today, d - days), 'dm')}` : null; };
   const titles = askableTitles(c);
   const ranks = titles.map((t) => previewTitle(c, t.id).stand[0]?.[1]).filter((x) => x && x !== '—');
-  const finish = finishAskable(c);
   const exit = exitTerms(c);
   const indieOk = sideWork(c.people[c.player]).rule !== 'banned';
   const rivals = k ? c.offers.filter((o) => o.status === 'open' && o.promo !== k.promo) : [];
@@ -152,7 +152,7 @@ export function Requests({ c, tab: start, onBack, onFlow, onNegotiate }: ReqProp
       { t: 'Challenge a wrestler', d: `Pick anyone on the ${k.promo} roster and a show from ${fmtDay(firstAskable(c), 'dm')}.`, go: () => onFlow({ req: 'challenge' }), tag: asked('challenge', COOLDOWN_CHALLENGE), tc: 'c-eff bad' },
       { t: 'Ask to be on a show', d: `Any ${k.promo} show from ${fmtDay(firstAskable(c), 'dm')}. The next seven days’ cards are set.`, go: () => onFlow({ req: 'book', tab: 0 }) },
       { t: 'Ask for more matches', d: 'A yes means a minimum number of dates next month.', go: () => onFlow({ req: 'book', tab: 1 }), tag: asked('more', COOLDOWN_MORE), tc: 'c-eff bad' },
-      { t: finish.label, d: 'Only on the day of a title match with a planned finish.', go: finish.ok ? () => run(() => askFinish(c)) : undefined, tag: finish.ok ? null : finish.why },
+      { t: 'Creative Control', d: 'Finishes either way, opponents, the main event, feuds and turns.', go: () => onFlow({ req: 'creative' }), tag: creativeTier(c, k.promo) ? null : 'Needs Creative Control' },
       { t: 'Ask for a day off', d: (k.clauses[C.schedule] ?? 0) >= 3 ? 'Or refuse a date you’re booked on.' : 'On a day your promotion has a show.', go: (k.clauses[C.schedule] ?? 0) ? () => onFlow({ req: 'dayoff' }) : undefined, tag: (k.clauses[C.schedule] ?? 0) ? null : 'Needs Schedule Flexibility' },
     ] });
     groups.push({ t: w('Your contract'), items: [

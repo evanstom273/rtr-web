@@ -61,7 +61,7 @@ export const bookerName = (key: string): string => {
   return promoName(key);
 };
 
-function record(c: Career, a: Omit<Ask, 'id' | 'day' | 'status' | 'toName'> & { status?: Ask['status'] }): Ask {
+export function record(c: Career, a: Omit<Ask, 'id' | 'day' | 'status' | 'toName'> & { status?: Ask['status'] }): Ask {
   const full: Ask = { id: `q${++c.seq}`, day: c.today, toName: bookerName(a.to), status: a.status ?? (a.answer === 'counter' ? 'open' : 'closed'), ...a };
   (c.asks ??= []).unshift(full);
   if (a.kind === 'title') {

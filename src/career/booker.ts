@@ -3,8 +3,8 @@ import { booked, fitsTrip } from './availability';
 import { changeLean, contenderBias, stipMult, titleBooker } from './bookerLeans';
 import { contenderLean } from './leans';
 import { fanScore, findWrestler, PROMOTIONS, type Title, TITLES, type Wrestler, worksFor } from '../data/rtr';
-import { C, tierOf } from './clauses';
-import { dealWith, dealsOf, sideWork } from './deals';
+import { tierOf } from './clauses';
+import { dealWith, sideWork } from './deals';
 import type { StipulationId } from '../engine/types';
 import { hashSeed, seededRng, type Rng } from '../engine/rng';
 import { addDays, daysBetween, type Day } from './dates';
@@ -318,6 +318,10 @@ function sinceLastDefence(c: Career, titleId: string, show: Show): number {
   return lastOrWon ? Math.abs(daysBetween(lastOrWon, show.date)) : 999;
 }
 
+/** A card's been drawn up: clauses that shape it (Creative Control's protected stars) run here. Set by creative.ts. */
+let cardHooks: ((c: Career, show: Show, card: Bout[]) => void)[] = [];
+export const setCardHook = (f: (c: Career, show: Show, card: Bout[]) => void): void => { cardHooks = [...cardHooks, f]; };
+
 /** Indie promises that can't happen roll on to the promoter's next show: set by requests.ts. */
 let rollIndie: ((c: Career, p: Pledge, show: Show) => boolean) | null = null;
 export const setIndieRoll = (f: (c: Career, p: Pledge, show: Show) => boolean): void => { rollIndie = f; };
@@ -546,7 +550,6 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
   // Crossover showcases: the two rosters against each other where possible.
   const cross = show.special?.kind === 'crossover';
   const crossPool = (a: Wrestler, xs: Wrestler[]) => { if (!cross) return xs; const o = xs.filter((w) => w.promotion !== a.promotion); return o.length ? o : xs; };
-  void dealsOf; void C;
 
   // You, if you're on and not in a match yet. In the doghouse: someone from the bottom half of the roster.
   if (wantMe && me && free(me.id)) {
@@ -583,6 +586,7 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
   card.sort((x, y) => weight(x) - weight(y));
   const last = card[card.length - 1];
   if (hot && card.length > 1 && last && (last.a === c.player || last.b === c.player)) card.splice(card.length - 2, 0, card.pop()!);
+  for (const f of cardHooks) f(c, show, card);
   return card;
 }
 
