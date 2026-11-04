@@ -116,7 +116,7 @@ function DealEditor({ who, initial, onCancel, onDone }: { who: Wrestler; initial
       <div className="c-top"><button className="c-back" onClick={onCancel} aria-label="Back">{skin === 'paper' ? '‹ Back' : '‹'}</button><div className="c-ttl">{skin === 'paper' ? 'Their Contract' : 'CONTRACT'}</div><span className="c-meta">{who.name}</span></div>
       <div className="c-mast">Their Contract</div>
       <div className="c-body">
-        <span className="c-note">No negotiating: the career starts on exactly this deal. Pick another promotion and they move there.</span>
+        <span className="c-note">No negotiating: the career starts on exactly this deal. Pick another promotion and they move there, and any belt from the one they leave is stripped.</span>
         <span className="c-sec">{w('Promotion')}</span>
         <div className="c-chips">
           {majors.map((x) => <button key={x} className={`c-chip${x === promo ? ' on' : ''}`} onClick={() => { setPromo(x); if (fee === market) setFee(contractFee(who, x)); }}>{x}</button>)}
