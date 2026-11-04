@@ -1,7 +1,8 @@
 // The career loop: starting one, a day at a time, and what every match changes in the world.
+import { matchFans } from './fanGrowth';
 import { poachMult, renewLean, retryAdjust } from './leans';
 import {
-  databaseChanged, fanScore, fansTotal, findWrestler, fmtFans, globalScore, hasTrait, PROMOTIONS, shiftFans, shippedWomenShare, TITLES, type Wrestler, WRESTLERS,
+  databaseChanged, fansTotal, findWrestler, fmtFans, globalScore, hasTrait, PROMOTIONS, shippedWomenShare, TITLES, type Wrestler, WRESTLERS,
 } from '../data/rtr';
 import { seededRng, type Rng } from '../engine/rng';
 import type { MatchRulesConfig } from '../engine/types';
@@ -19,7 +20,7 @@ import { addEvent, type ArchivedShow, type WorldHistory } from '../world/history
 import { bookerKey, movePatience, showBooker } from './patience';
 import { remember } from './relations';
 import {
-  BOOK_AHEAD_DAYS, CIRCUIT_KEEP, CONTRACT_MONTHS, FATIGUE_HARDCORE_EXTRA, FATIGUE_PER_MATCH, FATIGUE_RECOVERY_PER_DAY, FATIGUE_STAMINA_DIVISOR, FEATURES, INJURY_BASE_PCT, INJURY_HARDCORE_MULT, INJURY_PER_FATIGUE, INJURY_SEVERITY, LIVING_GRACE_DAYS, LOSS_CUT_BY_TIER, MEDICAL_BILL_COVER, MEDICAL_PAY_COVER, MEDICAL_PER_DAY, MERCH_PER_FAN_FREE, MERCH_PER_FAN_SIGNED, MERCH_SHARE, OFF_SCRIPT_TITLE_BAN_DAYS, PATIENCE_NO_SHOW, PLANNED_NUDGE, PLANNED_RETRIES, POACH_CHANCE, POP_CEILING, POP_IDLE_DAYS, POP_IDLE_DECAY, POP_LOSS, POP_PER_STAR, POP_STAR_PIVOT, POP_TITLE_WIN, POP_WIN, RELEASE_MONTHLY_BOTTOM, RENEW_CHANCE_REST, RENEW_CHANCE_TOP, REP_FOUR_STAR, REP_OFF_SCRIPT, REP_PER_DATE, REP_START, ROOKIE_EVERY_DAYS, ROSTER_FLOOR, ROSTER_SCOUT_DAYS, ROSTER_TARGET, START_CONTRACT_MONTHS_LEFT, START_MONEY_BASE, START_MONEY_CREATED, START_MONEY_PER_DECADE, TRAIT_BACKSTAGE, TRAIT_FX, TRYOUT_MIN_STARS,
+  BOOK_AHEAD_DAYS, CIRCUIT_KEEP, CONTRACT_MONTHS, FAN_IDLE_LOSS, FATIGUE_HARDCORE_EXTRA, FATIGUE_PER_MATCH, FATIGUE_RECOVERY_PER_DAY, FATIGUE_STAMINA_DIVISOR, FEATURES, INJURY_BASE_PCT, INJURY_HARDCORE_MULT, INJURY_PER_FATIGUE, INJURY_SEVERITY, LIVING_GRACE_DAYS, LOSS_CUT_BY_TIER, MEDICAL_BILL_COVER, MEDICAL_PAY_COVER, MEDICAL_PER_DAY, MERCH_PER_FAN_FREE, MERCH_PER_FAN_SIGNED, MERCH_SHARE, OFF_SCRIPT_TITLE_BAN_DAYS, PATIENCE_NO_SHOW, PLANNED_NUDGE, PLANNED_RETRIES, POACH_CHANCE, POP_IDLE_DAYS, RELEASE_MONTHLY_BOTTOM, RENEW_CHANCE_REST, RENEW_CHANCE_TOP, REP_FOUR_STAR, REP_OFF_SCRIPT, REP_PER_DATE, REP_START, ROOKIE_EVERY_DAYS, ROSTER_FLOOR, ROSTER_SCOUT_DAYS, ROSTER_TARGET, START_CONTRACT_MONTHS_LEFT, START_MONEY_BASE, START_MONEY_CREATED, START_MONEY_PER_DECADE, TRAIT_BACKSTAGE, TRAIT_FX, TRYOUT_MIN_STARS,
 } from './tuning';
 import type { Bout, Career, Contract, Letter, Person, PlayerMatch, PopRegion, Show } from './types';
 
@@ -181,15 +182,6 @@ export function worldJobs(c: Career): SimJob[] {
   return jobs;
 }
 
-/**
- * A match's effect on someone's fans in the show's region (the old popularity rules, on the old scale,
- * applied to their fan count until the fan-growth stage replaces them). Returns the change in people.
- */
-function popChange(w: Wrestler, region: PopRegion, delta: number): number {
-  const before = fanScore(w, region);
-  const scaled = delta > 0 ? delta * Math.max(0.05, 1 - before / POP_CEILING) : delta;
-  return shiftFans(w, region, scaled);
-}
 
 /** Apply a finished match to the world: popularity, fatigue, injuries, titles, feuds, and your pay. */
 export function applyBout(c: Career, show: Show, index: number, out: SimOut, aIsYou = true, how: 'played' | 'simmed' = 'played'): void {
@@ -246,9 +238,7 @@ export function applyBout(c: Career, show: Show, index: number, out: SimOut, aIs
     if (!w) continue;
     const p = person(c, id);
     const won = winner === id, lost = winner !== null && !won;
-    const delta = (out.stars - POP_STAR_PIVOT) * POP_PER_STAR + (won ? POP_WIN : lost ? POP_LOSS : 0) + (won && titleChanged ? POP_TITLE_WIN : 0)
-      + (hasTrait(w, 'crowd_pleaser') ? TRAIT_FX.crowd_pleaser.popPerMatch : 0);
-    changes[id] = popChange(w, show.region, delta);
+    changes[id] = matchFans(w, show, out.stars, won, lost, won && titleChanged);
     p.rep = r1(clamp(p.rep + REP_PER_DATE + (out.stars >= 4 ? REP_FOUR_STAR : 0), 0, 100));
     // Resilient wrestlers take more punishment; Reliable ones look after themselves.
     const injuryPct = (INJURY_BASE_PCT + p.fatigue / INJURY_PER_FATIGUE) * (hardcore ? INJURY_HARDCORE_MULT : 1)
@@ -528,7 +518,8 @@ function monthly(c: Career, day: Day, rnd: Rng): void {
   for (const w of WRESTLERS) {
     const p = c.people[w.id];
     if (p?.last && daysBetween(p.last, day) > POP_IDLE_DAYS) {
-      for (const k of POP_KEYS) shiftFans(w, k, -POP_IDLE_DECAY);
+      // Out of sight: a gentle drift away (0.5% a month).
+      for (const k of POP_KEYS) w.fans[k] = Math.round(w.fans[k] * (1 - FAN_IDLE_LOSS));
     }
   }
   const me = findWrestler(c.player)!;

@@ -2,7 +2,8 @@
 // retired ones, crossover showcases between two promotions, cups over three fortnightly shows, and
 // farewells. They're announced weeks ahead, go on the calendar like any other show, and are booked by the
 // same booker (see the special handling in bookShow). You hear about the ones in reach and can take part.
-import { findWrestler, fmtFans, globalScore, PROMOTIONS, shiftFans, type Title, TITLES, type Wrestler, WRESTLERS } from '../data/rtr';
+import { eventFans } from './fanGrowth';
+import { findWrestler, fmtFans, globalScore, PROMOTIONS, type Title, TITLES, type Wrestler, WRESTLERS } from '../data/rtr';
 import { seededRng, type Rng } from '../engine/rng';
 import { activeWorld } from '../world/world';
 import { addEvent } from '../world/history';
@@ -409,7 +410,7 @@ function crown(c: Career, t: Tourney, id: string, final: Show): void {
     const p = person(c, id);
     p.rep = Math.min(100, p.rep + CUP_WIN_REP);
     const r = final.region;
-    const gained = shiftFans(w, r, CUP_WIN_POP);
+    const gained = eventFans(w, r, CUP_WIN_POP);
     letter(c, { kind: 'result', from: t.name, subject: `You won ${t.name}!`, body: [`Three rounds, three wins. ${money(t.prize)} prize money, and the trophy’s yours.${shotLine}`], terms: [['Prize', money(t.prize)], ['Fans', `+${fmtFans(gained)} in ${REGION_LABEL[r]}`], ['Reputation', `+${CUP_WIN_REP}`]] });
   } else if (t.player || near(c, final.region)) {
     letter(c, { kind: 'news', from: 'The news desk', subject: `${w.name} wins ${t.name}`, body: [`${w.name} won ${t.name} in ${final.city}${title ? `, and a shot at the ${title.name}` : ''}.`] });

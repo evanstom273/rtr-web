@@ -1,7 +1,7 @@
 // The world over years with the quick stand-in sim (opt-in, slow).
 // LONG=1 npx vitest run src/career/longrun.test.ts  [YEARS=3 SEEDS=7,11,23]
 import { it } from 'vitest';
-import { globalScore, WRESTLERS } from '../data/rtr';
+import { fansTotal, fmtFans, globalScore, WRESTLERS } from '../data/rtr';
 import { activeWorld } from '../world/world';
 import { addDays, weekStart } from './dates';
 import { REGION_OF } from './places';
@@ -63,5 +63,6 @@ function bookingReport(c: Career): string[] {
     `    by popularity quarter (low → high), dates a month: ${[0, 1, 2, 3].map((i) => pct(perMonth(q(i)), 0.5).toFixed(1)).join(' · ')}; none in 120 days: ${[0, 1, 2, 3].map((i) => idle(q(i), d120)).join(' · ')}`,
     `    signed dates a month: ${f(perMonth(signed))}; none in 60 days ${idle(signed, d60)}`,
     `    indie shows a week: min ${Math.min(...wk)} · median ${pct(wk, 0.5)} · max ${Math.max(...wk)}; by region a year: ${regionShows}`,
+    `    fans worldwide: signed p10 ${fmtFans(pct(signed.map(fansTotal), 0.1))} · median ${fmtFans(pct(signed.map(fansTotal), 0.5))} · max ${fmtFans(Math.max(...signed.map(fansTotal)))}; indies median ${fmtFans(pct(indies.map(fansTotal), 0.5))} · p90 ${fmtFans(pct(indies.map(fansTotal), 0.9))} · max ${fmtFans(Math.max(...indies.map(fansTotal)))}`,
   ];
 }

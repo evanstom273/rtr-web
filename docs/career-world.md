@@ -370,6 +370,39 @@ Noise is about ±2 points. Aggressive and Defensive got gentler downsides afterw
 - Each change is recorded in history.
 - Veterans with Mentor bring on a young wrestler near them: +1 a month to their weakest attribute, up to +4, and a mentor bond.
 
+## Fan growth
+
+How wrestlers win fans (`career/fanGrowth.ts`, no randomness), replacing the old popularity rules:
+
+- **The audience** a show reaches in its region:
+  - A major promotion's weekly TV is about 1M at popularity 80, ten times smaller for every 40 points less.
+  - That's full in its home region, 35% next door and 15% elsewhere.
+  - Show size: tour ×0.6, special ×2, flagship ×3, SLN's weekly flagship ×1.3.
+  - An indie brand reaches about 300 people at popularity 5 and 15k at 30 (live and streaming), ×1.5 on a special night.
+- **Conversion:**
+  - A 3★ match converts 1.5% of a thousand-strong crowd, less of a bigger one, about 0.3% of a TV million.
+  - It doubles for every star above 3.
+  - A win is ×1.3, a loss ×0.8, a title win ×1.5, Crowd Pleaser ×1.15.
+- **Saturation:** you stop winning fans from a show once your fans in that region pass 20 × its audience. A niche following tops out at the scene it works in, and a main-eventer at the size of their TV audience.
+- **Spillover:** a 4★ match reaches 5% further, 4.5★ 10%, 5★ 15%. 60% of that goes to your strongest other region, the rest spread round. A five-star indie match is worth a few hundred fans at most, not a global breakthrough.
+- **Loss:**
+  - Under 1.5★ costs 0.3% of your fans there.
+  - Idle for 30 days or more: −0.5% a month everywhere.
+  - Events and cups: each old "point" is 1.5% of your fans there, at least 15 people.
+
+Three years of the world (`LONG=1`, 3 seeds):
+
+| | Start | After 3 years |
+| --- | --- | --- |
+| Signed, median fans | about 600k | 720–756k |
+| Signed, bottom tenth | about 45k | 60–115k |
+| Top star | 10M | 10M |
+| Indies, median | about 2.6k | 4.5–4.9k |
+
+Low-carders grow fastest, because TV puts them in front of big audiences.
+
+**A thin regional division** (an interpretation for Lyra): when nobody in tonight's pool has worked a regional title's region enough to challenge, someone from that region can. Without it, the South American women's title once went 98 days without a defence for want of a challenger.
+
 ## Pay and living costs (economy stage)
 
 Lyra's calls:
@@ -455,7 +488,6 @@ Lyra's calls:
 - So nothing the AI decides shifted when the counts arrived. Rankings, bookings and event eligibility are the same on day one, and they move with fans from then on.
 - `globalScore` is the regions' exact mean, where the old global was rounded; that's within 0.5 for shipped wrestlers.
 - Results, cups and events now report fans gained ("+1.2k fans in Europe").
-- Until the fan-growth stage, a match moves fans by the old popularity rules applied on the log scale (+1 old point is about +12% fans).
 
 **Promotion popularity** (`career/promoPopularity.ts`, monthly, no randomness):
 - It starts at 10 + 70 × the old budget factor: TCG 80, VWF and NWGP 70.9, ZWA 68.1, SLN 64.6, IVW 57.6, SSWC 56.9, AAWA and END 52, UFC 46.4.
