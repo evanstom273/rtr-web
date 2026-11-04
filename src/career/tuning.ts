@@ -507,7 +507,7 @@ export const BRAND_POP_PER_STAR = 10;
  * Switches for player-facing rules that wait on their screens (Lyra's approval). Off: the game plays
  * as before. Each UI stage turns its own on.
  */
-export const FEATURES = { livingCosts: false };
+export const FEATURES = { livingCosts: false, social: false };
 
 /**
  * Pay (Lyra's call: how many dates you get decides your income). A major promotion's weekly-show fee:
@@ -582,3 +582,29 @@ export const FAN_IDLE_LOSS = 0.005;
 /** Events and cups: each old "popularity point" is this share of your fans there, at least the floor. */
 export const FAN_EVENT_PER_POINT = 0.015;
 export const FAN_EVENT_FLOOR = 15;
+
+/**
+ * Social media (Lyra's brief: optional, light, never better than wrestling). An action reaches
+ * 40 + 2.5 × (worldwide fans)^0.6 people and converts a share of them; the same kind again within a
+ * week is half as good each time; one action a day; a weekly cap of 3 + 0.03% of your fans (so posting
+ * on top of wrestling adds at most about a third). Promoting a match lifts that show's fans by 15%;
+ * calling someone out makes a match with them easier to ask for. Call-outs and beefs can backfire.
+ */
+export const SOCIAL_REACH_BASE = 40;
+export const SOCIAL_REACH_MULT = 2.5;
+export const SOCIAL_REACH_EXP = 0.6;
+export const SOCIAL_CONV = { post: 0.03, promote: 0.02, reply: 0.02, callout: 0.04, beef: 0.05 };
+export const SOCIAL_BACKLASH = { post: 0, promote: 0, reply: 0, callout: 0.15, beef: 0.25 };
+export const SOCIAL_BACKLASH_LOSS = 0.01;
+export const SOCIAL_REPEAT_DAYS = 7;
+export const SOCIAL_REPEAT_MULT = 0.5;
+export const SOCIAL_BUZZ_MATCH = 1.5;
+export const SOCIAL_BUZZ_GREAT = 1.3;
+export const SOCIAL_WEEK_CAP_BASE = 3;
+export const SOCIAL_WEEK_CAP_SHARE = 0.0003;
+export const SOCIAL_PROMOTE_BOOST = 0.15;
+export const SOCIAL_CALLOUT_CHALLENGE = 8;
+export const SOCIAL_CALLOUT_DAYS = 30;
+export const SOCIAL_REL = { reply: 2, callout: -3, beef: -8 };
+export const SOCIAL_AI_POSTS: [number, number] = [2, 5];
+export const SOCIAL_FEED_MAX = 30;

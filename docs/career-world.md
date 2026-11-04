@@ -370,6 +370,35 @@ Noise is about ±2 points. Aggressive and Defensive got gentler downsides afterw
 - Each change is recorded in history.
 - Veterans with Mentor bring on a young wrestler near them: +1 a month to their weakest attribute, up to +4, and a mentor bond.
 
+## Social media (engine; switched on with its screen)
+
+Optional and light, between matches (`career/social.ts`, `FEATURES.social`). There's no follower count, and posting takes no time.
+
+- **Actions:**
+  - post an update;
+  - promote your next match (that show's fans +15%);
+  - reply to someone (relationship +2);
+  - call someone out (relationship −3; for 30 days a match with them is 8 points easier to ask for);
+  - start a beef (relationship −8 and a rivalry).
+- **Fans:**
+  - An action reaches 40 + 2.5 × (worldwide fans)^0.6 people: 144 at 500 fans, 1.7k at 50k, 19.5k at 3M.
+  - It converts post 3%, promote 2%, reply 2%, call-out 4%, beef 5%.
+  - Buzz is ×1.5 with a match this week or a live rivalry, ×1.3 after a 4★+ match.
+  - New fans go where your fans already are.
+- **Limits:**
+  - one action a day;
+  - the same kind again within a week is half as good each time;
+  - a weekly cap of 3 + 0.03% of your fans.
+  - That last one was lowered from the planned 5 + 0.1%: with the planned cap, posting on top of wrestling came out at about 1.5× wrestling alone, against the plan's rule of at most 1.3×. Now it's at most about a third more, and posting alone is worth far less than wrestling.
+- **Backfiring:** call-outs 15%, beefs 25%: you lose 1% of your reach in fans and 1 reputation.
+- **Personality:**
+  - posting leans Showboat;
+  - promoting leans Professional and Crowd Pleaser;
+  - call-outs lean Showboat and Egotistical;
+  - beefs lean Hot-Headed and Egotistical.
+  - Once a day at most, so it never outpaces how you wrestle.
+- **The AI** posts two to five times a week: champions brag, feuds spill over, hot-heads start beefs that cost them a little goodwill with each other. Someone calling you out reaches your mail.
+
 ## Fan growth
 
 How wrestlers win fans (`career/fanGrowth.ts`, no randomness), replacing the old popularity rules:

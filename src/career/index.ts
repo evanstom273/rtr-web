@@ -10,6 +10,7 @@ import './indieScene';
 import './personality';
 import './staff';
 import './promoPopularity';
+import './social';
 
 export * from './career';
 export * from './contracts';
@@ -27,3 +28,4 @@ export { CLAUSES, C, BUDGET, budgetOf, attitude } from './clauses';
 export { trainingPrice, attributeTotal, contractFee, indieFee, matchPay, travelCost } from './economy';
 export { buyBlock, buyTrait, offerAt, offerDue, traitPrice, lean } from './personality';
 export { handover, promisesOnHandover } from './staff';
+export { nextMatch, reach as socialReach, socialAct, socialPreview, weekCap as socialWeekCap, type SocialKind, type SocialPost } from './social';
