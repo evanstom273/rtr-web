@@ -305,7 +305,7 @@ function digest(c: Career): void {
   add('Online', (c.social?.feed ?? []).filter((p) => p.day >= from && p.who !== c.player).slice(0, 5).map((p) => `${nameOf(p.who)}: ${p.text}`));
   c.mailBox = [];
   const champ = ev.find((e) => e.kind === 'title' && e.who !== c.player);
-  letter(c, {
+  const d = letter(c, {
     kind: 'digest', from: 'The Weekly', subject: `The week to ${fmtDay(addDays(c.today, -1), 'dm')}`, body: [motw ? `Match of the week: ${motw.b.an} vs ${motw.b.bn}, ${stars(motw.b.stars)}.` : 'A quiet week.'], sections,
     ctx: { ...(motw ? { motw: motw.b.w === 'b' ? motw.b.b : motw.b.a } : {}), ...(champ ? { champ: champ.who } : {}) },
     replies: [
@@ -314,7 +314,6 @@ function digest(c: Career): void {
     ],
   });
   // Point the replies at the right people.
-  const d = c.letters[0]!;
   if (d.replies?.[0]?.id === 'congrats') d.ctx = { ...d.ctx, target: d.ctx!.motw! };
   if (champ) d.ctx = { ...d.ctx, target: d.replies?.length === 1 ? champ.who : d.ctx!.target!, champ: champ.who };
 }
@@ -401,7 +400,7 @@ function mentorNote(c: Career): void {
 }
 
 function daily(c: Career): void {
-  if (!FEATURES.mail) return;
+  if (!FEATURES.mail || c.spectator) return;
   lapse(c);
   if (weekday(c.today) === 1) {
     if (c.digestAt !== c.today) { c.digestAt = c.today; digest(c); }

@@ -266,6 +266,7 @@ export function answerEvent(c: Career, letterId: string, optionId: string): stri
 }
 
 function daily(c: Career): void {
+  if (c.spectator) return;
   const x = ctxFor(c, seededRng(hashSeed(c.seed, 'events', c.today)));
   // Its own roll, so other overnight rules never shift which events you get.
   const rnd = seededRng(hashSeed(c.seed, 'ev-pace', c.today));
