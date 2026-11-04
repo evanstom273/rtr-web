@@ -16,7 +16,8 @@ import { addDays, daysBetween, fmtDay } from './dates';
 import { moveRoom } from './politics';
 import { startRumour } from './rumours';
 import { simOne } from './sim';
-import { BOND_LOG, FEATURES, PLANNED_RETRIES, SEGMENT, SELF_BOOK, SHOW_RATE, STORY } from './tuning';
+import { BOND_LOG, FEATURES, PLANNED_RETRIES, SEGMENT, SELF_BOOK, SHOW_RATE, STAFF, STORY } from './tuning';
+import { staffQ } from './morale';
 import type { BookedFinish, Bout, Career, SegKind, Segment, Show, ShowRating } from './types';
 
 export const FINISH_LABEL: Record<BookedFinish, string> = { clean: 'Clean', cheat: 'Cheats to win', dq: 'Disqualification', countout: 'Count-out', nocontest: 'No contest' };
@@ -123,14 +124,37 @@ export function autoBook(c: Career, showId: string): string {
   return `Your staff have booked ${show!.name}.`;
 }
 
-/** What staff put between the matches: the main eventers have their say, the champion an interview. */
-function staffSegments(_c: Career, show: Show): void {
+/**
+ * What staff put between the matches: the main eventers have their say, the champion an interview. A head writer
+ * (booker mode, stage 5) does it better: the biggest draw goes last, and your storylines get their segments.
+ */
+function staffSegments(c: Career, show: Show): void {
   const card = show.card ?? [];
   if (!card.length) return;
-  const main = card[card.length - 1]!;
+  const writer = staffQ(show.promo, 'writer');
+  if (writer > 0 && card.length > 2) {
+    const draw = (b: Bout) => (W(b.a) ? fansIn(W(b.a)!, show.region) : 0) + (W(b.b) ? fansIn(W(b.b)!, show.region) : 0);
+    const cup = card.filter((b) => b.tourney);
+    const rest = card.filter((b) => !b.tourney).sort((a, b) => draw(a) - draw(b));
+    // Second-biggest opens, the biggest closes, the rest build in between.
+    const opener = rest.length > 2 ? rest.splice(rest.length - 2, 1) : [];
+    show.card = [...opener, ...cup, ...rest];
+  }
+  const final = show.card!;
+  const main = final[final.length - 1]!;
   const segs: Segment[] = [{ kind: 'promo', who: [main.a], after: -1 }];
-  const champ = card.slice(0, -1).find((b) => b.title);
-  if (champ) segs.push({ kind: 'interview', who: [champ.planned ?? champ.a], after: card.indexOf(champ) });
+  const champ = final.slice(0, -1).find((b) => b.title);
+  if (champ) segs.push({ kind: 'interview', who: [champ.planned ?? champ.a], after: final.indexOf(champ) });
+  if (writer > 0) {
+    const on = new Set(final.flatMap((b) => [b.a, b.b]));
+    const busy = new Set<string>();
+    for (const f of c.feuds.filter((x) => x.promo === show.promo && x.by === 'player' && !x.done).sort((a, b) => (b.heat ?? 0) - (a.heat ?? 0)).slice(0, Math.round(writer * STAFF.writerSegs))) {
+      if (on.has(f.a) && on.has(f.b)) continue;
+      if (busy.has(f.a) || busy.has(f.b)) continue;
+      busy.add(f.a); busy.add(f.b);
+      segs.push({ kind: f.payoff ? 'signing' : 'promo', who: [f.a, f.b], after: Math.max(0, Math.floor(final.length / 2) - 1) });
+    }
+  }
   show.segments = segs;
 }
 
@@ -179,6 +203,8 @@ export function rateSegment(c: Career, show: Show, g: Segment): { score: number;
   let s = SEGMENT.base + (cha - 50) * SEGMENT.perCharisma + Math.min(SEGMENT.crowdMax, Math.max(0, Math.log10(Math.max(1, fans) / SEGMENT.crowdFrom)) * SEGMENT.crowdPerDecade);
   if (ws.length === 2 && heatBetween(c, ws[0]!.id, ws[1]!.id)) s += SEGMENT.heat;
   s += SEGMENT.kind[g.kind] ?? 0;
+  // A producer gets more out of a segment (booker mode, stage 5).
+  if (playerRuns(show.promo)) s += staffQ(show.promo, 'producer') * STAFF.producerSeg;
   // A celebration with nothing to celebrate, a run-in with nothing to run in on, a "debut" from someone who's been here before.
   if (g.kind === 'celebration' && !TITLES.some((t) => t.holder === ws[0]!.id)) s -= 0.9;
   if (g.kind === 'runin' && g.after < 0) s -= 0.6;

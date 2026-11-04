@@ -10,8 +10,9 @@ import { commit, Head, money, Screen, useToast, useWords } from './parts';
 import { OfficeCard } from './OfficeCard';
 import { OfficeStories, OfficeTitles } from './OfficeStories';
 import { OfficeBooks } from './OfficeBooks';
+import { OfficeRoster, OfficeSignings, OfficeStaff } from './OfficeRoster';
 
-const TAB_LABEL = { overview: 'Overview', card: 'Card', stories: 'Stories', titles: 'Titles', books: 'Books', schedule: 'Schedule' } as const;
+const TAB_LABEL = { overview: 'Overview', card: 'Card', stories: 'Stories', titles: 'Titles', roster: 'Roster', signings: 'Signings', staff: 'Staff', books: 'Books', schedule: 'Schedule' } as const;
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const NTH = ['', 'First', 'Second', 'Third', 'Fourth'];
 
@@ -35,7 +36,7 @@ export function Office({ c, onBack }: { c: Career; onBack: () => void }) {
   const [toast, say] = useToast();
   const roles = rolesOf(c);
   const [sel, setSel] = useState<string | null>(roles[0]?.promo ?? null);
-  const [tab, setTab] = useState<'overview' | 'card' | 'stories' | 'titles' | 'books' | 'schedule'>('overview');
+  const [tab, setTab] = useState<keyof typeof TAB_LABEL>('overview');
   const [founding, setFounding] = useState(!roles.length);
   const indieFree = !roles.some((r) => !isMajorTier(companyTier(r.promo)));
   const promo = sel && roles.some((r) => r.promo === sel) ? sel : roles[0]?.promo ?? null;
@@ -54,13 +55,16 @@ export function Office({ c, onBack }: { c: Career; onBack: () => void }) {
           : (
             <>
               <div className="c-chips">
-                {(['overview', 'card', 'stories', 'titles', 'books', 'schedule'] as const).map((t) => <button key={t} className={`c-chip${tab === t ? ' on' : ''}`} onClick={() => setTab(t)}>{w(TAB_LABEL[t])}</button>)}
+                {(Object.keys(TAB_LABEL) as (keyof typeof TAB_LABEL)[]).map((t) => <button key={t} className={`c-chip${tab === t ? ' on' : ''}`} onClick={() => setTab(t)}>{w(TAB_LABEL[t])}</button>)}
               </div>
               {tab === 'overview' ? <Overview c={c} promo={promo} say={say} />
                 : tab === 'card' ? <OfficeCard key={promo} c={c} promo={promo} say={say} />
                 : tab === 'stories' ? <OfficeStories key={promo} c={c} promo={promo} say={say} />
                 : tab === 'titles' ? <OfficeTitles key={promo} c={c} promo={promo} say={say} />
                 : tab === 'books' ? <OfficeBooks key={promo} c={c} promo={promo} say={say} />
+                : tab === 'roster' ? <OfficeRoster key={promo} c={c} promo={promo} say={say} />
+                : tab === 'signings' ? <OfficeSignings key={promo} c={c} promo={promo} say={say} />
+                : tab === 'staff' ? <OfficeStaff key={promo} c={c} promo={promo} say={say} />
                 : <Schedule key={promo} c={c} promo={promo} say={say} />}
             </>
           )}

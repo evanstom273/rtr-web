@@ -46,6 +46,8 @@ export interface Company {
   loan?: { left: number; monthly: number };
   /** Yours: what you pay yourself a month as owner. */
   wage?: number;
+  /** Staff you've hired (booker mode, stage 5): head writer, road agent, producer, scout, doctor. */
+  staff?: { role: string; id: string; wage: number; since: Day }[];
 }
 
 export const tierFor = (popularity = 0): Tier =>

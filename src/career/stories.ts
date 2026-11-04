@@ -21,7 +21,8 @@ const clampHeat = (v: number) => Math.max(0, Math.min(100, Math.round(v)));
 
 export const storiesOf = (c: Career, promo: string): Feud[] => c.feuds.filter((f) => f.promo === promo && f.by === 'player' && !f.done);
 export const turnsOf = (c: Career): Turn[] => ((officeOf(c) as { turns?: Turn[] }).turns ??= []);
-export const alliancesOf = (c: Career, promo?: string): Alliance[] => ((officeOf(c) as { alliances?: Alliance[] }).alliances ??= []).filter((x) => !promo || x.promo === promo);
+const allAlliances = (c: Career): Alliance[] => ((officeOf(c) as { alliances?: Alliance[] }).alliances ??= []);
+export const alliancesOf = (c: Career, promo?: string): Alliance[] => allAlliances(c).filter((x) => !promo || x.promo === promo);
 const between = (f: Pick<Feud, 'a' | 'b'>, x: string, y: string) => (f.a === x && f.b === y) || (f.a === y && f.b === x);
 export const storyLabel = (f: Feud): string => `${nameOf(f.a)} vs ${nameOf(f.b)}`;
 
@@ -97,7 +98,7 @@ export function formAlliance(c: Career, promo: string, a: string, b: string): st
   if (a === b || !onShows(promo, a) || !onShows(promo, b)) return 'Pick two people on your shows.';
   if (alliancesOf(c, promo).some((x) => !x.broke && (between(x, a, b)))) return 'They’re already together.';
   if (c.feuds.some((f) => !f.done && between(f, a, b))) return 'They’re feuding.';
-  alliancesOf(c).push({ id: `al${++c.seq}`, promo, a, b, since: c.today });
+  allAlliances(c).push({ id: `al${++c.seq}`, promo, a, b, since: c.today });
   return `${nameOf(a)} and ${nameOf(b)} are a team.`;
 }
 

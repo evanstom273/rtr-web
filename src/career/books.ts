@@ -15,7 +15,7 @@ import { addDays, monthOf, MONTHS } from './dates';
 import { hireFee } from './hustle';
 import { registerReplies } from './mail';
 import { regionOfCountry } from './places';
-import { BIZ, FEATURES, SHOW_MULT } from './tuning';
+import { BIZ, FEATURES, SHOW_MULT, STAFF } from './tuning';
 import type { Career, Show } from './types';
 
 export const IN_LINES = ['gate', 'merch', 'ppv', 'tv', 'sponsors', 'invest', 'loan'] as const;
@@ -82,7 +82,10 @@ export function settleShow(c: Career, show: Show): void {
   }
   const home = co.home?.country ?? undefined;
   const away = home && show.country !== home ? BIZ.production[co.tier]! * BIZ.away * (regionOfCountry(home) === show.region ? 1 : 2) : 0;
-  const tv = co.tv && show.kind === 'weekly' && show.date <= co.tv.until ? co.tv.fee : !playerRuns(show.promo) && show.kind === 'weekly' ? aiTv(co) : 0;
+  // A producer gets more out of the TV deal.
+  const producer = (co as { staff?: { role: string; id: string }[] }).staff?.find((h) => h.role === 'producer');
+  const prodQ = producer ? (activeWorld().people?.staff[producer.id]?.rep ?? 50) / 100 : 0;
+  const tv = co.tv && show.kind === 'weekly' && show.date <= co.tv.until ? Math.round(co.tv.fee * (1 + prodQ * STAFF.producerTv)) : !playerRuns(show.promo) && show.kind === 'weekly' ? aiTv(co) : 0;
   const big = show.kind === 'special' || show.kind === 'flagship';
   const ppv = big ? Math.round(sold * BIZ.ppv[co.tier]! * Math.max(0.5, (show.rating?.score ?? co.rep ?? 3) / 3) * BIZ.ppvPrice * Math.min(1, BIZ.ppvPerMonth / bigNights(show))) : 0;
   const prod = BIZ.production[co.tier]! * (BIZ.productionKind[show.kind] ?? 1);
@@ -219,6 +222,7 @@ function monthEnd(c: Career): void {
     else post(co, 'sponsors', BIZ.sponsors[co.tier]! * (pop / 50));
     co.sponsors = (co.sponsors ?? []).filter((x) => x.until >= c.today);
     post(co, 'insurance', rosterOf(co.promo).length * BIZ.insurance[co.tier]!);
+    for (const h of co.staff ?? []) post(co, 'staff', h.wage);
     // You: a booker's salary from someone else's company; an owner's wage from your own.
     if (mine?.as === 'booker') { const sal = BIZ.salary[co.tier]!; post(co, 'salary', sal); spend(c, sal, `${co.promo} booker’s salary`, 'wage'); }
     if (mine?.as === 'owner' && co.wage) { const w = Math.min(co.wage, Math.max(0, co.bank)); if (w > 0) { post(co, 'drawings', w); spend(c, w, `${co.promo} owner’s wage`, 'company'); } }

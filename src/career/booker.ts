@@ -75,6 +75,8 @@ export function available(p: Person | undefined, day: Day): boolean {
   // Retiring: nothing after the farewell (cards are drawn a week ahead of it).
   if (p.retiring && day > p.retiring) return false;
   if (p.injury && p.injury.until > day) return false;
+  // Booker mode: suspended (by you, as their booker).
+  if (p.suspendedUntil && p.suspendedUntil > day) return false;
   return true;
 }
 
