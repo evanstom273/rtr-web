@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { findWrestler, TITLES, WRESTLERS } from '../data/rtr';
+import { findWrestler, shippedWrestler, TITLES, WRESTLERS } from '../data/rtr';
 import { activeWorld, freshWorld, setWorld } from '../world/world';
-import { careerFrom, NOBODY, simulateTo, startSpectator } from './index';
+import { backdate, careerFrom, NOBODY, simulateTo, startSpectator } from './index';
 import { addDays } from './dates';
 import { quick } from './testkit';
 
@@ -27,5 +27,36 @@ describe('the world with nobody playing (Lyra’s history sim)', () => {
     expect(c.titles).toEqual(clocks);
     expect(c.spectator).toBeUndefined();
     expect(c.letters.length).toBeGreaterThan(0);
+  }, 300000);
+});
+
+describe('backdated history (Lyra’s calls)', () => {
+  it('rewinds everyone, holds back the too-young, crowns the best fits, and brings them in on their day', async () => {
+    setWorld(freshWorld(12));
+    const ages = new Map(WRESTLERS.map((w) => [w.id, w.age]));
+    const { start, waiting } = backdate(10, '2026-11-04', 12);
+    expect(start).toBe('2016-11-04');
+    // About half the shipped roster is too young ten years back; only shipped wrestlers wait.
+    expect(waiting.length).toBeGreaterThan(100);
+    for (const x of waiting) expect(shippedWrestler(x.w.id)).toBeTruthy();
+    for (const w of WRESTLERS.filter((x) => shippedWrestler(x.id))) expect(w.age).toBe(ages.get(w.id)! - 10);
+    // A fresh indie scene for back then (Lyra's call): as big as a new world's, none of today's generated indies.
+    const indies = WRESTLERS.filter((w) => w.promotion === 'TIS' && !shippedWrestler(w.id));
+    expect(indies.length).toBeGreaterThanOrEqual(200);
+    expect(indies.every((w) => w.id.startsWith('hist_'))).toBe(true);
+    for (const x of waiting) expect(x.w.age).toBeGreaterThanOrEqual(19);
+    // Every major title has a champion of the right gender from its own roster.
+    for (const t of TITLES.filter((x) => !x.id.includes('INDEPENDENT') && !x.id.startsWith('ARISE') && !x.id.includes('OPEN_CHALLENGE') && !x.id.includes('GRAND_PRIX'))) {
+      const h = t.holder ? findWrestler(t.holder) : undefined;
+      if (h) expect(h.gender).toBe(t.gender);
+    }
+    const sim = startSpectator({ today: start, seed: 12 });
+    sim.waiting = waiting;
+    const total = waiting.length, due = waiting.filter((x) => x.on < addDays(start, 365)).length;
+    await simulateTo(sim, addDays(start, 365), quick);
+    expect(sim.waiting.length).toBe(total - due);
+    // No collapse: the indie scene is still there a year in.
+    expect(WRESTLERS.filter((w) => w.promotion === 'TIS' && !sim.people[w.id]?.retired && w.id !== NOBODY).length).toBeGreaterThanOrEqual(150);
+    expect(activeWorld().history.events.filter((e) => e.kind === 'debut').length).toBeGreaterThanOrEqual(due);
   }, 300000);
 });
