@@ -1,4 +1,6 @@
-import type { Career, Entry } from '../../career';
+import { baseRegion, livingCost, shiftPay, type Career, type Entry } from '../../career';
+import { REGION_LABEL } from '../../career/places';
+import { FEATURES, JOBS } from '../../career/tuning';
 import { fmtDay } from '../../career/dates';
 import { Head, money, Screen, useWords } from './parts';
 
@@ -30,6 +32,12 @@ export function Finances({ c, onBack }: Props) {
             <span className="c-fact"><span className="c-lab">{w('Net')}</span><b className={amt(inM - outM).c}>{amt(inM - outM).v}</b></span>
           </div>
         </div>
+        {(FEATURES.livingCosts || c.job) && (
+          <div className="c-kv">
+            {FEATURES.livingCosts && <><span className="c-lab">{w('Living costs')}</span><span className="c-val">{money(livingCost(baseRegion(c)))} a week in {REGION_LABEL[baseRegion(c)]}, every Monday</span></>}
+            {c.job && <><span className="c-lab">{w('Day job')}</span><span className="c-val">{JOBS[c.job.id].name} · {money(shiftPay(c, c.job.id))} a shift, paid Fridays</span></>}
+          </div>
+        )}
         <span className="c-sec">{w('Since you started', 'Since day one')}</span>
         <div className="c-kv">
           {KINDS.map(([kinds, label]) => {

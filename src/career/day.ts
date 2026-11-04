@@ -20,7 +20,7 @@ import {
 import type { Career, DayJob, PhaseName, Routine, Show } from './types';
 
 export const phaseOf = (c: Career): PhaseName => c.phase ?? 'am';
-const pkey = (day: Day, ph: PhaseName) => `${day}|${ph}`;
+export const pkey = (day: Day, ph: PhaseName) => `${day}|${ph}`;
 const ATTRS = ['strength', 'speed', 'stamina', 'skill', 'striking', 'charisma'] as const;
 
 export const defaultRoutine = (): Routine => ({
@@ -110,7 +110,7 @@ export function activityAt(c: Career, day: Day, ph: PhaseName): Activity {
   if (occ?.length) return 'travel';
   if (FEATURES.jobs && isShift(c, day, ph) && !c.job!.off.includes(day)) return 'work';
   const plan = c.plans?.[pkey(day, ph)];
-  if (plan) return plan === 'work' ? 'work' : plan;
+  if (plan) return plan === 'work' ? 'work' : plan === 'trained' ? 'train' : plan;
   const r = routineOf(c);
   const want = r.week[weekday(day)]![ph];
   const matchDay = bookings(c).some((b) => b.day === day);
@@ -122,6 +122,8 @@ export function activityAt(c: Career, day: Day, ph: PhaseName): Activity {
 export function trainSession(c: Career, points?: Partial<Record<(typeof ATTRS)[number], number>>): string {
   const w = me(c), p = person(c, c.player);
   if (c.money < 0) return 'You’re overdrawn: no training until you’re back in the black.';
+  // From the gym screen: this phase is your session (the clock won't train you again).
+  if (points) c.plans = { ...(c.plans ?? {}), [pkey(c.today, phaseOf(c))]: 'trained' };
   const r = routineOf(c);
   const order = points ? (Object.keys(points) as (typeof ATTRS)[number][]) : [r.focus as (typeof ATTRS)[number], ...ATTRS].filter((k): k is (typeof ATTRS)[number] => !!k && ATTRS.includes(k));
   let bought = 0, spent = 0;
@@ -155,7 +157,8 @@ export function runPhase(c: Career, ph: PhaseName): Activity {
   const a = activityAt(c, c.today, ph);
   const p = person(c, c.player);
   if (a === 'rest') p.fatigue = Math.max(0, p.fatigue - REST_RECOVERY);
-  if (a === 'train') trainSession(c);
+  // A session already done in the gym this phase isn't done twice.
+  if (a === 'train' && c.plans?.[pkey(c.today, ph)] !== 'trained') trainSession(c);
   if (a === 'work' && c.job) {
     c.job.worked++;
     p.fatigue = Math.min(100, p.fatigue + JOBS[c.job.id].fatigue);

@@ -1,16 +1,23 @@
 import { useEffect, useMemo, useState } from 'react';
 import { activeWorld } from '../../world/world';
 import { findWrestler, TITLES } from '../../data/rtr';
-import { countersWaiting, cupLabel, firstAskable, myBoutToday, promoName, roundName, showsOn, type Career, type Show } from '../../career';
+import { activityAt, countersWaiting, cupLabel, firstAskable, myBoutToday, phaseOf, promoName, roundName, routineOf, showsOn, type Activity, type Career, type Show, type SkipTarget } from '../../career';
+import { FEATURES } from '../../career/tuning';
 import type { ReqRoute } from './Requests';
 import { addDays, dateOf, dayOf, daysInMonth, fmtDay, MONTHS, monthOf, weekday, yearOf } from '../../career/dates';
 import { stipulation } from '../../engine';
 import { EventPopup } from './EventCard';
-import { Nm, Screen, useToast, useWords } from './parts';
+import { commit, Nm, Screen, useToast, useWords } from './parts';
 
 interface Props {
   c: Career;
   busy: number | null;
+  /** A skip under way: stop it. */
+  skipping?: boolean;
+  onStop?: () => void;
+  onSkip?: (t: SkipTarget) => void;
+  /** Why a skip stopped (a new object each time, so the same reason shows again). */
+  note?: { text: string } | null;
   onAdvance: () => void;
   onShowDay: () => void;
   onOpen: (screen: 'letters' | 'profile' | 'training' | 'records' | 'requests') => void;
@@ -19,6 +26,7 @@ interface Props {
 }
 
 const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const DOING: Record<Activity, string> = { show: 'wrestling', travel: 'travelling', moving: 'moving house', work: 'at work', train: 'training', rest: 'resting' };
 
 function mineOn(c: Career, day: string): { show: Show; indie: boolean } | null {
   for (const s of showsOn(c, day)) {
@@ -38,12 +46,14 @@ function brandLine(s: Show): string {
   return who ? `${b.name} · ${who}` : b.name;
 }
 
-export function Calendar({ c, busy, onAdvance, onShowDay, onOpen, onAsk, onNegotiate }: Props) {
+export function Calendar({ c, busy, skipping, onStop, onSkip, note, onAdvance, onShowDay, onOpen, onAsk, onNegotiate }: Props) {
   const { skin, w } = useWords();
   const [view, setView] = useState(() => ({ y: yearOf(c.today), m: monthOf(c.today) }));
   const [sel, setSel] = useState(c.today);
   const [open, setOpen] = useState<string | null>(null);
-  const [toast] = useToast();
+  const [toast, say] = useToast();
+  const [skipSheet, setSkipSheet] = useState(false);
+  useEffect(() => { if (note) say(note.text); }, [note, say]);
   // When the day moves on, the calendar follows it.
   useEffect(() => {
     setSel(c.today);
@@ -52,6 +62,11 @@ export function Calendar({ c, busy, onAdvance, onShowDay, onOpen, onAsk, onNegot
   const me = findWrestler(c.player)!;
   const p = c.people[c.player]!;
   const mine = myBoutToday(c);
+  // Days on: an AM and a PM. Your match is the PM; the morning is yours.
+  const days = FEATURES.days;
+  const ph = phaseOf(c);
+  const toShow = !!mine && (!days || ph === 'pm');
+  const doing = days ? DOING[activityAt(c, c.today, ph)] : '';
 
   const cells = useMemo(() => {
     const first = dayOf(view.y, view.m, 1);
@@ -107,7 +122,7 @@ export function Calendar({ c, busy, onAdvance, onShowDay, onOpen, onAsk, onNegot
           <span>{sub}</span>
         </button>
         <div className="c-date">
-          <span>{fmtDay(c.today).split(' ')[0]!.toUpperCase().replace(',', '')}</span>
+          <span>{fmtDay(c.today).split(' ')[0]!.toUpperCase().replace(',', '')}{days ? ` · ${ph.toUpperCase()}` : ''}</span>
           <b>{dateOf(c.today)} {MONTHS[monthOf(c.today)]!.slice(0, 3).toUpperCase()}</b>
         </div>
       </div>
@@ -137,13 +152,17 @@ export function Calendar({ c, busy, onAdvance, onShowDay, onOpen, onAsk, onNegot
         })}
       </div>
 
-      <button className="c-adv" onClick={mine ? onShowDay : onAdvance} disabled={busy !== null}>
-        <span>
-          <b>{mine ? w('To the show', 'To the show') : w('Next day', 'Advance day')}</b>
-          <span>{mine ? `${mine.show.name} · vs ${findWrestler(mine.bout.a === c.player ? mine.bout.b : mine.bout.a)?.name}` : next ? `Next booking: ${next}` : 'Nothing booked yet'}</span>
-        </span>
-        <i>›</i>
-      </button>
+      <div className="c-advrow">
+        <button className="c-adv" onClick={toShow ? onShowDay : onAdvance} disabled={busy !== null}>
+          <span>
+            <b>{toShow ? w('To the show', 'To the show') : days ? (ph === 'am' ? w('On to the evening', 'To PM') : w('On to tomorrow', 'Next day')) : w('Next day', 'Advance day')}</b>
+            <span>{mine ? `${days && !toShow ? `This morning: ${doing} · tonight ` : ''}${mine.show.name} · vs ${findWrestler(mine.bout.a === c.player ? mine.bout.b : mine.bout.a)?.name}`
+              : `${days ? `This ${ph === 'am' ? 'morning' : 'evening'}: ${doing} · ` : ''}${next ? `Next booking: ${next}` : 'Nothing booked yet'}`}</span>
+          </span>
+          <i>›</i>
+        </button>
+        {FEATURES.skip && onSkip && <button className="c-skipb" onClick={() => setSkipSheet(true)} disabled={busy !== null} aria-label="Skip ahead"><b>»</b><span>{w('Skip')}</span></button>}
+      </div>
 
       <div className="c-day">
         <div className="c-dayh">
@@ -217,11 +236,39 @@ export function Calendar({ c, busy, onAdvance, onShowDay, onOpen, onAsk, onNegot
           </div>
         </div>
       )}
+      {skipSheet && onSkip && (
+        <div className="c-sheet" onClick={(e) => e.target === e.currentTarget && setSkipSheet(false)}>
+          <div>
+            <div className="c-sh">
+              <div><span>{w('Time', 'Skip ahead')}</span><b>{w('Skip ahead')}</b></div>
+              <button onClick={() => setSkipSheet(false)} aria-label="Close">✕</button>
+            </div>
+            {([
+              ['day', days ? 'To tomorrow morning' : 'A day', days ? 'The rest of today' : 'One day'],
+              [{ days: 7 }, 'A week', `To ${fmtDay(addDays(c.today, 7), 'long')}`],
+              [{ days: 30 }, 'A month', `To ${fmtDay(addDays(c.today, 30), 'long')}`],
+              ['booking', 'To my next booking', next ?? 'Nothing booked: up to 60 days'],
+            ] as [SkipTarget, string, string][]).map(([t, l, d]) => (
+              <button key={l} className="c-ans" style={{ padding: '8px 10px' }} onClick={() => { setSkipSheet(false); onSkip(t); }}>
+                <b className="c-at" style={{ fontSize: 16 }}>{w(l)}</b><span className="c-ad">{d}</span>
+              </button>
+            ))}
+            <span className="c-lab" style={{ marginTop: 4 }}>{w('Your matches')}</span>
+            <div className="c-chips">
+              {[[false, 'Stop for them'], [true, 'Sim them']].map(([v, l]) => (
+                <button key={String(l)} className={`c-chip${routineOf(c).simMine === v ? ' on' : ''}`} onClick={() => { routineOf(c).simMine = v as boolean; commit(); }}>{w(l as string)}</button>
+              ))}
+            </div>
+            <span className="c-note">A skip does everything pressing on does, and stops for anything that needs you: your match, a letter to answer, an injury, a contract, news from work.</span>
+          </div>
+        </div>
+      )}
       {busy === null && <EventPopup c={c} onNegotiate={onNegotiate} />}
       {busy !== null && (
         <div className="c-busy">
-          <span>{w('The world wrestles…', 'Simulating the day')}</span>
+          <span>{skipping ? `${w('Skipping ahead', 'Skipping')} · ${fmtDay(c.today, 'dm')}${days ? ` ${ph.toUpperCase()}` : ''}` : w('The world wrestles…', 'Simulating the day')}</span>
           <i style={{ ['--p' as string]: `${Math.round(busy * 100)}%` }}><b /></i>
+          {skipping && onStop && <button className="c-b2" style={{ minHeight: 44, padding: '0 22px' }} onClick={onStop}>{w('Stop')}</button>}
         </div>
       )}
       {toast}

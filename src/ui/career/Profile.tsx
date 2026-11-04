@@ -1,3 +1,4 @@
+import { FEATURES } from '../../career/tuning';
 import { useLayoutEffect, useRef } from 'react';
 import { TraitChips } from './Traits';
 import { fansIn, fansTotal, findWrestler, fmtFans, getMove, titlesHeldBy } from '../../data/rtr';
@@ -8,7 +9,7 @@ import { REGION_LABEL } from '../../career/places';
 import type { PopRegion } from '../../career/types';
 import { Head, money, Nm, Screen, useWords } from './parts';
 
-export type ProfileLink = 'contract' | 'history' | 'finances' | 'stats' | 'reputation' | 'relationships' | 'achievements';
+export type ProfileLink = 'contract' | 'history' | 'finances' | 'stats' | 'reputation' | 'relationships' | 'achievements' | 'week' | 'social';
 interface Props { c: Career; onBack: () => void; onOpen: (s: ProfileLink) => void; onShowDay: () => void; onHub: () => void }
 
 const REGIONS: PopRegion[] = ['northAmerica', 'southAmerica', 'europe', 'asia', 'africa', 'oceania'];
@@ -91,12 +92,14 @@ export function Profile({ c, onBack, onOpen, onShowDay, onHub }: Props) {
           </div>
         )}
       </div>
-      <div className="c-pgrid">
+      <div className={`c-pgrid${FEATURES.days || FEATURES.social ? ' four' : ''}`}>
+        {FEATURES.days && <button onClick={() => onOpen('week')}>{w('My week')}</button>}
+        {FEATURES.social && <button onClick={() => onOpen('social')}>{w('Social')}</button>}
         <button onClick={() => onOpen('contract')}>{w('Contract')}</button>
         <button onClick={() => onOpen('history')}>{w('Career history', 'History')}</button>
         <button onClick={() => onOpen('finances')}>{w('Finances')}</button>
         <button onClick={() => onOpen('stats')}>{w('Statistics')}</button>
-        <button onClick={() => onOpen('relationships')}>{w('Relationships')}</button>
+        <button onClick={() => onOpen('relationships')}>{w(FEATURES.days || FEATURES.social ? 'Relations' : 'Relationships')}</button>
         <button onClick={onHub}>{w('The hub', 'Hub')}</button>
       </div>
       <span className="c-hint" style={{ marginTop: 6, textAlign: 'center' }}>{money(c.money)} {w('in the bank')} · {REGION_LABEL[REGIONS.reduce((a, b) => (fansIn(me, b) > fansIn(me, a) ? b : a))]} {w('is your strongest region')}</span>

@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { TraitChips, TraitShop } from './Traits';
 import { findWrestler } from '../../data/rtr';
-import { attributeTotal, showsOn, spend, trainingPrice, type Career } from '../../career';
+import { activityAt, attributeTotal, phaseOf, pkey, showsOn, spend, trainingPrice, trainSession, type Career } from '../../career';
 import { ATTR_KEYS, ATTR_LONG } from '../../career/create';
 import { addDays, fmtDay } from '../../career/dates';
-import { ATTRIBUTE_CAP } from '../../career/tuning';
-import { commit, Head, money, Screen, useWords } from './parts';
+import { ATTRIBUTE_CAP, FEATURES, TRAIN_SESSION_FATIGUE, TRAIN_SESSION_POINTS } from '../../career/tuning';
+import { commit, Head, money, Screen, useToast, useWords } from './parts';
 
 interface Props { c: Career; onBack: () => void; onMoveset: () => void }
 
@@ -26,6 +26,7 @@ export function Training({ c, onBack, onMoveset }: Props) {
   const [pending, setPending] = useState<number[]>([0, 0, 0, 0, 0, 0]);
   const [done, setDone] = useState<string | null>(null);
   const [shop, setShop] = useState(false);
+  const [toast, say] = useToast();
   const total = attributeTotal(me);
   const n = pending.reduce((a, b) => a + b, 0);
   const cost = costOf(total, n);
@@ -40,7 +41,18 @@ export function Training({ c, onBack, onMoveset }: Props) {
     const s = showsOn(c, d).find((x) => x.card?.some((b) => b.a === c.player || b.b === c.player) || c.indie[x.id]);
     if (s) nextDate = `${fmtDay(d, 'dm')}, ${s.name}`;
   }
-  const canAdd = (i: number) => !booked && after >= next && vals[i]! + pending[i]! < ATTRIBUTE_CAP;
+  // Days on (Lyra's call): points come in sessions, at most two a half-day, in a free AM or PM.
+  const session = FEATURES.days;
+  const ph = phaseOf(c);
+  const act = activityAt(c, c.today, ph);
+  const trained = c.plans?.[pkey(c.today, ph)] === 'trained';
+  const half = ph === 'am' ? 'this morning' : 'this evening';
+  const shut = session
+    ? trained ? `You’ve trained ${half}.${ph === 'am' ? ' Next session: this evening.' : ' Next session: tomorrow morning.'}`
+      : act === 'work' ? `You’re at work ${half}.` : act === 'travel' ? `You’re travelling ${half}.` : act === 'moving' ? 'You’re moving house.' : act === 'show' ? `You’re wrestling ${half}.`
+        : c.money < 0 ? 'You’re overdrawn: no training until you’re back in the black.' : null
+    : booked ? 'You’re booked today, so the gym’s shut. Come back on a free day.' : null;
+  const canAdd = (i: number) => !shut && after >= next && vals[i]! + pending[i]! < ATTRIBUTE_CAP && (!session || n < TRAIN_SESSION_POINTS);
   const bump = (i: number, d: number) => {
     if (d > 0 && !canAdd(i)) return;
     if (d < 0 && pending[i]! <= 0) return;
@@ -48,7 +60,14 @@ export function Training({ c, onBack, onMoveset }: Props) {
     setPending(pending.map((p, k) => (k === i ? p + d : p)));
   };
   const confirm = () => {
-    if (!n || booked || after < 0) return;
+    if (!n || shut || after < 0) return;
+    if (session) {
+      const pts = Object.fromEntries(ATTR_KEYS.map((k, i) => [k, pending[i]!]).filter(([, v]) => v));
+      say(`Trained: ${trainSession(c, pts)}`);
+      setPending([0, 0, 0, 0, 0, 0]);
+      commit();
+      return;
+    }
     const parts: string[] = [];
     ATTR_KEYS.forEach((k, i) => {
       if (!pending[i]) return;
@@ -74,8 +93,8 @@ export function Training({ c, onBack, onMoveset }: Props) {
             <span className="c-fact"><span className="c-lab">{w('Bank after')}</span><b className={after < 0 ? 'c-amt neg' : ''}>{money(after)}</b></span>
           </div>
           <span className="c-val">
-            {booked ? 'You’re booked today, so the gym’s shut. Come back on a free day.' : `No booking today, so the gym’s open.${nextDate ? ` Next date: ${nextDate}.` : ''}`}
-            {' '}Total {total}{n ? ` → ${total + n}` : ''} · next point {money(next)}.
+            {shut ?? (session ? `A session ${half}: up to ${TRAIN_SESSION_POINTS} points, +${TRAIN_SESSION_FATIGUE} fatigue.` : `No booking today, so the gym’s open.${nextDate ? ` Next date: ${nextDate}.` : ''}`)}
+            {' '}Total {total}{n ? ` → ${total + n}` : ''} · next point {money(next)}{session ? `, two for ${money(costOf(total + n, 2))}` : ''}.
           </span>
         </div>
         <div className="c-rowsb"><span className="c-sec c-grow">{w('Attributes')}</span><span className="c-hint">{w('Same price for any')}</span></div>
@@ -94,10 +113,10 @@ export function Training({ c, onBack, onMoveset }: Props) {
             </div>
           );
         })}
-        <span className="c-note">Every point makes the next one dearer, whichever attribute it goes on. Nothing’s paid for until you confirm.</span>
-        <span className="c-sec">{w('What the next points cost', 'Price ladder')}</span>
-        <div className="c-kv">{ladder.map((r) => <span key={r.l} style={{ display: 'contents' }}><span className="c-lab">{w(r.l)}</span><span className="c-val">{r.v}</span></span>)}</div>
-        {done && <div className="c-start"><span className="c-lab">{w('Trained')}</span><span className="c-val">{done}</span></div>}
+        <span className="c-note">Every point makes the next one dearer, whichever attribute it goes on. {session ? 'Training tired risks a strain (never under 40 fatigue).' : 'Nothing’s paid for until you confirm.'}</span>
+        {!session && <span className="c-sec">{w('What the next points cost', 'Price ladder')}</span>}
+        {!session && <div className="c-kv">{ladder.map((r) => <span key={r.l} style={{ display: 'contents' }}><span className="c-lab">{w(r.l)}</span><span className="c-val">{r.v}</span></span>)}</div>}
+        {done && !session && <div className="c-start"><span className="c-lab">{w('Trained')}</span><span className="c-val">{done}</span></div>}
         <div className="c-rowsb"><span className="c-sec c-grow">{w('Traits')}</span><span className="c-hint">{(me.traits ?? []).length} of 3</span></div>
         <TraitChips traits={me.traits} empty="None yet" />
         <span className="c-note">Traits come from how you wrestle and the choices you make, or you can pay for one here: £12,000 (£15,000 for the strongest), one every 90 days.</span>
@@ -106,9 +125,10 @@ export function Training({ c, onBack, onMoveset }: Props) {
       </div>
       <div className="c-nav">
         <button className="c-b2" onClick={() => (n ? setPending([0, 0, 0, 0, 0, 0]) : onBack())}>{n ? w('Clear') : w('‹ Back')}</button>
-        <button className="c-b1" onClick={confirm} disabled={!n || booked || after < 0}>{n ? w(`Confirm · ${money(cost)}`) : w('Nothing lined up')}</button>
+        <button className="c-b1" onClick={confirm} disabled={!n || !!shut || after < 0}>{n ? w(`${session ? 'Train now' : 'Confirm'} · ${money(cost)}`) : w('Nothing lined up')}</button>
       </div>
       {shop && <TraitShop c={c} booked={booked} onClose={() => setShop(false)} />}
+      {toast}
     </Screen>
   );
 }
