@@ -16,6 +16,7 @@ import { History } from './History';
 import { Letters } from './Letters';
 import { MovesetEditor } from './MovesetEditor';
 import { Negotiate } from './Negotiate';
+import { Creative } from './Creative';
 import { HistoryScreen, HistorySetup } from './HistorySim';
 import { commit, Head, Screen, useCareer, useWords } from './parts';
 import { Profile, type ProfileLink } from './Profile';
@@ -219,6 +220,7 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
   if (typeof screen === 'object') {
     if ('negotiate' in screen) return <Negotiate c={c} offerId={screen.negotiate} onBack={back} onDone={home} />;
     if ('requests' in screen) return <Requests c={c} tab={screen.requests} onBack={back} onFlow={(r) => go(r)} onNegotiate={(id) => go({ negotiate: id })} />;
+    if ('req' in screen && screen.req === 'creative') return <Creative c={c} onBack={back} />;
     // A request: answered, it lands you back on Requests › Answers.
     return <RequestFlow key={JSON.stringify(screen)} c={c} route={screen} onBack={back} onNegotiate={(id) => go({ negotiate: id })}
       onAnswered={() => { showAnswersNext(); setStack((st) => [...st.slice(0, -1).filter((x) => x !== 'requests' && !(typeof x === 'object' && 'requests' in x)), 'requests']); }} />;

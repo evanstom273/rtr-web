@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { findWrestler, TITLES } from '../../data/rtr';
-import { C, matchPay, myBoutToday, person, roundName, runToday, showsOn, type Career } from '../../career';
+import { C, dealWith, matchPay, myBoutToday, person, roundName, runToday, showsOn, type Career } from '../../career';
 import { fmtDay } from '../../career/dates';
 import { runJobs } from '../../career/runner';
 import { FATIGUE_PER_MATCH, OFF_SCRIPT_TITLE_BAN_DAYS, REP_OFF_SCRIPT } from '../../career/tuning';
@@ -40,20 +40,21 @@ export function ShowDay({ c, onBack, onPlay }: Props) {
   };
 
   // The booker's plan, and what your Creative Control lets you do about it.
-  const creative = me.contract?.clauses[C.creative] ?? 0;
+  const k = dealWith(me, show.promo) ?? me.contract;
+  const creative = k?.clauses[C.creative] ?? 0;
   const planned = bout?.planned ? findWrestler(bout.planned) : undefined;
   const plannedMe = bout?.planned === c.player;
   const titleName = bout?.title ? TITLES.find((t) => t.id === bout.title)?.name : undefined;
   const planText = !bout?.planned ? null
-    : `${planned?.name} ${plannedMe ? 'wins' : bout.a === bout.planned ? 'retains' : 'wins the title'}. `
-      + (plannedMe ? 'That’s you: go and win it.' : creative >= 3 ? 'Your Full Creative Control lets you veto it: Requests › Veto tonight’s finish.'
-        : creative === 2 ? 'Protected Booking lets you refuse a finish like this once every 90 days: Requests › Refuse tonight’s finish.'
-          : creative === 1 ? 'Consultation: you can ask for the other finish in Requests; they may listen.'
+    : `${planned?.name} ${plannedMe || !bout.title ? 'wins' : bout.a === bout.planned ? 'retains' : 'wins the title'}. `
+      + (plannedMe ? 'That’s you: go and win it.' : creative >= 3 ? 'Your Full Creative Control lets you change it: Requests › Creative Control.'
+        : creative === 2 ? 'Protected Booking lets you veto a finish like this about once a month: Requests › Creative Control.'
+          : creative === 1 ? 'Consultation: you can ask for the other finish in Requests › Creative Control; they may listen.'
             : `Your contract has no Creative Control, so winning anyway is going off-script: reputation ${REP_OFF_SCRIPT}, no fee, and no title matches for ${OFF_SCRIPT_TITLE_BAN_DAYS} days.`);
 
   const indie = show.promo === 'TIS';
   const deal = c.indie[show.id];
-  const pay = !bout ? null : indie ? { win: deal?.fee ?? 0, lose: Math.round(((deal?.fee ?? 0) * 0.75) / 5) * 5 } : me.contract ? { win: matchPay(me.contract, show.kind, false).pay, lose: matchPay(me.contract, show.kind, true).pay } : null;
+  const pay = !bout ? null : indie ? { win: deal?.fee ?? 0, lose: Math.round(((deal?.fee ?? 0) * 0.75) / 5) * 5 } : k ? { win: matchPay(k, show.kind, false).pay, lose: matchPay(k, show.kind, true).pay } : null;
   const facts = bout ? [
     { l: w('Fee'), v: pay ? money(pay.win) : bout.tryout ? 'Tryout' : '—' },
     { l: w('If you lose'), v: pay ? money(pay.lose) : '—' },

@@ -413,7 +413,7 @@ export interface Career {
   regionLast?: Partial<Record<PopRegion, Day>>;
 }
 
-export type AskKind = 'title' | 'challenge' | 'indieChallenge' | 'show' | 'more' | 'approach' | 'tryout' | 'spot' | 'review' | 'rival' | 'release' | 'dayoff' | 'finish';
+export type AskKind = 'title' | 'challenge' | 'indieChallenge' | 'show' | 'more' | 'approach' | 'tryout' | 'spot' | 'review' | 'rival' | 'release' | 'dayoff' | 'finish' | 'creative';
 export type CounterKind = 'show' | 'opponent' | 'earn' | 'feud' | 'tryout';
 
 /** Something a booker agreed to (Requests). */
