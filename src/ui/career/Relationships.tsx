@@ -144,7 +144,7 @@ function BookerFile({ c, s, onClose }: { c: Career; s: Staffer; onClose: () => v
   const age = Math.floor(daysBetween(s.born, c.today) / 365.25);
   const v = likeOf(P, s.id, c.player);
   const t = trust(c, s.id);
-  const where = (j: Staffer['spells'][number]['job']) => (j.kind === 'booker' ? `Booker, ${promoName(j.promo)}` : `Promoter, ${P.brands[j.brand]?.name ?? 'an indie'}`);
+  const where = (j: Staffer['spells'][number]['job']) => (j.kind === 'booker' ? `Booker, ${promoName(j.promo)}` : j.kind === 'owner' ? `Owner, ${promoName(j.promo)}` : j.kind === 'staff' ? `${j.role}, ${promoName(j.promo)}` : `Promoter, ${P.brands[j.brand]?.name ?? 'an indie'}`);
   const promises = [...(c.pledges ?? []).filter((p) => p.by === s.id), ...(c.pledgeLog ?? []).filter((p) => p.by === s.id || p.settledBy === s.id)];
   const what = (p: (typeof promises)[number]) => (p.kind === 'title' ? 'A title shot' : p.kind === 'match' ? 'A match' : p.kind === 'dates' ? 'Extra dates' : p.kind === 'defence' ? 'A title defence' : 'A booking');
   const status = (p: (typeof promises)[number]) => (p.status === 'refused' ? ['c-eff dn', 'Refused'] : p.status === 'kept' ? ['c-eff up', 'Kept'] : p.status === 'lapsed' ? ['c-eff', 'Lapsed'] : ['c-eff gold', 'Open']);

@@ -104,7 +104,7 @@ function brandName(rnd: Rng, country: string, city: string, taken: Set<string>):
 }
 
 const BACKSTAGE = TRAITS.filter((t) => t.cat === 'backstage').map((t) => t.id);
-function backstageTraits(rnd: Rng): TraitId[] {
+export function backstageTraits(rnd: Rng): TraitId[] {
   const out: TraitId[] = [];
   const n = rnd() < 0.55 ? 1 : 2;
   while (out.length < n) { const t = pick(rnd, BACKSTAGE); if (canAdd(out, t) === 'ok') out.push(t); }

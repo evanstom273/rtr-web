@@ -704,7 +704,7 @@ export const DEV = {
 export const BACKDATE = { debut: [19, 22] as [number, number], potentialSpread: 25, avgWork: 1.15, fanExp: 1.5, maxYears: 10 };
 /** Shipped wrestlers retire as if this many years younger (Lyra's call: the names you know stay a bit longer). */
 export const SHIPPED_RETIRE_YOUNGER = 3;
-export const FEATURES = { livingCosts: true, social: true, days: true, jobs: true, skip: true, mail: true, hustles: true, history: true, phone: true };
+export const FEATURES = { livingCosts: true, social: true, days: true, jobs: true, skip: true, mail: true, hustles: true, history: true, phone: true, booker: false };
 
 /**
  * Pay (Lyra's call: how many dates you get decides your income). A major promotion's weekly-show fee:
@@ -1157,3 +1157,24 @@ export const RUMOURS = {
 };
 /** Angles from real life: how often a booker uses real heat for a new feud; best friends kept apart (on-screen allies). */
 export const ANGLES = { chance: 0.5, bestFriends: 0.6 };
+
+// ------------------------------------------------------------------ booker mode (Lyra's design, stage 1)
+
+/**
+ * Companies: every promotion but The Indie Scene is one, with an owner, a booker, a tier and a bank.
+ * Tiers come from popularity at first (global 70+, national 50+, regional 25+, else local); stage 4 moves
+ * them with money and fans. Starting banks are rough until the books arrive (stage 4).
+ */
+export const COMPANY = {
+  tierFrom: { global: 70, national: 50, regional: 25 } as Record<'global' | 'national' | 'regional', number>,
+  startBank: { local: 25_000, regional: 250_000, national: 2_500_000, global: 8_000_000 } as Record<'local' | 'regional' | 'national' | 'global', number>,
+  /** Roster sizes each tier keeps (the majors stay at 38–40). */
+  roster: { local: 12, regional: 24, national: 40, global: 40 } as Record<'local' | 'regional' | 'national' | 'global', number>,
+  /** Office half-days a week each tier takes (Lyra's call: booking takes time in your week). */
+  officeDays: { local: 1, regional: 2, national: 3, global: 4 } as Record<'local' | 'regional' | 'national' | 'global', number>,
+  /** Shows a week each tier can run at most. */
+  showsPerWeek: { local: 1, regional: 2, national: 3, global: 4 } as Record<'local' | 'regional' | 'national' | 'global', number>,
+};
+
+/** Founding your own promotion: the least you can put in, its starting popularity, and what a name may be. */
+export const FOUND = { minCapital: 2_000, startPop: 6, initials: [2, 5] as [number, number], nameMax: 40 };

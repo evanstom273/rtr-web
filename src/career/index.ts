@@ -24,6 +24,7 @@ import './plans';
 import './romance';
 import './politics';
 import './rumours';
+import './company';
 
 export * from './career';
 export * from './contracts';
@@ -69,3 +70,8 @@ export {
   blocked as hustleBlocked, bookConvention, buyStock, classFee, conventionsAhead, conventionTake, dropGig, fundTotal, hireable, hireFee, hustleOf, isCoaching,
   merchUnits, ownBudget, ownDraw, putOnShow, recentSessions, setCoaching, showWorkPay, subsHeading, subsTarget, venues, workShow, type Gig, type HustleState, type OwnPlan,
 } from './hustle';
+export {
+  canRun, companies, companyOf, foundingProblem, foundPromotion, isMajorTier, isOffice, leaveRole, nightRule, officeNeed, officeOf, ownerName, perWeek, playerRuns, redraw, roleIn, roleLine, rolesOf,
+  rosterSummary, scheduleOf, setSchedule, setSlots, slotLabel, takeRole, TIER_LABEL, tierOf as companyTier, type Company, type Founding, type OfficeRole, type OfficeState, type Tier,
+} from './company';
+export type { Rule } from './calendar';

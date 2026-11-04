@@ -306,8 +306,7 @@ export function promoterOf(P: People, brand: string): Staffer | undefined {
   return id ? P.staff[id] : undefined;
 }
 
-const sameJob = (a: Job | null, b: Job | null): boolean =>
-  !!a && !!b && a.kind === b.kind && (a.kind === 'booker' ? a.promo === (b as typeof a).promo : a.brand === (b as Extract<Job, { kind: 'promoter' }>).brand);
+const sameJob = (a: Job | null, b: Job | null): boolean => !!a && !!b && JSON.stringify(a) === JSON.stringify(b);
 
 /** Someone leaves their job: the spell closes, and they're between jobs (or retired). */
 export function leaveJob(s: Staffer, day: Day, end: SpellWhy): void {
@@ -329,7 +328,8 @@ export function takeJob(P: People, s: Staffer, job: Job, day: Day, why: SpellWhy
 /** "VWF booker", "Promoter, Northern Grit" — what someone does now. */
 export function jobLabel(P: People, s: Staffer): string {
   if (!s.job) return s.retired ? 'Retired' : 'Between jobs';
-  return s.job.kind === 'booker' ? `${s.job.promo} booker` : `Promoter, ${P.brands[s.job.brand]?.name ?? 'an indie'}`;
+  const j = s.job;
+  return j.kind === 'booker' ? `${j.promo} booker` : j.kind === 'owner' ? `${j.promo} owner` : j.kind === 'staff' ? `${j.promo} ${j.role}` : `Promoter, ${P.brands[j.brand]?.name ?? 'an indie'}`;
 }
 
 /** Promotion initials, for telling a booker key from a person id. */

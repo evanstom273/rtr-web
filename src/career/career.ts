@@ -15,6 +15,7 @@ import { makeRookie } from './create';
 import { addDays, addMonths, type Day, daysBetween, fmtDay, weekday } from './dates';
 import { baseRegion, indieFee, isWeeklyFlagship, livingCost, matchPay, round5 } from './economy';
 import { REGION_KEY, REGION_LABEL } from './places';
+import { calendarExtras } from '../world/companies';
 import type { SimJob, SimOut } from './sim';
 import { activeWorld } from '../world/world';
 import { addEvent, type ArchivedShow, type WorldHistory } from '../world/history';
@@ -176,6 +177,8 @@ function extendCalendar(c: Career): void {
   const state = {
     seed: c.seed, counters: c.counters, nextIrregular: c.nextIrregular,
     ...(brands.length ? { indie: { brands, pool, last: (c.brandLast ??= {}), regionLast: (c.regionLast ??= {}) } } : {}),
+    // Booker mode: companies' own schedules, homes, and the ones that have closed.
+    ...calendarExtras(activeWorld().companies),
   };
   const r = drawCalendar(state, c.drawnTo || null, c.startedOn, to);
   for (const s of r.shows) c.shows[s.id] = s;
@@ -690,20 +693,23 @@ function scoutRosters(c: Career, day: Day): void {
   for (const p of PROMOTIONS.filter((x) => !x.indie)) {
     const roster = rosterOf(p.initials);
     let n = roster.length;
-    if (n >= ROSTER_TARGET) { delete scouting[p.initials]; continue; }
+    // Booker mode: a promotion's size depends on its tier, and nobody signs for a roster you run yourself.
+    const target = rosterTarget(p.initials, ROSTER_TARGET);
+    if (n >= target) { delete scouting[p.initials]; continue; }
+    const floor = Math.min(ROSTER_FLOOR, target - 2);
     const due = (scouting[p.initials] ??= addDays(day, between(rnd, ROSTER_SCOUT_DAYS)));
-    const want = due <= day ? Math.max(ROSTER_FLOOR, n + 1) : ROSTER_FLOOR;
+    const want = due <= day ? Math.max(floor, n + 1) : floor;
     if (n >= want) continue;
     pool ??= WRESTLERS.filter((w) => {
       const q = c.people[w.id];
       return w.promotion === 'TIS' && w.id !== c.player && !q?.retired && !q?.retiring && !q?.injury && !TITLES.some((t) => t.holder === w.id);
     });
     const region = promoRegion(p.initials);
-    const wantWomen = Math.round(ROSTER_TARGET * shippedWomenShare(p.initials));
+    const wantWomen = Math.round(target * shippedWomenShare(p.initials));
     let women = roster.filter((w) => w.gender === 'FEMALE').length;
     while (n < want) {
       const free = pool.filter((w) => w.promotion === 'TIS');
-      const short = women / Math.max(1, wantWomen) < (n - women) / Math.max(1, ROSTER_TARGET - wantWomen) ? 'FEMALE' : 'MALE';
+      const short = women / Math.max(1, wantWomen) < (n - women) / Math.max(1, target - wantWomen) ? 'FEMALE' : 'MALE';
       const fits = free.some((w) => w.gender === short) ? free.filter((w) => w.gender === short) : free;
       // Lyra's call: the AI signs by the same grade it judges you by, each promotion to its own taste.
       const best = signingPick ? signingPick(c, p.initials, fits) : fits.sort((a, b) => regionalPop(b, region) - regionalPop(a, region) || (a.id < b.id ? -1 : 1))[0];
@@ -713,13 +719,16 @@ function scoutRosters(c: Career, day: Day): void {
       if (best.gender === 'FEMALE') women++;
     }
     if (due <= day) {
-      if (n < ROSTER_TARGET) scouting[p.initials] = addDays(day, between(rnd, ROSTER_SCOUT_DAYS));
+      if (n < target) scouting[p.initials] = addDays(day, between(rnd, ROSTER_SCOUT_DAYS));
       else delete scouting[p.initials];
     }
   }
 }
 
 const between = (rnd: Rng, [lo, hi]: readonly [number, number]) => lo + Math.floor(rnd() * (hi - lo + 1));
+/** How many a promotion keeps on its roster (booker mode sets it by tier; 38–40 for everyone otherwise). */
+let rosterTarget = (_promo: string, fallback: number): number => fallback;
+export const setRosterTarget = (f: typeof rosterTarget): void => { rosterTarget = f; };
 /** Who a promotion signs from the free pool (scouting.ts sets it: the same grade it judges you by). */
 let signingPick: ((c: Career, promo: string, pool: Wrestler[]) => Wrestler | undefined) | null = null;
 export const setSigningPick = (f: typeof signingPick): void => { signingPick = f; };
