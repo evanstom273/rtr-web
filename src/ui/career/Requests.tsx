@@ -3,6 +3,7 @@ import { fansIn, fansTotal, findWrestler, fmtFans, globalScore, TITLES, WRESTLER
 import {
   C, PATIENCE_FLOOR, PATIENCE_START, answerCounter, askApproach, askChallenge, askDayOff, askIndieChallenge, askMore, askRelease, askReview,
   askRival, askShow, askSpot, askTitleShot, askTryout, askIndieTitleShot, askableIndieShows, askableIndieTitles, askableShows, askableTitles, caughtChance, cooldownLeft, counterLabel,
+  announceRetirement, bookHoliday, holidays, leaveContract, setPartTime, setTours, setWalk, takeOption, tierOf,
   bookerName, countersWaiting, creativeTier, exitTerms, firstAskable, myPromo, otherPromotions, patienceOf, person, previewChallenge, previewIndieChallenge,
   previewIndieTitle, previewMore, previewShow, previewSpot, previewTitle, promoName, standingWith, type Ask, type Career, type Preview, type Show,
 } from '../../career';
@@ -12,7 +13,7 @@ import { isIndieBooker, patienceLog, promoOfBooker, showBooker } from '../../car
 import { addDays, daysBetween, fmtDay } from '../../career/dates';
 import { REGION_LABEL } from '../../career/places';
 import { COOLDOWN_CHALLENGE, COOLDOWN_MORE, COOLDOWN_PROMOTION, COOLDOWN_TITLE, PATIENCE_DECLINE_COUNTER, PATIENCE_TOOK_COUNTER } from '../../career/tuning';
-import { commit, Head, money, Nm, Screen, useWords } from './parts';
+import { commit, Head, money, Nm, Screen, useToast, useWords } from './parts';
 
 /** Where a request starts: the Requests tab, or a shortcut elsewhere (a show sheet, a file, a lineage). */
 export type ReqRoute =
@@ -142,6 +143,11 @@ export function Requests({ c, tab: start, onBack, onFlow, onNegotiate }: ReqProp
   const indieOk = sideWork(c.people[c.player]).rule !== 'banned';
   const rivals = k ? c.offers.filter((o) => o.status === 'open' && o.promo !== k.promo) : [];
   const run = (f: () => Ask) => { const a = f(); commit(); setOpen(a); };
+  const [toast, say] = useToast();
+  const [, bump] = useState(0);
+  const [retireAsk, setRetireAsk] = useState(false);
+  const act = (f: () => string) => { say(f()); commit(); bump((n) => n + 1); };
+  const hol = holidays(c);
 
   type Item = { t: string; d: string; go?: () => void; tag?: string | null; tc?: string };
   const groups: { t: string; items: Item[] }[] = [];
@@ -158,7 +164,14 @@ export function Requests({ c, tab: start, onBack, onFlow, onNegotiate }: ReqProp
     groups.push({ t: w('Your contract'), items: [
       { t: 'Pay review', d: 'Against wrestlers of your standing here.', go: (k.clauses[C.wage] ?? 0) >= 1 ? () => run(() => askReview(c)) : undefined, tag: (k.clauses[C.wage] ?? 0) >= 1 ? null : 'Needs Wage Matching' },
       { t: 'Show them a rival offer', d: rivals.length ? `${rivals.length} open: ${rivals.map((o) => o.promo).join(', ')}.` : 'They can match it, up to a point.', go: (k.clauses[C.wage] ?? 0) >= 2 && rivals.length ? () => onFlow({ req: 'rival' }) : undefined, tag: (k.clauses[C.wage] ?? 0) >= 2 ? (rivals.length ? null : 'No rival offers') : 'Needs Wage Matching T2' },
-      { t: exit.tier === 3 ? 'Leave now' : exit.tier === 2 ? 'Give notice' : exit.tier === 1 ? 'Buy yourself out' : 'Ask for your release', d: exit.text, go: k.leaving ? undefined : () => setConfirm(true), tag: k.leaving ? `Leaving ${fmtDay(k.leaving, 'dm')}` : null },
+      { t: exit.free ? 'Walk away (they broke their promises)' : exit.tier === 3 ? 'Leave now' : exit.tier === 2 ? 'Give notice' : exit.tier === 1 ? 'Buy yourself out' : 'Ask for your release', d: exit.text, go: k.leaving ? undefined : () => setConfirm(true), tag: k.leaving ? `Leaving ${fmtDay(k.leaving, 'dm')}` : null },
+      ...((p.deals ?? []).map((x): Item => ({ t: `Leave ${x.promo}`, d: exitTerms(c, x.promo).text, go: () => act(() => leaveContract(c, x.promo)) }))),
+      { t: 'Book a holiday week', d: hol.allowed ? `${hol.allowed - hol.used} of ${hol.allowed} left this contract year. No bookings that week, no penalty.` : 'Agreed weeks off.', go: hol.allowed > hol.used ? () => act(() => bookHoliday(c, addDays(c.today, 8))) : undefined, tag: hol.allowed ? null : 'Needs Schedule Flexibility' },
+      { t: k.dates && (p.deals ?? []).length === 0 ? 'Go back full-time' : 'Go part-time', d: `A few dates a month (${k.dates ? `now ${k.dates}` : 'the booker’s call now'}).`, go: tierOf(k, 'schedule') >= 2 ? () => act(() => setPartTime(c, !(k.dates && (p.deals ?? []).length === 0))) : undefined, tag: tierOf(k, 'schedule') >= 2 ? null : 'Needs Schedule Flexibility T2' },
+      { t: k.tours ? 'Come off their tours' : 'Join their tours', d: 'Tour dates abroad: fans in other regions, weeks away.', go: tierOf(k, 'touring') >= 2 ? () => act(() => setTours(c, !k.tours)) : undefined, tag: tierOf(k, 'touring') >= 2 ? (k.tours ? 'On' : 'Off') : 'Needs International Touring T2' },
+      { t: 'Take up your option year', d: `Another 12 months on the same terms (from six months before ${fmtDay(k.end, 'dm')}).`, go: tierOf(k, 'renewal') >= 1 && !k.optioned ? () => act(() => takeOption(c)) : undefined, tag: tierOf(k, 'renewal') >= 1 ? (k.optioned ? 'Taken' : null) : 'Their option, not yours' },
+      ...(tierOf(k, 'renewal') >= 3 ? [{ t: k.walk ? 'Let it renew' : 'Let it run out', d: k.walk ? 'It renews itself with a raise.' : `You’ll leave on ${fmtDay(k.end, 'dm')} instead of renewing.`, go: () => act(() => setWalk(c, !k.walk)) } as Item] : []),
+      { t: 'Announce your retirement', d: tierOf(k, 'retirement') ? `Your contract guarantees a farewell${tierOf(k, 'retirement') >= 2 ? ', a night in your honour' : ''}${tierOf(k, 'retirement') >= 3 ? ' and a pension' : ''}.` : 'Your last day would be a month away. No farewell guaranteed.', go: p.retiring ? undefined : () => setRetireAsk(true), tag: p.retiring ? `Last day ${fmtDay(p.retiring, 'dm')}` : null, tc: 'c-eff bad' },
     ] });
   }
   groups.push({ t: w('Other promotions'), items: [
@@ -261,7 +274,21 @@ export function Requests({ c, tab: start, onBack, onFlow, onNegotiate }: ReqProp
           </div>
         </div>
       )}
+      {retireAsk && (
+        <div className="c-ovl">
+          <Head title={w('Retirement')} meta={k?.promo ?? ''} onBack={() => setRetireAsk(false)} />
+          <div className="c-body">
+            <span className="c-qtext" style={{ fontSize: 25 }}>{w('Hang up the boots?')}</span>
+            <span className="c-ad" style={{ fontSize: 15 }}>Your career ends after your last day. {k && tierOf(k, 'retirement') ? 'Your contract guarantees your farewell.' : 'Without Retirement & Legacy, there’s no farewell guaranteed.'}</span>
+          </div>
+          <div className="c-nav">
+            <button className="c-b2" onClick={() => setRetireAsk(false)}>{w('Not yet')}</button>
+            <button className="c-b1" onClick={() => { setRetireAsk(false); act(() => announceRetirement(c)); }}>{w('Announce it')}</button>
+          </div>
+        </div>
+      )}
       {open && <AnswerSheet c={c} a={open} onClose={() => { setOpen(null); }} onNegotiate={onNegotiate} />}
+      {toast}
     </Screen>
   );
 }

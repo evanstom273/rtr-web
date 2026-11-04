@@ -12,11 +12,13 @@ import { calledOut } from './mail';
 import { addDays, daysBetween, fmtDay, type Day } from './dates';
 import { leanTo } from './leans';
 import { moveRelation } from './relations';
-import {
+import { SOCIAL_AMPLIFY,
   FEATURES, SOCIAL_AI_POSTS, SOCIAL_BACKLASH, SOCIAL_BACKLASH_LOSS, SOCIAL_BUZZ_GREAT, SOCIAL_BUZZ_MATCH, SOCIAL_CONV, SOCIAL_FEED_MAX,
   SOCIAL_REACH_BASE, SOCIAL_REACH_EXP, SOCIAL_REACH_MULT, SOCIAL_REL, SOCIAL_REPEAT_DAYS, SOCIAL_REPEAT_MULT, SOCIAL_WEEK_CAP_BASE,
   SOCIAL_WEEK_CAP_SHARE, MAIL_BACKFIRE_LOSS,
 } from './tuning';
+import { tierOf } from './clauses';
+import { dealsOf } from './deals';
 import type { Career, Show } from './types';
 
 export type SocialKind = keyof typeof SOCIAL_CONV;
@@ -67,7 +69,9 @@ function gainFor(c: Career, me: Wrestler, kind: SocialKind): number {
   const rival = Object.values(activeWorld().people?.bonds ?? {}).some((b) => (b.a === c.player || b.b === c.player) && b.kind === 'rival');
   const great = c.history.some((m) => m.stars >= 4 && daysBetween(m.day, c.today) <= 7);
   const buzz = (matchSoon || rival ? SOCIAL_BUZZ_MATCH : 1) * (great ? SOCIAL_BUZZ_GREAT : 1);
-  return reach(me) * SOCIAL_CONV[kind] * SOCIAL_REPEAT_MULT ** repeats * buzz;
+  // Social Media Policy Tier 3: their channels amplify you.
+  const amp = dealsOf(c.people[c.player]).some((k) => tierOf(k, 'social') >= 3) ? SOCIAL_AMPLIFY : 1;
+  return reach(me) * SOCIAL_CONV[kind] * SOCIAL_REPEAT_MULT ** repeats * buzz * amp;
 }
 
 function capLeft(c: Career, me: Wrestler): number {
@@ -101,6 +105,9 @@ export function publicSay(c: Career, share: number, backfire: number, salt: stri
   s.weekFans += fans;
   return { fans, backfired: false };
 }
+/** Social Media Policy's fines (conduct.ts plugs in here, so social doesn't depend on it). */
+let socialFineHook: ((c: Career, kind: 'callout' | 'beef', target: string) => string | null) | null = null;
+export const setSocialFine = (f: typeof socialFineHook): void => { socialFineHook = f; };
 /** You've called someone out (online or in a reply): a challenge against them is easier to ask for. */
 export function noteCallout(c: Career, id: string): void { state(c).callouts[id] = c.today; }
 
@@ -143,7 +150,9 @@ export function socialAct(c: Career, kind: SocialKind, target?: string): { fans:
   }
   const text = writePost(kind, them, nextMatch(c), rnd);
   s.feed = [{ id: `sp${c.today}${kind}`, day: c.today, who: me.id, kind, text, ...(them ? { target: them.id } : {}) }, ...s.feed].slice(0, SOCIAL_FEED_MAX);
-  return { fans, text, backfired };
+  // Social Media Policy: going after their roster can cost you (conduct.ts, set at load).
+  const fined = them && (kind === 'callout' || kind === 'beef') ? socialFineHook?.(c, kind, them.id) : null;
+  return { fans, text: fined ? `${text} (${fined})` : text, backfired };
 }
 
 const pickOne = <T>(rnd: () => number, xs: readonly T[]): T => xs[Math.floor(rnd() * xs.length)]!;

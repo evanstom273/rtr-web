@@ -238,8 +238,11 @@ export const RELEASE_GRANT_BELOW_MEDIAN = 0.7;
 export const RELEASE_GRANT_ABOVE_MEDIAN = 0.25;
 export const BUYOUT_SHARE = 0.5;
 export const NOTICE_DAYS = 30;
-// Retirement & Legacy Tier 3: a pension pot of this many weekly fees when you retire.
+// Retirement & Legacy: Tier 2's send-off show pays this many weekly fees; Tier 3 adds a pension pot of this many when you retire.
+export const SENDOFF_FEES = 3;
 export const PENSION_FEES = 26;
+/** Announcing your retirement without the clause: your last day is this far off. */
+export const RETIRE_NOTICE_DAYS = 30;
 // Championship Opportunities (kept): the contender bonus and the title-shot clock.
 export const CONTENDER_T1_BONUS = 10;
 export const TITLE_SHOT_DAYS = [0, 0, 120, 60];

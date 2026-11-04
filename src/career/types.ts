@@ -137,6 +137,10 @@ export interface Contract {
   raisedYears?: number;
   /** Performance Bonuses: wins in a row on their shows. */
   streak?: number;
+  /** Contract Renewal & Options: renewal talks have happened; you've taken up your option year; you're letting it run out (Tier 3). */
+  talked?: boolean;
+  optioned?: boolean;
+  walk?: boolean;
   /** Booking Commitments: the last month checked ('YYYY-MM'). */
   checked?: string;
   /** Championship Opportunities Tier 2/3: a title match is owed by this day. */
@@ -323,6 +327,13 @@ export interface Career {
   spectator?: boolean;
   /** Character & Image Rights: you've left a promotion that owned your name; pick a new one. */
   rebrand?: { from: string; old: string; lost: number };
+  /** Training: the fraction of a point coaching and mentoring have added so far. */
+  trainCarry?: number;
+  /** Retirement & Legacy: the deal you announced your retirement under; and your career is over. */
+  retireDeal?: { promo: string; fee: number; tier: number };
+  over?: Day;
+  /** Mentorship Tier 3: the mentor you picked. */
+  mentorPick?: string;
   /** Cards drawn with you on them (Guaranteed Pay pays if you're pulled): show id → the promotion. */
   drawnMe?: Record<string, string>;
   /** Backdated history: wrestlers too young to have debuted yet, and the day they do. */

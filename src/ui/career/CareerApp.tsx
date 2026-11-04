@@ -18,6 +18,7 @@ import { MovesetEditor } from './MovesetEditor';
 import { Negotiate } from './Negotiate';
 import { Creative } from './Creative';
 import { Rebrand } from './Rebrand';
+import { Epilogue } from './Epilogue';
 import { HistoryScreen, HistorySetup } from './HistorySim';
 import { commit, Head, Screen, useCareer, useWords } from './parts';
 import { Profile, type ProfileLink } from './Profile';
@@ -218,6 +219,8 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
   if (screen === 'start' || screen === 'create') return startScreen(screen);
   if (!c) return startScreen('start');
 
+  // Retired: the career's over (Records and a new career are still there).
+  if (c.over && screen !== 'records') return <Epilogue c={c} onRecords={() => go('records')} onNew={() => go('start')} />;
   // You've left a promotion that owned your name: pick a new one before anything else.
   if (c.rebrand) return <Rebrand c={c} onDone={() => setStack((st) => [...st])} />;
   if (typeof screen === 'object') {

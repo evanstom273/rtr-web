@@ -6,7 +6,9 @@ import { findWrestler, type Wrestler } from '../data/rtr';
 import { hashSeed, seededRng } from '../engine/rng';
 import { activeWorld } from '../world/world';
 import { bondsOf } from '../world/people';
-import { letter, person, phaseHooks, setCareerHooks, spend, finishDay, myBoutToday, showsOn } from './career';
+import { tierOf } from './clauses';
+import { dealWith } from './deals';
+import { letter, mod, person, phaseHooks, setCareerHooks, spend, finishDay, myBoutToday, showsOn } from './career';
 import { contentSession, isCoaching, setGigFits, type Gig } from './hustle';
 import { addDays, daysBetween, fmtDay, weekday, type Day } from './dates';
 import { attributeTotal, trainingPrice } from './economy';
@@ -15,7 +17,7 @@ import { REGION_LABEL, regionOfCountry } from './places';
 import type { SimJob, SimOut } from './sim';
 import {
   COST_INDEX, FEATURES, FRIEND_LOAN, FRIEND_LOAN_BOND, GIG_DEFAULT_SHIFTS, GIG_SHIFT_PAY, JOB_HOLIDAY, JOB_NOTICE_DAYS, JOB_STRIKE_DAYS, JOB_STRIKES, JOBS,
-  MONEY_TROUBLE_AT, MONEY_TROUBLE_EVERY, RELOCATE_COST, RELOCATE_DAYS, RELOCATE_SUBSIDY, REST_RECOVERY, TOUR_DAYS, TRAIN_INJURY,
+  MONEY_TROUBLE_AT, MONEY_TROUBLE_EVERY, RELOCATE_COST, RELOCATE_DAYS, RELOCATE_SUBSIDY, RELOCATION_PAID, REST_RECOVERY, TOUR_DAYS, TRAIN_INJURY,
   TRAIN_SESSION_FATIGUE, TRAIN_SESSION_POINTS,
 } from './tuning';
 import type { Career, DayJob, PhaseName, Routine, Show } from './types';
@@ -147,7 +149,7 @@ export function activityAt(c: Career, day: Day, ph: PhaseName): Activity {
 /** A training session: up to two points at today's prices, some fatigue, a small risk if already tired. */
 export function trainSession(c: Career, points?: Partial<Record<(typeof ATTRS)[number], number>>): string {
   const w = me(c), p = person(c, c.player);
-  if (c.money < 0) return 'You’re overdrawn: no training until you’re back in the black.';
+  if (c.money < 0 && mod('trainPrice', c, c.player) > 0) return 'You’re overdrawn: no training until you’re back in the black.';
   // From the gym screen: this phase is your session (the clock won't train you again).
   if (points) c.plans = { ...(c.plans ?? {}), [pkey(c.today, phaseOf(c))]: 'trained' };
   const r = routineOf(c);
@@ -157,7 +159,7 @@ export function trainSession(c: Career, points?: Partial<Record<(typeof ATTRS)[n
   for (const k of order) {
     let want = points ? points[k] ?? 0 : TRAIN_SESSION_POINTS - bought;
     while (want-- > 0 && bought < TRAIN_SESSION_POINTS && w.stats[k] < 100) {
-      const price = trainingPrice(attributeTotal(w));
+      const price = Math.round(trainingPrice(attributeTotal(w)) * mod('trainPrice', c, c.player));
       if (c.money - spent < price || (r.spendCap && spent + price > r.spendCap)) break;
       w.stats[k]++;
       spent += price;
@@ -167,6 +169,12 @@ export function trainSession(c: Career, points?: Partial<Record<(typeof ATTRS)[n
     if (bought >= TRAIN_SESSION_POINTS) break;
   }
   if (spent) spend(c, -spent, `Training session · +${bought} (${[...new Set(parts)].join(', ')})`, 'training');
+  // Coaching and a mentor (Training & Development, Mentorship): a little extra from each session, carried over.
+  const extra = bought * (mod('trainGain', c, c.player) - 1);
+  if (extra > 0 && parts.length) {
+    c.trainCarry = (c.trainCarry ?? 0) + extra;
+    while (c.trainCarry >= 1) { const k = parts[0] as (typeof ATTRS)[number]; if (w.stats[k] < 100) w.stats[k]++; c.trainCarry -= 1; parts.push(k); }
+  }
   const before = p.fatigue;
   p.fatigue = Math.min(100, p.fatigue + TRAIN_SESSION_FATIGUE);
   const risk = TRAIN_INJURY.filter(([f]) => before >= f).at(-1)?.[1] ?? 0;
@@ -294,12 +302,18 @@ export function relocate(c: Career, country: string, subsidy = 0): string {
   return `Moving to ${country}: three days, ${share ? `£${share.toLocaleString('en-GB')}` : 'paid for'}.`;
 }
 
+/** Travel & Accommodation: the share of a move a promotion pays (Tier 3 all of it; none without the clause). */
+const movePaid = (c: Career, promo: string): number => {
+  const k = dealWith(person(c, c.player), promo);
+  return k ? RELOCATION_PAID[tierOf(k, 'travel')] ?? RELOCATE_SUBSIDY : RELOCATE_SUBSIDY;
+};
+
 const MOVE_OFFER: EventDef = {
   id: 'move_offer', cat: 'career', weight: 0, cooldown: 0, when: () => false, expires: 10,
   from: (_x, d) => String(d.promo), subject: (_x, d) => `Move to ${String(d.country)}?`,
-  body: (x, d) => [`${String(d.promo)} would rather you lived nearer: they’ll pay ${Math.round(RELOCATE_SUBSIDY * 100)}% of moving to ${String(d.country)}.`, `You live in ${baseCountry(x.c)} now; every date would mean a long trip.`],
+  body: (x, d) => [`${String(d.promo)} would rather you lived nearer: they’ll pay ${Math.round(movePaid(x.c, String(d.promo)) * 100)}% of moving to ${String(d.country)}.`, `You live in ${baseCountry(x.c)} now; every date would mean a long trip.`],
   options: [
-    { id: 'move', label: 'Move', run: (x, d) => relocate(x.c, String(d.country), RELOCATE_SUBSIDY) },
+    { id: 'move', label: 'Move', run: (x, d) => relocate(x.c, String(d.country), movePaid(x.c, String(d.promo))) },
     { id: 'stay', label: 'Stay where you are', decline: true, run: () => 'You’ll travel.' },
   ],
 };

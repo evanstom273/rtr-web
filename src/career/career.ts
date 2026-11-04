@@ -282,12 +282,13 @@ export function applyBout(c: Career, show: Show, index: number, out: SimOut, aIs
     const won = winner === id, lost = winner !== null && !won;
     // You promoted this one online: a few more people tuned in.
     const promoted = id === c.player && c.social?.promoted === show.id ? 1 + SOCIAL_PROMOTE_BOOST : 1;
-    changes[id] = matchFans(w, show, out.stars, won, lost, won && titleChanged, promoted);
+    changes[id] = matchFans(w, show, out.stars, won, lost, won && titleChanged, promoted * mod('fans', c, id, show));
     p.rep = r1(clamp(p.rep + REP_PER_DATE + (out.stars >= 4 ? REP_FOUR_STAR : 0), 0, 100));
     // Resilient wrestlers take more punishment; Reliable ones look after themselves.
+    // Contract clauses (Match Conditions' safer matches) scale the risk and the wear.
     const injuryPct = (INJURY_BASE_PCT + p.fatigue / INJURY_PER_FATIGUE) * (hardcore ? INJURY_HARDCORE_MULT : 1)
-      * (hasTrait(w, 'resilient') ? TRAIT_FX.resilient.injury : 1) * (hasTrait(w, 'reliable') ? TRAIT_FX.reliable.injury : 1);
-    p.fatigue = clamp(p.fatigue + FATIGUE_PER_MATCH + (hardcore ? FATIGUE_HARDCORE_EXTRA : 0), 0, 100);
+      * (hasTrait(w, 'resilient') ? TRAIT_FX.resilient.injury : 1) * (hasTrait(w, 'reliable') ? TRAIT_FX.reliable.injury : 1) * mod('injury', c, id, show);
+    p.fatigue = clamp(p.fatigue + (FATIGUE_PER_MATCH + (hardcore ? FATIGUE_HARDCORE_EXTRA : 0)) * mod('fatigue', c, id, show), 0, 100);
     p.last = show.date;
     p.circuit = [{ r: show.region, d: show.date }, ...(p.circuit ?? [])].slice(0, CIRCUIT_KEEP);
     p.recent = [...(p.recent ?? []), won ? 1 : 0].slice(-5);
@@ -306,9 +307,11 @@ export function applyBout(c: Career, show: Show, index: number, out: SimOut, aIs
 function injure(c: Career, id: string, show: Show, rnd: Rng): void {
   let roll = rnd(), sev = INJURY_SEVERITY[0]!;
   for (const s of INJURY_SEVERITY) { if (roll < s.share) { sev = s; break; } roll -= s.share; }
-  const days = sev.days[0] + Math.floor(rnd() * (sev.days[1] - sev.days[0] + 1));
+  // Faster rehab (Training & Development's performance centre) shortens it.
+  const days = Math.max(1, Math.round((sev.days[0] + Math.floor(rnd() * (sev.days[1] - sev.days[0] + 1))) * mod('rehab', c, id, show)));
   const p = person(c, id);
   p.injury = { until: addDays(show.date, days), what: sev.label };
+  for (const f of hooks.injured) f(c, id, days, show);
   const w = findWrestler(id)!;
   const mine = id === c.player;
   if (mine) {
@@ -493,7 +496,7 @@ export function endOfDay(c: Career): void {
   const mmdd = tomorrow.slice(5);
   for (const w of WRESTLERS) {
     const p = person(c, w.id);
-    if (FEATURES.days && w.id === c.player) p.fatigue = Math.max(0, p.fatigue - (worked.has(w.id) ? SLEEP_RECOVERY_AFTER_MATCH : SLEEP_RECOVERY));
+    if (FEATURES.days && w.id === c.player) p.fatigue = Math.max(0, p.fatigue - (worked.has(w.id) ? SLEEP_RECOVERY_AFTER_MATCH : SLEEP_RECOVERY) * mod('recovery', c, w.id));
     else if (!worked.has(w.id)) p.fatigue = Math.max(0, p.fatigue - FATIGUE_RECOVERY_PER_DAY);
     if (p.injury && p.injury.until <= tomorrow) {
       p.injury = null;
@@ -777,21 +780,33 @@ export interface MailHooks {
 }
 export interface MailBefore { fans: Record<string, number>; rep: number; patience: number; bond: number; label: string }
 type PhaseHook = (c: Career, ph: 'am' | 'pm', activity: string) => void;
+/**
+ * Clause modifiers (Match Conditions, Training, Push, Touring): each multiplies. injury and fatigue per match,
+ * fans won on a show, rehab days, a night's recovery, the price and the gains of training.
+ */
+export type ModKind = 'injury' | 'fatigue' | 'fans' | 'rehab' | 'recovery' | 'trainPrice' | 'trainGain';
+type Mod = (c: Career, id: string, show?: Show) => number;
+const mods: Record<ModKind, Mod[]> = { injury: [], fatigue: [], fans: [], rehab: [], recovery: [], trainPrice: [], trainGain: [] };
+export const mod = (k: ModKind, c: Career, id: string, show?: Show): number => mods[k].reduce((m, f) => m * f(c, id, show), 1);
+export const setMod = (k: ModKind, f: Mod): void => { mods[k].push(f); };
+
 /** Clauses plug in here: someone protected from release, a deal that stays on past its end, you leaving a deal. */
 type ProtectHook = (c: Career, id: string, promo: string) => boolean;
 type EndingHook = (c: Career, w: Wrestler, k: Contract, rnd: Rng) => boolean;
 type LeavingHook = (c: Career, k: Contract, how: 'ended' | 'left' | 'released' | 'moved') => void;
+type InjuredHook = (c: Career, id: string, days: number, show: Show) => void;
 const hooks: {
   notice: Hook[]; daily: Hook[]; monthly: Hook[]; mine: ((c: Career, show: Show, bout: Bout, m: PlayerMatch) => void)[]; mail: MailHooks | null; phase: PhaseHook[];
-  protect: ProtectHook[]; ending: EndingHook[]; leaving: LeavingHook[]; offer: ((c: Career, promo: string, why: string) => void) | null;
-} = { notice: [], daily: [], monthly: [], mine: [], mail: null, phase: [], protect: [], ending: [], leaving: [], offer: null };
+  protect: ProtectHook[]; ending: EndingHook[]; leaving: LeavingHook[]; offer: ((c: Career, promo: string, why: string) => void) | null; injured: InjuredHook[];
+} = { notice: [], daily: [], monthly: [], mine: [], mail: null, phase: [], protect: [], ending: [], leaving: [], offer: null, injured: [] };
 /** You're leaving a deal (it ended, you left, you were released, or you moved): clauses that care (Image Rights, Loyalty, Signing advances) run here. */
 export function leavingHooks(c: Career, k: Contract, how: 'ended' | 'left' | 'released' | 'moved'): void { for (const f of hooks.leaving) f(c, k, how); }
 /** Your half-day happened (days on): side earners pay out here. */
 export function phaseHooks(c: Career, ph: 'am' | 'pm', activity: string): void { for (const f of hooks.phase) f(c, ph, activity); }
 /** Other career modules (offers, requests) plug in here; each adds to the list. */
-export function setCareerHooks(h: { notice?: Hook; daily?: Hook; monthly?: Hook; mine?: (c: Career, show: Show, bout: Bout, m: PlayerMatch) => void; mail?: MailHooks; phase?: PhaseHook; protect?: ProtectHook; ending?: EndingHook; leaving?: LeavingHook; offer?: (c: Career, promo: string, why: string) => void }): void {
+export function setCareerHooks(h: { notice?: Hook; daily?: Hook; monthly?: Hook; mine?: (c: Career, show: Show, bout: Bout, m: PlayerMatch) => void; mail?: MailHooks; phase?: PhaseHook; protect?: ProtectHook; ending?: EndingHook; leaving?: LeavingHook; offer?: (c: Career, promo: string, why: string) => void; injured?: InjuredHook }): void {
   if (h.offer) hooks.offer = h.offer;
+  if (h.injured) hooks.injured.push(h.injured);
   if (h.protect) hooks.protect.push(h.protect);
   if (h.ending) hooks.ending.push(h.ending);
   if (h.leaving) hooks.leaving.push(h.leaving);
