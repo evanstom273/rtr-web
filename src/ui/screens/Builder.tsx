@@ -4,9 +4,7 @@ import { TITLES, WRESTLERS, findWrestler, getPromotion, type Wrestler } from '..
 import type { Hit } from '../../storage/greatestHits';
 import { useBackLayer } from '../backStack';
 import { Profile } from '../builder/Profile';
-import {
-  CLASSES, NO_FILTERS, SORTS, activeFilterCount, countries, promotionList, titleList, filterRoster, sortValue, type Filters, type SortMode,
-} from '../builder/roster';
+import { CLASSES, NO_FILTERS, SORTS, activeFilterCount, countries, promotionList, titleList, filterRoster, sortValue, type Filters, type SortMode, sortText } from '../builder/roster';
 import { IRON_MAN_MINUTES, STIPULATIONS, rulesEditable, stipulation, type StipulationId } from '../../engine';
 import { MAX_TEAM, type BuilderState } from '../builder/state';
 import { useDragSort, type DragItem, type DropTarget, type TeamKey } from '../builder/useDragSort';
@@ -361,7 +359,7 @@ export function Builder({ state: s, hits, onChange, onStart, onMenu }: Props) {
                     </span>
                     {v !== null && (
                       <span className="bd-stat">
-                        {sortShort} <b>{v}</b>
+                        {sortShort} <b>{sortText(w, f.sort)}</b>
                       </span>
                     )}
                     {t ? (

@@ -42,7 +42,7 @@ function Bars({ t, cls }: { t: TapeModel; cls: string }) {
     <div className={`tp-bars ${cls}`}>
       {t.stats.map((s) => (
         <div key={s.key} className="tp-bar">
-          <b className={s.edge === 'a' ? 'win a' : ''}>{s.a}</b>
+          <b className={s.edge === 'a' ? 'win a' : ''}>{s.aText ?? s.a}</b>
           <span className="tp-tr l">
             <i className={s.edge === 'a' ? 'a' : ''} style={{ width: w(s.a) }} />
           </span>
@@ -50,7 +50,7 @@ function Bars({ t, cls }: { t: TapeModel; cls: string }) {
           <span className="tp-tr">
             <i className={s.edge === 'b' ? 'b' : ''} style={{ width: w(s.b) }} />
           </span>
-          <b className={s.edge === 'b' ? 'win b' : ''}>{s.b}</b>
+          <b className={s.edge === 'b' ? 'win b' : ''}>{s.bText ?? s.b}</b>
         </div>
       ))}
     </div>
@@ -128,9 +128,9 @@ function PaperTape({ t, rules }: { t: TapeModel; rules: string }) {
           ))}
           {t.stats.map((s) => (
             <tr key={s.key} className="pt-stat">
-              <td className={s.edge === 'a' ? 'edge' : ''}>{s.a}</td>
+              <td className={s.edge === 'a' ? 'edge' : ''}>{s.aText ?? s.a}</td>
               <th scope="row">{s.label}</th>
-              <td className={s.edge === 'b' ? 'edge' : ''}>{s.b}</td>
+              <td className={s.edge === 'b' ? 'edge' : ''}>{s.bText ?? s.b}</td>
             </tr>
           ))}
         </tbody>
@@ -157,7 +157,7 @@ function BuildingTape({ t, rules }: { t: TapeModel; rules: string }) {
         <div className="bl-stats">
           {t.stats.map((s) => (
             <div key={s.key} className="bl-stat">
-              <b className={s.edge === 'a' ? 'hi' : ''}>{s.a}</b>
+              <b className={s.edge === 'a' ? 'hi' : ''}>{s.aText ?? s.a}</b>
               <span className="bl-leds l">
                 {Array.from({ length: 10 }, (_, i) => (
                   <i key={i} className={i < Math.round(s.a / 10) ? (s.edge === 'a' ? 'on a' : 'on') : ''} />
@@ -169,7 +169,7 @@ function BuildingTape({ t, rules }: { t: TapeModel; rules: string }) {
                   <i key={i} className={i < Math.round(s.b / 10) ? (s.edge === 'b' ? 'on b' : 'on') : ''} />
                 ))}
               </span>
-              <b className={s.edge === 'b' ? 'hi' : ''}>{s.b}</b>
+              <b className={s.edge === 'b' ? 'hi' : ''}>{s.bText ?? s.b}</b>
             </div>
           ))}
         </div>

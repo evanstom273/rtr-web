@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { REGION_KEY, REGION_LABEL } from '../../career/places';
 import { TraitChips } from './Traits';
-import { findWrestler, getMove, globalScore, PROMOTIONS, TITLES, titlesHeldBy, WRESTLERS } from '../../data/rtr';
+import { FAN_REGIONS, fansTotal, findWrestler, fmtFans, getMove, globalScore, PROMOTIONS, TITLES, titlesHeldBy, WRESTLERS } from '../../data/rtr';
 import { askableIndieTitles, askableTitles, person, promoName, type Career } from '../../career';
 import { ATTR_KEYS, ATTR_LONG, CLASS_NAME, divisionName } from '../../career/create';
 import { daysBetween, fmtDay } from '../../career/dates';
@@ -44,6 +44,8 @@ function otherEvent(e: WorldEvent): { k: string; c: string; t: string } {
     default: return { k: 'Debut', c: 'c-eff', t: 'debuted on The Indie Scene' };
   }
 }
+
+const REGION_LABEL_F: Record<string, string> = { northAmerica: 'North America', southAmerica: 'South America', europe: 'Europe', asia: 'Asia', africa: 'Africa', oceania: 'Oceania' };
 
 export function Records({ c, onBack, onMoveset, onNewCareer, onRequest }: Props) {
   const { skin, w } = useWords();
@@ -118,7 +120,7 @@ export function Records({ c, onBack, onMoveset, onNewCareer, onRequest }: Props)
         <>
           <div className="c-cyc" style={{ marginTop: 8 }}>
             <button className="c-stepb" onClick={() => setPi((pi + ORDER.length - 1) % ORDER.length)} aria-label="Previous promotion">‹</button>
-            <div className="c-fld mid"><b className="c-big" style={{ fontSize: 18 }}>{promo.initials === 'TIS' ? w('The Indie Scene') : promo.initials}</b><span className="c-hint">{promo.initials === 'TIS' ? 'Free agents' : promo.name} · {roster.length} wrestlers</span></div>
+            <div className="c-fld mid"><b className="c-big" style={{ fontSize: 18 }}>{promo.initials === 'TIS' ? w('The Indie Scene') : promo.initials}</b><span className="c-hint">{promo.initials === 'TIS' ? 'Free agents' : promo.name} · {roster.length} wrestlers{promo.popularity !== undefined && promo.initials !== 'TIS' ? ` · popularity ${Math.round(promo.popularity)}` : ''}</span></div>
             <button className="c-stepb" onClick={() => setPi((pi + 1) % ORDER.length)} aria-label="Next promotion">›</button>
           </div>
           <div className="c-body">
@@ -127,7 +129,7 @@ export function Records({ c, onBack, onMoveset, onNewCareer, onRequest }: Props)
             <div className="c-rowsb"><span className="c-sec c-grow">{w('The roster', 'Roster')}</span><span className="c-hint">{roster.length}</span></div>
             {roster.map((y) => (
               <button key={y.id} className={y.id === c.player ? 'c-ans on' : 'c-ans'} onClick={() => open({ k: 'wr', id: y.id })} style={{ padding: '7px 10px' }}>
-                <span className="c-rowsb"><Nm w={y} /><span className="c-hint">pop {Math.round(globalScore(y))}</span></span>
+                <span className="c-rowsb"><Nm w={y} /><span className="c-hint">{fmtFans(fansTotal(y))} fans</span></span>
                 <span className="c-ad">{y.gimmick} · {divisionName(y)} · {y.classes.map((k) => CLASS_NAME[k]).join(' · ')} · {y.country}{person(c, y.id).injury ? ' · injured' : ''}</span>
               </button>
             ))}
@@ -375,7 +377,7 @@ function File({ id, c, tab, setTab, onClose, onShow, onTitle, onMoveset, onChall
             <span className="c-sec">{w('Attributes')}</span>
             {ATTR_KEYS.map((k, i) => <div key={k} className="c-frow" style={{ gridTemplateColumns: '90px minmax(0, 1fr) 28px' }}><span className="c-lab">{ATTR_LONG[i]}</span><span className="c-bar"><i className={x.stats[k] === best ? 'c-fill best' : 'c-fill'} style={{ width: `${x.stats[k]}%` }} /></span><b className="c-big">{x.stats[k]}</b></div>)}
             <div className="c-kv">
-              <span className="c-lab">{w('Popularity')}</span><span className="c-val">Global {Math.round(globalScore(x))}</span>
+              <span className="c-lab">{w('Fans')}</span><span className="c-val">{fmtFans(fansTotal(x))} worldwide · most in {REGION_LABEL_F[FAN_REGIONS.reduce((a, b) => (x.fans[b] > x.fans[a] ? b : a))]}</span>
               <span className="c-lab">{w('Reputation')}</span><span className="c-val">{Math.round(p.rep)}</span>
               <span className="c-lab">{w('Finishers')}</span><span className="c-val">{x.finishers.map((m) => getMove(m).name).join(', ')}</span>
               <span className="c-lab">{w('Signatures')}</span><span className="c-val">{x.signatures.map((m) => getMove(m).name).join(', ')}</span>

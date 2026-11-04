@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { CLASS_LABEL } from '../../data/commentary';
-import { fanScore, getMove, getPromotion, globalScore, type MoveType, titlesHeldBy, type Wrestler } from '../../data/rtr';
+import { FAN_REGIONS, type FanRegion, fansIn, fansTotal, fmtFans, getMove, getPromotion, type MoveType, titlesHeldBy, type Wrestler } from '../../data/rtr';
 import { useBackLayer } from '../backStack';
 import { Name } from '../common/Name';
 import type { TeamKey } from './useDragSort';
@@ -88,15 +88,15 @@ export function Profile({ w, team, locked, onAdd, onRemove, onClose }: Props) {
         </section>
 
         <section className="pf-sec">
-          <h4>Popularity</h4>
+          <h4>Fans · {fmtFans(fansTotal(w))}</h4>
           <div className="pf-bars">
-            {POP.map(([k, l]) => (
-              <div key={k} className={`pf-bar${k === 'global' ? ' global' : ''}`}>
+            {POP.filter(([k]) => k !== 'global').map(([k, l]) => (
+              <div key={k} className="pf-bar">
                 <span>{l}</span>
                 <span className="bt">
-                  <i style={{ width: `${Math.min(100, k === 'global' ? globalScore(w) : fanScore(w, k))}%` }} />
+                  <i style={{ width: `${Math.max(2, (fansIn(w, k as FanRegion) / Math.max(1, ...FAN_REGIONS.map((r) => fansIn(w, r)))) * 100)}%` }} />
                 </span>
-                <b>{Math.round(k === 'global' ? globalScore(w) : fanScore(w, k))}</b>
+                <b>{fmtFans(fansIn(w, k as FanRegion))}</b>
               </div>
             ))}
           </div>
