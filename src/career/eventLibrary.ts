@@ -1,10 +1,11 @@
 // The career event library (career expansion, stage 3). Each event says when it can happen, who and
 // where it's about (drawn from the live world), its choices and what they do. Add one by appending an
 // EventDef to the right list; the engine (events.ts) handles pacing, letters, follow-ups and memory.
-import { findWrestler, globalScore, PROMOTIONS, TITLES, type Wrestler, WRESTLERS } from '../data/rtr';
+import { findWrestler, globalScore, PROMOTIONS, TITLES, type Wrestler, WRESTLERS, worksFor } from '../data/rtr';
 import { contenders, isIndieTitle, promoRegion } from './booker';
 import { makeOffer, promoName } from './career';
 import { C } from './clauses';
+import { sideWork } from './deals';
 import { ATTR_KEYS } from './create';
 import { addDays, daysBetween, fmtDay } from './dates';
 import { indieFee, travelCost } from './economy';
@@ -163,7 +164,7 @@ const COMMUNITY: EventDef[] = [
     when: (x) => WRESTLERS.some((w) => w.id !== x.c.player && (x.c.people[w.id]?.injury?.until ?? '') > addDays(x.day, 21)),
     setup: (x) => {
       const hurt = WRESTLERS.filter((w) => w.id !== x.c.player && (x.c.people[w.id]?.injury?.until ?? '') > addDays(x.day, 21));
-      const near = hurt.filter((w) => w.promotion === (x.k?.promo ?? 'TIS'));
+      const near = hurt.filter((w) => worksFor(w, x.k?.promo ?? 'TIS'));
       const w = pick(x.rnd, near.length ? near : hurt);
       return w ? { who: w.id, what: x.c.people[w.id]!.injury!.what, amount: fee(x, 0.4) } : null;
     },
@@ -269,7 +270,7 @@ const MEDIA: EventDef[] = [
       { id: 'challenge', label: 'Challenge them properly', detail: () => 'Asks your booker for the match', run: (x, d) => {
         const w = who(d);
         const s = askableShows(x.c)[0];
-        if (!w || !s || w.promotion !== myPromo(x.c)) return join('“Name the place.” They’re not on your roster: ask an indie promoter in Requests', fx.pop(x, 0.5), fx.rel(x, String(d.who), -4, 'You called them out', 'rival'));
+        if (!w || !s || !worksFor(w, myPromo(x.c) ?? 'TIS')) return join('“Name the place.” They’re not on your roster: ask an indie promoter in Requests', fx.pop(x, 0.5), fx.rel(x, String(d.who), -4, 'You called them out', 'rival'));
         const a = askChallenge(x.c, w.id, s.id);
         return join(`You asked for ${w.name} on ${s.name}. ${a.said}`, fx.rel(x, String(d.who), -4, 'You called them out', 'rival'));
       } },
@@ -472,7 +473,7 @@ const BACKSTAGE: EventDef[] = [
         const w = who(d);
         const s = askableShows(x.c)[0];
         fx.rel(x, String(d.who), 5, 'You both want the rematch');
-        if (!w || !s || w.promotion !== myPromo(x.c)) return 'You’ll have to find a promoter who wants it: try Requests.';
+        if (!w || !s || !worksFor(w, myPromo(x.c) ?? 'TIS')) return 'You’ll have to find a promoter who wants it: try Requests.';
         return `You asked for ${w.name} on ${s.name}. ${askChallenge(x.c, w.id, s.id).said}`;
       } },
     ],
@@ -560,7 +561,7 @@ const CAREER: EventDef[] = [
   },
   {
     id: 'far_booking', cat: 'career', weight: 1.5, cooldown: 60,
-    when: (x) => (!x.k || (x.k.clauses[C.indie] ?? 0) >= 1) && askableIndieShows(x.c).some((s) => s.region !== homeRegion(x) && indieAllowed(x.c, s).ok),
+    when: (x) => sideWork(x.c.people[x.c.player]).rule !== 'banned' && askableIndieShows(x.c).some((s) => s.region !== homeRegion(x) && indieAllowed(x.c, s).ok),
     setup: (x) => {
       const s = pick(x.rnd, askableIndieShows(x.c).filter((y) => y.region !== homeRegion(x) && indieAllowed(x.c, y).ok && !x.c.asked?.[y.id]).slice(0, 30));
       return s ? { show: s.id, name: s.name, city: s.city, country: s.country, date: s.date, amount: round5(indieFee(x.me, s) * 1.3) } : null;
@@ -574,7 +575,7 @@ const CAREER: EventDef[] = [
   },
   {
     id: 'champion_wanted', cat: 'career', weight: 3, cooldown: 45,
-    when: (x) => titlesHeld(x).some(isIndieTitle) && (!x.k || (x.k.clauses[C.indie] ?? 0) >= 1),
+    when: (x) => titlesHeld(x).some(isIndieTitle) && sideWork(x.c.people[x.c.player]).rule !== 'banned',
     setup: (x) => {
       const indieTitle = titlesHeld(x).find(isIndieTitle);
       const s = pick(x.rnd, askableIndieShows(x.c).filter((y) => indieAllowed(x.c, y).ok && trust(x.c, showBooker(y)) >= 45 && !x.c.asked?.[y.id]).slice(0, 25));
@@ -597,7 +598,7 @@ const CAREER: EventDef[] = [
     id: 'controversy_billing', cat: 'career', weight: 4, cooldown: 90,
     when: (x) => {
       const m = x.c.history.find((y) => y.planned === 'off-script' && y.wonTitle && daysBetween(y.day, x.day) <= 60);
-      return !!m && (!x.k || (x.k.clauses[C.indie] ?? 0) >= 1) && titlesHeld(x).includes(m.title ?? '');
+      return !!m && sideWork(x.c.people[x.c.player]).rule !== 'banned' && titlesHeld(x).includes(m.title ?? '');
     },
     setup: (x) => {
       const m = x.c.history.find((y) => y.planned === 'off-script' && y.wonTitle)!;
@@ -623,7 +624,7 @@ const CAREER: EventDef[] = [
     setup: (x) => {
       const t = TITLES.find((y) => y.id === titlesHeld(x)[0])!;
       const owner = isIndieTitle(t.id) ? 'TIS' : PROMOTIONS.find((p) => p.titles.includes(t.id))?.initials ?? 'TIS';
-      const pool = WRESTLERS.filter((w) => w.id !== x.c.player && healthy(w, x) && w.promotion === owner);
+      const pool = WRESTLERS.filter((w) => w.id !== x.c.player && healthy(w, x) && !!owner && worksFor(w, owner));
       const top = contenders(x.c, t, pool, owner === 'TIS' ? homeRegion(x) : promoRegion(owner), x.day)[0];
       return top ? { who: top.id, title: t.id } : null;
     },

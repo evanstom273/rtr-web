@@ -1,6 +1,7 @@
 // Every number career mode runs on, in one place. These are the values proposed on the canvas
 // "Career balance sheet" and are NOT approved yet: change them here and nowhere else.
 import type { PopRegion, ShowKind } from './types';
+import type { ClauseId } from './clauses';
 
 // --- Money (£) ---------------------------------------------------------------------------------
 /** A contracted match pays the weekly-show fee (section 16: MAJOR_FEE_*) × the size of the show. */
@@ -101,33 +102,148 @@ export const ROSTER_SCOUT_DAYS: [number, number] = [7, 21];
 export const POACH_CHANCE = 0.5;
 export const ROOKIE_EVERY_DAYS = 21;
 
-// --- Clauses -----------------------------------------------------------------------------------
-/** Cost of each tier to the promotion, as a share of the fee. Order matches CLAUSES. */
-export const CLAUSE_COST: [number, number, number][] = [
-  [0.05, 0.12, 0.25], [0.02, 0.05, 0.1], [0.03, 0.07, 0.12], [0.04, 0.1, 0.18], [0.03, 0.08, 0.15],
-  [0.05, 0.12, 0.22], [0.03, 0.07, 0.12], [0.04, 0.1, 0.2], [0.03, 0.08, 0.15], [0.01, 0.03, 0.06],
-];
+// --- Clauses (the 25-clause overhaul: Lyra's design; these numbers are proposals, to approve) -----
+/**
+ * What each tier costs a promotion, as a share of the fee it would otherwise pay (scaled down from the
+ * ten-clause days so a full package still leaves a fee). Exclusivity is priced the other way: EXCL_COST.
+ */
+export const CLAUSE_COST: Record<ClauseId, [number, number, number]> = {
+  exclusivity: [0, 0, 0],
+  creative: [0.025, 0.06, 0.125], booking: [0.015, 0.035, 0.06], title: [0.025, 0.06, 0.11], push: [0.015, 0.035, 0.06], touring: [0.005, 0.015, 0.03],
+  guaranteed: [0.02, 0.05, 0.09], wage: [0.015, 0.04, 0.075], bonuses: [0.01, 0.025, 0.05], merch: [0.015, 0.04, 0.075], profit: [0.02, 0.04, 0.07], signing: [0.015, 0.03, 0.05], loyalty: [0.01, 0.02, 0.035],
+  medical: [0.015, 0.035, 0.06], training: [0.01, 0.02, 0.035], conditions: [0.01, 0.02, 0.035], schedule: [0.015, 0.035, 0.06], travel: [0.01, 0.025, 0.045],
+  image: [0.015, 0.035, 0.06], social: [0.005, 0.01, 0.02], conduct: [0.005, 0.015, 0.025], mentorship: [0.005, 0.01, 0.02],
+  renewal: [0.01, 0.025, 0.045], exit: [0.02, 0.05, 0.1], retirement: [0.005, 0.015, 0.03],
+};
 export const ATTITUDE_MULT = { resist: 1.6, neutral: 1, flexible: 0.6 };
+/**
+ * Exclusivity (Lyra's call: tiers are them buying exclusivity, paid as a fee premium): what each tier costs
+ * them against Major Exclusive (Tier 2), as a share of the fee. Non-exclusive costs them most, so it pays
+ * least a date; Total Exclusivity pays you a premium. A possessive promotion (resists freedom) feels it more.
+ */
+export const EXCL_COST = [0.15, 0.08, 0, -0.12];
+export const EXCL_ATTITUDE = { resist: 1.4, neutral: 1, flexible: 0.6 };
+/** Working for several majors: at most this many at once; the dates a month split between them when you sign another, and the new deal's share by default. */
+export const MAX_MAJORS = 3;
+export const SPLIT_DATES_TOTAL = 12;
+export const SPLIT_DEFAULT_NEW = 4;
+/** An AI star on two majors: the dates a month the second promotion gets. */
+export const AI_SECOND_DATES = 4;
+/** First Refusal: the chance they block another major's deal (higher when it's a rival in their own region); blocking pays you this many weekly fees and their booker's patience moves your way. */
+export const FIRST_REFUSAL_BLOCK = { base: 0.35, sameRegion: 0.3 };
+export const FIRST_REFUSAL_COMP_FEES = 4;
+export const FIRST_REFUSAL_PATIENCE = 10;
+/** Major Exclusive (Tier 2): indie dates and outside work need approval, more likely the more patient their booker. */
+export const EXCL_APPROVAL = { base: 0.3, perPatience: 0.006 };
+/** AI: each month, the chance a promotion with room signs a non-exclusive star from another major as a second deal. */
+export const AI_SECOND_DEAL_CHANCE = 0.12;
+/** Agreed dates a month by package (part-timers, special attractions); a deal without them is the booker's call. Fewer dates lift the fee a date. */
+export const DATES_FEE_LIFT = 0.05;
+export const DATES_FULL = 10;
+/** AI deals by package (Lyra's call): stars are the top 15% of a roster (a fifth of them special attractions), veterans 38+ in the top 60% go part-time, the young (23 and under) below halfway developmental. */
+export const PACKAGE_RULES = { starTop: 0.15, attractionShare: 0.2, veteranAge: 38, veteranTop: 0.6, youngAge: 23, youngBelow: 0.5 };
+
+// Creative Control (Lyra's call: ask, then about a veto a month, then everything; using it costs nothing).
+export const CREATIVE = { askBase: 0.2, askPerPatience: 0.006, vetoDays: 30 };
 export const CREATIVE_T1_CHANGE = 0.5;
-export const CREATIVE_T2_COOLDOWN_DAYS = 90;
-export const INDIE_T1_APPROVAL = 0.6;
+export const CREATIVE_T2_COOLDOWN_DAYS = 30;
+// Booking Commitments: dates a month guaranteed by tier; Tier 3 adds their big shows and a share of main events. Short months are paid anyway; this many breaches and you can walk.
+export const COMMIT_DATES = [0, 2, 4, 6];
+export const COMMIT_MAIN_SHARE = 0.33;
+export const COMMIT_BREACH_WALK = 3;
+// Championship Opportunities: a rematch within this many days of losing a title (Tier 1+); a new champion can't lose it for this long (by tier).
+export const REMATCH_DAYS = 60;
+export const REIGN_PROTECT_DAYS = [0, 0, 30, 60];
+// Push & Marketing: fans won on their shows × this.
+export const PUSH_MULT = [1, 1.15, 1.3, 1.5];
+// International Touring: headlining a tour (Tier 3) wins this many times the fans.
+export const TOUR_HEADLINE_FANS = 1.5;
+// Guaranteed Pay: paid this share of the fee when pulled from a card; a month's minimum, in weekly fees.
 export const MEDICAL_BILL_COVER = [0, 0.5, 1, 1];
 export const MEDICAL_PAY_COVER = [0, 0, 0.5, 1];
 export const LOSS_CUT_BY_TIER = [LOSS_CUT, 0.1, 0, 0];
 export const APPEARANCE_BONUS_T3 = 0.1;
+export const PULLED_PAY = [0, 0.5, 1, 1];
+export const MONTHLY_MIN_FEES = [0, 0, 2, 4];
+// Wage Matching: reviews, matching, a raise on each anniversary, a raise after a title win or a great year (Tier 2+), and parity with anyone below you (Tier 3).
 export const WAGE_REVIEW_MONTHS = 6;
 export const WAGE_REVIEW_POP_BAND = 5;
 export const WAGE_MATCH_T2_MAX = 1.25;
-export const CONTENDER_T1_BONUS = 10;
-export const TITLE_SHOT_DAYS = [0, 0, 120, 60];
-export const TITLE_SHOT_BREACH_FEES = [0, 0, 4, 8];
+export const YEARLY_RAISE = [0, 0.02, 0.04, 0.06];
+export const PERF_RAISE = 0.05;
+export const PERF_RAISE_STARS = 3.5;
+// Performance Bonuses: each trigger pays this many weekly fees.
+export const BONUS_FEES = { title: 5, defence: 1, great: 1, main: 0.5, big: 0.5, streak: 2 };
+// Merchandise Rights: your share of their merch; a cut of their online store (fans × rate a month × share); your own table at their shows from Tier 2.
+export const MERCH_SHARE = [0, 0.1, 0.25, 0.6];
+export const MERCH_STORE_PER_FAN = 0.003;
+export const STORE_CUT = [0, 0.1, 0.2, 0.35];
+// Profit Share: a show's takings by kind, × (their popularity ÷ 50)², and your cut by tier.
+export const TAKINGS = { weekly: 40000, tour: 25000, special: 150000, flagship: 400000, indie: 0 };
+export const PROFIT_SHARE = [0, 0.004, 0.006, 0.008];
+// Signing Bonus & Advances: weekly fees paid on signing; the most you can borrow (in weekly fees), the interest, the share of each fee that pays it back, and Tier 3's write-off when the deal ends.
+export const SIGNING_BONUS_FEES = [0, 2, 5, 10];
+export const ADVANCE_FEES = [0, 2, 4, 8];
+export const ADVANCE_INTEREST = [0, 0.15, 0.08, 0];
+export const ADVANCE_REPAY_SHARE = 0.5;
+export const ADVANCE_WRITE_OFF_T3 = 0.25;
+// Loyalty & Tenure: each anniversary pays this many weekly fees × years served (up to five); protected from release after three years (Tier 2+); a legend after five (Tier 3).
+export const LOYALTY_FEES = [0, 0.5, 1, 1.5];
+export const LOYALTY_PROTECT_YEARS = 3;
+export const LEGEND_YEARS = 5;
+export const LEGEND_REP = 10;
+// Medical Pay: a long injury (this many days or more) pays out this many weekly fees.
+export const LONG_INJURY_DAYS = 21;
+export const LONG_INJURY_FEES = [0, 2, 4, 8];
+// Training & Development: the price of training × this; extra from each session; Tier 3's faster recovery and rehab.
+export const TRAIN_PRICE_MULT = [1, 0.75, 0, 0];
+export const TRAIN_GAIN_BONUS = [0, 0, 0.15, 0.3];
+export const CENTRE_RECOVERY = 1.25;
+export const CENTRE_REHAB = 0.75;
+// Match Conditions Tier 3: safer, shorter matches.
+export const CONDITIONS_T3 = { injury: 0.5, fatigue: 0.75 };
+// Schedule Flexibility: holiday weeks a year; part-time (Tier 2+) means this many dates a month.
 export const DAY_OFF_T1_CHANCE = 0.7;
 export const SCHEDULE_T2_MAX_PER_MONTH = 10;
+export const HOLIDAY_WEEKS = [0, 1, 2, 4];
+export const PARTTIME_DATES = 4;
+// Travel & Accommodation (Lyra's call: long trips tire you): fatigue for a trip by distance, × this by tier; a per diem on away dates (Tier 2+); the share of a move they pay.
+export const TRAVEL_FATIGUE = { country: 0, region: 4, abroad: 10 };
+export const TRAVEL_FATIGUE_CUT = [1, 1, 0.6, 0.3];
+export const PER_DIEM = [0, 0, 50, 75];
+export const RELOCATION_PAID = [0, 0.75, 0.75, 1];
+// Character & Image Rights (Lyra's call: leave without them and you rebrand): the share of fans who don't follow the new name, rising with years there; Tier 1 halves it.
+export const REBRAND_LOSS = { base: 0.1, perYear: 0.03, max: 0.4 };
+// Social Media Policy: a call-out or beef about their roster costs this many weekly fees (and patience at None); Tier 3's channels boost your reach.
+export const SOCIAL_FINE_FEES = [1, 0.5, 0, 0];
+export const SOCIAL_FINE_PATIENCE = -5;
+export const SOCIAL_AMPLIFY = 1.5;
+// Conduct & Discipline (Lyra's call: fines, not suspensions): fines in weekly fees, × this by tier; three no-shows in 90 days is a suspension whatever the tier.
+export const CONDUCT_FINES = { noShow: 2, offScript: 1, beef: 0.5 };
+export const CONDUCT_MULT = [1, 0.6, 0.3, 0];
+export const SUSPENSION = { noShows: 3, windowDays: 90, days: 14 };
+// Mentorship: extra from training (Tier 2+); a veteran's protégés (Tier 3) add reputation each month.
+export const MENTOR_TRAIN_BONUS = [0, 0, 0.1, 0.1];
+export const PROTEGE_AGE = 32;
+export const PROTEGE_REP = 1;
+export const PROTEGES_MAX = 2;
+// Contract Renewal & Options: an option year; when renewal talks open (days before the end), the raise for re-signing (Tier 2+), and the chance they take up their option (None).
+export const OPTION_MONTHS = 12;
+export const RENEWAL_TALKS_DAYS = [90, 183, 183, 183];
+export const RENEWAL_RAISE = [0, 0, 0.1, 0.15];
+export const OPTION_TAKE_CHANCE = 0.5;
+// Contract Exit: leaving early bars you from their region's other majors for this many days, by tier.
+export const NONCOMPETE_DAYS = [180, 120, 60, 0];
 export const RELEASE_GRANT_BELOW_MEDIAN = 0.7;
 export const RELEASE_GRANT_ABOVE_MEDIAN = 0.25;
 export const BUYOUT_SHARE = 0.5;
 export const NOTICE_DAYS = 30;
-export const MERCH_SHARE = [0, 0.1, 0.25, 0.6];
+// Retirement & Legacy Tier 3: a pension pot of this many weekly fees when you retire.
+export const PENSION_FEES = 26;
+// Championship Opportunities (kept): the contender bonus and the title-shot clock.
+export const CONTENDER_T1_BONUS = 10;
+export const TITLE_SHOT_DAYS = [0, 0, 120, 60];
+export const TITLE_SHOT_BREACH_FEES = [0, 0, 4, 8];
 
 // --- Negotiation -------------------------------------------------------------------------------
 export const NEGO_REP_SWING = 0.1;
@@ -135,9 +251,8 @@ export const NEGO_FORM_SWING = 0.1;
 export const NEGO_RIVAL_LIFT = 1.05;
 export const NEGO_ACCEPT = 1.15;
 export const NEGO_COUNTER = 1.3;
-export const NEGO_GATE_REP_T3 = 60;
-export const NEGO_GATE_POP_RESIST_T2 = 35;
-export const NEGO_GATE_POP_RESIST_T3 = 50;
+/** Walking away from the table costs this much of their booker's patience, unless their offer's under one of your walk-away lines (Lyra's call). */
+export const NEGO_WALK_PATIENCE = -5;
 
 // --- Requests (balance sheet section 13, approved) ---------------------------------------------
 /** Booker patience: 0–100, one meter per promotion's booker and per indie promoter. */
@@ -262,8 +377,6 @@ export const EVENT_MAX_OPEN = 2;
 export const EVENT_EXPIRES_DAYS = 5;
 /** An event where your contract rules out every choice but saying no comes round this much as often. */
 export const EVENT_BLOCKED_MULT = 0.25;
-/** Outside Appearances Tier 1: management approves this often. */
-export const OUTSIDE_T1_APPROVAL = 0.6;
 
 // --- One-off shows and the living world (expansion stage 4, balance sheet section 14: PROPOSALS, live) ------
 /** Days between new one-offs anywhere, and how far ahead they're announced. */

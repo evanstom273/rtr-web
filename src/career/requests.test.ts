@@ -1,3 +1,4 @@
+import { C } from './clauses';
 import { describe, expect, it } from 'vitest';
 import { FAN_REGIONS, fansForScore, findWrestler, globalScore, PROMOTIONS, TITLES, WRESTLERS } from '../data/rtr';
 import { freshWorld, setWorld } from '../world/world';
@@ -301,13 +302,13 @@ describe('requests', () => {
     expect(t.holder).not.toBe(c.player);
   }, 60000);
 
-  it('signing with Indie Bookings keeps it, and it doesn’t stop you going for your promotion’s titles', () => {
+  it('signing short of Total Exclusivity keeps it, and it doesn’t stop you going for your promotion’s titles', () => {
     const c = begin('@indie');
     const t = TITLES.find((x) => x.id === 'WORLD_INDEPENDENT_CHAMPIONSHIP')!;
     t.holder = c.player;
     makeOffer(c, 'TCG', 'test');
     const o = c.offers.find((x) => x.promo === 'TCG' && x.status === 'open')!;
-    o.clauses[1] = 2;
+    o.clauses[C.exclusivity] = 2;
     signOffer(c, o);
     expect(t.holder).toBe(c.player);
     const tcg = TITLES.find((x) => x.id.startsWith('TCG_') && x.gender === findWrestler(c.player)!.gender)!;

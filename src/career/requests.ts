@@ -3,13 +3,14 @@
 // and day. Under the yes chance: yes. In the next band: a counter. Anything else: no.
 import { askLean, likesLine, promiseRollsBonus } from './bookerLeans';
 import { leanFrom, playerHas } from './leans';
-import { fansTotal, findWrestler, fmtFans, globalScore, PROMOTIONS, type Title, TITLES, type Wrestler, WRESTLERS } from '../data/rtr';
+import { fansTotal, findWrestler, fmtFans, globalScore, PROMOTIONS, type Title, TITLES, type Wrestler, WRESTLERS, rosterOf, worksFor } from '../data/rtr';
 import { seededRng } from '../engine/rng';
 import { activeWorld } from '../world/world';
 import { available, bookChance, contenders, datesThisMonth, hashSeed, isIndieTitle, playerBookable, promoRegion, regionalEligible, regionalPop, setIndieRoll, showTitles, titleMinGap, titleRegion } from './booker';
 import { REGION_LABEL } from './places';
 import { letter, makeOffer, myBoutToday, person, promoName, setCareerHooks, spend } from './career';
 import { C } from './clauses';
+import { approves, sideWork } from './deals';
 import { leaveContract, matchRival, payReview } from './contracts';
 import { addDays, daysBetween, fmtDay, weekday, type Day } from './dates';
 import { indieFee, travelCost } from './economy';
@@ -17,7 +18,7 @@ import { dayOff, indieAllowed, joinIndie } from './offers';
 import { bookerKey, movePatience, patienceOf, patienceWeek, showBooker } from './patience';
 import { trust, trustLabel } from './relations';
 import {
-  ASK_COUNTER_BAND, ASK_FORM_PER_RESULT, ASK_PATIENCE_DIVISOR, ASK_REP_DIVISOR, ASK_SPOT_BASE_PCT, ASK_SPOT_MAX_PCT, ASK_TRUST_DIVISOR, BOOK_AHEAD_DAYS, CAUGHT_CHANCE, CAUGHT_CHANCE_SAME_REGION, CAUGHT_DAYS, CHALLENGE_BASE, CHALLENGE_CHAMPION, CHALLENGE_IN_FEUD, CHALLENGE_PER_POP_ABOVE, COOLDOWN_CHALLENGE, COOLDOWN_MORE, COOLDOWN_PROMOTION, COOLDOWN_TITLE, CREATIVE_T1_CHANGE, CREATIVE_T2_COOLDOWN_DAYS, INDIE_CH_ALLOWED, INDIE_CH_PROMOTION, INDIE_PROMISE_ROLLS, INDIE_T1_APPROVAL, MORE_BASE, MORE_MIN_DATES, PATIENCE_BOTCHED, PATIENCE_CAUGHT, PATIENCE_DECLINE_COUNTER, PATIENCE_FLOOR, PATIENCE_FOLLOWED_PLAN, PATIENCE_GOOD_MATCH, PATIENCE_GOOD_MATCH_STARS, PATIENCE_NAG, PATIENCE_OFF_SCRIPT, PATIENCE_START, PATIENCE_TOOK_COUNTER, REGIONAL_ELIGIBLE_DATES, REGIONAL_WINDOW_DAYS, REP_NAG, SHOW_ASK_BONUS, SHOW_ASK_FLAGSHIP, SHOW_ASK_SPECIAL, SOCIAL_CALLOUT_CHALLENGE, SOCIAL_CALLOUT_DAYS, TITLE_ASK_BY_RANK, TITLE_ASK_CLAUSE, TRAIT_BACKSTAGE,
+  ASK_COUNTER_BAND, ASK_FORM_PER_RESULT, ASK_PATIENCE_DIVISOR, ASK_REP_DIVISOR, ASK_SPOT_BASE_PCT, ASK_SPOT_MAX_PCT, ASK_TRUST_DIVISOR, BOOK_AHEAD_DAYS, CAUGHT_CHANCE, CAUGHT_CHANCE_SAME_REGION, CAUGHT_DAYS, CHALLENGE_BASE, CHALLENGE_CHAMPION, CHALLENGE_IN_FEUD, CHALLENGE_PER_POP_ABOVE, COOLDOWN_CHALLENGE, COOLDOWN_MORE, COOLDOWN_PROMOTION, COOLDOWN_TITLE, CREATIVE_T1_CHANGE, CREATIVE_T2_COOLDOWN_DAYS, INDIE_CH_ALLOWED, INDIE_CH_PROMOTION, INDIE_PROMISE_ROLLS, MORE_BASE, MORE_MIN_DATES, PATIENCE_BOTCHED, PATIENCE_CAUGHT, PATIENCE_DECLINE_COUNTER, PATIENCE_FLOOR, PATIENCE_FOLLOWED_PLAN, PATIENCE_GOOD_MATCH, PATIENCE_GOOD_MATCH_STARS, PATIENCE_NAG, PATIENCE_OFF_SCRIPT, PATIENCE_START, PATIENCE_TOOK_COUNTER, REGIONAL_ELIGIBLE_DATES, REGIONAL_WINDOW_DAYS, REP_NAG, SHOW_ASK_BONUS, SHOW_ASK_FLAGSHIP, SHOW_ASK_SPECIAL, SOCIAL_CALLOUT_CHALLENGE, SOCIAL_CALLOUT_DAYS, TITLE_ASK_BY_RANK, TITLE_ASK_CLAUSE, TRAIT_BACKSTAGE,
 } from './tuning';
 import type { Ask, AskKind, Bout, Career, CounterKind, PlayerMatch, Pledge, Show } from './types';
 
@@ -118,7 +119,7 @@ export function askableTitles(c: Career): Title[] {
 
 function titleRank(c: Career, t: Title): number {
   const promo = myPromo(c)!;
-  const pool = WRESTLERS.filter((w) => w.promotion === promo && (w.id === c.player || available(c.people[w.id], c.today)));
+  const pool = WRESTLERS.filter((w) => worksFor(w, promo) && (w.id === c.player || available(c.people[w.id], c.today)));
   const list = contenders(c, t, pool, promoRegion(promo), c.today);
   return list.findIndex((w) => w.id === c.player) + 1;
 }
@@ -182,7 +183,7 @@ export function askTitleShot(c: Career, titleId: string): Ask {
     const rank = titleRank(c, t);
     const feud = c.feuds.find((f) => f.title === t.id && !f.done);
     if (rank > 1) {
-      const top = contenders(c, t, WRESTLERS.filter((w) => w.promotion === promo && available(c.people[w.id], c.today)), promoRegion(promo), c.today).find((w) => w.id !== c.player)!;
+      const top = contenders(c, t, WRESTLERS.filter((w) => worksFor(w, promo) && available(c.people[w.id], c.today)), promoRegion(promo), c.today).find((w) => w.id !== c.player)!;
       const show = promoShows(c, promo, firstAskable(c))[0];
       if (top && show) return record(c, { kind: 'title', to: promo, what, key: 'title', answer: 'counter', said: `“Earn it first. Beat ${top.name} on ${showLine(show)} and the shot’s yours.”`,
         counter: { kind: 'earn', pledge: { promo, kind: 'match', opp: top.id, show: show.id, earn: t.id } } });
@@ -335,7 +336,7 @@ export function previewChallenge(c: Career, targetId: string, showId: string): P
   const champ = them ? holdsTitle(them.id) : false;
   const hard = !promo ? 'You’re not signed anywhere: challenge someone on an indie show.'
     : !them || them.id === c.player ? 'Pick someone to challenge.'
-      : them.promotion !== promo ? `${them.name} isn’t on the ${promo} roster: challenge them on an indie show.`
+      : !worksFor(them, promo) ? `${them.name} isn’t on the ${promo} roster: challenge them on an indie show.`
         : !show || show.date < firstAskable(c) ? 'The next seven days’ cards are set.'
           : busyThatNight(c, show.date) ? 'You’re not free that night.'
             : patienceOf(c, promo) < PATIENCE_FLOOR ? `${promo}’s booker won’t hear it: patience too low.`
@@ -388,7 +389,7 @@ export function askChallenge(c: Career, targetId: string, showId: string): Ask {
       if (next) return record(c, { kind: 'challenge', to: promo, what, key: 'challenge', answer: 'counter', said: `“He’s booked that night. ${showLine(next)} instead?”`,
         counter: { kind: 'show', pledge: { promo, kind: 'match', opp: them.id, show: next.id } } });
     }
-    const alt = stand_in(c, me(c), WRESTLERS.filter((w) => w.promotion === promo), show, [c.player, them.id]);
+    const alt = stand_in(c, me(c), rosterOf(promo), show, [c.player, them.id]);
     if (alt) return record(c, { kind: 'challenge', to: promo, what, key: 'challenge', answer: 'counter',
       said: `“Not ${them.name.split(' ').slice(-1)[0]}. ${alt.name} on ${showLine(show)}: the closest to your standing who’s free that night.”`,
       counter: { kind: 'opponent', pledge: { promo, kind: 'match', opp: alt.id, show: show.id } } });
@@ -405,7 +406,7 @@ export function previewIndieChallenge(c: Career, targetId: string, showId: strin
   const gap = them ? globalScore(them) - globalScore(mine) : 0;
   const k = them ? c.people[them.id]?.contract : null;
   const theirClash = !!k && !!show && Object.values(c.shows).some((s) => s.date === show.date && (s.promos ?? [s.promo]).includes(k.promo) && s.promo !== 'TIS');
-  const clauseOk = !k || ((k.clauses[C.indie] ?? 0) >= 1 && (!theirClash || (k.clauses[C.indie] ?? 0) >= 3));
+  const clauseOk = !!them && (!k || (sideWork(c.people[them.id]).rule !== 'banned' && !theirClash));
   const side = clauseOk ? INDIE_CH_ALLOWED - CHALLENGE_PER_POP_ABOVE * Math.max(0, gap) + repPoints(c)
     : INDIE_CH_PROMOTION - CHALLENGE_PER_POP_ABOVE * Math.max(0, gap) + repPoints(c) + patiencePoints(c, k!.promo);
   const promoter = show ? showBooker(show) : '';
@@ -537,7 +538,7 @@ export function askMore(c: Career): Ask {
 export interface Standing { mine: number; q1: number; median: number; roster: number; region: string }
 export function standingWith(c: Career, promo: string): Standing {
   const region = promoRegion(promo);
-  const pops = WRESTLERS.filter((w) => w.promotion === promo).map((w) => regionalPop(w, region)).sort((a, b) => a - b);
+  const pops = rosterOf(promo).map((w) => regionalPop(w, region)).sort((a, b) => a - b);
   return { mine: regionalPop(me(c), region), q1: pops[Math.floor(pops.length / 4)] ?? 0, median: pops[Math.floor(pops.length / 2)] ?? 0, roster: pops.length, region };
 }
 export const otherPromotions = (c: Career): string[] => PROMOTIONS.filter((p) => !p.indie && p.initials !== myPromo(c)).map((p) => p.initials);
@@ -631,8 +632,8 @@ export function askSpot(c: Career, showId: string): Ask {
   const pv = previewSpot(c, showId);
   if (pv.hard) return record(c, { kind: 'spot', to: promoter, what, key: `spot:${showId}`, answer: 'no', said: pv.hard });
   const ok = indieAllowed(c, show);
-  if (ok.needsApproval && seededRng(hashSeed(c.seed, 'approve', show.id))() >= INDIE_T1_APPROVAL) {
-    return record(c, { kind: 'spot', to: promoter, what, key: `spot:${showId}`, answer: 'no', said: `${myPromo(c)} said no to this one.` });
+  if (ok.needsApproval && !approves(c, ok.approver!, 'indie', show.id)) {
+    return record(c, { kind: 'spot', to: promoter, what, key: `spot:${showId}`, answer: 'no', said: `${ok.approver} said no to this one.` });
   }
   (c.asked ??= {})[show.id] = true;
   if (roll(c, `spot:${show.id}`) >= pv.chance) return record(c, { kind: 'spot', to: promoter, what, key: `spot:${showId}`, answer: 'no', said: '“We’re full. Maybe next time.”' });

@@ -107,6 +107,8 @@ export interface Wrestler {
   country: string;
   /** Promotion initials, e.g. "NWGP". */
   promotion: string;
+  /** Other majors they're also signed to (non-exclusive deals): on their rosters too. */
+  also?: string[];
   division: 'MENS' | 'WOMENS' | '';
   stats: Attributes;
   fans: Fans;

@@ -2,7 +2,9 @@
 import { booked, fitsTrip } from './availability';
 import { changeLean, contenderBias, stipMult, titleBooker } from './bookerLeans';
 import { contenderLean } from './leans';
-import { fanScore, findWrestler, PROMOTIONS, type Title, TITLES, type Wrestler } from '../data/rtr';
+import { fanScore, findWrestler, PROMOTIONS, type Title, TITLES, type Wrestler, worksFor } from '../data/rtr';
+import { C, tierOf } from './clauses';
+import { dealWith, dealsOf, sideWork } from './deals';
 import type { StipulationId } from '../engine/types';
 import { hashSeed, seededRng, type Rng } from '../engine/rng';
 import { addDays, daysBetween, type Day } from './dates';
@@ -30,10 +32,10 @@ export const promoRegion = (initials: string): PopRegion => REGION_KEY[PROMOTION
 /** Someone's draw in a region on the old 0–100 scale (from their fans there): what the booking formulas weigh. */
 export const regionalPop = (w: Wrestler, r: PopRegion): number => fanScore(w, r);
 
-/** Everyone who works for a show's promotion(s) right now. */
+/** Everyone who works for a show's promotion(s) right now (a non-exclusive star is on every major they're signed to). */
 export function showRoster(show: Show, roster: readonly Wrestler[]): Wrestler[] {
   const promos = show.promos ?? [show.promo];
-  return roster.filter((w) => promos.includes(w.promotion));
+  return roster.filter((w) => promos.some((p) => worksFor(w, p)));
 }
 
 /** A regional title's region, as a popularity key (undefined for every other title). */
@@ -76,12 +78,35 @@ export function available(p: Person | undefined, day: Day): boolean {
   return true;
 }
 
-/** How many dates someone's worked (or is booked for) in the month of `day`. */
-export function datesThisMonth(c: Career, id: string, day: Day): number {
+/** How many dates someone's worked (or is booked for) in the month of `day`: anywhere, or for one promotion. */
+export function datesThisMonth(c: Career, id: string, day: Day, promo?: string): number {
   const m = day.slice(0, 7);
   let n = 0;
-  for (const s of Object.values(c.shows)) if (s.date.startsWith(m) && s.card?.some((b) => b.a === id || b.b === id)) n++;
+  for (const s of Object.values(c.shows)) if (s.date.startsWith(m) && (!promo || (s.promos ?? [s.promo]).includes(promo)) && s.card?.some((b) => b.a === id || b.b === id)) n++;
   return n;
+}
+
+/**
+ * Agreed dates (part-timers, special attractions, and anyone on more than one major): the dates a month
+ * each promotion has with them. Counted once per show being drawn up, for just the people who have a cap.
+ */
+function capped(c: Career, show: Show, pool: readonly Wrestler[]): Set<string> {
+  const out = new Set<string>();
+  const promos = show.promos ?? [show.promo];
+  const caps = new Map<string, number>();
+  for (const w of pool) {
+    const k = promos.map((p) => dealWith(c.people[w.id], p)).find(Boolean);
+    if (k?.dates) caps.set(w.id, k.dates);
+  }
+  if (!caps.size) return out;
+  const m = show.date.slice(0, 7);
+  const n = new Map<string, number>();
+  for (const s of Object.values(c.shows)) {
+    if (s.id === show.id || !s.card || !s.date.startsWith(m) || !(s.promos ?? [s.promo]).some((p) => promos.includes(p))) continue;
+    for (const b of s.card) for (const id of [b.a, b.b]) if (caps.has(id)) n.set(id, (n.get(id) ?? 0) + 1);
+  }
+  for (const [id, cap] of caps) if ((n.get(id) ?? 0) >= cap) out.add(id);
+  return out;
 }
 
 /** Wrestlers on a card the day before or after on another continent. */
@@ -101,9 +126,13 @@ export function playerBookable(c: Career, show: Show): boolean {
   const w = findWrestler(c.player);
   if (!me || !w) return false;
   if (show.promo === 'TIS') return false; // indie dates only come from offers you accept
-  if (!(show.promos ?? [show.promo]).includes(w.promotion)) return false;
+  const promos = show.promos ?? [show.promo];
+  if (!promos.some((p) => worksFor(w, p))) return false;
   if (Object.keys(c.indie).some((id) => c.shows[id]?.date === show.date)) return false;
-  const sched = me.contract?.clauses[6] ?? 0;
+  // Agreed dates (a part-time deal, or the split between your majors): no more than that a month with them.
+  const k = promos.map((p) => dealWith(me, p)).find(Boolean) ?? me.contract;
+  if (k?.dates && datesThisMonth(c, c.player, show.date, k.promo) >= k.dates) return false;
+  const sched = tierOf(k, 'schedule');
   if (sched >= 2 && datesThisMonth(c, c.player, show.date) >= SCHEDULE_T2_MAX_PER_MONTH) return false;
   if (me.daysOff?.includes(show.date)) return false;
   // The whole trip has to fit (days on): travel there and back around everything else.
@@ -130,7 +159,7 @@ export function regionFactor(c: Career, w: Wrestler, region: PopRegion, day: Day
  */
 function indiePool(c: Career, show: Show, roster: readonly Wrestler[], rnd: Rng, promised: ReadonlySet<string>): Wrestler[] {
   const champs = new Set(TITLES.filter((t) => isIndieTitle(t.id) && t.holder).map((t) => t.holder!));
-  const indie = (w: Wrestler) => w.promotion === 'TIS' || (champs.has(w.id) && (c.people[w.id]?.contract?.clauses[1] ?? 0) >= 1);
+  const indie = (w: Wrestler) => w.promotion === 'TIS' || (champs.has(w.id) && sideWork(c.people[w.id]).rule !== 'banned');
   return roster.filter((w) => w.id !== c.player && indie(w) && (rnd() < Math.min(1, regionFactor(c, w, show.region, show.date) * (champs.has(w.id) ? INDIE_CHAMP_DRAW : 1)) || promised.has(w.id)));
 }
 
@@ -210,7 +239,7 @@ export function contenders(c: Career, title: Title, pool: Wrestler[], region: Po
     const p = c.people[w.id];
     const form = (p?.recent ?? []).reduce((a, b) => a + b, 0);
     let s = regionalPop(w, home ?? region) + form * 4 + (home ? regionalDates(c, w.id, home, day) * REGIONAL_CONTENDER_PER_DATE : 0) + (w.id === c.player ? 0 : contenderLean(w)) + contenderBias(c, booker, w);
-    const tier = w.id === c.player ? p?.contract?.clauses[5] ?? 0 : 0;
+    const tier = w.id === c.player ? tierOf(p?.contract, 'title') : 0;
     if (tier >= 1) s += CONTENDER_T1_BONUS;
     if (p?.contract?.titleShotBy) s += 100;
     return s;
@@ -222,8 +251,10 @@ export function contenders(c: Career, title: Title, pool: Wrestler[], region: Po
   if (home && !eligible.length) eligible = open.filter((w) => REGION_KEY[w.region] === home);
   // Champions don't chase other titles, unless there's nobody else. An indie title doesn't count
   // against a promotion's titles: you can hold one of each.
+  // Working for more than one major (Lyra's call: anyone's titles), a champion elsewhere can still chase this one.
   const indie = isIndieTitle(title.id);
-  const unheld = eligible.filter((w) => !TITLES.some((t) => t.holder === w.id && (indie || !isIndieTitle(t.id))));
+  const owner = PROMOTIONS.find((p) => p.titles.includes(title.id));
+  const unheld = eligible.filter((w) => !TITLES.some((t) => t.holder === w.id && (indie || (!isIndieTitle(t.id) && (!owner || owner.titles.includes(t.id))))));
   return (unheld.length ? unheld : eligible).sort((a, b) => score(b) - score(a));
 }
 
@@ -335,6 +366,8 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
   if (away && indie) for (const t of TITLES) if (t.holder && t.region && titleRegion(t) !== show.region && sinceLastDefence(c, t.id, show) >= REGIONAL_HOME_DAYS) away.add(t.holder);
   let pool = (indie ? indiePool(c, show, roster, rnd, promisedHere) : showRoster(show, roster))
     .filter((w) => w.id !== c.player && !busy.has(w.id) && !reserved.has(w.id) && !away?.has(w.id) && available(c.people[w.id], show.date));
+  // Agreed dates used up this month (part-timers, special attractions, stars split between majors).
+  if (!indie) { const full = capped(c, show, pool); if (full.size) pool = pool.filter((w) => !full.has(w.id) || promisedHere.has(w.id)); }
   const card: Bout[] = [];
   const used = new Set<string>();
   const take = (id: string) => { used.add(id); };
@@ -513,6 +546,7 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
   // Crossover showcases: the two rosters against each other where possible.
   const cross = show.special?.kind === 'crossover';
   const crossPool = (a: Wrestler, xs: Wrestler[]) => { if (!cross) return xs; const o = xs.filter((w) => w.promotion !== a.promotion); return o.length ? o : xs; };
+  void dealsOf; void C;
 
   // You, if you're on and not in a match yet. In the doghouse: someone from the bottom half of the roster.
   if (wantMe && me && free(me.id)) {

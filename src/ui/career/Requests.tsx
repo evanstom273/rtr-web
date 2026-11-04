@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { fansIn, fansTotal, findWrestler, fmtFans, globalScore, TITLES, WRESTLERS } from '../../data/rtr';
+import { fansIn, fansTotal, findWrestler, fmtFans, globalScore, TITLES, WRESTLERS, rosterOf, worksFor } from '../../data/rtr';
 import {
   C, PATIENCE_FLOOR, PATIENCE_START, answerCounter, askApproach, askChallenge, askDayOff, askFinish, askIndieChallenge, askMore, askRelease, askReview,
   askRival, askShow, askSpot, askTitleShot, askTryout, askIndieTitleShot, askableIndieShows, askableIndieTitles, askableShows, askableTitles, caughtChance, cooldownLeft, counterLabel,
@@ -7,6 +7,7 @@ import {
   previewIndieTitle, previewMore, previewShow, previewSpot, previewTitle, promoName, standingWith, type Ask, type Career, type Preview, type Show,
 } from '../../career';
 import { titleMinGap } from '../../career/booker';
+import { sideWork } from '../../career/deals';
 import { isIndieBooker, patienceLog, promoOfBooker, showBooker } from '../../career/patience';
 import { addDays, daysBetween, fmtDay } from '../../career/dates';
 import { REGION_LABEL } from '../../career/places';
@@ -138,7 +139,7 @@ export function Requests({ c, tab: start, onBack, onFlow, onNegotiate }: ReqProp
   const ranks = titles.map((t) => previewTitle(c, t.id).stand[0]?.[1]).filter((x) => x && x !== '—');
   const finish = finishAskable(c);
   const exit = exitTerms(c);
-  const indieOk = !k || (k.clauses[C.indie] ?? 0) >= 1;
+  const indieOk = sideWork(c.people[c.player]).rule !== 'banned';
   const rivals = k ? c.offers.filter((o) => o.status === 'open' && o.promo !== k.promo) : [];
   const run = (f: () => Ask) => { const a = f(); commit(); setOpen(a); };
 
@@ -306,7 +307,7 @@ export function RequestFlow({ c, route, onBack, onNegotiate, onAnswered }: FlowP
   const [tab, setTab] = useState('tab' in route ? route.tab ?? 0 : 0);
   const [sel, setSel] = useState<string | null>('show' in route ? route.show ?? null : null);
   const [target, setTarget] = useState<string | null>(route.req === 'challenge' ? route.target ?? null : null);
-  const [indie, setIndie] = useState<boolean>(route.req === 'challenge' ? !!route.indie || !promo || (!!route.target && findWrestler(route.target)?.promotion !== promo) : false);
+  const [indie, setIndie] = useState<boolean>(route.req === 'challenge' ? !!route.indie || !promo || (!!route.target && !worksFor(findWrestler(route.target)!, promo)) : false);
   const [picking, setPicking] = useState(route.req === 'challenge' && !route.target);
   const [q, setQ] = useState('');
   const cyc = (n: number, inner: ReactNode) => (
@@ -389,9 +390,9 @@ export function RequestFlow({ c, route, onBack, onNegotiate, onAnswered }: FlowP
 
   if (route.req === 'challenge') {
     title = w('A Challenge', 'Challenge');
-    const indieOk = !k || (k.clauses[C.indie] ?? 0) >= 1;
+    const indieOk = sideWork(c.people[c.player]).rule !== 'banned';
     const them = target ? findWrestler(target) : undefined;
-    const outside = !!them && them.promotion !== promo;
+    const outside = !!them && !!promo && !worksFor(them, promo);
     const useIndie = indie || outside || !promo;
     const shows = useIndie ? askableIndieShows(c).slice(0, 60) : askableShows(c);
     const s = shows[i % Math.max(1, shows.length)];
@@ -518,7 +519,7 @@ export function RequestFlow({ c, route, onBack, onNegotiate, onAnswered }: FlowP
 
   const pickList = useMemo(() => {
     if (route.req !== 'challenge') return [];
-    const them = indie || !promo ? WRESTLERS : WRESTLERS.filter((x) => x.promotion === promo);
+    const them = indie || !promo ? WRESTLERS : rosterOf(promo);
     const needle = q.trim().toLowerCase();
     return them.filter((x) => x.id !== c.player && !c.people[x.id]?.retired && (!needle || x.name.toLowerCase().includes(needle)))
       .sort((a, b) => globalScore(b) - globalScore(a)).slice(0, 60);
@@ -541,7 +542,7 @@ export function RequestFlow({ c, route, onBack, onNegotiate, onAnswered }: FlowP
           <input className="c-search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search names…" aria-label="Search wrestlers" style={{ marginTop: 10 }} />
           <div className="c-body">
             {pickList.map((x) => (
-              <button key={x.id} className={target === x.id ? 'c-ans on' : 'c-ans'} onClick={() => { setTarget(x.id); setPicking(false); setI(0); if (promo && x.promotion !== promo) setIndie(true); }} style={{ padding: '7px 10px' }}>
+              <button key={x.id} className={target === x.id ? 'c-ans on' : 'c-ans'} onClick={() => { setTarget(x.id); setPicking(false); setI(0); if (promo && !worksFor(x, promo)) setIndie(true); }} style={{ padding: '7px 10px' }}>
                 <span className="c-rowsb"><Nm id={x.id} /><span className="c-hint">{x.promotion === 'TIS' ? 'INDIE' : x.promotion}</span></span>
                 <span className="c-ad">{x.gimmick} · {fmtFans(fansTotal(x))} fans</span>
               </button>

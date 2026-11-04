@@ -1,7 +1,7 @@
 // Promotion popularity (Lyra's call: it moves). Each month every promotion's 0–100 popularity moves at
 // most a point towards what its roster and its matches deserve; indie brands the same on their own scale.
 // No randomness: it's the same however the month is played.
-import { PROMOTIONS, WRESTLERS, globalScore } from '../data/rtr';
+import { PROMOTIONS, globalScore, rosterOf } from '../data/rtr';
 import { activeWorld } from '../world/world';
 import { setCareerHooks } from './career';
 import { addDays } from './dates';
@@ -33,7 +33,7 @@ function recentStars(day: string): { promo: Map<string, number>; brand: Map<stri
 
 /** Where a promotion is heading: its roster's average draw against TCG's at the start, and its matches. */
 export function promoTarget(initials: string, stars: number | undefined): number {
-  const roster = WRESTLERS.filter((w) => w.promotion === initials);
+  const roster = rosterOf(initials);
   const draw = roster.length ? roster.reduce((t, w) => t + globalScore(w), 0) / roster.length : PROMO_POP_REF;
   return clamp(10 + (70 * draw) / PROMO_POP_REF + ((stars ?? 3) - 3) * PROMO_POP_PER_STAR, PROMO_POP_BOUNDS);
 }
