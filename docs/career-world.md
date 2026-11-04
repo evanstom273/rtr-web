@@ -875,3 +875,146 @@ Lyra's call: during a skip, your character answers mail by standing orders, set 
 - **Contract offers:** ask you (the default), re-sign only, or any promotion, at or above a minimum fee. They're signed as offered, with no negotiating.
 
 The skip sheet also takes **a number of days** (1–365) as well as tomorrow, a week, a month and your next booking.
+
+## Contracts: the 25 clauses (on)
+
+Lyra's design, built across stages 1–8: `clauses.ts` (the clauses, groups, promotion characters, packages), `deals.ts` (everyone's deals, exclusivity rules, AI deals, rewriting old contracts), `contracts.ts` (negotiation and signing), `exclusive.ts`, `creative.ts`, `money.ts`, `body.ts`, `shape.ts` and `conduct.ts` (what each clause does), and the screens `Negotiate.tsx`, `Contract.tsx`, `Creative.tsx`, `Rebrand.tsx` and `Epilogue.tsx`. Every number is in `tuning.ts` under *Clauses* and is a **proposal**, waiting on Lyra's approval.
+
+**Structure.**
+- **Tiers:** every clause is None plus three tiers.
+- **Groups:** the clauses come in five sections: booking & the card, money, body & schedule, image & conduct, and the future & getting out.
+- **No gates (Lyra's call):** any tier is possible, at a price. Each tier costs the promotion a share of the fee, scaled by its attitude: ×1.6 if it resists the clause, ×0.6 if it's flexible.
+- **Fresh contracts on update:** world rev 9 rewrites every contract when the save loads. The fee, dates and promotion stay the same. Clauses come from the wrestler's package. Your own deal keeps any tier you'd already negotiated on the eight clauses that carried over, and you get a letter explaining the change.
+
+**Promotion characters** (`CHARACTER`): every major has a style, a blurb, the clauses it fights and the ones it gives easily. Exclusivity works the other way round: a possessive promotion pays more to own you and pushes its deals up.
+
+**Packages** (Lyra's call):
+- **The four on offer:** Star, Developmental, Part-timer/Legend and Special Attraction, plus a fully custom deal.
+- **How promotions use them:** they open with the package that fits you, and you can start from any of them.
+- **AI deals by package:** the top 15% of a roster get star deals (a fifth of them special attractions, which are non-exclusive). Veterans aged 38 and over in the top 60% get part-timer deals. Anyone 23 or under in the bottom half gets a developmental deal. Everyone else gets a standard deal: exclusive, with travel paid.
+
+**Negotiation.**
+- **Fee and dates:** fee, length and dates a month. Fewer dates pay more per date (+5% for each date below 10).
+- **Bonus triggers:** you pick them, and the tier sets how many (1, 2 or 4).
+- **Walk-away lines:** you set the lowest tier you'll accept on each clause. Walking away costs 5 points of the booker's patience, unless their offer has gone under one of your lines.
+- **When they counter:** they ask for more exclusivity first, because it saves them money.
+- **Courtesy call:** your current promotion always gets one before you sign elsewhere, and makes a counter-offer if it can get near the other deal.
+
+**Exclusivity.**
+- **The tiers:**
+  - None: non-exclusive.
+  - T1: First Refusal.
+  - T2: no other majors; indie dates and outside work need approval.
+  - T3: total exclusivity.
+- **Pricing:** priced against T2. A non-exclusive deal costs the promotion 15% of the fee, First Refusal 8%, and Total Exclusivity pays you 12% more.
+- **More than one major:** a non-exclusive wrestler can sign with up to 3 majors. They count fully on every roster (`worksFor`, `Wrestler.also`).
+- **Agreed dates:** 12 a month are split between the deals. A new deal takes 4 by default.
+- **Titles:** they can hold titles from any promotion they're on.
+- **First Refusal:** the promotion blocks a second deal 35% of the time (65% if it's a rival in its own region). Blocking pays you 4 weekly fees and puts the booker 10 points of patience in your debt.
+- **AI stars:** each month, a promotion with room has a 12% chance of signing a non-exclusive star as a second deal.
+
+**Creative Control.**
+- **What it covers:** finishes in either direction, opponents, card position, feuds and turns.
+- **The tiers:**
+  - T1: ask. The odds are 20% plus 0.6% for each point of the booker's patience (62% at 70).
+  - T2: as T1, plus a veto every 30 days.
+  - T3: you decide.
+- **Cost:** using it costs nothing.
+- **AI stars with it:** the booker plans for them to beat anyone ranked below them, except in title matches.
+- **Where to find it:** Requests › Creative Control.
+
+**Money.**
+- **Guaranteed Pay**
+  - pulled from a card: 50% of the fee at T1, 100% at T2 and T3;
+  - a monthly minimum of 2 weekly fees at T2 and 4 at T3.
+- **Wage Matching**
+  - yearly raises of 2%, 4% or 6% by tier;
+  - from T2, a 5% raise for a title, or for a year averaging 3.5★ or better;
+  - at T3, parity with anyone below you.
+- **Performance Bonuses**, in weekly fees:
+  - winning a title: 5;
+  - a successful defence: 1;
+  - a 4★ match: 1;
+  - a main event: 0.5;
+  - a big show: 0.5;
+  - every 5 wins in a row: 2.
+- **Merchandise Rights:** a cut of their online store of 10%, 20% or 35% of fans × 0.003 a month. From T2, your own merch table at their shows.
+- **Profit Share**
+  - a show's takings are £40k weekly, £25k tour, £150k special or £400k flagship, multiplied by (popularity ÷ 50)²;
+  - your cut is 0.4%, 0.6% or 0.8%;
+  - flagships at T1, specials from T2, and every show you're on at T3.
+- **Signing Bonus & Advances**
+  - a signing bonus of 2, 5 or 10 weekly fees;
+  - when you're skint, an advance of 2, 4 or 8 weekly fees, at 15%, 8% or 0% interest, paid back from half of each fee;
+  - T3 writes off 25% when the deal ends;
+  - you take an advance from the Finances screen.
+- **Loyalty & Tenure**
+  - each anniversary pays 0.5, 1 or 1.5 weekly fees × years served (up to 5);
+  - from T2, protection from release after 3 years;
+  - at T3, legend status after 5 years (+10 reputation).
+
+**Body and schedule.**
+- **Medical Pay**
+  - an injury of 21 days or more pays out 2, 4 or 8 weekly fees;
+  - from T2, a deal that ends while you're injured runs on until you're fit, plus 14 days;
+  - at T3, your spot and any title shot owed are held for your return.
+- **Training & Development**
+  - T1: training costs 75%.
+  - T2: free, plus 15% extra gains.
+  - T3: free, 30% extra gains, recovery ×1.25 and rehab ×0.75.
+- **Match Conditions**
+  - T1+: no hardcore stipulations for anyone with the clause.
+  - T2: you can turn down any stipulation on the show screen.
+  - T3: injury risk ×0.5 and fatigue ×0.75 on their shows.
+- **Schedule Flexibility:** holiday weeks of 1, 2 or 4 a year. From T2, you can go part-time (4 dates a month).
+- **Travel & Accommodation**
+  - None: you pay your travel to their dates.
+  - Per diems of £50 at T2 and £75 at T3 on away dates.
+  - Trip fatigue: 0 in your country, 4 in your region, 10 abroad. That's multiplied by 1 at T0 and T1, 0.6 at T2 and 0.3 at T3.
+  - The promotion pays 0%, 75%, 75% or 100% of a move.
+- **International Touring**
+  - T1: skip tour dates.
+  - T2: tours only if you've opted in.
+  - T3: you headline the tours you join, for 1.5× the fans.
+
+**Career shape.**
+- **Booking Commitments**
+  - 2, 4 or 6 dates a month, and their big shows at T3;
+  - card position: never the opener, the upper half, and at T3 a main event a third of the time;
+  - each short month is paid in full and counts as a breach; at 3 breaches you can walk free.
+- **Contract Renewal & Options**
+  - None: they can take an option year. They do it half the time if you're in the top half of their roster.
+  - T1: mutual.
+  - T2: yours.
+  - T3: the deal renews itself with a 15% raise unless you've said you're walking.
+  - Renewal talks open 90 days before the end, or 183 days from T1. From T2, re-signing comes with a raise.
+- **Championship Opportunities:** a rematch within 60 days from T1. From T2, reign protection of 30 or 60 days.
+- **Push & Marketing:** the fans you win on their shows are multiplied by 1.15, 1.3 or 1.5.
+- **Retirement & Legacy**
+  - New: you can announce your retirement in Requests › Your contract.
+  - T1: a guaranteed farewell match.
+  - T2: a night in your honour, with a purse of 3 weekly fees.
+  - T3: a pension of 26 weekly fees.
+  - The career then ends with an epilogue screen.
+- **Mentorship**
+  - T1: an assigned mentor.
+  - T2: a bigger name, plus 10% extra from training.
+  - T3: your choice of mentor; or, at 32 and over, up to 2 protégés, each worth +1 reputation a month.
+
+**Behaviour.**
+- **Social Media Policy**
+  - None: going after their roster costs a fine of 1 weekly fee and 5 points of patience.
+  - T1: half a weekly fee, and only for going after their top quarter.
+  - T2: free rein.
+  - T3: free rein, and your reach is ×1.5.
+- **Conduct & Discipline**
+  - fines are 2 weekly fees for a no-show, 1 for going off-script and 0.5 for a beef;
+  - they're multiplied by 1, 0.6, 0.3 or 0 by tier;
+  - three no-shows in 90 days is a 14-day suspension, whatever the tier.
+- **No-shows:** "Don't turn up" is now a button on the show screen.
+- **Character & Image Rights**
+  - leaving without the rights means a rebrand: you pick a new ring name, and lose 10% of your fans plus 3% for each year you were there, up to 40%. T1 halves the loss, and T2 or higher keeps your name;
+  - Shared or higher is needed for paid content and conventions;
+  - Licensed or higher is needed for sponsors and your own gear.
+
+**Requests › Your contract** gathers the actions: leaving any of your deals, holiday weeks, part-time, tours, your option year, letting a T3 deal run out, and announcing your retirement.
