@@ -1032,3 +1032,42 @@ export const GOAT_TONE = { warm: 0.5, plain: 1, cocky: 1.2, blunt: 1.5 };
 export const PHONE_IN = { daily: 0.25, perFriend: 0.04, friendsMax: 10, weekCap: 6, closeLike: 25, closeFam: 30, digLike: -50, askAge: 25, askRespect: 20 };
 /** Replies to what people send you: how far each moves how they feel about you. */
 export const PHONE_REPLY = { chat: 4, brief: 1, tease: 3, teaseCold: -2, happy: 5, jealous: -4, there: 6, help: 8, tip: 3, brush: -6, rise: 0, fireBack: -8, laughOff: -3 };
+
+// --- Plans and activities (Lyra's relationships redesign, stage 3: PROPOSALS) ---------------------------
+/**
+ * What you can do together: which half of the day, what it costs (before where you live), and what it does: like
+ * (both ways), familiarity, respect, a lift to wellbeing (both of you), and fatigue (yours). The gym and running
+ * spots are a training session too.
+ */
+export const MEETS = {
+  drinks: { ph: ['pm'], cost: 25, like: 6, fam: 6, respect: 0, mood: 2, fatigue: 3 },
+  meal: { ph: ['am', 'pm'], cost: 35, like: 7, fam: 6, respect: 0, mood: 2, fatigue: 0 },
+  night: { ph: ['pm'], cost: 60, like: 9, fam: 8, respect: 0, mood: 4, fatigue: 12 },
+  gym: { ph: ['am', 'pm'], cost: 0, like: 4, fam: 5, respect: 2, mood: 1, fatigue: 0 },
+  spots: { ph: ['am', 'pm'], cost: 0, like: 5, fam: 5, respect: 3, mood: 1, fatigue: 0 },
+  visit: { ph: ['am', 'pm'], cost: 0, like: 8, fam: 8, respect: 0, mood: 3, fatigue: -2 },
+} as const;
+/**
+ * Making plans: up to this many days ahead. Whether they say yes: from how they like you (a base plus per point,
+ * between these), family nearly always; low wellbeing puts people off a night out; asked again within a week of a no,
+ * half as likely. On the day some flake (by personality). Standing someone up, or cancelling (late, under a day's
+ * notice), costs you. Paying for it costs double and they like that.
+ */
+export const MEET_RULES = {
+  ahead: 7, accept: { base: 0.15, perLike: 0.009, min: 0.05, max: 0.95, family: 0.85, lowMood: 0.7, declinedDays: 7, declined: 0.5, tone: 0.1 },
+  flake: { base: 0.07, unpredictable: 0.1, rebellious: 0.05, hot_headed: 0.05, reliable: -0.05, professional: -0.03 },
+  flakeLike: -4, flakeMood: -2, missed: -6, cancel: -2, cancelLate: -4, payLike: 3, hurt: 4,
+};
+/** On the road: sharing the drive to an indie show halves your travel, and you get closer. A friend this close offers, this often. */
+export const SHARE = { cut: 0.5, like: 5, fam: 6, offerLike: 25, offerFam: 20, offer: 0.6 };
+/** Gifts: what you can spend, what each does; a second within a month counts for half; on their birthday, half again more. */
+export const GIFTS = { amounts: [20, 50, 150], like: [5, 9, 14], againDays: 30, again: 0.5, birthday: 1.5 };
+/** Borrowing: what you can ask for, from someone who likes you this much and knows you this well; the chance from how they like you. */
+export const BORROW = { amounts: [250, 500, 1000], minLike: 40, minFam: 30, base: 0.2, perLike: 0.01, family: 0.9 };
+/**
+ * Lending: friends in trouble ask (this often, for one of these), paid back in this many weeks; whether they ever do
+ * (by personality); what saying yes or no does; chasing money that's late.
+ */
+export const LEND = { ask: 0.25, amounts: [200, 400, 800], weeks: [4, 8], repay: 0.8, reliable: 0.95, mercenary: 0.6, yesLike: 8, noLike: -3, late: 14, chaseYes: 0.5, chaseLike: -2 };
+/** What people invite you to (part of the phone's weekly cap): a chance each day; an introduction to another major's booker no more than every so often. */
+export const PLANS_IN = { daily: 0.12, introDays: 120 };

@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { findWrestler } from '../../data/rtr';
 import {
-  answerEvent, contacts, eventChoices, GUESS_TEXT, markRead, preview, readOf, relationOf, relLabel, replyTo, send, threadList, threadOf, TONE_LABEL, topicsFor,
+  answerEvent, cancelMeet, contacts, eventChoices, GUESS_TEXT, MEET_LABEL, upcoming, markRead, preview, readOf, relationOf, relLabel, replyTo, send, threadList, threadOf, TONE_LABEL, topicsFor,
   type Career, type Letter, type ThreadItem, type Tone, type Topic,
 } from '../../career';
 import { fmtDay } from '../../career/dates';
@@ -92,12 +92,18 @@ function Thread({ c, id, onBack }: { c: Career; id: string; onBack: () => void }
     <Screen>
       <Head title={nameOf(id)} meta={w(tagOf(c, id))} onBack={onBack} />
       <span className="c-hint" style={{ marginTop: 6 }}>{knows}{read === 'none' ? ' · you can’t tell how they feel about you' : ''}</span>
+      {upcoming(c, id).map((m) => (
+        <div key={m.id} className="c-rowsb c-plan">
+          <span className="c-val"><b>{MEET_LABEL[m.kind]}</b> · {fmtDay(m.day, 'dm')} {m.ph === 'am' ? 'morning' : 'evening'}{m.pay ? ' · your treat' : ''}</span>
+          <button className="c-chip" onClick={() => { cancelMeet(c, m.id); done(); }}>{w('Cancel')}</button>
+        </div>
+      ))}
       <div className="c-body c-msgs" ref={body}>
         {!items.length && <span className="c-note">Nothing between you yet.</span>}
         {items.map((x) => {
           const sep = x.day !== lastDay ? <span key={`d${x.n}`} className="c-dsep">{fmtDay(x.day, 'dm')}</span> : null;
           lastDay = x.day;
-          return [sep, x.msg ? (
+          return [sep, x.msg?.sys ? <span key={x.n} className="c-sys">{x.msg.text}</span> : x.msg ? (
             <div key={x.n} style={{ display: 'contents' }}>
               <span className={`c-bub${x.msg.me ? ' me' : ''}`}>{x.msg.text}</span>
               {x.msg.note && <span className="c-bnote">{x.msg.note}</span>}
@@ -145,12 +151,15 @@ function LetterBit({ c, l, onDone }: { c: Career; l: Letter; onDone: () => void 
 function Composer({ c, id, onClose, onSent }: { c: Career; id: string; onClose: () => void; onSent: () => void }) {
   const { w } = useWords();
   const [topic, setTopic] = useState<Topic | null>(null);
-  const [about, setAbout] = useState<string | undefined>(undefined);
+  const [one, setAbout] = useState<string | undefined>(undefined);
+  const [picks, setPicks] = useState<Record<number, string>>({});
   const [tone, setTone] = useState<Tone | null>(null);
   const topics = topicsFor(c, id);
   const t = topics.find((x) => x.topic === topic);
   const needsAbout = topic === 'gossip' || topic === 'word';
-  const ready = topic && tone && (!needsAbout || about);
+  const groups = t?.groups;
+  const about = groups ? (groups.every((_, i) => picks[i]) ? groups.map((_, i) => picks[i]).join('|') : undefined) : one;
+  const ready = topic && tone && (!needsAbout || about) && (!groups || about);
   const pv = ready ? preview(c, id, topic!, tone!, about) : null;
   return (
     <div className="c-sheet" onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -168,6 +177,12 @@ function Composer({ c, id, onClose, onSent }: { c: Career; id: string; onClose: 
             <div className="c-chips">{(t?.about ?? []).map((a) => <button key={a} className={`c-chip${about === a ? ' on' : ''}`} onClick={() => setAbout(a)}>{topic === 'gossip' ? nameOf(a) : a}</button>)}</div>
           </>
         )}
+        {topic && groups?.map((g, i) => (
+          <div key={g.name} style={{ display: 'contents' }}>
+            <span className="c-lab">{w(g.name)}</span>
+            <div className="c-chips">{g.options.map((o) => <button key={o.id} className={`c-chip${picks[i] === o.id ? ' on' : ''}`} onClick={() => setPicks((p) => ({ ...p, [i]: o.id }))}>{o.label}</button>)}</div>
+          </div>
+        ))}
         {topic && (
           <>
             <span className="c-lab">{w('How do you say it?')}</span>
@@ -181,7 +196,7 @@ function Composer({ c, id, onClose, onSent }: { c: Career; id: string; onClose: 
           </>
         )}
         <div className="c-nav" style={{ marginTop: 6 }}>
-          <button className="c-b2" onClick={() => (topic ? (setTopic(null), setTone(null), setAbout(undefined)) : onClose())}>{w(topic ? '‹ Change' : 'Cancel')}</button>
+          <button className="c-b2" onClick={() => (topic ? (setTopic(null), setTone(null), setAbout(undefined), setPicks({})) : onClose())}>{w(topic ? '‹ Change' : 'Cancel')}</button>
           <button className="c-b1" disabled={!ready} onClick={() => { if (send(c, id, topic!, tone!, about)) onSent(); }}>{w('Send')}</button>
         </div>
       </div>

@@ -127,7 +127,7 @@ export function jobClashes(c: Career, show: Show): string[] {
   return [...mine.keys()].filter((k) => isShift(c, k.slice(0, 10), k.slice(11) as PhaseName) && !c.job!.off.includes(k.slice(0, 10)));
 }
 
-export type Activity = 'show' | 'travel' | 'moving' | 'work' | 'train' | 'rest' | 'hustle' | 'content';
+export type Activity = 'show' | 'travel' | 'moving' | 'work' | 'train' | 'rest' | 'hustle' | 'content' | 'social';
 export function activityAt(c: Career, day: Day, ph: PhaseName): Activity {
   const occ = occupied(c).get(pkey(day, ph));
   if (occ?.some((x) => x.startsWith('the show'))) return 'show';
@@ -136,6 +136,8 @@ export function activityAt(c: Career, day: Day, ph: PhaseName): Activity {
   if (occ?.length) return 'travel';
   if (FEATURES.jobs && isShift(c, day, ph) && !c.job!.off.includes(day)) return 'work';
   if (FEATURES.hustles && isCoaching(c, day, ph)) return 'hustle';
+  // Plans with someone (relationships stage 3): drinks, the gym, a visit.
+  if (c.meets?.some((m) => m.status === 'on' && m.day === day && m.ph === ph)) return 'social';
   const plan = c.plans?.[pkey(day, ph)];
   if (plan) return plan === 'work' ? 'work' : plan === 'trained' ? 'train' : plan;
   const r = routineOf(c);

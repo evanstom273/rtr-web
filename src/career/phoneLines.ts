@@ -5,7 +5,10 @@
 import type { Voice } from './voice';
 
 export type Tone = 'warm' | 'plain' | 'cocky' | 'blunt';
-export type Topic = 'catchup' | 'congrats' | 'console' | 'advice' | 'gossip' | 'word' | 'sorry' | 'goat';
+export type Topic = 'catchup' | 'congrats' | 'console' | 'advice' | 'gossip' | 'word' | 'sorry' | 'goat'
+  | 'invite' | 'share' | 'gift' | 'borrow' | 'payback' | 'flirt' | 'date' | 'commit' | 'movein' | 'propose' | 'split' | 'rumour';
+/** The topics a stage 1–2 conversation has its own words for (the rest bring their own). */
+export type BaseTopic = 'catchup' | 'congrats' | 'console' | 'advice' | 'gossip' | 'word' | 'sorry' | 'goat';
 export type Reaction = 'good' | 'meh' | 'bad';
 /** Voices on the phone: everyone's from voice.ts, plus family. */
 export type PVoice = Voice | 'fam';
@@ -15,10 +18,12 @@ export const TONE_LABEL: Record<Tone, string> = { warm: 'Warm', plain: 'Straight
 export const TOPIC_LABEL: Record<Topic, string> = {
   catchup: 'Catch up', congrats: 'Congratulate them', console: 'Check they’re alright', advice: 'Ask their advice', gossip: 'Ask about someone',
   word: 'Ask them to put a word in', sorry: 'Apologise', goat: 'Have a go at them',
+  invite: 'Make plans', share: 'Share the drive', gift: 'Send them something', borrow: 'Ask to borrow money', payback: 'Ask for your money back',
+  flirt: 'Flirt', date: 'Ask them out', commit: 'Make it official', movein: 'Ask them to move in', propose: 'Propose', split: 'End it', rumour: 'Spread a rumour',
 };
 
 /** What you say. */
-export const SAY: Record<Topic, Record<Tone, string[]>> = {
+export const SAY: Record<BaseTopic, Record<Tone, string[]>> = {
   catchup: {
     warm: ['How are you doing, {them}? Feels like ages.', 'Thinking about you. How’s life treating you?'],
     plain: ['Alright? What’s new with you?', 'How’s things your end?'],
@@ -70,7 +75,7 @@ export const SAY: Record<Topic, Record<Tone, string[]>> = {
 };
 
 /** How they answer: topic, then how they took it. */
-export const ANSWER: Record<Topic, Partial<Record<Reaction, Bank>>> = {
+export const ANSWER: Record<BaseTopic, Partial<Record<Reaction, Bank>>> = {
   catchup: {
     good: {
       hot: ['Busy as hell, but good. You?', 'Can’t complain. Well, I can, but I won’t.'], cocky: ['Living the dream, obviously. You?', 'Better than you, I’d imagine. Kidding. Mostly.'],
@@ -206,3 +211,56 @@ export function pickLine(bank: Bank, v: PVoice, rnd: () => number, vars: Record<
   const s = xs[Math.floor(rnd() * xs.length)]!;
   return s.replace(/\{(\w+)\}/g, (_m, k: string) => vars[k] ?? '');
 }
+
+// ------------------------------------------------------------------ plans (stage 3)
+
+export type MeetKind = 'drinks' | 'meal' | 'night' | 'gym' | 'spots' | 'visit';
+export const MEET_LABEL: Record<MeetKind, string> = { drinks: 'Drinks', meal: 'A meal', night: 'A night out', gym: 'The gym together', spots: 'Running spots', visit: 'Going round theirs' };
+
+/** You asking. */
+export const ASK: Record<MeetKind, string[]> = {
+  drinks: ['Fancy a drink {when}?', 'Pint {when}? My shout if you’re quick.'],
+  meal: ['Food {when}? I know a place.', 'Let’s get something to eat {when}.'],
+  night: ['Night out {when}. You in?', 'We’re going out {when}. Properly. You coming?'],
+  gym: ['Gym {when}? I need someone to push me.', 'Training {when}? Could use a partner.'],
+  spots: ['Want to run some spots {when}? Ring’s free.', 'Ring time {when}? Let’s work some stuff.'],
+  visit: ['Can I come round {when}?', 'I’ll pop round {when} if that’s alright.'],
+};
+/** Them answering an invitation. */
+export const INVITE_ANSWER: Record<'yes' | 'no' | 'busy', Bank> = {
+  yes: {
+    hot: ['Go on then.', 'Yeah, alright. Don’t be late.'], cocky: ['If you insist.', 'Obviously. I’m great company.'], pro: ['Sounds good. See you then.', 'Works for me.'],
+    warm: ['Yes!! Can’t wait x', 'Love that. See you then.'], sly: ['Why not. We should talk anyway.', 'Sure. I’ve got things to tell you.'], plain: ['Yeah, go on.', 'Sounds good.'],
+    fam: ['Oh lovely! I’ll get the good biscuits in.', 'Course, love. We’ll be in.'],
+  },
+  no: {
+    hot: ['Nah.', 'Not with you.'], cocky: ['I’m busy. Indefinitely.', 'Tempting. No.'], pro: ['Can’t, sorry. Another time maybe.', 'I’ll pass this time.'], warm: ['Aw, I can’t, sorry! Soon though?', 'Not this time, sorry x'],
+    sly: ['Hm. Not this week.', 'Let me think about it. (No.)'], plain: ['Can’t, sorry.', 'Not this time.'], fam: ['Oh, we’re out that day, love. Another time?'],
+  },
+  busy: { plain: ['Can’t, I’m in {where} that day.', 'I’m away then. {where}.'], hot: ['I’m in {where}. Another time.'], warm: ['I’m in {where} then, sorry! Another time?'] },
+};
+/** After a good time. */
+export const AFTER: Record<MeetKind, Bank> = {
+  drinks: { plain: ['Good shout, that. Same again soon.'], hot: ['Head’s banging. Worth it.'], warm: ['Loved that. Thank you x'], cocky: ['You owe me a pint now. Them’s the rules.'], pro: ['Good to catch up properly.'], sly: ['Interesting chat. Very interesting.'], fam: ['Lovely to see you, love.'] },
+  meal: { plain: ['Cracking food. Good to catch up.'], warm: ['That was so nice. Let’s do it again soon x'], hot: ['Best thing I’ve eaten in weeks.'], cocky: ['Next time I’ll pick somewhere decent.'], pro: ['Good food, good company.'], sly: ['We should do that more often.'], fam: ['You look thin, love. Come back soon.'] },
+  night: { plain: ['What a night.', 'Never again. Until next week.'], hot: ['Can’t remember half of it. Brilliant.'], warm: ['Best night in ages!! x'], cocky: ['Legendary. Obviously.'], pro: ['Fun. Training’s going to hurt tomorrow.'], sly: ['I saw what you did. Your secret’s safe. For now.'] },
+  gym: { plain: ['Good session.', 'Felt that. Same time next week?'], hot: ['Pushed you hard. You’ll thank me.'], warm: ['Great session! Proud of you x'], cocky: ['You kept up. Mostly.'], pro: ['Solid work today.'], sly: ['You’ve got a weakness on your left side. Just saying.'] },
+  spots: { plain: ['That last sequence is money.', 'Good work. That’s going on telly.'], hot: ['Hit me harder next time.'], warm: ['That was so fun! We work well together.'], cocky: ['I made you look good. You’re welcome.'], pro: ['Tight. Let’s keep it.'], sly: ['Keep that finish to yourselves.'] },
+  visit: { plain: ['Good to see you.'], warm: ['Come round any time x'], fam: ['House feels empty now you’ve gone. Ring us.'], hot: ['Don’t leave it so long next time.'], cocky: ['You can come again. Maybe.'], pro: ['Thanks for coming over.'], sly: ['Nice to have a proper talk.'] },
+};
+/** Pulling out on the day. */
+export const FLAKE: Bank = {
+  plain: ['Sorry, something’s come up. Can’t make it.', 'Gutted, I can’t today. Rain check?'], hot: ['Can’t today. Don’t ask.'], cocky: ['Something better came up. Kidding. Sort of. Can’t make it.'],
+  pro: ['Apologies, I have to cancel today.'], warm: ['I’m so sorry, I can’t make it today x'], sly: ['Can’t today. Tell you why another time.'], fam: ['Your dad’s not well, love, can we do another day?'],
+};
+/** Asked over the phone for something else. */
+export const ASKED: Record<'gift_thanks' | 'borrow_yes' | 'borrow_no' | 'pay_yes' | 'pay_no' | 'share' | 'lend' | 'birthday', Bank> = {
+  gift_thanks: { plain: ['You didn’t have to do that. Thank you.'], warm: ['Oh my god, thank you!! x'], hot: ['Ha. Cheers, that’s sound.'], cocky: ['Finally, someone who appreciates me.'], pro: ['Very kind. Thank you.'], sly: ['How thoughtful. What do you want?'], fam: ['Oh, you shouldn’t have, love! Thank you x'] },
+  borrow_yes: { plain: ['Course. Pay me back when you can.'], warm: ['Of course! Don’t worry about it x'], hot: ['Fine. Don’t make me chase you.'], cocky: ['I’ll add it to the list of things you owe me.'], pro: ['Sure. Let’s say from your next few fees.'], sly: ['Happy to help. I’ll remember it.'], fam: ['Course we can, love. Just don’t tell your dad.'] },
+  borrow_no: { plain: ['Can’t, sorry. Skint myself.'], warm: ['I wish I could, sorry x'], hot: ['No chance.'], cocky: ['Do I look like a bank?'], pro: ['I don’t lend money. Sorry.'], sly: ['Money ruins friendships. No.'], fam: ['We’re a bit stretched ourselves, love.'] },
+  pay_yes: { plain: ['Sorry, should’ve done it sooner. Sent.'], warm: ['So sorry! Sending it now x'], hot: ['Alright, alright. Sent.'], cocky: ['Fine. Don’t spend it all at once.'], pro: ['Of course. Done.'], sly: ['There. We’re square.'] },
+  pay_no: { plain: ['Bit tight at the minute. Soon, promise.'], warm: ['I know, I’m so sorry, next week? x'], hot: ['You’ll get it. Stop asking.'], cocky: ['What money?'], pro: ['I’ll sort it at the end of the month.'], sly: ['I thought that was a gift?'] },
+  share: { plain: ['We’re both on {show}. Share a car? Halves on petrol.'], warm: ['Road trip to {show}?? Let’s share a car x'], hot: ['You driving to {show}? I’ll come with. Halves.'], cocky: ['I’ll let you drive me to {show}. Halves on fuel.'], pro: ['Want to share the drive to {show}? Saves us both.'], sly: ['Share a car to {show}? We can talk on the way.'] },
+  lend: { plain: ['Bit awkward, but could you lend me {amount}? I’ll pay you back.'], warm: ['I hate asking, but could you lend me {amount}? x'], hot: ['Skint. Can you lend me {amount}? I’m good for it.'], cocky: ['Short-term liquidity issue. {amount}?'], pro: ['Could you lend me {amount} until my next fees come in?'], sly: ['Need a favour. {amount}. Between us.'] },
+  birthday: { plain: ['It’s {them}’s birthday {when}.'] },
+};

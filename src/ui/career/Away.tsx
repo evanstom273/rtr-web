@@ -32,6 +32,9 @@ export function Away({ c }: { c: Career }) {
       <span className="c-sec">{w('People and press')}</span>
       <div className="c-chips">{chip(o.people === 'gracious', 'Gracious', () => { o.people = 'gracious'; })}{chip(o.people === 'cocky', 'Cocky', () => { o.people = 'cocky'; })}{chip(o.people === 'fiery', 'Fiery', () => { o.people = 'fiery'; })}{chip(o.people === 'leave', 'Ask me', () => { o.people = 'leave'; })}</div>
 
+      <span className="c-sec">{w('Invitations')}</span>
+      <div className="c-chips">{chip((o.invites ?? 'close') === 'close', 'Yes to people I’m close to', () => { o.invites = 'close'; })}{chip(o.invites === 'no', 'Say no', () => { o.invites = 'no'; })}{chip(o.invites === 'leave', 'Ask me', () => { o.invites = 'leave'; })}</div>
+
       <span className="c-sec">{w('Contract offers')}</span>
       <div className="c-chips">{chip(!o.contracts.on, 'Ask me', () => { o.contracts.on = false; })}{chip(o.contracts.on && o.contracts.same, 'Re-sign only', () => { o.contracts.on = true; o.contracts.same = true; })}{chip(o.contracts.on && !o.contracts.same, 'Any promotion', () => { o.contracts.on = true; o.contracts.same = false; })}</div>
       {o.contracts.on && (

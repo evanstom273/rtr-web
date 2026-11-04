@@ -281,3 +281,8 @@
 [data-skin=paper] .cr .c-bub.me{background:var(--cr-fg);color:var(--cr-bg)}
 [data-skin=paper] .cr .c-av{background:transparent;border:1px solid var(--cr-line);font-family:'Playfair Display',Georgia,serif}
 [data-skin=paper] .cr .c-phoneb{background:transparent;border-left:1px solid var(--cr-line);font-family:'Playfair Display',Georgia,serif;font-size:16px}
+.cr .c-wk.social{border-left-color:var(--cr-face)}
+.cr .c-sys{align-self:center;text-align:center;font-family:var(--cr-mono);font-size:10.5px;letter-spacing:.04em;color:var(--cr-dim);max-width:90%;padding:2px 0}
+.cr .c-plan{margin-top:6px;padding:6px 8px;border:1px solid var(--cr-line);border-left:3px solid var(--cr-face);gap:8px}
+.cr .c-plan .c-chip{min-height:32px}
+.cr .c-sheet .c-chips{max-height:none}

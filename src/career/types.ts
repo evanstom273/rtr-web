@@ -371,6 +371,11 @@ export interface Career {
   social?: import('./social').SocialState;
   /** The phone: your threads with people, and what they've sent you this week. */
   phone?: import('./phone').PhoneState;
+  /** Plans with people (drinks, the gym, a visit), money you've lent, drives you're sharing, and offers already made. */
+  meets?: import('./plans').Meet[];
+  lent?: import('./plans').Lent[];
+  shares?: Record<string, string>;
+  offered?: Record<string, Day>;
   /** AM or PM of `today` (days on). Missing: the AM. */
   phase?: 'am' | 'pm';
   /** The first day days were on: bookings before it are honoured whatever their travel. */
@@ -563,6 +568,8 @@ export interface AwayOrders {
   events: 'yes' | 'no' | 'leave';
   /** People and press: the tone of replies, or leave them for you. */
   people: 'gracious' | 'cocky' | 'fiery' | 'leave';
+  /** Invitations (Lyra's call): yes to people close to you, no to everyone, or leave them for you. */
+  invites?: 'close' | 'no' | 'leave';
   /** Contract offers: sign if they pay at least this (only your own promotion's, if `same`). */
   contracts: { on: boolean; same: boolean; minFee: number };
 }

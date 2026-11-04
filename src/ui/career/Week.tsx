@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { activityAt, baseCountry, jobBoard, livingCost, phaseOf, quitJob, relocate, relocateCost, routineOf, shiftPay, takeJob, type Activity, type Career, type DayJob } from '../../career';
+import { findWrestler } from '../../data/rtr';
+import { activeWorld } from '../../world/world';
+import { activityAt, baseCountry, MEET_LABEL, jobBoard, livingCost, phaseOf, quitJob, relocate, relocateCost, routineOf, shiftPay, takeJob, type Activity, type Career, type DayJob } from '../../career';
 import { ATTR_KEYS, ATTR_SHORT } from '../../career/create';
 import { addDays, fmtDay, weekday } from '../../career/dates';
 import { occupied, pkey } from '../../career/day';
@@ -12,7 +14,9 @@ import { commit, Head, money, Screen, useToast, useWords } from './parts';
 interface Props { c: Career; onBack: () => void; onOwnShow?: () => void }
 
 const DAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const ACT: Record<Activity, string> = { show: 'Show', travel: 'Travel', moving: 'Moving', work: 'Work', train: 'Train', rest: 'Rest', hustle: 'Gig', content: 'Content' };
+/** Plans that half-day: what, and with whom. */
+const meetLine = (c: Career, d: string, p: 'am' | 'pm') => { const m = c.meets?.find((x) => x.status === 'on' && x.day === d && x.ph === p); const P = activeWorld().people; return m ? `${MEET_LABEL[m.kind]} · ${findWrestler(m.with)?.name ?? P?.folk?.[m.with]?.name ?? P?.staff[m.with]?.name ?? ''}` : ''; };
+const ACT: Record<Activity, string> = { show: 'Show', travel: 'Travel', moving: 'Moving', work: 'Work', train: 'Train', rest: 'Rest', hustle: 'Gig', content: 'Content', social: 'Plans' };
 
 /** "Mon–Fri AM", "Mon, Wed, Fri AM", "Thu–Sat PM". */
 export function shiftText(shifts: readonly (readonly [number, string])[]): string {
@@ -44,7 +48,7 @@ export function Week({ c, onBack, onOwnShow }: Props) {
     const a = activityAt(c, d, p);
     const past = d === c.today && p === 'am' && ph === 'pm';
     const what = occ.get(pkey(d, p))?.[0];
-    const sub = a === 'show' ? what?.replace(/^the show \((.*)\)$/, '$1') : a === 'hustle' ? (what ? what.replace(/^the gig \((.*)\)$/, '$1') : 'Coaching') : a === 'travel' ? what?.replace(/^travelling (to|home from) /, (_m, x) => (x === 'to' ? '→ ' : '← ')) : a === 'work' && c.job ? JOBS[c.job.id].name : '';
+    const sub = a === 'show' ? what?.replace(/^the show \((.*)\)$/, '$1') : a === 'hustle' ? (what ? what.replace(/^the gig \((.*)\)$/, '$1') : 'Coaching') : a === 'travel' ? what?.replace(/^travelling (to|home from) /, (_m, x) => (x === 'to' ? '→ ' : '← ')) : a === 'work' && c.job ? JOBS[c.job.id].name : a === 'social' ? meetLine(c, d, p) : '';
     const free = a === 'train' || a === 'rest' || a === 'content';
     const flip = () => {
       if (!free || past) return;

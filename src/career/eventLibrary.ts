@@ -19,6 +19,7 @@ import { indieKey, patienceOf, showBooker } from './patience';
 import { affinity, relationOf, relationsList, trust } from './relations';
 import { askChallenge, askableIndieShows, askableShows, bookerName, maybeCaught, myPromo, standingWith } from './requests';
 import type { Show } from './types';
+import { FEATURES } from './tuning';
 
 // ------------------------------------------------------------------ who and where
 
@@ -31,9 +32,11 @@ const stated = (_x: EvCtx, d: EvData) => `${money(Number(d.amount))}`;
 const healthy = (w: Wrestler, x: EvCtx) => !(x.c.people[w.id]?.injury && x.c.people[w.id]!.injury!.until > x.day) && !x.c.people[w.id]?.retired;
 /** Whoever runs the indie show an event is about. */
 const promoterOf = (x: EvCtx, d: Record<string, string | number>) => { const s = x.c.shows[String(d.show)]; return s ? showBooker(s) : indieKey(String(d.name)); };
-const veteran = (x: EvCtx) => scene(x).filter((w) => w.age >= 35 && healthy(w, x) && !(relationOf(x.c, w.id)?.kind === 'mentor'));
-const youngster = (x: EvCtx) => scene(x).filter((w) => w.age <= 24 && globalScore(w) < globalScore(x.me) - 3 && healthy(w, x));
-const colleague = (x: EvCtx) => scene(x).filter((w) => healthy(w, x));
+/** Real people with real reasons (Lyra's relationships redesign): people who know you first, anyone around if nobody does. */
+const known = (x: EvCtx, ws: Wrestler[]) => { const k = ws.filter((w) => (relationOf(x.c, w.id)?.fam ?? 0) >= 10); return k.length ? k : ws; };
+const veteran = (x: EvCtx) => known(x, scene(x).filter((w) => w.age >= 35 && healthy(w, x) && !(relationOf(x.c, w.id)?.kind === 'mentor')));
+const youngster = (x: EvCtx) => known(x, scene(x).filter((w) => w.age <= 24 && globalScore(w) < globalScore(x.me) - 3 && healthy(w, x)));
+const colleague = (x: EvCtx) => known(x, scene(x).filter((w) => healthy(w, x)));
 const rivals = (x: EvCtx) => relationsList(x.c).filter((r) => r.r.v <= -25 || r.r.kind === 'rival' || r.r.kind === 'enemy' || r.r.tie === 'rival').map((r) => findWrestler(r.id)!).filter((w) => w && healthy(w, x));
 const friendly = (x: EvCtx, min = 15) => relationsList(x.c).filter((r) => r.r.v >= min).map((r) => findWrestler(r.id)!).filter((w) => w && healthy(w, x));
 const withKind = (x: EvCtx, kind: string) => relationsList(x.c).filter((r) => r.r.kind === kind).map((r) => findWrestler(r.id)!).filter(Boolean);
@@ -93,7 +96,7 @@ const TRAINING: EventDef[] = [
     ],
   },
   {
-    id: 'protege_ask', cat: 'training', weight: 2, cooldown: 60, when: (x) => youngster(x).length > 0,
+    id: 'protege_ask', cat: 'training', weight: 2, cooldown: 60, when: (x) => !FEATURES.phone && youngster(x).length > 0,
     setup: (x) => { const w = pick(x.rnd, youngster(x)); return w ? { who: w.id } : null; },
     from: (_x, d) => nameOf(d), subject: () => 'Can I ask you something?',
     body: (_x, d) => [`${nameOf(d)} is ${who(d)?.age}, keen, and clearly nervous about asking. “How do you pace a match when the crowd’s dead? Everything I try falls flat.”`],
@@ -115,7 +118,7 @@ const TRAINING: EventDef[] = [
     ],
   },
   {
-    id: 'private_session', cat: 'training', weight: 2, cooldown: 40, when: (x) => friendly(x).length > 0,
+    id: 'private_session', cat: 'training', weight: 2, cooldown: 40, when: (x) => !FEATURES.phone && friendly(x).length > 0,
     setup: (x) => { const w = pick(x.rnd, friendly(x)); return w ? { who: w.id } : null; },
     from: (_x, d) => nameOf(d), subject: () => 'Ring’s free Thursday. You in?',
     body: (_x, d) => [`${first(d)} has a ring booked for a couple of hours and wants someone good to bump with.`],
@@ -362,7 +365,7 @@ const BACKSTAGE: EventDef[] = [
     ],
   },
   {
-    id: 'help_prepare', cat: 'backstage', weight: 2, cooldown: 30, when: (x) => colleague(x).length > 0,
+    id: 'help_prepare', cat: 'backstage', weight: 2, cooldown: 30, when: (x) => !FEATURES.phone && colleague(x).length > 0,
     setup: (x) => {
       const big = Object.values(x.c.shows).filter((s) => !s.done && s.date > x.day && s.card).flatMap((s) => s.card!.filter((b) => b.title || b.feud).flatMap((b) => [b.a, b.b]));
       const w = pick(x.rnd, colleague(x).filter((y) => big.includes(y.id))) ?? pick(x.rnd, colleague(x));
@@ -406,7 +409,7 @@ const BACKSTAGE: EventDef[] = [
     ],
   },
   {
-    id: 'introduction', cat: 'backstage', weight: 1.5, cooldown: 120, when: (x) => friendly(x, 25).length > 0 && PROMOTIONS.some((p) => !p.indie && p.initials !== (x.k?.promo ?? '')),
+    id: 'introduction', cat: 'backstage', weight: 1.5, cooldown: 120, when: (x) => !FEATURES.phone && friendly(x, 25).length > 0 && PROMOTIONS.some((p) => !p.indie && p.initials !== (x.k?.promo ?? '')),
     setup: (x) => {
       const w = pick(x.rnd, friendly(x, 25));
       const p = pick(x.rnd, PROMOTIONS.filter((y) => !y.indie && y.initials !== (x.k?.promo ?? '') && y.initials !== w?.promotion));
@@ -479,7 +482,7 @@ const BACKSTAGE: EventDef[] = [
     ],
   },
   {
-    id: 'mentor_checkin', cat: 'backstage', weight: 2, cooldown: 60, when: (x) => withKind(x, 'mentor').length > 0,
+    id: 'mentor_checkin', cat: 'backstage', weight: 2, cooldown: 60, when: (x) => !FEATURES.phone && withKind(x, 'mentor').length > 0,
     setup: (x) => { const w = pick(x.rnd, withKind(x, 'mentor')); return w ? { who: w.id } : null; },
     from: (_x, d) => nameOf(d), subject: () => 'How’s it going, kid?',
     body: (_x, d) => [`${first(d)} wants to go through your last few matches with you over a coffee.`],

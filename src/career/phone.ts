@@ -15,7 +15,7 @@ import { addDays, daysBetween, weekday, type Day } from './dates';
 import { dealsOf } from './deals';
 import { leanTo } from './leans';
 import { isPhoneLetter, registerReplies } from './mail';
-import { ANSWER, pickLine, SAY, SENT, TOPIC_LABEL, VIEW_OF, type PVoice, type Reaction, type Tone, type Topic } from './phoneLines';
+import { ANSWER, pickLine, SAY, SENT, TOPIC_LABEL, VIEW_OF, type BaseTopic, type PVoice, type Reaction, type Tone, type Topic } from './phoneLines';
 import { moveRelation, readOf, relationOf } from './relations';
 import { heardOf } from './scouting';
 import { FEATURES, GOAT_TONE, MAIL_IGNORE_DAYS, PHONE, PHONE_IN, PHONE_REPLY, TONE_FIT } from './tuning';
@@ -25,8 +25,8 @@ import type { Career, Letter, MailReply } from './types';
 export type { Tone, Topic } from './phoneLines';
 export { TONE_LABEL, TOPIC_LABEL } from './phoneLines';
 
-/** One line in a thread: yours or theirs, and (under a reply) what came of it. */
-export interface PhoneMsg { n: number; day: Day; me?: true; text: string; note?: string }
+/** One line in a thread: yours or theirs, and (under a reply) what came of it; or a line from the phone itself (a reminder, a plan). */
+export interface PhoneMsg { n: number; day: Day; me?: true; sys?: true; text: string; note?: string }
 export interface PhoneThread { msgs: PhoneMsg[]; seen: number; sent?: Day[]; asked?: Record<string, Day> }
 export interface PhoneState {
   threads: Record<string, PhoneThread>;
@@ -40,10 +40,10 @@ export interface PhoneState {
 const KEEP = 40;
 const P = (): People => activeWorld().people!;
 export const phoneOn = (): boolean => FEATURES.phone;
-const state = (c: Career): PhoneState => (c.phone ??= { threads: {}, incoming: 0 });
+export const state = (c: Career): PhoneState => (c.phone ??= { threads: {}, incoming: 0 });
 const thread = (c: Career, id: string): PhoneThread => (state(c).threads[id] ??= { msgs: [], seen: 0 });
-const nameOf = (id: string): string => findWrestler(id)?.name ?? P().staff[id]?.name ?? P().folk?.[id]?.name ?? id;
-const first = (id: string): string => { const n = nameOf(id).replace(/"[^"]*"\s*/g, ''); return P().folk?.[id] ? n.split(' ')[0]! : n.split(' ')[0]!; };
+export const nameOf = (id: string): string => findWrestler(id)?.name ?? P().staff[id]?.name ?? P().folk?.[id]?.name ?? id;
+export const first = (id: string): string => { const n = nameOf(id).replace(/"[^"]*"\s*/g, ''); return P().folk?.[id] ? n.split(' ')[0]! : n.split(' ')[0]!; };
 /** The number in a letter's id (they share the counter with phone lines, so a thread can be put in order). */
 const seqOf = (l: Letter): number => Number(l.id.slice(1)) || 0;
 const mondayOf = (d: Day) => addDays(d, -((weekday(d) + 6) % 7));
@@ -97,7 +97,7 @@ export function markRead(c: Career, id: string): void {
   for (const x of items) if (x.letter) x.letter.read = true;
 }
 
-function add(c: Career, id: string, m: Omit<PhoneMsg, 'n' | 'day'>): PhoneMsg {
+export function add(c: Career, id: string, m: Omit<PhoneMsg, 'n' | 'day'>): PhoneMsg {
   const t = thread(c, id);
   const msg: PhoneMsg = { n: ++c.seq, day: c.today, ...m };
   t.msgs.push(msg);
@@ -107,7 +107,26 @@ function add(c: Career, id: string, m: Omit<PhoneMsg, 'n' | 'day'>): PhoneMsg {
 
 // ------------------------------------------------------------------ what you can talk about
 
-export interface TopicOption { topic: Topic; label: string; blocked?: string; /** Ask about someone: who. Put a word in: where. */ about?: string[] }
+export interface TopicOption {
+  topic: Topic; label: string; blocked?: string;
+  /** Ask about someone: who. Put a word in: where. */
+  about?: string[];
+  /** Topics with more to pick (plans: what, when, who pays): one from each group, joined with '|' as the `about`. */
+  groups?: { name: string; options: { id: string; label: string }[] }[];
+}
+
+/** A topic another stage adds (plans, romance, rumours): whether it's on, what you'd say, how it might land, and doing it. */
+export interface TopicHandler {
+  topic: Topic;
+  option: (c: Career, id: string) => TopicOption | null;
+  say: (c: Career, id: string, tone: Tone, about: string | undefined, rnd: () => number) => string;
+  /** Roughly how far it'd move how they feel about you (for the guess). */
+  guess: (c: Career, id: string, tone: Tone, about: string | undefined) => number;
+  run: (c: Career, id: string, tone: Tone, about: string | undefined, rnd: () => number) => { reply: string; note: string };
+}
+const HANDLERS: TopicHandler[] = [];
+export const registerTopics = (...h: TopicHandler[]): void => { HANDLERS.push(...h); };
+const handlerOf = (t: Topic) => HANDLERS.find((h) => h.topic === t);
 
 /** Someone you both know (for asking what they make of someone). */
 function sharedPeople(c: Career, id: string): string[] {
@@ -152,6 +171,7 @@ export function topicsFor(c: Career, id: string): TopicOption[] {
   const sour = (r?.v ?? 0) < 0 || (r?.log ?? []).some((l) => (l.d ?? 0) < 0 && daysBetween(l.day, c.today) <= 60);
   out.push({ topic: 'sorry', label: TOPIC_LABEL.sorry, ...(sour ? {} : { blocked: 'Nothing to apologise for.' }) });
   if (!folk) out.push({ topic: 'goat', label: TOPIC_LABEL.goat });
+  for (const h of HANDLERS) { const o = h.option(c, id); if (o) out.push(o); }
   return out;
 }
 
@@ -169,7 +189,7 @@ function fit(c: Career, id: string, tone: Tone): number {
 }
 
 /** How much a message would move how they feel about you (before chance), and what it does besides. */
-function outcome(c: Career, id: string, topic: Topic, tone: Tone): { like: number; respect: number } {
+function outcome(c: Career, id: string, topic: BaseTopic, tone: Tone): { like: number; respect: number } {
   const T = PHONE.topic[topic];
   const theirs = likeOf(P(), id, c.player);
   const w = findWrestler(id);
@@ -198,9 +218,10 @@ export const GUESS_TEXT: Record<Guess, string> = {
 /** What you'd say, and your guess at how it'll land (as good as how well you know them). */
 export function preview(c: Career, id: string, topic: Topic, tone: Tone, about?: string): { text: string; guess: Guess } {
   const rnd = seededRng(hashSeed(c.seed, 'say', id, topic, tone, c.today));
-  const text = pickLine({ plain: SAY[topic][tone] }, 'plain', rnd, vars(c, id, about));
+  const h = handlerOf(topic);
+  const text = h ? h.say(c, id, tone, about, rnd) : pickLine({ plain: SAY[topic as BaseTopic][tone] }, 'plain', rnd, vars(c, id, about));
   const read = readOf(relationOf(c, id));
-  const o = outcome(c, id, topic, tone).like;
+  const o = h ? h.guess(c, id, tone, about) : outcome(c, id, topic as BaseTopic, tone).like;
   const guess: Guess = read === 'none' ? 'unknown' : o >= 4 ? 'good' : o >= 1 ? 'fine' : o > -3 ? 'risky' : 'bad';
   // A rough read is only a rough read.
   return { text, guess: read === 'rough' && (guess === 'good' || guess === 'bad') ? (guess === 'good' ? 'fine' : 'risky') : guess };
@@ -213,11 +234,18 @@ export function send(c: Career, id: string, topic: Topic, tone: Tone, about?: st
   const opt = topicsFor(c, id).find((x) => x.topic === topic);
   if (!opt || opt.blocked) return null;
   if ((topic === 'gossip' || topic === 'word') && (!about || !opt.about?.includes(about))) return null;
+  if (opt.groups && (!about || about.split('|').length < opt.groups.length || opt.groups.some((g, i) => !g.options.some((x) => x.id === about.split('|')[i])))) return null;
   const t = thread(c, id);
   const rnd = seededRng(hashSeed(c.seed, 'send', id, topic, tone, c.today, t.msgs.length));
   const { text } = preview(c, id, topic, tone, about);
   add(c, id, { me: true, text });
-  const o = outcome(c, id, topic, tone);
+  const h = handlerOf(topic);
+  if (h) {
+    t.sent = [...(t.sent ?? []), c.today].slice(-5);
+    const r = h.run(c, id, tone, about, rnd);
+    return add(c, id, { text: r.reply, note: r.note });
+  }
+  const o = outcome(c, id, topic as BaseTopic, tone);
   const like = Math.round(o.like + rnd() * PHONE.noise * 2 - PHONE.noise);
   const respect = Math.round(o.respect);
   t.sent = [...(t.sent ?? []), c.today].slice(-5);
@@ -243,7 +271,8 @@ export function send(c: Career, id: string, topic: Topic, tone: Tone, about?: st
     reply = `${pickLine(ANSWER.advice.good!, v, rnd, vv)} ${pvoice(id) === 'fam' ? '' : tip(c)}`.trim();
     leanTo(c, 'team_player', 2);
   } else {
-    const bank = ANSWER[topic][reaction] ?? ANSWER[topic].meh ?? ANSWER[topic].good!;
+    const A = ANSWER[topic as BaseTopic];
+    const bank = A[reaction] ?? A.meh ?? A.good!;
     reply = pickLine(bank, v, rnd, vv);
   }
   // How they feel about you moves (and you a little about them); what they say back is what it was.
@@ -281,15 +310,21 @@ function tip(c: Career): string {
 const R = (id: string, label: string, detail: string): MailReply => ({ id, label, detail });
 
 /** A message from someone that wants an answer (a letter underneath: ignoring it, standing orders and skip stops just work). */
-function sendIn(c: Career, who: string, text: string, replies: MailReply[], ignore?: 'friend' | 'rival'): void {
+export function sendIn(c: Career, who: string, text: string, replies: MailReply[], ignore?: 'friend' | 'rival', ctx?: Record<string, string>): void {
   letter(c, {
-    kind: 'person', from: nameOf(who), fromId: who, subject: text.length > 48 ? `${text.slice(0, 46)}…` : text, body: [text], ctx: { who }, replies,
+    kind: 'person', from: nameOf(who), fromId: who, subject: text.length > 48 ? `${text.slice(0, 46)}…` : text, body: [text], ctx: { who, ...(ctx ?? {}) }, replies,
     ...(ignore ? { ignore: { by: addDays(c.today, MAIL_IGNORE_DAYS[ignore]), kind: ignore } } : {}),
   });
   state(c).incoming++;
 }
 
 const theirLike = (c: Career, id: string) => likeOf(P(), id, c.player);
+/** Room left under this week's cap for what people send you. */
+export function capLeft(c: Career): number {
+  const S = state(c);
+  if (S.week !== mondayOf(c.today)) { S.week = mondayOf(c.today); S.incoming = 0; }
+  return PHONE_IN.weekCap - S.incoming;
+}
 
 /** Today's messages: news first (theirs), then whoever's moved to get in touch. Paced by closeness, capped weekly. */
 function incoming(c: Career): void {

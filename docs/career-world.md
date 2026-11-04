@@ -1216,3 +1216,70 @@ A thread reads as the story of the two of you. Anything that wants an answer is 
 Replies to them move feelings by the `PHONE_REPLY` numbers. Ignoring family or a best friend's check-in costs a little, and ignoring a dig makes you look scared, as with mail. Standing orders know the new replies.
 
 **Tone of the writing** (Lyra's call): grown-up and sweary where it fits the person.
+
+## Relationships and social life, stage 3: plans and activities (on)
+
+`career/plans.ts` (with words in `phoneLines.ts`). Every number is in `tuning.ts` under *Plans and activities*, and all of them are **proposals**.
+
+**Making plans** (the phone's *Make plans* topic): pick what, when and who pays.
+
+| What | When | Costs (× where you live) | Like (theirs; yours 70%) | Familiarity | Respect | Wellbeing | Your fatigue |
+|---|---|---|---|---|---|---|---|
+| Drinks | Evening | £25 | +6 | +6 | | +2 | +3 |
+| A meal | Either | £35 | +7 | +6 | | +2 | |
+| A night out | Evening | £60 | +9 | +8 | | +4 | +12 |
+| The gym together | Either | (the session) | +4 | +5 | +2 | +1 | (the session) |
+| Running spots | Either | (the session) | +5 | +5 | +3 | +1 | (the session) |
+| Going round theirs | Either | | +8 (+4 if they're hurt) | +8 | | +3 | −2 |
+
+**When it can happen.**
+- Any free half-day in the next 7 days (resting, training or making content, nothing else arranged).
+- You both have to be in the same country that day, and they can't be on a show that evening.
+- Plans take the half-day in your week ("Plans") like training does. A show or travel booked over it later means you stand them up.
+
+**Who pays.** "My treat" doubles the cost and adds +3 like.
+
+**Do they say yes?**
+- The chance is 15% plus 0.9% per point of how much they like you, between 5% and 95%. Family say yes at least 85% of the time.
+- Respect counts for training together.
+- Low wellbeing puts people off a night out.
+- Being asked again within a week of a no halves it.
+- The right tone helps.
+
+**On the day.**
+- **They might flake:** 7%, more for the unpredictable, rebellious and hot-headed, less for the reliable and professional. That costs −4 of your like for them and −2 wellbeing.
+- **If you've booked something over it,** you've stood them up: −6.
+- **Cancelling** costs −2, or −4 with under a day's notice.
+- **When it happens,** the thread gets their after-word in their voice, plus a line saying where it was, that you got closer, and what it cost.
+
+**Invitations.** People invite you, within the phone's weekly cap, about 12% a day. Each one comes with a free slot.
+- Friends invite you for drinks, a meal, a night out, the gym or running spots.
+- Family ask you round.
+- Your trainer asks you down to the school.
+- **The old cards are plans now:**
+  - your mentor's coffee: +1 to your weakest attribute from their notes;
+  - a friend on another major introducing you to their booker over a drink: a guaranteed tryout, as before;
+  - a colleague wanting to run spots;
+  - a training partner.
+
+  The introduction, help-prepare, private-session, mentor-check-in and protégé cards no longer fire while the phone's on.
+
+**The remaining backstage cards** pick people who know you first.
+
+**Standing orders** gain *Invitations*:
+- yes to people you're close to (family, or someone at +40 or more);
+- no to everyone;
+- or ask me.
+
+Lending is always yours to decide.
+
+**On the road.** A friend on the same indie card, with travel to pay, offers to share the drive 1–3 days out (60%). You can ask too, with *Share the drive*. It halves your travel, and afterwards you're closer (+5 like, +6 familiarity).
+
+**Money.**
+- **Gifts:** £20, £50 or £150 (× where you live), for +5, +9 or +14 like. A second within a month counts for half; on their birthday, half again more. You get a reminder two days before family's and close friends' birthdays.
+- **Borrowing:** from someone at +40 or more who knows you (30+), or family. Choose £250, £500 or £1,000. The chance is 20% plus 1% per point of like, less for bigger sums (family 90%). It's paid back from your fees, one loan at a time.
+- **Lending:**
+  - A close friend who's struggling (low wellbeing, after money, injured) asks for £200, £400 or £800.
+  - Lending earns +8; refusing costs −3.
+  - They pay you back in 4–8 weeks if they're the sort: 80% usually, 95% if reliable, 60% if mercenary.
+  - If they don't, you can chase it with *Ask for your money back*. They might pay up; if not, −2.
