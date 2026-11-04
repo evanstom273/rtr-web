@@ -1314,5 +1314,5 @@ export const OWNER = {
 /** The war: poaching (a month, ×3 unhappy, ×1.5 to a bigger promotion, more if their booker hates you), a shared night, TV, startups, merges. */
 export const WAR = {
   poach: 0.02, unhappy: 3, bigger: 1.5, match: 1.25, counter: 0.12, tvOutbid: 0.3,
-  startup: 0.03, startupPop: 25, startupRep: 60, startupBank: 20000, mergeRed: 2, merge: 0.3,
+  startup: 0.015, startupPop: 22, startupRep: 40, startupBank: 20000, mergeRed: 2, merge: 0.3,
 };

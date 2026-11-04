@@ -299,7 +299,8 @@ export function bookSummary(co: Company): { month: Record<string, number>; month
 }
 
 setCareerHooks({
-  show: settleShow,
+  // Your shows are settled once they've been judged (card.ts); everyone else's here.
+  show: (c, s) => { if (!playerRuns(s.promo)) settleShow(c, s); },
   monthly: monthEnd,
 });
 

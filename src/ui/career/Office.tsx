@@ -6,7 +6,7 @@ import {
 import { addDays, fmtDay } from '../../career/dates';
 import { CITIES, regionOfCountry, REGION_LABEL } from '../../career/places';
 import { COMPANY, FOUND } from '../../career/tuning';
-import { commit, Head, money, Screen, useToast, useWords } from './parts';
+import { commit, Head, money, Screen, shortMoney, useToast, useWords } from './parts';
 import { OfficeCard } from './OfficeCard';
 import { OfficeStories, OfficeTitles } from './OfficeStories';
 import { OfficeBooks } from './OfficeBooks';
@@ -98,7 +98,7 @@ function Overview({ c, promo, say }: { c: Career; promo: string; say: (s: string
         <span className="c-val">{role.as === 'owner' ? 'You own it and book it.' : `You book it for ${ownerName(promo)}, who owns it.`} Since {fmtDay(role.since, 'long')}.</span>
         <div className="c-facts">
           <span className="c-fact"><span className="c-lab">{w('Tier')}</span><b>{TIER_LABEL[co.tier]}</b></span>
-          <span className="c-fact"><span className="c-lab">{w('Bank')}</span><b>{money(co.bank)}</b></span>
+          <span className="c-fact"><span className="c-lab">{w('Bank')}</span><b>{shortMoney(co.bank)}</b></span>
           <span className="c-fact"><span className="c-lab">{w('Signed')}</span><b>{r.signed}</b></span>
           <span className="c-fact"><span className="c-lab">{w('Champions')}</span><b>{r.champs}</b></span>
         </div>
