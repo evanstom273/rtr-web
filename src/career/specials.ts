@@ -255,7 +255,7 @@ function tribute(c: Career, rnd: Rng): boolean {
 }
 
 function crossover(c: Career, rnd: Rng): boolean {
-  const majors = PROMOTIONS.filter((p) => !p.indie);
+  const majors = PROMOTIONS.filter((p) => !p.indie && !p.closed);
   const pairs: [string, string][] = [];
   for (const a of majors) for (const b of majors) {
     if (a.initials >= b.initials || a.region !== b.region) continue;

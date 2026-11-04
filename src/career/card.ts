@@ -9,6 +9,7 @@ import { activeWorld } from '../world/world';
 import { feelPair } from '../world/people';
 import { available, bookShow, setBookDefer } from './booker';
 import { mergeRound, titleAllows } from './belts';
+import { settleShow } from './books';
 import { applyBout, boutJob, letter, scripted, setCareerHooks } from './career';
 import { companyOf, isMajorTier, officeOf, playerRuns, roleIn } from './company';
 import { addDays, daysBetween, fmtDay } from './dates';
@@ -275,12 +276,13 @@ function showDone(c: Career, show: Show): void {
     }
   }
   show.rating = rateShow(c, show);
+  settleShow(c, show);
   selfBooking(c, show);
   if (roleIn(c, show.promo)) {
     const best = [...(show.card ?? [])].filter((b) => b.result).sort((a, b) => b.result!.stars - a.result!.stars)[0];
     letter(c, {
       kind: 'news', from: `${show.promo} · the office`, subject: `${show.name}: ${show.rating.score}★`,
-      body: [...show.rating.notes, ...(best ? [`Match of the night: ${nameOf(best.a)} vs ${nameOf(best.b)}, ${best.result!.stars}★.`] : []), ...(show.segments ?? []).filter((g) => g.score !== undefined).slice(0, 3).map((g) => `${SEG_LABEL[g.kind]} (${g.who.map(nameOf).join(' and ')}): ${g.score}★. ${g.note}`)],
+      body: [...show.rating.notes, ...(show.books ? [`${show.books.sold.toLocaleString('en-GB')} in the ${show.books.venue.toLowerCase()} (${show.books.cap.toLocaleString('en-GB')}). Took £${show.books.in.toLocaleString('en-GB')}, spent £${show.books.out.toLocaleString('en-GB')}.`] : []), ...(best ? [`Match of the night: ${nameOf(best.a)} vs ${nameOf(best.b)}, ${best.result!.stars}★.`] : []), ...(show.segments ?? []).filter((g) => g.score !== undefined).slice(0, 3).map((g) => `${SEG_LABEL[g.kind]} (${g.who.map(nameOf).join(' and ')}): ${g.score}★. ${g.note}`)],
       terms: show.rating.parts.map(([k, v]) => [k, `${v > 0 && k !== 'Matches' && k !== 'Segments' ? '+' : ''}${v}`] as [string, string]),
     });
   }

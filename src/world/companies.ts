@@ -33,6 +33,19 @@ export interface Company {
   autoSign?: boolean;
   /** The day its tier last moved through play (until then it follows popularity). */
   moved?: Day;
+  /** The books (booker mode, stage 4): this month so far, the last two years by month, months in a row in the red. */
+  month?: Record<string, number>;
+  books?: { m: string; lines: Record<string, number>; bank: number }[];
+  red?: number;
+  /** Its recent shows' reputation (a running average of their ratings), and the ticket price level (0 cheap, 1, 2 dear). */
+  rep?: number;
+  price?: number;
+  /** A TV deal (a fee for each weekly show), sponsors, a bank loan. */
+  tv?: { network: string; fee: number; until: Day };
+  sponsors?: { name: string; monthly: number; until: Day }[];
+  loan?: { left: number; monthly: number };
+  /** Yours: what you pay yourself a month as owner. */
+  wage?: number;
 }
 
 export const tierFor = (popularity = 0): Tier =>

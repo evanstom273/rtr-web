@@ -28,6 +28,7 @@ import './company';
 import './card';
 import './stories';
 import './belts';
+import './books';
 
 export * from './career';
 export * from './contracts';
@@ -81,3 +82,4 @@ export type { Rule } from './calendar';
 export { autoBook, bookerPool, canBook, CARD_MAX, cardIssues, describeShow, FINISH_LABEL, rateShow, SEG_LABEL, SEG_WHO, setCard, showsDone, showsToBook, STIPS, titlesFor, watchBout } from './card';
 export { alliancesOf, dispositionLabel, dropStory, formAlliance, setPayoff, startStory, storiesOf, storyLabel, turn, turnsOf, type Alliance, type Turn } from './stories';
 export { createTitle, cupPairs, cupRoundName, cupRounds, cupsOf, DIVISION_LABEL, renameTitle, retireTitle, roundBouts, setDivision, startCup, titleAllows, titleLimit, titlesOf, unifyTitles, vacateTitle, type Cup, type Division } from './belts';
+export { bookSummary, borrow, closeCompany, IN_LINES, invest, LINE_LABEL, nextTier, OUT_LINES, priceLevel, setPrice, setWage, showDraw, ticketPrice, venueFor, withdraw, type Line } from './books';

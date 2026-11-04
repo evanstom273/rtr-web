@@ -637,7 +637,7 @@ function monthly(c: Career, day: Day, rnd: Rng): void {
   const merch = mine.contract ? round5(fansTotal(me) * MERCH_PER_FAN_SIGNED * (MERCH_SHARE[mine.contract.clauses[C.merch] ?? 0] ?? 0) * pleaser) : round5(fansTotal(me) * MERCH_PER_FAN_FREE * pleaser);
   spend(c, merch, mine.contract && !(mine.contract.clauses[C.merch] ?? 0) ? 'Merch (no Merchandise Rights)' : 'Merch', 'merch');
   // Mid-contract releases at the bottom of each roster (never someone their contract protects).
-  for (const p of PROMOTIONS.filter((x) => !x.indie)) {
+  for (const p of PROMOTIONS.filter((x) => !x.indie && !x.closed && !x.closed)) {
     const roster = rosterOf(p.initials).sort((a, b) => globalScore(a) - globalScore(b));
     for (const w of roster.slice(0, Math.floor(roster.length / 4))) {
       if (w.id === c.player || TITLES.some((t) => t.holder === w.id)) continue;
@@ -650,7 +650,7 @@ function monthly(c: Career, day: Day, rnd: Rng): void {
 }
 
 /** Someone leaves a promotion: their deal there ends (a non-exclusive star keeps any other major they're on). */
-function release(c: Career, w: Wrestler, how: 'released' | 'expired', from = w.promotion): void {
+export function release(c: Career, w: Wrestler, how: 'released' | 'expired', from = w.promotion): void {
   addEvent(history(), { day: c.today, kind: how, who: w.id, name: w.name, promo: from });
   const p = c.people[w.id]!;
   if (from !== w.promotion) dropDeal(p, w, from);
@@ -709,7 +709,7 @@ function scoutRosters(c: Career, day: Day): void {
   const rnd = seededRng(hashSeed(c.seed, 'scout', day));
   const scouting = (c.scouting ??= {});
   let pool: Wrestler[] | null = null;
-  for (const p of PROMOTIONS.filter((x) => !x.indie)) {
+  for (const p of PROMOTIONS.filter((x) => !x.indie && !x.closed && !x.closed)) {
     const roster = rosterOf(p.initials);
     let n = roster.length;
     // Booker mode: a promotion's size depends on its tier, and nobody signs for a roster you run yourself.
@@ -748,6 +748,8 @@ const between = (rnd: Rng, [lo, hi]: readonly [number, number]) => lo + Math.flo
 /** How many a promotion keeps on its roster (booker mode sets it by tier; 38–40 for everyone otherwise). */
 let rosterTarget = (_promo: string, fallback: number): number => fallback;
 export const setRosterTarget = (f: typeof rosterTarget): void => { rosterTarget = f; };
+/** How many a promotion keeps on its roster (none signed for a roster you run yourself). */
+export const rosterTargetOf = (promo: string): number => rosterTarget(promo, ROSTER_TARGET);
 /** Who a promotion signs from the free pool (scouting.ts sets it: the same grade it judges you by). */
 let signingPick: ((c: Career, promo: string, pool: Wrestler[]) => Wrestler | undefined) | null = null;
 export const setSigningPick = (f: typeof signingPick): void => { signingPick = f; };
@@ -788,7 +790,7 @@ function contractsEnding(c: Career, day: Day, rnd: Rng): void {
       p.renewals = (p.renewals ?? 0) + 1;
       continue;
     }
-    const others = PROMOTIONS.filter((x) => !x.indie && !worksFor(w, x.initials) && rosterOf(x.initials).length < ROSTER_TARGET);
+    const others = PROMOTIONS.filter((x) => !x.indie && !x.closed && !worksFor(w, x.initials) && rosterOf(x.initials).length < rosterTarget(x.initials, ROSTER_TARGET));
     if (others.length && rnd() < Math.min(0.95, POACH_CHANCE * poachMult(w))) sign(c, w, others[Math.floor(rnd() * others.length)]!.initials, day, rnd);
     else release(c, w, 'expired');
   }

@@ -288,7 +288,7 @@ const MEDIA: EventDef[] = [
     body: (x) => [`Your ${x.k!.promo} contract runs out ${fmtDay(x.k!.end, 'long')}. Are you staying?`],
     options: [
       { id: 'hint', label: 'Hint you’re listening to offers', detail: () => 'Might bring an offer; your promotion won’t like it', run: (x) => {
-        const others = PROMOTIONS.filter((p) => !p.indie && p.initials !== x.k!.promo && gradeOf(x.c, x.me, p.initials).step === 'offer');
+        const others = PROMOTIONS.filter((p) => !p.indie && !p.closed && p.initials !== x.k!.promo && gradeOf(x.c, x.me, p.initials).step === 'offer');
         const o = chance(x, 0.4) ? pick(x.rnd, others) : undefined;
         if (o) makeOffer(x.c, o.initials, 'We read the interview');
         return join('“I’m keeping my options open.”', fx.pop(x, 0.5), fx.patience(x, x.k!.promo, -5, 'Talked up other offers in the press'), o ? `${o.initials} got in touch: it’s in your mail` : '');
@@ -412,7 +412,7 @@ const BACKSTAGE: EventDef[] = [
     id: 'introduction', cat: 'backstage', weight: 1.5, cooldown: 120, when: (x) => !FEATURES.phone && friendly(x, 25).length > 0 && PROMOTIONS.some((p) => !p.indie && p.initials !== (x.k?.promo ?? '')),
     setup: (x) => {
       const w = pick(x.rnd, friendly(x, 25));
-      const p = pick(x.rnd, PROMOTIONS.filter((y) => !y.indie && y.initials !== (x.k?.promo ?? '') && y.initials !== w?.promotion));
+      const p = pick(x.rnd, PROMOTIONS.filter((y) => !y.indie && !y.closed && y.initials !== (x.k?.promo ?? '') && y.initials !== w?.promotion));
       return w && p ? { who: w.id, promo: p.initials } : null;
     },
     from: (_x, d) => nameOf(d), subject: (_x, d) => `I know someone at ${d.promo}`,
@@ -545,7 +545,7 @@ const CAREER: EventDef[] = [
   },
   {
     id: 'rival_interest', cat: 'career', weight: 1.5, cooldown: 120, when: (x) => !!x.k && globalScore(x.me) >= 35 && daysBetween(x.day, x.k.end) <= 150 && !x.p.next,
-    setup: (x) => { const p = pick(x.rnd, PROMOTIONS.filter((y) => !y.indie && y.initials !== x.k!.promo && standingWith(x.c, y.initials).mine >= standingWith(x.c, y.initials).q1)); return p ? { promo: p.initials } : null; },
+    setup: (x) => { const p = pick(x.rnd, PROMOTIONS.filter((y) => !y.indie && !y.closed && y.initials !== x.k!.promo && standingWith(x.c, y.initials).mine >= standingWith(x.c, y.initials).q1)); return p ? { promo: p.initials } : null; },
     from: (_x, d) => promoName(String(d.promo)), subject: () => 'Off the record…',
     body: (_x, d) => [`${promoName(String(d.promo))} have been watching. Nothing official while you’re under contract, but they’d like to talk about when it ends.`],
     options: [

@@ -1216,3 +1216,52 @@ export const STORY = {
 };
 /** Titles you can have by tier, the cruiserweight limit (lbs), and how long an injured champion's out before you're asked. */
 export const BELTS = { max: { local: 2, regional: 4, national: 6, global: 8 } as Record<string, number>, cruiserLbs: 205, injuredDays: 28 };
+
+/**
+ * Booker mode, stage 4: the books (Lyra's call: full books, every company). A show's draw is the tier's base plus
+ * everyone on the card's fans where it is (square-rooted, so a big name helps but not linearly), × how big the
+ * promotion is, the kind of show, its recent shows' reputation and the ticket price. It goes in the smallest of the
+ * tier's venues that holds it. Money in: tickets, merch, TV (a weekly show), pay-per-view (specials, national and up),
+ * sponsors. Money out: wages (contracted, per date), fees (free agents, per night), venue, production, travel away from
+ * home, insurance, staff. Run out past the overdraft for long enough and it's over.
+ */
+export const BIZ = {
+  ticket: { local: 12, regional: 20, national: 30, global: 40 } as Record<string, number>,
+  merchPerHead: { local: 1.5, regional: 3, national: 4, global: 6 } as Record<string, number>,
+  drawBase: { local: 10, regional: 150, national: 800, global: 2000 } as Record<string, number>,
+  drawK: { local: 0.6, regional: 0.45, national: 0.3, global: 0.3 } as Record<string, number>,
+  kind: { weekly: 1, tour: 0.8, special: 1.4, flagship: 2, indie: 1 } as Record<string, number>,
+  /** Ticket price levels (cheap, normal, dear), and how much dearer tickets put people off. */
+  price: [0.75, 1, 1.4], priceExp: 0.8,
+  venues: {
+    local: [{ name: 'Community hall', cap: 150, cost: 300 }, { name: 'Nightclub', cap: 400, cost: 900 }, { name: 'Small arena', cap: 1200, cost: 3000 }],
+    regional: [{ name: 'Nightclub', cap: 400, cost: 900 }, { name: 'Theatre', cap: 2000, cost: 7000 }, { name: 'Arena', cap: 5000, cost: 20000 }],
+    national: [{ name: 'Arena', cap: 5000, cost: 20000 }, { name: 'Big arena', cap: 12000, cost: 55000 }, { name: 'Stadium', cap: 30000, cost: 150000 }],
+    global: [{ name: 'Big arena', cap: 12000, cost: 55000 }, { name: 'Stadium', cap: 30000, cost: 150000 }, { name: 'Mega-stadium', cap: 60000, cost: 320000 }],
+  } as Record<string, { name: string; cap: number; cost: number }[]>,
+  production: { local: 550, regional: 6000, national: 40000, global: 150000 } as Record<string, number>,
+  /** Production by kind of show: a house show on tour is cheap, a flagship isn't. */
+  productionKind: { weekly: 1, tour: 0.35, special: 1.2, flagship: 1.6, indie: 1 } as Record<string, number>,
+  /** Away from home: travel on top, as a share of production (another region costs double). */
+  away: 0.25,
+  /** TV per weekly show (× popularity ÷ 50), and pay-per-view buys per head in the building (× rating ÷ 3) at £15. */
+  tv: { local: 0, regional: 4000, national: 45000, global: 70000 } as Record<string, number>,
+  ppv: { local: 0, regional: 0, national: 1.2, global: 2 } as Record<string, number>, ppvPrice: 15,
+  /** Pay-per-view is for big nights: more than this many in a month and each one sells less. */
+  ppvPerMonth: 2,
+  sponsors: { local: 0, regional: 2500, national: 30000, global: 120000 } as Record<string, number>,
+  /** Insurance a month per contracted wrestler. */
+  insurance: { local: 15, regional: 40, national: 120, global: 250 } as Record<string, number>,
+  overdraft: { local: 5000, regional: 50000, national: 1_000_000, global: 4_000_000 } as Record<string, number>,
+  redMonths: { player: 3, ai: 6 },
+  loan: { rate: 0.08, months: 24, max: { local: 20000, regional: 250000, national: 5_000_000, global: 20_000_000 } as Record<string, number> },
+  /** A hired booker's salary a month, and the owner's budget for free agents' fees a show. */
+  salary: { local: 600, regional: 2500, national: 9000, global: 25000 } as Record<string, number>,
+  budget: { local: 1500, regional: 15000, national: 120000, global: 300000 } as Record<string, number>,
+  swing: 0.12, repWeight: 0.25,
+  /** Moving up a tier: popularity, money in the bank, a roster; down when popularity drops this far below the line. */
+  up: { regional: { pop: 28, bank: 30000, roster: 8 }, national: { pop: 48, bank: 800000, roster: 24 }, global: { pop: 73, bank: 4000000, roster: 34 } } as Record<string, { pop: number; bank: number; roster: number }>,
+  downBy: 6,
+  /** TV and sponsor offers to your promotion: from regional, once its shows average this. */
+  offerFrom: 2.8, tvYears: 1,
+};

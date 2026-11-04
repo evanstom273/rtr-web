@@ -9,7 +9,7 @@ interface Props { c: Career; onBack: () => void }
 
 const KINDS: [Entry['kind'][], string][] = [
   [['fee', 'bonus'], 'Match fees'], [['merch'], 'Merch'], [['event'], 'Appearances and events'], [['wage'], 'Wages'], [['travel'], 'Travel'], [['training'], 'Training'],
-  [['medical'], 'Medical'], [['living'], 'Living costs'], [['relocation'], 'Moving'], [['buyout'], 'Buyouts'], [['start'], 'Starting money'],
+  [['medical'], 'Medical'], [['living'], 'Living costs'], [['relocation'], 'Moving'], [['company'], 'Your promotion'], [['buyout'], 'Buyouts'], [['start'], 'Starting money'],
 ];
 
 /** Career → Finances: the bank, this month, and every pound in and out. */
