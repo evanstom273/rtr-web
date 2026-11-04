@@ -31,6 +31,8 @@ export interface Company {
   schedule?: Rule[];
   /** A player-run company: staff do the signings when the roster's short (otherwise you do). */
   autoSign?: boolean;
+  /** The day its tier last moved through play (until then it follows popularity). */
+  moved?: Day;
 }
 
 export const tierFor = (popularity = 0): Tier =>
@@ -74,6 +76,8 @@ export function ensureCompanies(w: { seed: number; day: Day | null; db: { promot
       const owner = makeOwner(rnd, P, p.initials, country, `own_${p.initials.toLowerCase()}`, day);
       co = cos[p.initials] = { promo: p.initials, owner: owner.id, tier, bank: COMPANY.startBank[tier] };
     }
+    // Until its tier's moved through play (booker mode's business), it follows popularity.
+    if (!co.moved && !co.founded) co.tier = tierFor(p.popularity);
     // A founded promotion's home country, so the calendar and its shows know where it is.
     if (co.home && !PROMO_COUNTRIES[p.initials]) PROMO_COUNTRIES[p.initials] = [co.home.country];
   }

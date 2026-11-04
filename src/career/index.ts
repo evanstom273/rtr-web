@@ -26,6 +26,8 @@ import './politics';
 import './rumours';
 import './company';
 import './card';
+import './stories';
+import './belts';
 
 export * from './career';
 export * from './contracts';
@@ -77,3 +79,5 @@ export {
 } from './company';
 export type { Rule } from './calendar';
 export { autoBook, bookerPool, canBook, CARD_MAX, cardIssues, describeShow, FINISH_LABEL, rateShow, SEG_LABEL, SEG_WHO, setCard, showsDone, showsToBook, STIPS, titlesFor, watchBout } from './card';
+export { alliancesOf, dispositionLabel, dropStory, formAlliance, setPayoff, startStory, storiesOf, storyLabel, turn, turnsOf, type Alliance, type Turn } from './stories';
+export { createTitle, cupPairs, cupRoundName, cupRounds, cupsOf, DIVISION_LABEL, renameTitle, retireTitle, roundBouts, setDivision, startCup, titleAllows, titleLimit, titlesOf, unifyTitles, vacateTitle, type Cup, type Division } from './belts';

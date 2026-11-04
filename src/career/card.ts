@@ -8,6 +8,7 @@ import type { LogEntry, StipulationId } from '../engine/types';
 import { activeWorld } from '../world/world';
 import { feelPair } from '../world/people';
 import { available, bookShow, setBookDefer } from './booker';
+import { mergeRound, titleAllows } from './belts';
 import { applyBout, boutJob, letter, scripted, setCareerHooks } from './career';
 import { companyOf, isMajorTier, officeOf, playerRuns, roleIn } from './company';
 import { addDays, daysBetween, fmtDay } from './dates';
@@ -63,6 +64,7 @@ export function canBook(c: Career, show: Show | undefined): string | null {
 
 /** The titles that can be on the line on a show (its promotion's, still active). */
 export const titlesFor = (show: Show) => TITLES.filter((t) => PROMOTIONS.find((p) => p.initials === show.promo)?.titles.includes(t.id) && !t.retired);
+export { roundBouts } from './belts';
 
 /** Book the card: matches in order and the segments between them. */
 export function setCard(c: Career, showId: string, card: Bout[], segs: Segment[]): string {
@@ -85,7 +87,7 @@ export function setCard(c: Career, showId: string, card: Bout[], segs: Segment[]
     if (b.title) {
       const t = titlesFor(show!).find((x) => x.id === b.title);
       if (!t) return 'That title isn’t this promotion’s.';
-      if ((t.gender === 'FEMALE') !== (W(b.a)?.gender === 'FEMALE')) return `The ${t.name} isn’t for this division.`;
+      for (const id of [b.a, b.b]) { const no = W(id) ? titleAllows(t, W(id)!) : null; if (no) return no; }
       if (t.holder && t.holder !== b.a && t.holder !== b.b) return `The champion has to be in a ${t.name} match.`;
     }
     if (b.planned && b.planned !== b.a && b.planned !== b.b) return 'The winner has to be in the match.';
@@ -115,6 +117,7 @@ export function autoBook(c: Career, showId: string): string {
   if (no) return no;
   show!.card = bookShow(c, show!, WRESTLERS);
   show!.booked = 'staff';
+  mergeRound(c, show!);
   staffSegments(c, show!);
   return `Your staff have booked ${show!.name}.`;
 }
@@ -302,7 +305,7 @@ function selfBooking(c: Career, show: Show): void {
   }
 }
 
-setBookDefer((_c, s) => FEATURES.booker && playerRuns(s.promo), (c, s) => staffSegments(c, s));
+setBookDefer((_c, s) => FEATURES.booker && playerRuns(s.promo), (c, s) => { mergeRound(c, s); staffSegments(c, s); });
 setCareerHooks({ show: showDone });
 
 /** Your shows coming up (for the Office), soonest first. */

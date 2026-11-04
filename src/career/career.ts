@@ -313,7 +313,8 @@ export function applyBout(c: Career, show: Show, index: number, out: SimOut, aIs
   const feud = bout.feud ? c.feuds.find((f) => f.id === bout.feud) : undefined;
   if (feud) {
     feud.matches++;
-    if (feud.payoff === show.id) feud.done = true;
+    // A storyline you wrote ends when it's scored (booker mode: the blow-off pays by its heat).
+    if (feud.payoff === show.id && feud.by !== 'player') feud.done = true;
   }
 
   for (const f of hooks.bout) f(c, show, bout);
@@ -573,6 +574,8 @@ export function endOfDay(c: Career): void {
     if (f.done) continue;
     const pay = f.payoff ? c.shows[f.payoff] : undefined;
     const a = findWrestler(f.a), b = findWrestler(f.b);
+    // Booker mode: a storyline you wrote runs until it pays off, goes cold or you drop it (or one of them stops working your shows).
+    if (f.by === 'player') { const here = (w: typeof a) => !!w && (w.promotion === f.promo || w.promotion === 'TIS' || !!w.also?.includes(f.promo)); if (!here(a) || !here(b)) f.done = true; continue; }
     if (!pay || pay.done || !a || !b || a.promotion !== f.promo || b.promotion !== f.promo) f.done = true;
   }
   // Booker mode: a show's judged as a whole once it's over (your shows, Lyra's call).
@@ -582,7 +585,7 @@ export function endOfDay(c: Career): void {
   // Keep the save small: shows more than a month gone, and finished feuds, go.
   const cutoff = addDays(day, -35);
   for (const [id, s] of Object.entries(c.shows)) if (s.date < cutoff) delete c.shows[id];
-  c.feuds = c.feuds.filter((f) => !f.done || daysBetween(f.start, day) < 60);
+  c.feuds = c.feuds.filter((f) => !f.done || daysBetween(f.start, day) < 60 || (f.by === 'player' && daysBetween(f.beats?.[0]?.day ?? f.start, day) < 60));
   c.today = tomorrow;
   activeWorld().day = tomorrow;
   extendCalendar(c);
@@ -801,6 +804,9 @@ function strayBelts(c: Career, day: Day): void {
     const owner = PROMOTIONS.find((p) => p.titles.includes(t.id));
     const w = findWrestler(t.holder);
     if (!owner || !w || worksFor(w, owner.initials)) continue;
+    // Booker mode: a small promotion books free agents a night at a time, so its champion can be one.
+    const co = activeWorld().companies?.[owner.initials];
+    if (co && (co.tier === 'local' || co.tier === 'regional') && w.promotion === 'TIS') continue;
     if (w.id === c.player) { beltsOnMove(c, day); continue; }
     t.holder = null;
     const open = history().reigns[t.id]?.find((r) => r.to === null);
