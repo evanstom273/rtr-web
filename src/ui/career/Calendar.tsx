@@ -53,6 +53,8 @@ export function Calendar({ c, busy, skipping, onStop, onSkip, note, onAdvance, o
   const [open, setOpen] = useState<string | null>(null);
   const [toast, say] = useToast();
   const [skipSheet, setSkipSheet] = useState(false);
+  // Skip a number of days of your choosing (1–365).
+  const [nDays, setNDays] = useState(14);
   useEffect(() => { if (note) say(note.text); }, [note, say]);
   // When the day moves on, the calendar follows it.
   useEffect(() => {
@@ -258,6 +260,16 @@ export function Calendar({ c, busy, skipping, onStop, onSkip, note, onAdvance, o
                 <b className="c-at" style={{ fontSize: 16 }}>{w(l)}</b><span className="c-ad">{d}</span>
               </button>
             ))}
+            <div className="c-ans c-skipn" style={{ padding: '8px 10px' }}>
+              <span className="c-rowsb"><b className="c-at" style={{ fontSize: 16 }}>{w('A number of days')}</b><span className="c-ad">To {fmtDay(addDays(c.today, nDays), 'long')}</span></span>
+              <div className="c-cyc">
+                <button className="c-stepb" onClick={() => setNDays(Math.max(1, nDays - 1))} aria-label="One day fewer">−</button>
+                <input className="c-fld mid" type="number" inputMode="numeric" min={1} max={365} value={nDays} aria-label="Days to skip"
+                  onChange={(e) => setNDays(Math.max(1, Math.min(365, Math.round(Number(e.target.value) || 1))))} style={{ textAlign: 'center', fontSize: 18 }} />
+                <button className="c-stepb" onClick={() => setNDays(Math.min(365, nDays + 1))} aria-label="One day more">+</button>
+                <button className="c-b1" style={{ minHeight: 44, padding: '0 14px' }} onClick={() => { setSkipSheet(false); onSkip({ days: nDays }); }}>{w('Go ›')}</button>
+              </div>
+            </div>
             <span className="c-lab" style={{ marginTop: 4 }}>{w('Your matches')}</span>
             <div className="c-chips">
               {[[false, 'Stop for them'], [true, 'Sim them']].map(([v, l]) => (
