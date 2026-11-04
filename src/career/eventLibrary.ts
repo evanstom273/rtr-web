@@ -6,6 +6,7 @@ import { contenders, isIndieTitle, promoRegion } from './booker';
 import { makeOffer, promoName } from './career';
 import { C } from './clauses';
 import { sideWork } from './deals';
+import { gradeOf, introduce } from './scouting';
 import { ATTR_KEYS } from './create';
 import { addDays, daysBetween, fmtDay } from './dates';
 import { indieFee, travelCost } from './economy';
@@ -284,7 +285,7 @@ const MEDIA: EventDef[] = [
     body: (x) => [`Your ${x.k!.promo} contract runs out ${fmtDay(x.k!.end, 'long')}. Are you staying?`],
     options: [
       { id: 'hint', label: 'Hint you’re listening to offers', detail: () => 'Might bring an offer; your promotion won’t like it', run: (x) => {
-        const others = PROMOTIONS.filter((p) => !p.indie && p.initials !== x.k!.promo && standingWith(x.c, p.initials).mine >= standingWith(x.c, p.initials).median);
+        const others = PROMOTIONS.filter((p) => !p.indie && p.initials !== x.k!.promo && gradeOf(x.c, x.me, p.initials).step === 'offer');
         const o = chance(x, 0.4) ? pick(x.rnd, others) : undefined;
         if (o) makeOffer(x.c, o.initials, 'We read the interview');
         return join('“I’m keeping my options open.”', fx.pop(x, 0.5), fx.patience(x, x.k!.promo, -5, 'Talked up other offers in the press'), o ? `${o.initials} got in touch: it’s in your mail` : '');
@@ -416,11 +417,10 @@ const BACKSTAGE: EventDef[] = [
     options: [
       { id: 'go', label: 'Go along', detail: (x) => (x.k ? `${x.k.promo} might hear about it` : 'A useful contact'), run: (x, d) => {
         const promo = String(d.promo);
-        const st = standingWith(x.c, promo);
         const caught = x.k ? maybeCaught(x.c, promo) : false;
-        const offer = st.mine >= st.median && chance(x, 0.5);
-        if (offer) makeOffer(x.c, promo, `${nameOf(d)} put in a word`);
-        return join(`You met the ${promo} booker`, fx.patience(x, promo, 10, `${first(d)} introduced you`), fx.rel(x, String(d.who), 4, 'Introduced you to a booker'), offer ? `${promo} want to talk contract: it’s in your mail` : '', caught ? `${x.k!.promo} heard about it` : '');
+        // Lyra's call: an introduction is a guaranteed look, and the look is a tryout.
+        const look = introduce(x.c, promo, String(d.who));
+        return join(`You met the ${promo} booker`, fx.patience(x, promo, 10, `${first(d)} introduced you`), fx.rel(x, String(d.who), 4, 'Introduced you to a booker'), look, caught ? `${x.k!.promo} heard about it` : '');
       } },
       { id: 'no', label: 'Not now', decline: true, run: () => 'Maybe another time.' },
     ],

@@ -173,6 +173,10 @@ export interface Person {
   suspendedUntil?: Day;
   /** Loyalty & Tenure Tier 3: a legend of this promotion. */
   legend?: string;
+  /** Scouting: recent form (running averages of stars and of results weighted by who they were against), matches and big nights since tracking began. */
+  form?: { stars: number; res: number; n: number; big: number };
+  /** Scouting: attribute totals at the start of recent months (growth, for potential). */
+  grew?: { m: string; t: number }[];
   /** Retired: no longer wrestles (their history stays). */
   retired?: boolean;
   retiredOn?: Day;
@@ -334,6 +338,8 @@ export interface Career {
   over?: Day;
   /** Mentorship Tier 3: the mentor you picked. */
   mentorPick?: string;
+  /** Scouting (Lyra's redesign): each major's file on you. */
+  scout?: Record<string, ScoutFile>;
   /** Cards drawn with you on them (Guaranteed Pay pays if you're pulled): show id → the promotion. */
   drawnMe?: Record<string, string>;
   /** Backdated history: wrestlers too young to have debuted yet, and the day they do. */
@@ -557,4 +563,22 @@ export interface DayJob {
   /** Shifts worked this week, paid on Friday night. */
   worked: number;
   paidWeek?: Day;
+}
+
+/** What a major knows and thinks of you (scouting.ts). */
+export interface ScoutFile {
+  /** Where you are on their ladder. */
+  stage: 'pass' | 'radar' | 'tryout' | 'dev' | 'offer';
+  /** They've heard of you (scouts, news, word of mouth, you got in touch), and how. */
+  known?: Day;
+  how?: string;
+  /** Your grade when they last decided, and when (memory: they look again once it's up). */
+  last?: number;
+  lastAt?: Day;
+  /** On their radar: the matches they've watched so far. */
+  watch?: { stars: number[]; wins: number; since: Day };
+  /** A tryout's scout report, kept on file. */
+  report?: { score: number; day: Day; stars: number; verdict: string };
+  /** Someone introduced you. */
+  intro?: { who: string; day: Day };
 }

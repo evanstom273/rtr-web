@@ -1,4 +1,5 @@
 import { C } from './clauses';
+import { gradeOf } from './scouting';
 import { describe, expect, it } from 'vitest';
 import { FAN_REGIONS, fansForScore, findWrestler, globalScore, PROMOTIONS, TITLES, WRESTLERS } from '../data/rtr';
 import { freshWorld, setWorld } from '../world/world';
@@ -8,7 +9,7 @@ import { who } from './testkit';
 import {
   answerCounter, applyBout, askApproach, askChallenge, askIndieChallenge, askIndieTitleShot, askMore, askShow, askTitleShot, askableShows, askableIndieShows,
   askableIndieTitles, makeOffer, previewTitle, signOffer,
-  finishDay, firstAskable, myBoutToday, patienceOf, showsOn, standingWith, startCareer,
+  finishDay, firstAskable, myBoutToday, patienceOf, showsOn, startCareer,
 } from './index';
 import type { SimJob, SimOut } from './sim';
 import type { Ask, Career } from './types';
@@ -148,22 +149,29 @@ describe('requests', () => {
     expect(c.pledges!.some((p) => p.kind === 'dates')).toBe(false);
   }, 60000);
 
-  it('approaching a promotion: at their median an offer, bottom quarter a tryout counter, below that no', () => {
+  it('approaching a promotion: their grade of you decides (an offer, a tryout counter, watching, or no)', () => {
+    const promo = 'TCG';
+    // A star in every way: an offer.
     const c = begin('@indie');
     const me = findWrestler(c.player)!;
-    const promo = 'TCG';
-    const st = standingWith(c, promo);
-    me.fans.northAmerica = fansForScore(st.median + 1);
+    me.fans.northAmerica = 5_000_000;
+    me.stats = { strength: 99, speed: 99, stamina: 99, skill: 99, striking: 99, charisma: 99 };
+    expect(gradeOf(c, me, promo).step).toBe('offer');
     expect(askApproach(c, promo).answer).toBe('yes');
     expect(c.offers.some((o) => o.promo === promo && o.status === 'open')).toBe(true);
-    const d = begin('@indie');
-    findWrestler(d.player)!.fans.northAmerica = fansForScore(st.q1 + 0.5);
-    const a = askApproach(d, promo);
-    expect(a.answer).toBe('counter');
-    expect(a.counter!.kind).toBe('tryout');
+    // A nobody: no, and they say what's holding you back.
     const e = begin('@indie');
-    findWrestler(e.player)!.fans.northAmerica = fansForScore(st.q1 - 5);
-    expect(askApproach(e, promo).answer).toBe('no');
+    const nob = findWrestler(e.player)!;
+    nob.fans.northAmerica = 10; nob.stats = { strength: 40, speed: 40, stamina: 40, skill: 40, striking: 40, charisma: 40 };
+    expect(gradeOf(e, nob, promo).step).toBe('pass');
+    const a = askApproach(e, promo);
+    expect(a.answer).toBe('no');
+    expect(a.said).toMatch(/holding you back/);
+    // In between: whatever their grade says (a tryout comes as a counter).
+    const d = begin('@indie');
+    const g = gradeOf(d, findWrestler(d.player)!, promo);
+    const ans = askApproach(d, promo);
+    expect(ans.answer).toBe(g.step === 'offer' ? 'yes' : g.step === 'tryout' ? 'counter' : 'no');
   });
 
   it('caught approaching while signed: patience −20, and for 30 days no main events or title matches', async () => {

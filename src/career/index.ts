@@ -35,6 +35,7 @@ export { CLAUSES, C, BUDGET, budgetOf, attitude, BONUS_TRIGGERS, CHARACTER, GROU
 export { dealsOf, dealWith, exclusivityOf, sideWork } from './deals';
 export { nonExclusive } from './exclusive';
 export { advanceAvailable, rebrand, takeAdvance, takings } from './money';
+export { evaluate, FACTOR_NAME, FACTORS, gradeOf, introduce, knows, type Grade, type Step } from './scouting';
 export { bookHoliday, holidays, refuseStip, setPartTime, setTours, skipTour } from './body';
 export { announceRetirement, pickMentor, setWalk, takeOption } from './shape';
 export { noShow } from './conduct';

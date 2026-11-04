@@ -277,7 +277,7 @@ function courtesyCall(c: Career, o: Offer): string | null {
  * A promotion wants you (Lyra's call: they open with a package). Free agents and anyone in the last months of a
  * deal get a full deal; someone signed non-exclusively can get a second deal alongside it.
  */
-export function offerDeal(c: Career, promo: string, why: string): void {
+export function offerDeal(c: Career, promo: string, why: string, want?: PackageId): void {
   if (barred(c, promo)) return;
   const p = person(c, c.player);
   const mine = p.contract;
@@ -285,7 +285,7 @@ export function offerDeal(c: Career, promo: string, why: string): void {
   // Non-exclusive and not near the end: a second deal alongside. Otherwise a full deal (from the end of your current one).
   const second = !!mine && !ending && openToSecond(p, promo, MAX_MAJORS).ok;
   if (dealWith(p, promo) && !ending) return;
-  const pkg: PackageId = second ? 'attraction' : playerPackage(c, promo);
+  const pkg: PackageId = second ? 'attraction' : want ?? playerPackage(c, promo);
   const start = mine && !second ? addDays(mine.end, 1) : c.today;
   const id = `o${++c.seq}`;
   const o: Offer = { id, promo, day: c.today, fee: 0, months: PACKAGES[pkg].months, clauses: [], start, rounds: 0, said: '', status: 'open', pkg, ...(second ? { second: true } : {}) };

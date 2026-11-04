@@ -1,18 +1,18 @@
 // Work coming your way: indie bookings, asking for a spot, tryouts and contract offers.
 import { booked, fitsTrip } from './availability';
-import { findWrestler, globalScore, PROMOTIONS, TITLES, WRESTLERS, rosterOf } from '../data/rtr';
+import { findWrestler, globalScore, TITLES, WRESTLERS } from '../data/rtr';
 import type { Rng } from '../engine/rng';
 import { seededRng } from '../engine/rng';
 import { activeWorld } from '../world/world';
-import { available, hashSeed, promoRegion, regionalPop } from './booker';
-import { letter, makeOffer, person, promoName, setCareerHooks, spend } from './career';
+import { available, hashSeed, regionalPop } from './booker';
+import { letter, person, promoName, setCareerHooks, spend } from './career';
 import { C } from './clauses';
 import { approves, dealsOf, sideWork } from './deals';
-import { nonExclusive } from './exclusive';
-import { addDays, addMonths, daysBetween, fmtDay, weekday, type Day } from './dates';
+import { setTryoutLetter } from './scouting';
+import { addDays, addMonths, fmtDay, weekday, type Day } from './dates';
 import { indieFee, travelCost } from './economy';
 import {
-  ASK_SPOT_BASE_PCT, ASK_SPOT_MAX_PCT, DAY_OFF_T1_CHANCE, INDIE_OFFER_CHAMPION, INDIE_OFFER_TRUSTED, INDIE_OFFER_WINDOW_DAYS, INDIE_OFFERS_BASE, INDIE_OFFERS_PER_POP, NOTICE_CHANCE, PATIENCE_NO_SHOW, REP_NO_SHOW, TITLE_SHOT_BREACH_FEES, TITLE_SHOT_DAYS, TRUST_HIGH, TRUST_LOW,
+  ASK_SPOT_BASE_PCT, ASK_SPOT_MAX_PCT, DAY_OFF_T1_CHANCE, INDIE_OFFER_CHAMPION, INDIE_OFFER_TRUSTED, INDIE_OFFER_WINDOW_DAYS, INDIE_OFFERS_BASE, INDIE_OFFERS_PER_POP, PATIENCE_NO_SHOW, REP_NO_SHOW, TITLE_SHOT_BREACH_FEES, TITLE_SHOT_DAYS, TRUST_HIGH, TRUST_LOW,
 } from './tuning';
 import type { Career, Letter, Show } from './types';
 import { movePatience, showBooker } from './patience';
@@ -156,39 +156,22 @@ function indieOffers(c: Career, rnd: Rng): void {
   void home;
 }
 
-/** The 1st of the month: promotions take notice of free agents (and anyone whose deal is nearly up). */
-function notice(c: Career, rnd: Rng): void {
-  const p = person(c, c.player);
-  const me = findWrestler(c.player)!;
-  if (p.next) return;
-  const freeAgent = !p.contract;
-  // Signed: only near the end of a deal, or any time when you're non-exclusive (a second major can call).
-  if (!freeAgent && daysBetween(c.today, p.contract!.end) > 183 && !nonExclusive(c, c.player)) return;
-  for (const promo of PROMOTIONS.filter((x) => !x.indie && !dealsOf(p).some((k) => k.promo === x.initials))) {
-    if (c.offers.some((o) => o.promo === promo.initials && o.status === 'open')) continue;
-    const region = promoRegion(promo.initials);
-    const pops = rosterOf(promo.initials).map((w) => regionalPop(w, region)).sort((a, b) => a - b);
-    const q1 = pops[Math.floor(pops.length / 4)] ?? 0, median = pops[Math.floor(pops.length / 2)] ?? 0;
-    const mine = regionalPop(me, region);
-    if (rnd() >= NOTICE_CHANCE) continue;
-    if (mine >= median) makeOffer(c, promo.initials, 'We’ve been watching you');
-    else if (mine >= q1 && freeAgent) tryoutInvite(c, promo.initials);
-  }
-}
-
-function tryoutInvite(c: Career, promo: string): void {
+/** A tryout invitation: one match on their show in the next month. False if there's no date you can make. */
+function tryoutInvite(c: Career, promo: string, why?: string): boolean {
   const show = Object.values(c.shows)
     .filter((s) => s.promo === promo && s.date >= addDays(c.today, 3) && s.date <= addDays(c.today, 30) && (s.kind === 'weekly' || s.kind === 'tour' || s.kind === 'special'))
     .sort((a, b) => (a.date < b.date ? -1 : 1))
     .find((s) => indieAllowed(c, s).ok || !person(c, c.player).contract);
-  if (!show) return;
+  if (!show) return false;
   letter(c, {
     kind: 'offer', from: promoName(promo), subject: `Tryout: ${show.name}`,
-    body: [`We’d like to see you in our ring. One match at ${show.name} in ${show.city}, ${fmtDay(show.date, 'long')}.`, 'Win, or put on a good match (3★ or better), and we’ll talk contract.'],
+    body: [`${why ? `${why}. ` : ''}We’d like to see you in our ring. One match at ${show.name} in ${show.city}, ${fmtDay(show.date, 'long')}.`, 'A scout will write it up: how good the match is, how well you work, how the crowd takes to you, and whether you stick to the plan.'],
     terms: [['Date', fmtDay(show.date)], ['Show', show.name]],
     action: { type: 'tryout', show: show.id, promo },
   });
+  return true;
 }
+setTryoutLetter(tryoutInvite);
 
 /** Every day: Monday's indie mail, promises coming due, notice running out. */
 function daily(c: Career, rnd: Rng): void {
@@ -247,5 +230,5 @@ export function dayOff(c: Career, day: Day): string {
   return booked ? `Refused: you’re off ${booked.name}, no penalty.` : `${fmtDay(day, 'dm')} is yours: ${k.promo} won’t book you.`;
 }
 
-setCareerHooks({ notice, daily });
+setCareerHooks({ daily });
 export { addMonths };
