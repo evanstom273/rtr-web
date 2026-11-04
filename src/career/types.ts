@@ -32,7 +32,26 @@ export interface Show {
   brand?: string;
   /** An afternoon or morning show; most are in the evening (PM). */
   phase?: 'am' | 'pm';
+  /** Booker mode: the segments between matches, who booked the card (you, or your staff), and how the show was judged. */
+  segments?: Segment[];
+  booked?: 'player' | 'staff';
+  rating?: ShowRating;
 }
+
+/** Booker mode: how a booked match ends (Lyra's call: clean, cheating, DQ, count-out or no contest). */
+export type BookedFinish = 'clean' | 'cheat' | 'dq' | 'countout' | 'nocontest';
+export type SegKind = 'promo' | 'runin' | 'beatdown' | 'signing' | 'debut' | 'celebration' | 'interview' | 'betrayal';
+/** Something on the show that isn't a match: a promo, a run-in, a contract signing. `after` is the match it follows (-1: opens the show). */
+export interface Segment {
+  kind: SegKind;
+  who: string[];
+  after: number;
+  /** Scored when the show's done: 0–5, and a line about it. */
+  score?: number;
+  note?: string;
+}
+/** A whole show judged (Lyra's call): 0–5, what made it, and what the crowd made of it. */
+export interface ShowRating { score: number; parts: [string, number][]; notes: string[] }
 
 export type SpecialKind = 'charity' | 'benefit' | 'tribute' | 'crossover' | 'tournament' | 'farewell';
 export interface ShowSpecial {
@@ -85,6 +104,8 @@ export interface Bout {
   tourney?: { id: string; round: number; slot: number };
   /** Someone's last match before retiring. */
   farewell?: boolean;
+  /** Booker mode: how it's booked to end (a planned winner's match). */
+  finish?: BookedFinish;
   result?: BoutResult;
 }
 
@@ -206,6 +227,11 @@ export interface Feud {
   id: string;
   /** An angle from real life: the heat's real (relationships stage 6). */
   real?: boolean;
+  /** Booker mode: a storyline you wrote, its heat (0–100), what's happened in it, and how it ended. */
+  by?: 'player';
+  heat?: number;
+  beats?: { day: Day; t: string; d: number }[];
+  ended?: 'blowoff' | 'cold' | 'dropped';
   promo: string;
   a: string;
   b: string;

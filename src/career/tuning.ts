@@ -1178,3 +1178,41 @@ export const COMPANY = {
 
 /** Founding your own promotion: the least you can put in, its starting popularity, and what a name may be. */
 export const FOUND = { minCapital: 2_000, startPop: 6, initials: [2, 5] as [number, number], nameMax: 40 };
+
+/**
+ * Booker mode, stage 2: the card. Segments are scored 0–5 from who's in them (charisma), heat (a feud, or real
+ * heat between them), the crowd (fans where the show is) and what kind of segment it is, ± a little luck.
+ */
+export const SEGMENT = {
+  base: 1.6, perCharisma: 0.03, heat: 0.7, crowdPerDecade: 0.25, crowdFrom: 1000, crowdMax: 0.6, luck: 0.4,
+  kind: { promo: 0, interview: -0.2, runin: 0.3, beatdown: 0.2, signing: 0.1, debut: 0.4, celebration: 0.3, betrayal: 0.6 } as Record<string, number>,
+  /** Fans for who's in it: × (1 + (score − 2.5) × this) in the show's region. */
+  fans: 0.004,
+};
+/** The whole show (Lyra's call): matches weighted by slot, segments, flow, payoffs, star power and running to time. */
+export const SHOW_RATE = {
+  mainWeight: 2, openerWeight: 1.2, segWeight: 0.5,
+  mainNotBest: 0.75, mainNotBestCost: 0.2, flatOpener: 2.5, flatOpenerCost: 0.1, longMatch: 900, backToBackCost: 0.1,
+  segsInARow: 3, segsInARowCost: 0.15, screwyMax: 1 / 3, screwyCost: 0.2, payoff: 0.15, payoffMax: 0.3,
+  starFrom: 10_000, starPerDecade: 0.1, starMax: 0.3,
+  /** Minutes a show should run, by kind; a segment's about six minutes. */
+  slot: { weekly: 120, special: 180, flagship: 210, tour: 120, indie: 150 } as Record<string, number>,
+  segMinutes: 6, over: 1.25, under: 0.5, timeCost: 0.2,
+};
+/** Booking yourself (Lyra's call: allowed, with consequences): the locker room and your opponent notice. */
+export const SELF_BOOK = { winRoom: -2, titleRoom: -4, loseRoom: 1.5, oppLike: -4, oppPutOver: [3, 2] as [number, number], gloryWins: 3, gloryDays: 45 };
+
+/**
+ * Booker mode, stage 3: storylines (Lyra's call: you write them, the game keeps score). Heat 0–100 starts from how
+ * the two get on and what's at stake; segments and matches between them build it (by how good they were), the same
+ * match over and over wears it, and a week with nothing cools it. Face against face (or heel against heel) makes less
+ * sense, so it builds slower. A blow-off pays out by the heat. Turns land if they're shown; flip-flopping doesn't.
+ */
+export const STORY = {
+  start: 20, grudge: 20, title: 10, segHeat: 7, matchHeat: 5, repeatFrom: 2, repeat: 6, cold: 6, sameSide: 0.6, missedPayoff: 20,
+  blowoffFans: 0.05, payoffRate: 0.45, betrayalHeat: 55, keepBeats: 8,
+  turnLanded: [1.01, 1.03] as [number, number], turnHot: 50, turnHotHeat: 15, turnUnseen: 0.98, flipFlop: 0.97, flipFlopDays: 120, aiTurn: 0.12,
+  allySeg: 0.3,
+};
+/** Titles you can have by tier, the cruiserweight limit (lbs), and how long an injured champion's out before you're asked. */
+export const BELTS = { max: { local: 2, regional: 4, national: 6, global: 8 } as Record<string, number>, cruiserLbs: 205, injuredDays: 28 };

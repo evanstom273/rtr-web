@@ -58,7 +58,7 @@ setPairBias((a, b) => {
 // ------------------------------------------------------------------ the locker room
 
 export const standingOf = (c: Career, promo: string): number => c.room?.[promo]?.v ?? ROOM.start;
-function moveRoom(c: Career, promo: string, d: number): void {
+export function moveRoom(c: Career, promo: string, d: number): void {
   if (!d || promo === 'TIS') return;
   const r = ((c.room ??= {})[promo] ??= { v: ROOM.start });
   r.v = Math.max(0, Math.min(100, Math.round((r.v + d) * 10) / 10));

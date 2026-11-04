@@ -37,6 +37,9 @@ export interface ArchivedShow {
   /** Indie shows: the brand that put it on, and who booked it (a person id, or an old show-name key). */
   brand?: string;
   booker?: string;
+  /** Booker mode: the whole show's rating, and its segments. */
+  rating?: number;
+  segs?: { kind: string; who: string[]; score: number }[];
 }
 
 export interface Reign {

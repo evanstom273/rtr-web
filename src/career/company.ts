@@ -35,6 +35,8 @@ export interface OfficeState {
   worked?: number;
   weekOf?: Day;
   short?: number;
+  /** Booking yourself to win: when (for the glory-hog talk). */
+  selfWins?: Day[];
 }
 
 // ------------------------------------------------------------------ looking things up

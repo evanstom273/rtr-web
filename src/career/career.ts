@@ -205,7 +205,7 @@ export function boutRules(c: Career, show: Show, bout: Bout, you: string, them: 
     stipulation: bout.stip ?? 'standard', freshness: { you: freshness(c, you), them: freshness(c, them) },
   };
   if (bout.title) { rules.titleId = bout.title; rules.title = true; }
-  if (nudge && bout.planned) rules.booked = { side: bout.planned === you ? 'you' : 'them', bonus: PLANNED_NUDGE };
+  if (nudge && bout.planned) rules.booked = { side: bout.planned === you ? 'you' : 'them', bonus: PLANNED_NUDGE, ...(bout.finish === 'cheat' ? { cheat: true } : {}) };
   // A big occasion (Big-Match Performers rise to it): a flagship or special, a cup final, a farewell. Title matches count anyway.
   if (show.kind === 'flagship' || show.kind === 'special' || bout.farewell || (bout.tourney && bout.tourney.round === 2)) rules.big = true;
   // Wellbeing (Lyra's call: it matters): in a good place, or not right in the head, on every roll.
@@ -487,6 +487,8 @@ async function runNight(c: Career, run: (jobs: SimJob[]) => Promise<SimOut[]>): 
   const plannedSide = (j: SimJob) => {
     const [showId, i] = j.key.split('#');
     const b = c.shows[showId!]?.card?.[Number(i)];
+    // A DQ, count-out or no contest is how it ends however it went: nothing to wrestle again.
+    if (b?.finish && b.finish !== 'clean' && b.finish !== 'cheat') return null;
     return b?.planned ? (b.planned === j.you ? 'you' : 'them') : null;
   };
   // The would-be loser's personality: professionals do the job, the rebellious push back (fewer re-runs).
@@ -498,13 +500,24 @@ async function runNight(c: Career, run: (jobs: SimJob[]) => Promise<SimOut[]>): 
     for (const o of await run(again)) byKey.set(o.key, o);
   }
   for (const show of showsOn(c, c.today)) {
-    show.card?.forEach((_, i) => {
+    show.card?.forEach((b, i) => {
       const o = byKey.get(`${show.id}#${i}`);
-      if (o) applyBout(c, show, i, o, true);
+      if (o) applyBout(c, show, i, scripted(b, o, true), true);
     });
     if (show.card?.every((b) => b.result) ?? true) show.done = true;
   }
   databaseChanged();
+}
+
+/**
+ * Booker mode: a booked finish (Lyra's call). Cheating is the engine's own (the winner leans on dirty tactics); a DQ,
+ * a count-out or a no contest is how it ends whatever went before: the booked winner gets it (nobody, in a no contest).
+ */
+export function scripted(b: Bout, o: SimOut, aIsYou: boolean): SimOut {
+  if (b.finish === 'nocontest') return { ...o, winner: null, finish: 'NO_CONTEST', stars: Math.round(o.stars * 0.85 * 100) / 100, move: undefined };
+  if (!b.planned || !b.finish || b.finish === 'clean' || b.finish === 'cheat') return o;
+  const side = (b.planned === b.a) === aIsYou ? 'you' : 'them';
+  return { ...o, winner: side, finish: b.finish === 'dq' ? 'DISQUALIFICATION' : 'COUNT_OUT', stars: Math.round(o.stars * 0.9 * 100) / 100, move: undefined };
 }
 
 /** Run every remaining match today (yours must be done first), then move the world on a day. */
@@ -562,6 +575,8 @@ export function endOfDay(c: Career): void {
     const a = findWrestler(f.a), b = findWrestler(f.b);
     if (!pay || pay.done || !a || !b || a.promotion !== f.promo || b.promotion !== f.promo) f.done = true;
   }
+  // Booker mode: a show's judged as a whole once it's over (your shows, Lyra's call).
+  for (const s of showsOn(c, day)) for (const f of hooks.show) f(c, s);
   // The world remembers every show for good; the career only keeps the last month.
   for (const s of showsOn(c, day)) if (s.card?.some((b) => b.result)) archive(s);
   // Keep the save small: shows more than a month gone, and finished feuds, go.
@@ -592,6 +607,7 @@ function archive(s: Show): void {
   const entry: ArchivedShow = {
     id: s.id, date: s.date, promo: s.promo, ...(s.promos ? { promos: s.promos } : {}), ...(s.special ? { tag: s.special.tag } : {}), name: s.name, kind: s.kind, city: s.city, country: s.country,
     ...(s.brand ? { brand: s.brand } : {}), ...(booker ? { booker } : {}),
+    ...(s.rating ? { rating: s.rating.score } : {}), ...(s.segments?.some((g) => g.score !== undefined) ? { segs: s.segments.filter((g) => g.score !== undefined).map((g) => ({ kind: g.kind, who: g.who, score: g.score! })) } : {}),
     bouts: (s.card ?? []).filter((b) => b.result).map((b) => ({
       a: b.a, b: b.b, an: findWrestler(b.a)?.name ?? b.a, bn: findWrestler(b.b)?.name ?? b.b,
       ...(b.title ? { title: b.title } : {}), ...(b.stip ? { stip: b.stip } : {}),
@@ -882,14 +898,15 @@ type InjuredHook = (c: Career, id: string, days: number, show: Show) => void;
 const hooks: {
   notice: Hook[]; daily: Hook[]; monthly: Hook[]; mine: ((c: Career, show: Show, bout: Bout, m: PlayerMatch) => void)[]; mail: MailHooks | null; phase: PhaseHook[];
   protect: ProtectHook[]; ending: EndingHook[]; leaving: LeavingHook[]; offer: ((c: Career, promo: string, why: string, pkg?: import('./clauses').PackageId) => void) | null; injured: InjuredHook[];
-  tryout: ((c: Career, show: Show, m: PlayerMatch) => void) | null; bout: BoutHook[]; start: ((c: Career) => void)[];
-} = { notice: [], daily: [], monthly: [], mine: [], mail: null, phase: [], protect: [], ending: [], leaving: [], offer: null, injured: [], tryout: null, bout: [], start: [] };
+  tryout: ((c: Career, show: Show, m: PlayerMatch) => void) | null; bout: BoutHook[]; start: ((c: Career) => void)[]; show: ((c: Career, show: Show) => void)[];
+} = { notice: [], daily: [], monthly: [], mine: [], mail: null, phase: [], protect: [], ending: [], leaving: [], offer: null, injured: [], tryout: null, bout: [], start: [], show: [] };
 /** You're leaving a deal (it ended, you left, you were released, or you moved): clauses that care (Image Rights, Loyalty, Signing advances) run here. */
 export function leavingHooks(c: Career, k: Contract, how: 'ended' | 'left' | 'released' | 'moved'): void { for (const f of hooks.leaving) f(c, k, how); }
 /** Your half-day happened (days on): side earners pay out here. */
 export function phaseHooks(c: Career, ph: 'am' | 'pm', activity: string): void { for (const f of hooks.phase) f(c, ph, activity); }
 /** Other career modules (offers, requests) plug in here; each adds to the list. */
-export function setCareerHooks(h: { notice?: Hook; daily?: Hook; monthly?: Hook; mine?: (c: Career, show: Show, bout: Bout, m: PlayerMatch) => void; mail?: MailHooks; phase?: PhaseHook; protect?: ProtectHook; ending?: EndingHook; leaving?: LeavingHook; offer?: (c: Career, promo: string, why: string, pkg?: import('./clauses').PackageId) => void; injured?: InjuredHook; tryout?: (c: Career, show: Show, m: PlayerMatch) => void; bout?: BoutHook; start?: (c: Career) => void }): void {
+export function setCareerHooks(h: { notice?: Hook; daily?: Hook; monthly?: Hook; mine?: (c: Career, show: Show, bout: Bout, m: PlayerMatch) => void; mail?: MailHooks; phase?: PhaseHook; protect?: ProtectHook; ending?: EndingHook; leaving?: LeavingHook; offer?: (c: Career, promo: string, why: string, pkg?: import('./clauses').PackageId) => void; injured?: InjuredHook; tryout?: (c: Career, show: Show, m: PlayerMatch) => void; bout?: BoutHook; start?: (c: Career) => void; show?: (c: Career, show: Show) => void }): void {
+  if (h.show) hooks.show.push(h.show);
   if (h.bout) hooks.bout.push(h.bout);
   if (h.start) hooks.start.push(h.start);
   if (h.tryout) hooks.tryout = h.tryout;
