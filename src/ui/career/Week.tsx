@@ -5,12 +5,13 @@ import { addDays, fmtDay, weekday } from '../../career/dates';
 import { occupied, pkey } from '../../career/day';
 import { REGION_LABEL, REGION_OF, regionOfCountry } from '../../career/places';
 import { FEATURES, JOB_HOLIDAY, JOB_STRIKES, JOBS } from '../../career/tuning';
+import { Earn } from './Earn';
 import { commit, Head, money, Screen, useToast, useWords } from './parts';
 
-interface Props { c: Career; onBack: () => void }
+interface Props { c: Career; onBack: () => void; onOwnShow?: () => void }
 
 const DAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const ACT: Record<Activity, string> = { show: 'Show', travel: 'Travel', moving: 'Moving', work: 'Work', train: 'Train', rest: 'Rest' };
+const ACT: Record<Activity, string> = { show: 'Show', travel: 'Travel', moving: 'Moving', work: 'Work', train: 'Train', rest: 'Rest', hustle: 'Gig', content: 'Content' };
 
 /** "Mon–Fri AM", "Mon, Wed, Fri AM", "Thu–Sat PM". */
 export function shiftText(shifts: readonly (readonly [number, string])[]): string {
@@ -24,10 +25,10 @@ export function shiftText(shifts: readonly (readonly [number, string])[]): strin
 }
 
 /** Your week (days on): the next seven days half by half, your routine, your day job and where you live. */
-export function Week({ c, onBack }: Props) {
+export function Week({ c, onBack, onOwnShow }: Props) {
   const { skin, w } = useWords();
   const [toast, say] = useToast();
-  const tabs = ['Week', ...(FEATURES.jobs ? ['Work'] : []), 'Home'];
+  const tabs = ['Week', ...(FEATURES.jobs ? ['Work'] : []), ...(FEATURES.hustles ? ['Earn'] : []), 'Home'];
   const [tab, setTab] = useState(0);
   const [sure, setSure] = useState(false);
   const [to, setTo] = useState('');
@@ -42,12 +43,13 @@ export function Week({ c, onBack }: Props) {
     const a = activityAt(c, d, p);
     const past = d === c.today && p === 'am' && ph === 'pm';
     const what = occ.get(pkey(d, p))?.[0];
-    const sub = a === 'show' ? what?.replace(/^the show \((.*)\)$/, '$1') : a === 'travel' ? what?.replace(/^travelling (to|home from) /, (_m, x) => (x === 'to' ? '→ ' : '← ')) : a === 'work' && c.job ? JOBS[c.job.id].name : '';
-    const free = a === 'train' || a === 'rest';
+    const sub = a === 'show' ? what?.replace(/^the show \((.*)\)$/, '$1') : a === 'hustle' ? (what ? what.replace(/^the gig \((.*)\)$/, '$1') : 'Coaching') : a === 'travel' ? what?.replace(/^travelling (to|home from) /, (_m, x) => (x === 'to' ? '→ ' : '← ')) : a === 'work' && c.job ? JOBS[c.job.id].name : '';
+    const free = a === 'train' || a === 'rest' || a === 'content';
     const flip = () => {
       if (!free || past) return;
       const day = r.week[weekday(d)]!;
-      day[p] = day[p] === 'train' ? 'rest' : 'train';
+      // Rest → Train → Content (side earners on) → Rest.
+      day[p] = day[p] === 'rest' ? 'train' : day[p] === 'train' && FEATURES.hustles ? 'content' : 'rest';
       commit();
     };
     return (
@@ -81,7 +83,7 @@ export function Week({ c, onBack }: Props) {
                 </span>
               ))}
             </div>
-            <span className="c-note">Tap a free half-day to switch between training and rest. Your week repeats; shows, travel and work come first.</span>
+            <span className="c-note">Tap a free half-day to switch between rest, training{FEATURES.hustles ? ' and making content' : ''}. Your week repeats; shows, travel, work and gigs come first.</span>
             <span className="c-sec">{w('Training sessions')}</span>
             <div className="c-kv">
               <span className="c-lab">{w('Build first')}</span>
@@ -124,6 +126,7 @@ export function Week({ c, onBack }: Props) {
           </>
         )}
 
+        {tabs[tab] === 'Earn' && <Earn c={c} say={say} onOwnShow={() => onOwnShow?.()} />}
         {tabs[tab] === 'Home' && (
           <>
             <div className="c-start">

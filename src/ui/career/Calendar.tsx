@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { activeWorld } from '../../world/world';
 import { findWrestler, TITLES } from '../../data/rtr';
-import { activityAt, countersWaiting, cupLabel, firstAskable, myBoutToday, phaseOf, promoName, roundName, routineOf, showsOn, type Activity, type Career, type Show, type SkipTarget } from '../../career';
+import { activityAt, dropGig, hustleOf, showWorkPay, workShow, countersWaiting, cupLabel, firstAskable, myBoutToday, phaseOf, promoName, roundName, routineOf, showsOn, type Activity, type Career, type Show, type SkipTarget } from '../../career';
 import { FEATURES } from '../../career/tuning';
 import type { ReqRoute } from './Requests';
 import { addDays, dateOf, dayOf, daysInMonth, fmtDay, MONTHS, monthOf, weekday, yearOf } from '../../career/dates';
 import { stipulation } from '../../engine';
 import { EventPopup } from './EventCard';
-import { commit, Nm, Screen, useToast, useWords } from './parts';
+import { commit, money, Nm, Screen, useToast, useWords } from './parts';
 
 interface Props {
   c: Career;
@@ -26,7 +26,7 @@ interface Props {
 }
 
 const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-const DOING: Record<Activity, string> = { show: 'wrestling', travel: 'travelling', moving: 'moving house', work: 'at work', train: 'training', rest: 'resting' };
+const DOING: Record<Activity, string> = { show: 'wrestling', travel: 'travelling', moving: 'moving house', work: 'at work', train: 'training', rest: 'resting', hustle: 'on a side gig', content: 'making content' };
 
 function mineOn(c: Career, day: string): { show: Show; indie: boolean } | null {
   for (const s of showsOn(c, day)) {
@@ -230,8 +230,13 @@ export function Calendar({ c, busy, skipping, onStop, onSkip, note, onAdvance, o
               const mine = !!promo && (sheet.promos ?? [sheet.promo]).includes(promo) && sheet.promo !== 'TIS';
               const indie = sheet.promo === 'TIS';
               if (sheet.done || onIt || (!mine && !indie)) return null;
-              if (sheet.date < firstAskable(c)) return sheet.date >= c.today ? <span className="c-note">{w('Cards for the next seven days are set.', 'Cards for the next 7 days are set')}</span> : null;
-              return <button className="c-b1" style={{ marginTop: 6 }} onClick={() => { setOpen(null); onAsk(mine ? { req: 'book', tab: 0, show: sheet.id } : { req: 'spot', show: sheet.id }); }}>{w(mine ? 'Ask to be on this ›' : 'Ask for a spot ›')}</button>;
+              const work = FEATURES.hustles && indie && !onIt && sheet.date > c.today && !sheet.id.startsWith('own|') ? (
+                hustleOf(c).gigs[`work|${sheet.id}`]
+                  ? <div className="c-rowsb" style={{ marginTop: 6 }}><span className="c-val">{w('You’re working this show')}</span><button className="c-chip" onClick={() => { dropGig(c, `work|${sheet.id}`); commit(); say('Cancelled.'); }}>{w('Cancel')}</button></div>
+                  : <div className="c-chips" style={{ marginTop: 6 }}>{(['ref', 'crew', 'commentary'] as const).map((r) => <button key={r} className="c-chip" onClick={() => { say(workShow(c, sheet, r)); commit(); }}>{w(`${r === 'ref' ? 'Referee' : r === 'crew' ? 'Ring crew' : 'Commentary'} · ${money(showWorkPay(c, r, sheet))}`)}</button>)}</div>
+              ) : null;
+              if (sheet.date < firstAskable(c)) return <>{work}{sheet.date >= c.today ? <span className="c-note">{w('Cards for the next seven days are set.', 'Cards for the next 7 days are set')}</span> : null}</>;
+              return <>{work}<button className="c-b1" style={{ marginTop: 6 }} onClick={() => { setOpen(null); onAsk(mine ? { req: 'book', tab: 0, show: sheet.id } : { req: 'spot', show: sheet.id }); }}>{w(mine ? 'Ask to be on this ›' : 'Ask for a spot ›')}</button></>;
             })()}
           </div>
         </div>

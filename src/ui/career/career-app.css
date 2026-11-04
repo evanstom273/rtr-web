@@ -240,3 +240,9 @@
 [data-skin=paper] .cr .c-dline{border-bottom:1px dotted #8a8476}
 [data-skin=building] .cr .c-grade,[data-skin=building] .cr .c-post,[data-skin=building] .cr .c-quote{border-radius:4px}
 [data-skin=building] .cr .c-mstar{border-radius:8px}
+/* ---- side earners (FEATURES.hustles) ---- */
+.cr .c-coach{display:grid;grid-template-columns:34px repeat(7,minmax(0,1fr));gap:3px;align-items:center}
+.cr .c-coach>.c-lab{text-align:center}
+.cr .c-coach .c-chip{min-height:34px;padding:0;justify-content:center}
+.cr .c-wk.content{border-left-color:var(--cr-champ)}
+.cr .c-wk.hustle{border-left-color:var(--cr-good);background:var(--cr-panel2)}
