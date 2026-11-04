@@ -85,10 +85,20 @@ export function startCareer(o: StartOptions): Career {
   if (o.deal !== undefined) {
     const w = findWrestler(o.player)!;
     const p = person(c, o.player);
+    const was = w.promotion;
     if (o.deal === null) { w.promotion = 'TIS'; p.contract = null; } else {
       w.promotion = o.deal.promo;
       p.contract = { promo: o.deal.promo, start: o.today, end: addMonths(o.today, o.deal.months), fee: Math.max(0, Math.round(o.deal.fee)), clauses: [...o.deal.clauses] };
     }
+    // Lyra's call: moving strips the belt. A title from the promotion you've left is vacated (the reign closes below);
+    // an indie title stays only if you're still on the indies or the new deal has Indie Bookings.
+    const stripped: string[] = [];
+    for (const t of TITLES.filter((x) => x.holder === o.player)) {
+      const owner = PROMOTIONS.find((x) => x.titles.includes(t.id))?.initials;
+      const keep = isIndieTitle(t.id) ? w.promotion === 'TIS' || (o.deal?.clauses[C.indie] ?? 0) >= 1 : owner === w.promotion || (!owner && was === w.promotion);
+      if (!keep) { t.holder = null; stripped.push(t.name); }
+    }
+    if (stripped.length) letter(c, { kind: 'contract', from: promoName(was), subject: `You’ve been stripped of the ${stripped.join(' and the ')}`, body: [`You’ve moved on, so ${stripped.length > 1 ? 'they’re' : 'it’s'} vacant. A new champion will be crowned.`] });
   }
   const H = history();
   for (const t of TITLES) {
