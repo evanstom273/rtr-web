@@ -5,6 +5,7 @@ import { addDays, fmtDay, weekday } from '../../career/dates';
 import { occupied, pkey } from '../../career/day';
 import { REGION_LABEL, REGION_OF, regionOfCountry } from '../../career/places';
 import { FEATURES, JOB_HOLIDAY, JOB_STRIKES, JOBS } from '../../career/tuning';
+import { Away } from './Away';
 import { Earn } from './Earn';
 import { commit, Head, money, Screen, useToast, useWords } from './parts';
 
@@ -28,7 +29,7 @@ export function shiftText(shifts: readonly (readonly [number, string])[]): strin
 export function Week({ c, onBack, onOwnShow }: Props) {
   const { skin, w } = useWords();
   const [toast, say] = useToast();
-  const tabs = ['Week', ...(FEATURES.jobs ? ['Work'] : []), ...(FEATURES.hustles ? ['Earn'] : []), 'Home'];
+  const tabs = ['Week', ...(FEATURES.jobs ? ['Work'] : []), ...(FEATURES.hustles ? ['Earn'] : []), 'Home', ...(FEATURES.skip ? ['Away'] : [])];
   const [tab, setTab] = useState(0);
   const [sure, setSure] = useState(false);
   const [to, setTo] = useState('');
@@ -127,6 +128,7 @@ export function Week({ c, onBack, onOwnShow }: Props) {
         )}
 
         {tabs[tab] === 'Earn' && <Earn c={c} say={say} onOwnShow={() => onOwnShow?.()} />}
+        {tabs[tab] === 'Away' && <Away c={c} />}
         {tabs[tab] === 'Home' && (
           <>
             <div className="c-start">

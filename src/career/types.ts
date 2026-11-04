@@ -469,6 +469,19 @@ export interface Routine {
   simMine: boolean;
   /** Which mail stops a skip (Lyra's call: all of it, unless you say otherwise). */
   stopFor?: { decisions: boolean; people: boolean; checkins: boolean; news: boolean };
+  /** Standing orders: how your character answers mail while you skip (Lyra's call). */
+  away?: AwayOrders;
+}
+export interface AwayOrders {
+  on: boolean;
+  /** Indie dates: take them if they pay enough, aren't too far, and you're not too tired. */
+  indie: { on: boolean; minFee: number; reach: 'country' | 'region' | 'anywhere'; maxFatigue: number };
+  /** Career events: say yes, say no, or leave them for you. */
+  events: 'yes' | 'no' | 'leave';
+  /** People and press: the tone of replies, or leave them for you. */
+  people: 'gracious' | 'cocky' | 'fiery' | 'leave';
+  /** Contract offers: sign if they pay at least this (only your own promotion's, if `same`). */
+  contracts: { on: boolean; same: boolean; minFee: number };
 }
 export interface DayJob {
   id: 'office' | 'warehouse' | 'retail' | 'hospitality' | 'gig';

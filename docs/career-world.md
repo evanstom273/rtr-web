@@ -860,3 +860,18 @@ Lyra's calls: an optional history before choosing a wrestler, run on a fresh wor
 - **Shipped wrestlers still active today:** 336.
 - **Rosters:** full throughout, with no vacant titles at any point.
 - **Cost:** about 5 seconds a year with the stand-in sims, and a 13 MB save.
+
+## While you're away (on)
+
+Lyra's call: during a skip, your character answers mail by standing orders, set in My week › Away. There's a quick on/off switch in the skip sheet, and a summary of everything handled appears when the skip ends. Answered letters don't stop the skip; anything the orders don't cover still does, if that kind of mail is ticked. `career/away.ts`.
+
+- **Indie dates:** take them (the default), or ask you. They're turned down if:
+  - they pay under your minimum (anything, £100, £250, £500, £1,000);
+  - they're beyond your reach (your country, your region, anywhere);
+  - you're more tired than your limit;
+  - they don't fit your schedule.
+- **Career events:** say yes (the first option that isn't a refusal), say no, or ask you (the default).
+- **People and press:** reply graciously, cockily, fierily, or ask you (the default).
+- **Contract offers:** ask you (the default), re-sign only, or any promotion, at or above a minimum fee. They're signed as offered, with no negotiating.
+
+The skip sheet also takes **a number of days** (1–365) as well as tomorrow, a week, a month and your next booking.
