@@ -6,7 +6,7 @@
 import { fansIn, fansTotal, findWrestler, hasTrait, PROMOTIONS, rosterOf, type Wrestler, worksFor, WRESTLERS } from '../data/rtr';
 import { hashSeed, seededRng, type Rng } from '../engine/rng';
 import { activeWorld } from '../world/world';
-import { bookerOf, type BondKind } from '../world/people';
+import { bookerOf, kindOf, type BondKind } from '../world/people';
 import { promoRegion, titleClass } from './booker';
 import { formOf, letter, makeOffer, person, promoName, resultWorth, setCareerHooks, setSigningPick } from './career';
 import { daysBetween, type Day } from './dates';
@@ -49,10 +49,11 @@ export function weightsFor(promo: string): Record<ScoutFactor, number> {
 // ------------------------------------------------------------------ the raw factors
 
 /** Things worked out once a day for everyone: championship points, and who's friends or enemies with whom. */
-interface Day0 { day: Day; titles: Map<string, number>; bonds: Map<string, { other: string; kind?: BondKind; v: number }[]> }
+interface Day0 { day: Day; c: Career; titles: Map<string, number>; bonds: Map<string, { other: string; kind?: BondKind | 'mentor'; v: number }[]> }
 let day0: Day0 | null = null;
 function today(c: Career): Day0 {
-  if (day0?.day === c.today) return day0;
+  // Keyed by the career too: another world on the same date (a new career, a test) mustn't reuse it.
+  if (day0?.day === c.today && day0.c === c) return day0;
   const titles = new Map<string, number>();
   const T = SCOUT_TITLES;
   for (const [id, reigns] of Object.entries(activeWorld().history.reigns)) {
@@ -64,12 +65,14 @@ function today(c: Career): Day0 {
       titles.set(r.holder, (titles.get(r.holder) ?? 0) + pts);
     }
   }
-  const bonds = new Map<string, { other: string; kind?: BondKind; v: number }[]>();
+  // Each person's bonds: what it is (a mentorship counts as a friendship), and how the other one feels about them.
+  const bonds = new Map<string, { other: string; kind?: BondKind | 'mentor'; v: number }[]>();
   for (const b of Object.values(activeWorld().people?.bonds ?? {})) {
-    (bonds.get(b.a) ?? bonds.set(b.a, []).get(b.a)!).push({ other: b.b, kind: b.kind, v: b.v });
-    (bonds.get(b.b) ?? bonds.set(b.b, []).get(b.b)!).push({ other: b.a, kind: b.kind, v: b.v });
+    const kind = b.mentor ? 'mentor' : kindOf(b, c.today);
+    (bonds.get(b.a) ?? bonds.set(b.a, []).get(b.a)!).push({ other: b.b, kind, v: b.lb });
+    (bonds.get(b.b) ?? bonds.set(b.b, []).get(b.b)!).push({ other: b.a, kind, v: b.la });
   }
-  day0 = { day: c.today, titles, bonds };
+  day0 = { day: c.today, c, titles, bonds };
   rosterCache.clear();
   return day0;
 }

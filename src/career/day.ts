@@ -337,7 +337,7 @@ const TROUBLE: EventDef = {
 };
 function friend(c: Career): string | undefined {
   const P = activeWorld().people;
-  return P ? bondsOf(P, c.player).filter((x) => x.bond.v >= FRIEND_LOAN_BOND).map((x) => x.other).find((id) => !!findWrestler(id)) : undefined;
+  return P ? bondsOf(P, c.player).filter((x) => (x.bond.a === x.other ? x.bond.la : x.bond.lb) >= FRIEND_LOAN_BOND).map((x) => x.other).find((id) => !!findWrestler(id)) : undefined;
 }
 
 registerEvents([CLASH, MOVE_OFFER, TROUBLE]);

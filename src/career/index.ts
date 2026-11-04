@@ -18,6 +18,7 @@ import './money';
 import './body';
 import './shape';
 import './conduct';
+import './socialLife';
 
 export * from './career';
 export * from './contracts';
@@ -39,6 +40,7 @@ export { evaluate, FACTOR_NAME, FACTORS, gradeOf, introduce, knows, type Grade, 
 export { bookHoliday, holidays, refuseStip, setPartTime, setTours, skipTour } from './body';
 export { announceRetirement, pickMentor, setWalk, takeOption } from './shape';
 export { noShow } from './conduct';
+export { GOAL_TEXT, MOOD_WHY, moodLabel, moodOf, moodTarget, whereIs } from './socialLife';
 export { CREATIVE_LABEL, creativeAsk, creativeBlock, creativeBouts, creativeOdds, creativeTier, opponentsFor, vetoNext, type CreativeKind, type CreativeReq } from './creative';
 export { trainingPrice, attributeTotal, contractFee, indieFee, matchPay, travelCost } from './economy';
 export { buyBlock, buyTrait, offerAt, offerDue, traitPrice, lean } from './personality';

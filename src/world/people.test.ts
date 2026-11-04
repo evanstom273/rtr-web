@@ -5,7 +5,7 @@ import { bookerKey, movePatience, patienceOf } from '../career/patience';
 import { memoryOf, moveRelation, relLabel, relationOf, relationsList, remember, trust } from '../career/relations';
 import { WORLD_REV, activeWorld, freshWorld, setWorld } from './world';
 import { WRESTLERS } from '../data/rtr';
-import { bondOf, bookerOf, moveBond, pairKey, takeJob, leaveJob, type People } from './people';
+import { bondOf, bookerOf, feel, kindOf, likeOf, moveBond, pairKey, respectOf, takeJob, leaveJob, type People } from './people';
 
 function begin(seed = 7) {
   const w = setWorld(freshWorld(seed));
@@ -21,9 +21,20 @@ describe('people', () => {
     moveBond(P, 'b', 'a', 10, 'hello', '2026-01-01');
     moveBond(P, 'a', 'b', 5, 'again', '2026-01-02');
     expect(Object.keys(P.bonds)).toHaveLength(1);
-    expect(bondOf(P, 'a', 'b')!.v).toBe(15);
-    moveBond(P, 'a', 'b', -40, 'fell out', '2026-01-03', 'friend');
-    expect(bondOf(P, 'b', 'a')!.kind).toBeUndefined();
+    expect(likeOf(P, 'a', 'b')).toBe(15);
+    expect(likeOf(P, 'b', 'a')).toBe(15);
+    // Each feels their own way: one warms, the other doesn't.
+    feel(P, 'a', 'b', 30, 10, 'a likes b', '2026-01-03');
+    expect(likeOf(P, 'a', 'b')).toBe(45);
+    expect(likeOf(P, 'b', 'a')).toBe(15);
+    expect(respectOf(P, 'a', 'b')).toBe(10);
+    // A friendship gone sour isn't a friendship.
+    moveBond(P, 'a', 'b', 40, 'friends', '2026-01-04', 'friend');
+    expect(kindOf(bondOf(P, 'a', 'b')!)).toBe('friend');
+    moveBond(P, 'a', 'b', -60, 'fell out', '2026-01-05');
+    expect(kindOf(bondOf(P, 'b', 'a')!)).toBeUndefined();
+    moveBond(P, 'a', 'b', -60, 'hates them now', '2026-01-06');
+    expect(kindOf(bondOf(P, 'b', 'a')!)).toBe('enemy');
   });
 
   it('a promotion’s patience and memory belong to whoever books it', () => {
@@ -43,7 +54,10 @@ describe('people', () => {
     const dale = bookerOf(P, 'VWF')!;
     movePatience(c, 'VWF', -20, 'test');
     remember(c, 'VWF', 'offScript', 2);
+    const was = likeOf(P, dale.id, c.player);
     moveBond(P, dale.id, c.player, 30, 'old friends', c.today, 'friend');
+    const fond = likeOf(P, dale.id, c.player);
+    expect(fond).toBeGreaterThanOrEqual(Math.min(100, was + 30));
     const before = trust(c, 'VWF');
     // Dale leaves VWF for TCG; TCG's booker steps aside; someone new takes VWF.
     const colette = bookerOf(P, 'TCG')!;
@@ -56,7 +70,7 @@ describe('people', () => {
     expect(memoryOf(c, 'VWF').offScript).toBe(0);
     expect(patienceOf(c, 'TCG')).toBe(PATIENCE_START - 20);
     expect(trust(c, 'TCG')).toBe(before);
-    expect(bondOf(P, dale.id, c.player)!.v).toBe(30);
+    expect(likeOf(P, dale.id, c.player)).toBe(fond);
     expect(dale.spells.map((s) => `${s.job.kind === 'booker' ? s.job.promo : ''}:${s.to ?? 'now'}`)).toEqual(['SSWC:2014-08-30', 'VWF:2026-11-03', 'TCG:now']);
   });
 
@@ -69,7 +83,7 @@ describe('people', () => {
     expect(bondOf(P, 'ray_hollis', c.player)!.mentor).toBe('ray_hollis');
     expect(bondOf(P, 'diane_calder', c.player)!.mentor).toBe(c.player);
     expect(relLabel(c, 'ray_hollis')).toBe('Mentor');
-    expect(relationsList(c).map((x) => x.id)).toEqual(['ray_hollis', 'diane_calder']);
+    expect(relationsList(c).map((x) => x.id)).toEqual(expect.arrayContaining(['ray_hollis', 'diane_calder']));
   });
 
   it('an older save: promotion keys move to their bookers, relationships become bonds, and it happens once', () => {

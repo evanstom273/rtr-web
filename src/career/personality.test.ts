@@ -151,7 +151,7 @@ describe('the world’s personalities', () => {
     const before = new Map(young.map((w) => [w.id, Object.values(w.stats).reduce((a, b) => a + b, 0)]));
     for (let i = 0; i < 200; i++) await day(c, quick, 'simmed');
     const P = activeWorld().people!;
-    const bond = Object.values(P.bonds).find((b) => b.kind === 'mentor' && b.mentor === vet.id);
+    const bond = Object.values(P.bonds).find((b) => b.mentor === vet.id);
     expect(bond, 'a mentor bond').toBeTruthy();
     const protege = young.find((w) => w.id === bond!.a || w.id === bond!.b)!;
     const now = Object.values(protege.stats).reduce((a, b) => a + b, 0);

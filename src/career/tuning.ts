@@ -922,3 +922,79 @@ export const SCOUT_SEEN = { home: 0.15, away: 0.03, bigNight: 0.15, impress: 3.5
 export const SCOUT_NEWS = { home: 0.5, away: 0.15 };
 /** Word of mouth: a friend or mentor on their roster mentions you, each month. */
 export const SCOUT_WORD = 0.4;
+
+// --- Relationships and social life (Lyra's redesign, stage 1: PROPOSALS) ------------------------------
+/** Kinds: enemies when either can't stand the other; best friends and friends when both like each other this much and know each other this well; a rivalry lasts this long after it was last stoked. */
+export const BOND_KIND = { enemy: -60, friend: 40, friendFam: 30, best: 75, bestFam: 60, rivalDays: 365 };
+/** An event that makes you friends brings you both up to this, and you know each other at least this well; a mentorship, this well. */
+export const BOND_MARK = { friendLike: 40, friendFam: 35, mentorFam: 40 };
+/** Reasons a bond keeps: the player's own, everyone else's. */
+export const BOND_LOG = { mine: 5, theirs: 0 };
+/** Anything you do with or to someone (an event, a letter, a post): you get to know each other this much; and you take to them this share of how they take to you. */
+export const SOCIAL_TOUCH = { fam: 3, reciprocal: 0.5 };
+/** How well you can read someone (Lyra's call: clearer the closer): a rough word from this familiarity, a clear read from this. */
+export const SOCIAL_READ = { rough: 20, clear: 50 };
+/**
+ * Backstage at a show: each wrestler on the card gets talking to someone else there this often, and to a second
+ * person this often; the booker does the rounds this many times. Each chat: familiarity; warmth (time together
+ * warms people) plus like per point of chemistry, and random swing (sd); a chance of respect. A move shrinks as
+ * feelings get stronger (by this much at 100), so friendships and grudges settle rather than run away.
+ */
+export const SOCIAL_ENCOUNTER = { chance: 0.7, second: 0.35, booker: 2, fam: 3, warmth: 3, like: 3, noise: 4, respect: 0.5, settle: 0.6 };
+/** Who people seek out: their friends (per point of like over this), people they know (per point of familiarity); people they dislike, rarely. */
+export const SOCIAL_SEEK = { likeOver: 0, perLike: 0.08, perFam: 0.04, avoid: -30, avoidMult: 0.3 };
+/** In the ring together: familiarity; respect each way per star over or under 3; a poor one (under this) costs a little. */
+export const SOCIAL_MATCH = { fam: 4, respectPerStar: 3, poor: 2.25, poorRespect: -2 };
+/** A feud spilling over (Lyra's call: by personality): this often per feud match, hot-heads and egotists take it personally (like), professionals and team players respect the work. */
+export const SOCIAL_SPILL = { chance: 0.5, personal: -3, work: 2 };
+/**
+ * Chemistry: how someone with the first trait takes to someone with the second ('*': anyone), plus where they're
+ * from, where they trained, and their ages. A seeded "click" between each pair adds up to ± this.
+ */
+export const CHEMISTRY = {
+  pairs: [
+    ['hot_headed', 'hot_headed', -1.5], ['hot_headed', 'egotistical', -1], ['egotistical', 'egotistical', -1.5], ['egotistical', 'showboat', -0.5],
+    ['professional', 'professional', 1], ['professional', 'reliable', 1], ['professional', 'rebellious', -1], ['professional', 'unpredictable', -0.5],
+    ['rebellious', 'rebellious', 1], ['rebellious', 'professional', -0.5], ['loyal', 'loyal', 0.5], ['loyal', 'mercenary', -1],
+    ['showboat', 'showboat', -0.5], ['crowd_pleaser', 'crowd_pleaser', 0.5], ['politician', 'politician', -0.5], ['ambitious', 'ambitious', -0.5],
+    ['team_player', '*', 0.75], ['*', 'team_player', 0.5], ['*', 'reliable', 0.25], ['*', 'hot_headed', -0.25], ['*', 'egotistical', -0.5],
+  ] as [string, string, number][],
+  sameCountry: 0.75, sameSchool: 1, ageGap: { over: 15, by: -0.5 }, mentorYoung: { age: 25, by: 1 }, click: 1.5,
+};
+/** First impressions of a worker (respect): this to start, per point of ability over or under your own, and random swing (sd). */
+export const SOCIAL_RESPECT = { start: 10, perAbility: 0.25, noise: 12, min: -40, max: 70 };
+/** Out of touch: after this many days apart, each month like and respect drift this share towards nothing (a grudge, this share of that), and familiarity fades this much. */
+export const SOCIAL_DRIFT = { after: 90, like: 0.05, grudge: 0.4, respect: 0.03, fam: 2 };
+/** Keeping the save lean: bonds this weak, this little known and this stale go; nobody keeps more than this many (the closest stay). */
+export const SOCIAL_PRUNE = { like: 15, fam: 20, days: 90, max: 20 };
+/**
+ * A lived-in world (Lyra's call): each wrestler starts knowing this many people, from their roster (or region on
+ * the indies), their school, or their country; how well; how they feel (mean, sd, and how much of it the two share);
+ * top-of-the-card rivalries per division; veteran mentors with a protégé; bookers' favourites and doghouse.
+ */
+export const SOCIAL_SEED = {
+  per: [4, 7], roster: 0.6, school: 0.25, fam: [15, 70], rosterFam: 10, likeMean: 18, likeSd: 30, shared: 0.6, chem: 8,
+  bestPer: 10, best: [75, 95], bestFam: [65, 90], grudgePer: 8, grudge: [-85, -60],
+  rivalsPerDivision: 1, rivalChance: 0.7, protege: 0.5, bookerPer: 6, bookerLikeSd: 25,
+};
+/** Your circle (Lyra's call: a small one): your trainer, school mates, family. */
+export const CIRCLE = { mates: [1, 2], family: [1, 3], trainerLike: [50, 70], mateLike: [45, 70], mateFam: [50, 70], familyLike: [60, 90] };
+/** Wrestling schools in each country. */
+export const SCHOOLS_PER_COUNTRY = [2, 4];
+/** Orientation (Lyra's call: everyone has their own, learned by knowing them): shares of the world. */
+export const ORIENTATION = { straight: 0.82, gay: 0.07, bi: 0.09, ace: 0.02 };
+/**
+ * Wellbeing (0–100): where it sits, what lifts and drags it, how far it moves towards that each week (your circle)
+ * or month (everyone else). Form: points either side of a .500 record. Goals: met lately, or stuck this long.
+ */
+export const MOOD = {
+  base: 55, friend: 4, friendMax: 16, best: 6, bestMax: 12, enemy: -5, enemyMax: -15, alone: -10, mentor: 3, family: 3,
+  form: 16, great: 4, champ: 6, goalMet: 8, goalStuck: -8, stuckDays: 240, injured: -12, idle: -8, idleDays: 35,
+  tired: -6, tiredAt: 70, broke: -8, released: -10, releasedDays: 60, step: 0.35, stepMonthly: 0.6,
+};
+/** Wellbeing's effects (Lyra's call: it matters): on every roll in the ring, on training and recovery, and on retiring. */
+export const MOOD_FX = { low: 30, high: 85, dice: 1, trainLow: 0.85, trainHigh: 1.1, recoverLow: 0.9, recoverHigh: 1.1, retireLow: 2 };
+/** Goals: an unhappy signed wrestler wants out below this wellbeing (or their booker's like); the old wind down from this age; mentors teach from this. */
+export const GOALS = { moveMood: 35, moveBooker: -30, windDown: 37, teach: 33, young: 25, evenChance: 0.5 };
+/** Backstage news (Lyra's call: news and profiles): at most this many lines a month about other people's friendships and fall-outs. */
+export const SOCIAL_NEWS_MAX = 3;

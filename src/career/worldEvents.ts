@@ -7,7 +7,7 @@ import { seededRng, type Rng } from '../engine/rng';
 import { activeWorld } from '../world/world';
 import { addEvent, type WorldEvent } from '../world/history';
 import { hashSeed } from './booker';
-import { letter, person, setCareerHooks } from './career';
+import { letter, mod, person, setCareerHooks } from './career';
 import { addDays, daysBetween, fmtDay } from './dates';
 import { affinity } from './relations';
 import { arrangeFarewell } from './specials';
@@ -39,7 +39,8 @@ function announceRetirements(c: Career, rnd: Rng): void {
     const age = w.age - (shippedWrestler(w.id) ? SHIPPED_RETIRE_YOUNGER : 0);
     if (!p || w.id === c.player || p.retired || p.retiring || age < RETIRE_AGE_MIN || titleHolder(w.id)) continue;
     if (c.feuds.some((f) => !f.done && f.title && (f.a === w.id || f.b === w.id))) continue;
-    if (rnd() >= RETIRE_MONTHLY_BASE + RETIRE_MONTHLY_PER_YEAR * (age - RETIRE_AGE_MIN)) continue;
+    // Unhappy people go sooner (wellbeing, Lyra's call: it matters).
+    if (rnd() >= (RETIRE_MONTHLY_BASE + RETIRE_MONTHLY_PER_YEAR * (age - RETIRE_AGE_MIN)) * mod('retire', c, w.id)) continue;
     const day = arrangeFarewell(c, w, rnd);
     p.retiring = day;
     // Their deal runs to the farewell, whatever it said.

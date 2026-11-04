@@ -86,6 +86,7 @@ describe('promoter memory and relationships', () => {
     d.shows[show.id] = show;
     applyBout(d, show, 0, out('them', 4.5), false);
     expect(affinity(d, opp.id)).toBeGreaterThan(0);
-    expect(relLabel(d, opp.id)).toBe('Colleague');
+    // One match: you barely know them yet (Lyra's call: you read people better the closer you are).
+    expect(relLabel(d, opp.id)).toBe('Acquaintance');
   });
 });

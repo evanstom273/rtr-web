@@ -5,6 +5,7 @@ import { databaseChanged, fansIn, PROMOTIONS, shippedWrestler, TITLES, WRESTLERS
 import { hashSeed, seededRng } from '../engine/rng';
 import { activeWorld } from '../world/world';
 import { addEvent } from '../world/history';
+import { dropBond } from '../world/people';
 import { makeIndie } from '../world/populate';
 import { ensurePotential } from './development';
 import { titleRegion } from './booker';
@@ -34,7 +35,7 @@ export function dropNobody(): void {
   const i = WRESTLERS.findIndex((w) => w.id === NOBODY);
   if (i >= 0) { WRESTLERS.splice(i, 1); databaseChanged(); }
   const P = activeWorld().people;
-  if (P) for (const [k, b] of Object.entries(P.bonds)) if (b.a === NOBODY || b.b === NOBODY) delete P.bonds[k];
+  if (P) for (const [k, b] of Object.entries(P.bonds)) if (b.a === NOBODY || b.b === NOBODY) dropBond(P, k);
 }
 
 /** A world with nobody playing, from `today`. */
@@ -84,7 +85,7 @@ export function backdate(years: number, today: Day, seed: number): { start: Day;
   // scene of back then is generated fresh (below), at the ages a new indie scene has.
   const gone = new Set(WRESTLERS.filter((w) => w.id !== NOBODY && !shippedWrestler(w.id)).map((w) => w.id));
   const P = activeWorld().people;
-  if (P) for (const [k, b] of Object.entries(P.bonds)) if (gone.has(b.a) || gone.has(b.b)) delete P.bonds[k];
+  if (P) for (const [k, b] of Object.entries(P.bonds)) if (gone.has(b.a) || gone.has(b.b)) dropBond(P, k);
   for (const w of WRESTLERS) {
     if (gone.has(w.id)) continue;
     if (w.id === NOBODY) { keep.push(w); continue; }

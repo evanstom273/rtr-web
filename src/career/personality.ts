@@ -222,9 +222,9 @@ function mentorship(c: Career, rnd: Rng): void {
   for (const m of mentors) {
     if (rnd() >= M.monthly) continue;
     // Their protégé: one they're already teaching, else a young one near them (same promotion; on the indies, same region).
-    const current = bondsOf(people, m.id).find((b) => b.bond.kind === 'mentor' && b.bond.mentor === m.id && (b.bond.given ?? 0) < M.max);
+    const current = bondsOf(people, m.id).find((b) => b.bond.mentor === m.id && (b.bond.given ?? 0) < M.max);
     const young = current ? WRESTLERS.find((w) => w.id === current.other) : WRESTLERS.filter((w) => w.id !== c.player && w.age <= M.protegeMaxAge && !c.people[w.id]?.retired
-      && (m.promotion === 'TIS' ? w.promotion === 'TIS' && w.region === m.region : w.promotion === m.promotion) && !bondsOf(people, w.id).some((b) => b.bond.kind === 'mentor'))
+      && (m.promotion === 'TIS' ? w.promotion === 'TIS' && w.region === m.region : w.promotion === m.promotion) && !bondsOf(people, w.id).some((b) => !!b.bond.mentor))
       .sort((a, b) => globalScore(a) - globalScore(b))[0];
     if (!young) continue;
     const keys = ['strength', 'speed', 'stamina', 'skill', 'striking', 'charisma'] as const;

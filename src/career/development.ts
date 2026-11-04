@@ -59,7 +59,7 @@ export function developMonth(w: Wrestler, working: boolean, mentored: boolean, r
 function monthly(c: Career, _rnd: Rng): void {
   const P = activeWorld().people;
   const mentored = new Set<string>();
-  for (const b of Object.values(P?.bonds ?? {})) if (b.kind === 'mentor' && b.mentor) mentored.add(b.mentor === b.a ? b.b : b.a);
+  for (const b of Object.values(P?.bonds ?? {})) if (b.mentor) mentored.add(b.mentor === b.a ? b.b : b.a);
   const rnd = seededRng(hashSeed(c.seed, 'develop', c.today));
   for (const w of WRESTLERS) {
     const p = c.people[w.id];

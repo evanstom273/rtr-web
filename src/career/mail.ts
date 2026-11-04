@@ -6,7 +6,7 @@
 import { FAN_REGIONS, fansIn, fansTotal, findWrestler, fmtFans, PROMOTIONS, TITLES, type TraitId, worksFor } from '../data/rtr';
 import { hashSeed, seededRng } from '../engine/rng';
 import { activeWorld } from '../world/world';
-import { bondOf, bondsOf, bookerOf } from '../world/people';
+import { bondsOf, bookerOf, kindOf, likeOf, type Bond } from '../world/people';
 import { letter, person, promoName, setCareerHooks, type MailBefore } from './career';
 import { addDays, daysBetween, fmtDay, weekday } from './dates';
 import { leanTo } from './leans';
@@ -23,6 +23,8 @@ import type { Bout, Career, Letter, MailReply, MatchReport, PlayerMatch, Show } 
 import { FAN_POSTS, fanHandle, fill, line, TIPS, voiceOf } from './voice';
 
 const P = () => activeWorld().people;
+/** How the other one in a bond with you feels about you. */
+const theirLike = (x: { other: string; bond: Bond }) => (x.bond.a === x.other ? x.bond.la : x.bond.lb);
 const nameOf = (id: string | undefined): string => (id ? findWrestler(id)?.name ?? P()?.staff[id]?.name ?? id : '');
 const pick = <T>(rnd: () => number, xs: readonly T[]): T => xs[Math.floor(rnd() * xs.length)]!;
 const stars = (s: number) => `${Number.isInteger(s) ? s : s.toFixed(2).replace(/0$/, '')}★`;
@@ -48,7 +50,7 @@ type Before = MailBefore;
 /** Take stock just before your match is settled. */
 export function before(c: Career, show: Show, opp: string): Before {
   const me = findWrestler(c.player)!;
-  return { fans: { ...me.fans }, rep: person(c, c.player).rep, patience: patienceOf(c, showBooker(show)), bond: P() ? bondOf(P()!, c.player, opp)?.v ?? 0 : 0, label: relLabel(c, opp) };
+  return { fans: { ...me.fans }, rep: person(c, c.player).rep, patience: patienceOf(c, showBooker(show)), bond: P() ? likeOf(P()!, opp, c.player) : 0, label: relLabel(c, opp) };
 }
 
 /** The result letter, after everything the match changed has changed. */
@@ -87,7 +89,7 @@ export function resultLetter(c: Career, show: Show, bout: Bout, m: PlayerMatch, 
   if (m.wonTitle || (m.title && m.result === 'loss' && bout.result?.newChamp)) posts.push({ who: fanHandle(rnd), text: fill(pick(rnd, FAN_POSTS.title), vars) });
   if (m.planned === 'upset' || m.planned === 'off-script') posts.push({ who: fanHandle(rnd), text: pick(rnd, FAN_POSTS.upset) });
   if (m.stars >= 3.5 || rnd() < 0.5) posts.push({ who: opp.name, id: opp.id, text: line(voiceOf(opp.id), 'post_after', rnd, vars) });
-  const friend = P() ? bondsOf(P()!, c.player).filter((x) => x.bond.v >= MAIL_FRIEND_BOND && x.other !== opp.id && findWrestler(x.other)).sort((x, y) => y.bond.v - x.bond.v)[0] : undefined;
+  const friend = P() ? bondsOf(P()!, c.player).filter((x) => theirLike(x) >= MAIL_FRIEND_BOND && x.other !== opp.id && findWrestler(x.other)).sort((x, y) => theirLike(y) - theirLike(x))[0] : undefined;
   if (friend && m.stars >= 3) posts.push({ who: nameOf(friend.other), id: friend.other, text: line(voiceOf(friend.other), 'friend_great', rnd, vars) });
   const used = new Set<string>();
   while (posts.length < n) {
@@ -127,7 +129,7 @@ export function afterMatchMail(c: Career, show: Show, m: PlayerMatch): void {
     letter(c, { kind: 'person', from: opp.name, fromId: opp.id, subject: m.result === 'loss' ? 'About last night' : 'That match', body, ctx: { who: opp.id }, replies: personReplies(opp.name) });
   }
   if (m.wonTitle || m.stars >= MAIL_FRIEND_STARS) {
-    const f = P() ? bondsOf(P()!, c.player).filter((x) => x.bond.v >= MAIL_FRIEND_BOND && x.other !== m.opp && findWrestler(x.other)).sort((x, y) => y.bond.v - x.bond.v)[0] : undefined;
+    const f = P() ? bondsOf(P()!, c.player).filter((x) => theirLike(x) >= MAIL_FRIEND_BOND && x.other !== m.opp && findWrestler(x.other)).sort((x, y) => theirLike(y) - theirLike(x))[0] : undefined;
     if (f) {
       letter(c, {
         kind: 'person', from: nameOf(f.other), fromId: f.other, subject: m.wonTitle ? 'CHAMPION' : 'Your match', body: [line(voiceOf(f.other), m.wonTitle ? 'friend_title' : 'friend_great', rnd, { you: me.name })],
@@ -343,7 +345,7 @@ function press(c: Career): void {
     return;
   }
   const last = c.history[0];
-  const rival = P() ? bondsOf(P()!, c.player).filter((x) => x.bond.kind === 'rival' || x.bond.v <= -30).map((x) => x.other).find((id) => findWrestler(id)) : undefined;
+  const rival = P() ? bondsOf(P()!, c.player).filter((x) => { const k = kindOf(x.bond, c.today); return k === 'rival' || k === 'enemy' || theirLike(x) <= -30; }).map((x) => x.other).find((id) => findWrestler(id)) : undefined;
   const target = rival ?? TITLES.find((t) => t.holder && worksFor(findWrestler(t.holder)!, k?.promo ?? me.promotion))?.holder ?? undefined;
   letter(c, {
     kind: 'press', from: pick(rnd, outlets), subject: 'Twenty minutes?', fromId: '',
@@ -387,7 +389,7 @@ function keep(c: Career): void {
 
 /** Mentors write now and then with something to work on. */
 function mentorNote(c: Career): void {
-  const m = P() ? bondsOf(P()!, c.player).find((x) => x.bond.kind === 'mentor' && x.bond.mentor !== c.player && findWrestler(x.other)) : undefined;
+  const m = P() ? bondsOf(P()!, c.player).find((x) => !!x.bond.mentor && x.bond.mentor !== c.player && findWrestler(x.other)) : undefined;
   const graded = c.history.filter((x) => x.grades?.length && x.day >= addDays(c.today, -28));
   if (!m || !graded.length) return;
   const rnd = seededRng(hashSeed(c.seed, 'mentor', c.today));

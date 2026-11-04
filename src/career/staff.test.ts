@@ -3,7 +3,7 @@
 // is honoured or refused, on record; changing employer never resets anyone's relationships.
 import { describe, expect, it } from 'vitest';
 import { activeWorld } from '../world/world';
-import { bondOf, bookerOf, moveBond } from '../world/people';
+import { bookerOf, likeOf, moveBond } from '../world/people';
 import { handover, memoryOf, patienceOf, promisesOnHandover, remember, trust } from './index';
 import { movePatience } from './patience';
 import { PATIENCE_START, TRUST_INHERIT } from './tuning';
@@ -35,7 +35,10 @@ describe('bookers’ careers', () => {
     remember(c, 'VWF', 'kept', 8);
     remember(c, 'VWF', 'offScript', 4);
     movePatience(c, 'VWF', -30, 'test');
+    const was = likeOf(P, old.id, c.player);
     moveBond(P, old.id, c.player, 40, 'old friends', c.today, 'friend');
+    const fond = likeOf(P, old.id, c.player);
+    expect(fond).toBeGreaterThanOrEqual(Math.min(100, was + 40));
     const oldTrust = trust(c, old.id);
     const fresh = handover(c, 'VWF', old, 'fired', seededRng(4));
     expect(fresh.id).not.toBe(old.id);
@@ -44,11 +47,11 @@ describe('bookers’ careers', () => {
     expect(memoryOf(c, 'VWF').kept).toBe(Math.round(8 * TRUST_INHERIT));
     expect(memoryOf(c, 'VWF').offScript).toBe(Math.round(4 * TRUST_INHERIT));
     expect(patienceOf(c, 'VWF')).toBe(PATIENCE_START);
-    expect(bondOf(P, fresh.id, c.player)?.v ?? 0).toBe(0);
+    expect(likeOf(P, fresh.id, c.player)).toBe(0);
     // The one who left keeps everything.
     expect(trust(c, old.id)).toBe(oldTrust);
     expect(patienceOf(c, old.id)).toBeLessThan(PATIENCE_START);
-    expect(bondOf(P, old.id, c.player)!.v).toBe(40);
+    expect(likeOf(P, old.id, c.player)).toBe(fond);
     expect(old.job).toBeNull();
     expect(old.spells.at(-1)!.end).toBe('fired');
     expect(activeWorld().history.events.some((e) => e.kind === 'hired' && e.who === fresh.id && e.promo === 'VWF')).toBe(true);
@@ -86,6 +89,7 @@ describe('bookers’ careers', () => {
     const promoter = Object.values(P.staff).find((s) => s.job?.kind === 'promoter')!;
     promoter.rep = 95;
     for (const s of Object.values(P.staff)) if (s.job?.kind === 'promoter' && s !== promoter) s.rep = 10;
+    const was = likeOf(P, promoter.id, c.player);
     moveBond(P, promoter.id, c.player, 25, 'worked together', c.today);
     remember(c, promoter.id, 'kept', 3);
     const job = promoter.job!;
@@ -100,7 +104,7 @@ describe('bookers’ careers', () => {
     expect(promoter.job).toEqual({ kind: 'booker', promo: 'TCG' });
     expect(promoter.spells.map((x) => x.job.kind)).toEqual(['promoter', 'booker']);
     // Same person, same feelings, same memory of you.
-    expect(bondOf(P, promoter.id, c.player)!.v).toBe(25);
+    expect(likeOf(P, promoter.id, c.player)).toBe(Math.min(100, was + 25));
     expect(memoryOf(c, 'TCG').kept).toBeGreaterThanOrEqual(3);
     // Their brand carries on under someone new.
     expect(P.brands[brand]!.promoter).not.toBe(promoter.id);

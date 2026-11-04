@@ -2,7 +2,7 @@ import { FEATURES } from '../../career/tuning';
 import { useLayoutEffect, useRef } from 'react';
 import { TraitChips } from './Traits';
 import { fansIn, fansTotal, findWrestler, fmtFans, getMove, titlesHeldBy } from '../../data/rtr';
-import { C, CLAUSES, myBoutToday, person, promoName, type Career } from '../../career';
+import { C, CLAUSES, moodLabel, moodOf, myBoutToday, person, promoName, type Career } from '../../career';
 import { ATTR_KEYS, ATTR_LONG, CLASS_NAME, divisionName } from '../../career/create';
 import { daysBetween, fmtDay } from '../../career/dates';
 import { REGION_LABEL } from '../../career/places';
@@ -44,7 +44,7 @@ export function Profile({ c, onBack, onOpen, onShowDay, onHub }: Props) {
           <span className="c-tag">{me.disposition} · {divisionName(me)} · {me.classes.map((x) => CLASS_NAME[x]).join(' · ')}</span>
           <Nm w={me} cls="c-nm" />
           <span className="c-sub"><i>{me.gimmick}</i> · {me.age} · {me.height.replace("'", '′ ')}{me.height.includes('"') ? '' : '″'} · {me.weight} lb · {me.country}</span>
-          <span className="c-status">{w(health)} · {wins}–{losses} · {titles.length ? titles.map((t) => t.name).join(', ') : w('No titles')} · {w(`Rep ${Math.round(p.rep)}`)}</span>
+          <span className="c-status">{w(health)} · {w(moodLabel(moodOf(me.id)))} · {wins}–{losses} · {titles.length ? titles.map((t) => t.name).join(', ') : w('No titles')} · {w(`Rep ${Math.round(p.rep)}`)}</span>
           <TraitChips traits={me.traits} />
         </div>
       </div>

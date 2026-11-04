@@ -6,7 +6,7 @@
 import { FAN_REGIONS, fansIn, fansTotal, findWrestler, TITLES, WRESTLERS, type Wrestler } from '../data/rtr';
 import { hashSeed, seededRng } from '../engine/rng';
 import { activeWorld } from '../world/world';
-import { moveBond } from '../world/people';
+import { bondsOf, kindOf, moveBond } from '../world/people';
 import { letter, person, setCareerHooks } from './career';
 import { calledOut } from './mail';
 import { addDays, daysBetween, fmtDay, type Day } from './dates';
@@ -66,7 +66,8 @@ function gainFor(c: Career, me: Wrestler, kind: SocialKind): number {
   const repeats = s.recent.filter((x) => x.kind === kind && daysBetween(x.day, c.today) < SOCIAL_REPEAT_DAYS).length;
   const soon = nextMatch(c);
   const matchSoon = !!soon && daysBetween(c.today, soon.date) <= 7;
-  const rival = Object.values(activeWorld().people?.bonds ?? {}).some((b) => (b.a === c.player || b.b === c.player) && b.kind === 'rival');
+  const P0 = activeWorld().people;
+  const rival = !!P0 && bondsOf(P0, c.player).some((b) => { const k = kindOf(b.bond, c.today); return k === 'rival' || k === 'enemy'; });
   const great = c.history.some((m) => m.stars >= 4 && daysBetween(m.day, c.today) <= 7);
   const buzz = (matchSoon || rival ? SOCIAL_BUZZ_MATCH : 1) * (great ? SOCIAL_BUZZ_GREAT : 1);
   // Social Media Policy Tier 3: their channels amplify you.

@@ -1078,3 +1078,98 @@ Every major that knows you takes a look each month, with a 30% chance.
 - The old rule (fans in their region against their roster) would give 3 indies an offer somewhere and 2 a tryout.
 - The grade gives 9 offers and 14 tryouts, going to the talented, not just the locally popular.
 - An elite, unknown 21-year-old indie champion like Lyra's Jamie Diaz is offered deals by the purists and the young-talent promotions, and tryouts by the TV and money promotions.
+
+## Relationships and social life, stage 1: foundations (on)
+
+Lyra's relationships redesign, first of six stages (world first). The bond model lives in `world/people.ts`. What comes from the seed (homes, schools, orientation, chemistry), plus the lived-in seeding and your circle, lives in `world/social.ts`. The living world (backstage, matches, drift, news, wellbeing and goals) is in `career/socialLife.ts`. Every number is in `tuning.ts` under *Relationships and social life*, and all of them are **proposals**.
+
+**A relationship.** One record per pair holds both sides.
+- **Two dials each way:** like (as a person) and respect (as a worker), each −100 to +100. Each person feels their own way, so a crush, a one-sided grudge or someone using you all work.
+- **Familiarity:** 0–100, how well they know each other.
+- **A mentorship** sits alongside whatever else it is.
+- **A booker's respect for you is their trust** (from their memory of your work). Patience stays short-term.
+
+**What it becomes** (worked out, not stored):
+- **Enemies:** either one at −60 or lower.
+- **Best friends:** both at +75 or higher, and they know each other well (60+).
+- **Rivals:** a feud, a callout or a fight in the last year.
+- **Friends:** both at +40 or higher, knowing each other a bit (30+).
+
+**Reading people.** How clearly you can tell depends on how well you know them.
+- Under 20 familiarity, you can't tell how someone feels.
+- From 20, you get a rough word.
+- From 50, you get a clear read.
+- Someone who can't stand you can hide it if you barely know them.
+
+**The lived-in world.** It's seeded once per world: at the first career, at the start of a simulated history, or when an older save loads.
+- **Acquaintances:** everyone knows 4–7 people from their roster (their region, on the indies), their school or their country. Feelings are partly shared history and partly their own, plus chemistry.
+- **Best friends and old grudges:** about one pair in 10 per roster are best friends, and one in 8 have a grudge (often one-sided).
+- **Rivalries:** the top pairs in each division.
+- **Protégés:** half of veteran mentors have one.
+- **Bookers:** a few favourites and a few in the doghouse.
+
+**Your circle** (Lyra's call):
+- your school's head trainer;
+- one or two school mates, who are friends;
+- one to three family members.
+
+Trainers and family are "folk": people outside the ring, kept light.
+
+**Homes, schools, orientation.** These come from the world seed and need no storage.
+- **Home:** a home city in their country.
+- **School:** two to four schools per country, named after its cities.
+- **Orientation:** straight 82%, gay 7%, bi 9%, ace 2%.
+- **What's stored:** only a move, and your own orientation (set on the Relationships screen).
+
+**The world's social life** (tiered, Lyra's call):
+- **Backstage:** after every show, each wrestler on the card has a 70% chance of a chat and 35% of a second. They seek out friends and avoid people they dislike, and the booker does the rounds too.
+  - Each chat: time together warms people (+3), chemistry swings it, and familiarity rises by 3.
+  - Moves shrink as feelings get strong, so friendships and grudges settle rather than run away.
+- **Chemistry:** traits against traits, the same country (+0.75) and school (+1), the age gap, mentors warming to the young, and a seeded click (±1.5).
+- **In the ring:** respect moves by 3 per star above or below 3 (−2 for a poor match), and familiarity by 4.
+- **Feuds:** a feud makes rivals. Half of feud matches spill over: hot-heads and egotists take it personally (−3 like), professionals and team players respect the work (+2). The old flat −4 per feud match is gone.
+- **Drift:** after 90 days apart, each month like fades 5% (a grudge, 2%), respect 3%, and familiarity by 2. Family doesn't drift.
+- **Pruning:** weak, little-known bonds 90 days stale are dropped, and nobody keeps more than 20 (the closest stay). This keeps the save lean.
+- **Backstage news:** a pair you'd care about becoming best friends or enemies makes the Monday digest. So do your own new friends, best friends and (when you can tell) enemies. At most 3 a month.
+
+**Wellbeing** (0–100, Lyra's call: it matters):
+- **Starting point:** 55.
+- **Lifts it:** friends (+4 each, up to 16), best friends (+6, up to 12), family (+3), a mentorship (+3), winning (up to +8), a great match lately (+4), a title (+6), getting what they were after (+8).
+- **Drags it:** enemies (−5 each, down to −15), nobody in their corner (−10), losing (down to −8), getting nowhere for 8 months (−8), injured (−12), not getting booked for 35 days (−8). For you only: worn out (−6) and money worries (−8).
+- **How often it moves:** 35% of the way every Monday for your circle, roster and people you know; 60% on the first of the month for everyone else.
+- **At 30 or below:** −1 on every roll in the ring ("Head's not right"), training gains ×0.85, recovery ×0.9, and retiring twice as likely.
+- **At 85 or above:** +1 on every roll ("In a good place"), training ×1.1, recovery ×1.1.
+
+**Goals.** Everyone but you has one, worked out monthly: get signed, a title, break through, get paid, get out, get even, bring the young ones on, wind down, or happy where they are.
+- Wanting out comes from low wellbeing (35 or below) or a booker who dislikes them (−30 or below), unless they're loyal.
+- Getting what they wanted lifts wellbeing for 90 days.
+
+**Screens.**
+- **Relationships:** your wellbeing and its reasons, home and school, then the people in your life. Each shows how they feel about you and how they rate your work, read as clearly as you know them, plus how well you know each other and the latest reason it moved. You set your orientation here too. Bookers keep "Personally" and "Your work".
+- **Profile:** your wellbeing in the status line.
+- **A wrestler's file:** where they live and trained, what they're after, how they seem (if you know them), who they're close to, their rivals, who they can't stand, and any mentorship.
+
+**Older saves** (world rev 10). One-number bonds become two-way:
+- like = the old number, both ways;
+- familiarity from how strong the bond was;
+- an old friend is at least friendly, an old rival a rival, and a mentorship keeps its teacher.
+
+The world is then brought to life around them, and the player gets their circle. It happens once.
+
+**Fixed along the way.** Scouting's per-day cache was keyed only by the date, so another world on the same date (a new career, a test) could reuse it. It's keyed by the career now.
+
+**Validation** (`SOCIAL=1 npx vitest run src/career/socialrun.test.ts`, seeds 7 and 11, a year, stand-in sims):
+
+| | Start | 12 months |
+|---|---|---|
+| Friends each | 1.4–1.5 | about 1.2 |
+| Best friends each | 0.14–0.16 | 0.26 |
+| Enemies each | about 0.13 | about 0.10 |
+| Rivals each | 0.05 | 0.54 (as feuds play out) |
+| Wellbeing, 10% / median / 90% | 47 / 59 / 69 | 37 / 53 / 70 |
+| At or under 30 / at or over 85 | 0 / 2 | 8 / 3 |
+| Bonds in the save | about 380 KB | about 670 KB |
+
+Most of the people without a friend are indie wrestlers, who seldom share a card with the same people twice. A day costs about 1–2 ms more than without the social engine. A one-year contracts run stays healthy: full rosters and no titles held off-roster.
+
+**Next stages:** the phone (messages, topics and tones), plans and activities, romance and family, politics (booking, chemistry, the locker room, cliques, enemies), and gossip and angles.

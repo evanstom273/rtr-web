@@ -72,6 +72,8 @@ function careerSide(s: Side, rules: MatchRulesConfig, rnd: Rng): Side {
   if (rules.booked?.side === s.key) s.booked = rules.booked.bonus;
   s.big = !!(rules.big || rules.title || rules.titleId);
   s.form = rollForm(s, rnd);
+  const mood = rules.mood?.[s.key];
+  if (mood) s.mood = mood;
   const fresh = rules.freshness?.[s.key];
   if (fresh !== undefined && fresh < 1) s.stamina = Math.max(1, Math.round(s.maxStamina * Math.max(0, fresh)));
   return s;

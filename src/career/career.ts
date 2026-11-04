@@ -133,6 +133,7 @@ export function startCareer(o: StartOptions): Career {
       ? [`You’re under contract to ${promoName(deal.promo)} until ${fmtDay(deal.end, 'long')}, at £${deal.fee.toLocaleString('en-GB')} a weekly-show match.`, 'The booker decides when you work. Keep an eye on the calendar.']
       : ['You’re a free agent on The Indie Scene. Indie promoters will write with bookings, and you can ask for a spot on any indie show on the calendar.', 'Get your name out there and the big promotions will come calling.'],
   });
+  for (const f of hooks.start) f(c);
   return c;
 }
 
@@ -204,6 +205,9 @@ export function boutRules(c: Career, show: Show, bout: Bout, you: string, them: 
   if (nudge && bout.planned) rules.booked = { side: bout.planned === you ? 'you' : 'them', bonus: PLANNED_NUDGE };
   // A big occasion (Big-Match Performers rise to it): a flagship or special, a cup final, a farewell. Title matches count anyway.
   if (show.kind === 'flagship' || show.kind === 'special' || bout.farewell || (bout.tourney && bout.tourney.round === 2)) rules.big = true;
+  // Wellbeing (Lyra's call: it matters): in a good place, or not right in the head, on every roll.
+  const mood = { you: moodDice(c, you), them: moodDice(c, them) };
+  if (mood.you || mood.them) rules.mood = mood;
   return rules;
 }
 
@@ -303,6 +307,7 @@ export function applyBout(c: Career, show: Show, index: number, out: SimOut, aIs
     if (feud.payoff === show.id) feud.done = true;
   }
 
+  for (const f of hooks.bout) f(c, show, bout);
   if (mineHere) settleMine(c, show, bout, out, aIsYou, changes[c.player] ?? 0, titleChanged, how, was);
 }
 
@@ -837,11 +842,17 @@ type PhaseHook = (c: Career, ph: 'am' | 'pm', activity: string) => void;
  * Clause modifiers (Match Conditions, Training, Push, Touring): each multiplies. injury and fatigue per match,
  * fans won on a show, rehab days, a night's recovery, the price and the gains of training.
  */
-export type ModKind = 'injury' | 'fatigue' | 'fans' | 'rehab' | 'recovery' | 'trainPrice' | 'trainGain';
+export type ModKind = 'injury' | 'fatigue' | 'fans' | 'rehab' | 'recovery' | 'trainPrice' | 'trainGain' | 'retire';
 type Mod = (c: Career, id: string, show?: Show) => number;
-const mods: Record<ModKind, Mod[]> = { injury: [], fatigue: [], fans: [], rehab: [], recovery: [], trainPrice: [], trainGain: [] };
+const mods: Record<ModKind, Mod[]> = { injury: [], fatigue: [], fans: [], rehab: [], recovery: [], trainPrice: [], trainGain: [], retire: [] };
 export const mod = (k: ModKind, c: Career, id: string, show?: Show): number => mods[k].reduce((m, f) => m * f(c, id, show), 1);
 export const setMod = (k: ModKind, f: Mod): void => { mods[k].push(f); };
+
+/** Every match settled, anyone's (relationships: respect, familiarity, a feud spilling over). */
+type BoutHook = (c: Career, show: Show, bout: Bout) => void;
+/** Wellbeing on the dice (wellbeing.ts plugs in): + or − on every roll for each side. */
+let moodDice: (c: Career, id: string) => number = () => 0;
+export const setMoodDice = (f: typeof moodDice): void => { moodDice = f; };
 
 /** Clauses plug in here: someone protected from release, a deal that stays on past its end, you leaving a deal. */
 type ProtectHook = (c: Career, id: string, promo: string) => boolean;
@@ -851,14 +862,16 @@ type InjuredHook = (c: Career, id: string, days: number, show: Show) => void;
 const hooks: {
   notice: Hook[]; daily: Hook[]; monthly: Hook[]; mine: ((c: Career, show: Show, bout: Bout, m: PlayerMatch) => void)[]; mail: MailHooks | null; phase: PhaseHook[];
   protect: ProtectHook[]; ending: EndingHook[]; leaving: LeavingHook[]; offer: ((c: Career, promo: string, why: string, pkg?: import('./clauses').PackageId) => void) | null; injured: InjuredHook[];
-  tryout: ((c: Career, show: Show, m: PlayerMatch) => void) | null;
-} = { notice: [], daily: [], monthly: [], mine: [], mail: null, phase: [], protect: [], ending: [], leaving: [], offer: null, injured: [], tryout: null };
+  tryout: ((c: Career, show: Show, m: PlayerMatch) => void) | null; bout: BoutHook[]; start: ((c: Career) => void)[];
+} = { notice: [], daily: [], monthly: [], mine: [], mail: null, phase: [], protect: [], ending: [], leaving: [], offer: null, injured: [], tryout: null, bout: [], start: [] };
 /** You're leaving a deal (it ended, you left, you were released, or you moved): clauses that care (Image Rights, Loyalty, Signing advances) run here. */
 export function leavingHooks(c: Career, k: Contract, how: 'ended' | 'left' | 'released' | 'moved'): void { for (const f of hooks.leaving) f(c, k, how); }
 /** Your half-day happened (days on): side earners pay out here. */
 export function phaseHooks(c: Career, ph: 'am' | 'pm', activity: string): void { for (const f of hooks.phase) f(c, ph, activity); }
 /** Other career modules (offers, requests) plug in here; each adds to the list. */
-export function setCareerHooks(h: { notice?: Hook; daily?: Hook; monthly?: Hook; mine?: (c: Career, show: Show, bout: Bout, m: PlayerMatch) => void; mail?: MailHooks; phase?: PhaseHook; protect?: ProtectHook; ending?: EndingHook; leaving?: LeavingHook; offer?: (c: Career, promo: string, why: string, pkg?: import('./clauses').PackageId) => void; injured?: InjuredHook; tryout?: (c: Career, show: Show, m: PlayerMatch) => void }): void {
+export function setCareerHooks(h: { notice?: Hook; daily?: Hook; monthly?: Hook; mine?: (c: Career, show: Show, bout: Bout, m: PlayerMatch) => void; mail?: MailHooks; phase?: PhaseHook; protect?: ProtectHook; ending?: EndingHook; leaving?: LeavingHook; offer?: (c: Career, promo: string, why: string, pkg?: import('./clauses').PackageId) => void; injured?: InjuredHook; tryout?: (c: Career, show: Show, m: PlayerMatch) => void; bout?: BoutHook; start?: (c: Career) => void }): void {
+  if (h.bout) hooks.bout.push(h.bout);
+  if (h.start) hooks.start.push(h.start);
   if (h.tryout) hooks.tryout = h.tryout;
   if (h.offer) hooks.offer = h.offer;
   if (h.injured) hooks.injured.push(h.injured);

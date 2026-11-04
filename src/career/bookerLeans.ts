@@ -4,7 +4,7 @@
 import { globalScore, hasTrait, PROMOTIONS, type Staffer, type TraitId, type Wrestler } from '../data/rtr';
 import { hashSeed, seededRng } from '../engine/rng';
 import { activeWorld } from '../world/world';
-import { bondOf, bookerOf } from '../world/people';
+import { bookerOf, likeOf } from '../world/people';
 import { bookerKey } from './patience';
 import { BOOKER_FX as BF } from './tuning';
 import type { Career } from './types';
@@ -20,7 +20,7 @@ export function affinityPoints(c: Career, key: string): number {
   const s = staffOf(key);
   const P = activeWorld().people;
   if (!s || !P) return 0;
-  const v = bondOf(P, s.id, c.player)?.v ?? 0;
+  const v = likeOf(P, s.id, c.player);
   return Math.max(-BF.affinityCap, Math.min(BF.affinityCap, Math.round(v / BF.affinityDivisor)));
 }
 
@@ -79,7 +79,7 @@ export function contenderBias(c: Career, booker: Staffer | undefined, w: Wrestle
   let b = 0;
   if (has(booker, 'politician')) {
     const P = activeWorld().people;
-    const v = P ? bondOf(P, booker.id, w.id)?.v ?? 0 : 0;
+    const v = P ? likeOf(P, booker.id, w.id) : 0;
     b += Math.max(-BF.politician.favouritism, Math.min(BF.politician.favouritism, v / 5));
   }
   if (has(booker, 'mentor') && w.age <= BF.mentor.youthAge) b += BF.mentor.youth;
