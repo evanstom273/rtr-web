@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { globalScore, PROMOTIONS, TITLES, type Wrestler, WRESTLERS } from '../../data/rtr';
+import { fansTotal, fmtFans, globalScore, PROMOTIONS, TITLES, type Wrestler, WRESTLERS } from '../../data/rtr';
 import { ATTR_KEYS, ATTR_SHORT, CLASS_NAME, divisionName } from '../../career/create';
 import { fmtDay } from '../../career/dates';
 import { activeWorld } from '../../world/world';
@@ -53,7 +53,7 @@ export function Start({ hasCareer, fresh, onBack, onPick, onCreate }: Props) {
           const best = Math.max(...ATTR_KEYS.map((k) => x.stats[k]));
           return (
             <button key={x.id} className={x.id === sel ? 'c-ans on' : 'c-ans'} onClick={() => setSel(x.id)} style={{ padding: '7px 10px 8px' }}>
-              <span className="c-rowsb"><Nm w={x} /><span className="c-hint">POP {Math.round(globalScore(x))}</span></span>
+              <span className="c-rowsb"><Nm w={x} /><span className="c-hint">{fmtFans(fansTotal(x))} FANS</span></span>
               <span className="c-ad"><i>{x.gimmick}</i> · {divisionName(x)} · {x.classes.map((k) => CLASS_NAME[k]).join(' · ')} · {x.country}</span>
               <span className="c-mini">
                 {ATTR_KEYS.map((k, i) => (

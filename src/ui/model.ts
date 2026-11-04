@@ -1,5 +1,5 @@
 // The shared layer under the skins: what each screen shows, worked out once. Skins only draw it.
-import { globalScore } from '../data/rtr';
+import { fansTotal, fmtFans, globalScore } from '../data/rtr';
 import { CLASS_LABEL } from '../data/commentary';
 import type { Wrestler } from '../data/rtr';
 import { fmtClock, type LogEntry, type MatchState, type Rating, type SideKey } from '../engine';
@@ -77,7 +77,7 @@ export function recentLines(S: MatchState, n: number): LogEntry[] {
 
 export const STAT_KEYS = ['strength', 'speed', 'stamina', 'skill', 'striking', 'charisma'] as const;
 export const STAT_LABEL: Record<(typeof STAT_KEYS)[number] | 'popularity', string> = {
-  strength: 'Strength', speed: 'Speed', stamina: 'Stamina', skill: 'Skill', striking: 'Striking', charisma: 'Charisma', popularity: 'Popularity',
+  strength: 'Strength', speed: 'Speed', stamina: 'Stamina', skill: 'Skill', striking: 'Striking', charisma: 'Charisma', popularity: 'Fans',
 };
 const EDGE_WORD: Record<(typeof STAT_KEYS)[number], string> = {
   strength: 'the stronger of the two', speed: 'quicker', stamina: 'the fitter', skill: 'the cleaner wrestler', striking: 'the harder hitter', charisma: 'the bigger personality',
@@ -86,6 +86,9 @@ const EDGE_WORD: Record<(typeof STAT_KEYS)[number], string> = {
 export interface TapeStat {
   key: string;
   label: string;
+  /** What's printed, when it isn't the number itself (fans). */
+  aText?: string;
+  bText?: string;
   a: number;
   b: number;
   /** Who has the edge: 'a', 'b' or level. */
@@ -110,7 +113,7 @@ export function fmtHeight(h: string): string {
 export function tape(a: Wrestler, b: Wrestler): Tape {
   const stats: TapeStat[] = [
     ...STAT_KEYS.map((k) => ({ key: k, label: STAT_LABEL[k], a: a.stats[k], b: b.stats[k] })),
-    { key: 'popularity', label: STAT_LABEL.popularity, a: globalScore(a), b: globalScore(b) },
+    { key: 'popularity', label: STAT_LABEL.popularity, a: globalScore(a), b: globalScore(b), aText: fmtFans(fansTotal(a)), bText: fmtFans(fansTotal(b)) },
   ].map((s) => ({ ...s, edge: s.a > s.b ? 'a' : s.b > s.a ? 'b' : null }));
   const classes = (w: Wrestler) => w.classes.map((c) => CLASS_LABEL[c]).join(' · ');
   const vitals = [

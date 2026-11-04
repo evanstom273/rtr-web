@@ -270,7 +270,7 @@ export interface Career {
   /** Your week: what each free phase is for (0 = Sunday), and how a clash with a shift is handled. */
   routine?: Routine;
   /** One-off plans for a phase (`2026-11-03|am`): train, rest, or a gig shift. */
-  plans?: Record<string, 'train' | 'rest' | 'work'>;
+  plans?: Record<string, 'train' | 'rest' | 'work' | 'trained'>;
   /** Your day job. */
   job?: DayJob | null;
   /** A move in progress. */

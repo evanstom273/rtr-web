@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { WRESTLERS, databaseChanged, type Wrestler } from '../../data/rtr';
-import { advancePhase, ctxFor, eventLibrary, fire, makeOffer, makeSpecial, person, startCareer } from '../../career';
+import { advancePhase, ctxFor, eventLibrary, fire, makeOffer, makeSpecial, person, phaseOf, routineOf, skip, startCareer, type SkipTarget } from '../../career';
+import { simMyMatch } from './simMine';
+import { FEATURES } from '../../career/tuning';
 import { todayReal } from '../../career/dates';
 import { runJobs } from '../../career/runner';
 import { activeWorld, freshWorld, reloadWorld, resetCareer, saveWorld, setWorld, type World } from '../../world/world';
@@ -20,14 +22,16 @@ import { Relationships } from './Relationships';
 import { RequestFlow, Requests, showAnswersNext, type ReqRoute } from './Requests';
 import { ShowDay } from './ShowDay';
 import { Start } from './Start';
+import { Social } from './Social';
 import { Stats } from './Stats';
 import { Training } from './Training';
+import { Week } from './Week';
 import { needsWorldChoice, WorldChoice } from './WorldChoice';
 import './career.css';
 import './career-app.css';
 
 export type CareerScreen =
-  | 'cal' | 'show' | 'profile' | 'letters' | 'contract' | 'training' | 'finances' | 'history' | 'stats' | 'records' | 'moveset' | 'start' | 'create' | 'requests' | 'relationships'
+  | 'cal' | 'show' | 'profile' | 'letters' | 'contract' | 'training' | 'finances' | 'history' | 'stats' | 'records' | 'moveset' | 'start' | 'create' | 'requests' | 'relationships' | 'week' | 'social'
   | { negotiate: string } | { requests: number } | ReqRoute;
 
 interface Props {
@@ -44,7 +48,7 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
     // Dev only: poke the world from the console (and from browser checks), e.g. __career.event('podcast').
     const event = (id: string) => { const c = activeWorld().career!; const l = fire(ctxFor(c), eventLibrary().find((d) => d.id === id)!); commit(); return l?.id; };
     const special = (kind: Parameters<typeof makeSpecial>[1]) => { const ok = makeSpecial(activeWorld().career!, kind, String(Date.now())); commit(); return ok; };
-    (window as unknown as { __career: unknown }).__career = { world: activeWorld, commit, makeOffer, event, special };
+    (window as unknown as { __career: unknown }).__career = { world: activeWorld, commit, makeOffer, event, special, features: FEATURES };
   }
   const [stack, setStack] = useState<CareerScreen[]>(() => [c ? initial ?? 'cal' : 'start']);
   const [busy, setBusy] = useState<number | null>(null);
@@ -126,6 +130,38 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
     }
   };
 
+  // Time skipping (Lyra's call, Football Manager style): saved at each day's end, stopped by anything that needs you.
+  const [skipping, setSkipping] = useState(false);
+  const [note, setNote] = useState<{ text: string } | null>(null);
+  const stop = useRef(false);
+  const doSkip = async (t: SkipTarget) => {
+    if (!c || busy !== null) return;
+    stop.current = false;
+    setSkipping(true);
+    setBusy(0.02);
+    try {
+      const r = await skip(c, t, runJobs, {
+        cancelled: () => stop.current,
+        mine: async (x) => routineOf(x).simMine && simMyMatch(x),
+        onPhase: async (x, done, total) => {
+          setBusy(Math.min(0.98, done / total));
+          databaseChanged();
+          if (phaseOf(x) === 'am') await saveWorld();
+        },
+      });
+      commit();
+      setNote({ text: r.stopped ?? 'There.' });
+      window.setTimeout(() => setNote(null), 4000);
+    } catch {
+      await reloadWorld();
+      databaseChanged();
+      setNote({ text: 'Something went wrong; back to the last save.' });
+    } finally {
+      setBusy(null);
+      setSkipping(false);
+    }
+  };
+
   const startScreen = (s: 'start' | 'create') => {
     if (universe === null && needsWorldChoice(hadCareer)) {
       return (
@@ -150,7 +186,7 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
   }
   switch (screen) {
     case 'show': return <ShowDay c={c} onBack={home} onPlay={onPlay} />;
-    case 'profile': return <Profile c={c} onBack={back} onShowDay={() => go('show')} onHub={home} onOpen={(s: ProfileLink) => go(s === 'contract' || s === 'history' || s === 'finances' || s === 'stats' || s === 'relationships' ? s : 'profile')} />;
+    case 'profile': return <Profile c={c} onBack={back} onShowDay={() => go('show')} onHub={home} onOpen={(s: ProfileLink) => go(s === 'contract' || s === 'history' || s === 'finances' || s === 'stats' || s === 'relationships' || s === 'week' || s === 'social' ? s : 'profile')} />;
     case 'letters': return <Letters c={c} onBack={back} onNegotiate={(id) => go({ negotiate: id })} />;
     case 'contract': return <Contract c={c} onBack={back} />;
     case 'training': return <Training c={c} onBack={back} onMoveset={() => go('moveset')} />;
@@ -159,6 +195,8 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
     case 'stats': return <Stats c={c} onBack={back} onHistory={() => go('history')} />;
     case 'records': return <Records c={c} onBack={back} onMoveset={() => go('moveset')} onNewCareer={() => go('start')} onRequest={(r) => go(r)} />;
     case 'relationships': return <Relationships c={c} onBack={back} />;
+    case 'week': return <Week c={c} onBack={back} />;
+    case 'social': return <Social c={c} onBack={back} />;
     case 'requests': return <Requests c={c} onBack={back} onFlow={(r) => go(r)} onNegotiate={(id) => go({ negotiate: id })} />;
     case 'moveset': {
       const me = WRESTLERS.find((x) => x.id === c.player)!;
@@ -168,7 +206,7 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
       );
     }
     default:
-      return <Calendar c={c} busy={busy} onAdvance={() => void advance()} onShowDay={() => go('show')} onOpen={(s) => go(s)} onAsk={(r) => go(r)} onNegotiate={(id) => go({ negotiate: id })} />;
+      return <Calendar c={c} busy={busy} skipping={skipping} onStop={() => { stop.current = true; }} onSkip={(t) => void doSkip(t)} note={note} onAdvance={() => void advance()} onShowDay={() => go('show')} onOpen={(s) => go(s)} onAsk={(r) => go(r)} onNegotiate={(id) => go({ negotiate: id })} />;
   }
 }
 

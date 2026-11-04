@@ -1,6 +1,8 @@
 // Match builder roster: the Godot filters and sorts (match_setup_popup.gd), over the imported data.
 import { CLASS_LABEL } from '../../data/commentary';
-import { fanScore, type FanRegion, getPromotion, globalScore, isChampion, PROMOTIONS, TITLES, titlesHeldBy, type Wrestler, type WrestlerClass, WRESTLERS } from '../../data/rtr';
+import {
+  type FanRegion, fansIn, fansTotal, fmtFans, getPromotion, isChampion, PROMOTIONS, TITLES, titlesHeldBy, type Wrestler, type WrestlerClass, WRESTLERS,
+} from '../../data/rtr';
 
 export type SortMode =
   | 'alpha' | 'alpha-desc' | 'strength' | 'speed' | 'stamina' | 'skill' | 'striking' | 'charisma'
@@ -15,13 +17,13 @@ export const SORTS: { id: SortMode; label: string; short?: string }[] = [
   { id: 'skill', label: 'Skill', short: 'SKL' },
   { id: 'striking', label: 'Striking', short: 'STK' },
   { id: 'charisma', label: 'Charisma', short: 'CHA' },
-  { id: 'pop-global', label: 'Global popularity', short: 'POP' },
-  { id: 'pop-northAmerica', label: 'North America pop.', short: 'N.AM' },
-  { id: 'pop-southAmerica', label: 'South America pop.', short: 'S.AM' },
-  { id: 'pop-europe', label: 'Europe pop.', short: 'EUR' },
-  { id: 'pop-asia', label: 'Asia pop.', short: 'ASIA' },
-  { id: 'pop-africa', label: 'Africa pop.', short: 'AFR' },
-  { id: 'pop-oceania', label: 'Oceania pop.', short: 'OCE' },
+  { id: 'pop-global', label: 'Fans worldwide', short: 'FANS' },
+  { id: 'pop-northAmerica', label: 'North America fans', short: 'N.AM' },
+  { id: 'pop-southAmerica', label: 'South America fans', short: 'S.AM' },
+  { id: 'pop-europe', label: 'Europe fans', short: 'EUR' },
+  { id: 'pop-asia', label: 'Asia fans', short: 'ASIA' },
+  { id: 'pop-africa', label: 'Africa fans', short: 'AFR' },
+  { id: 'pop-oceania', label: 'Oceania fans', short: 'OCE' },
 ];
 
 export interface Filters {
@@ -69,8 +71,8 @@ function haystack(w: Wrestler): string {
 
 export function sortValue(w: Wrestler, sort: SortMode): number | null {
   if (sort === 'alpha' || sort === 'alpha-desc') return null;
-  if (sort === 'pop-global') return globalScore(w);
-  if (sort.startsWith('pop-')) return fanScore(w, sort.slice(4) as FanRegion);
+  if (sort === 'pop-global') return fansTotal(w);
+  if (sort.startsWith('pop-')) return fansIn(w, sort.slice(4) as FanRegion);
   return w.stats[sort as keyof Wrestler['stats']];
 }
 
@@ -90,3 +92,9 @@ export function filterRoster(f: Filters): Wrestler[] {
   if (f.sort === 'alpha-desc') return list.sort((a, b) => byName(b, a));
   return list.sort((a, b) => (sortValue(b, f.sort) ?? 0) - (sortValue(a, f.sort) ?? 0) || byName(a, b));
 }
+
+/** The sort value as shown on a row (fans as people: 3.4M). */
+export const sortText = (w: Wrestler, sort: SortMode): string => {
+  const v = sortValue(w, sort);
+  return v === null ? '' : sort.startsWith('pop-') ? fmtFans(v) : String(v);
+};

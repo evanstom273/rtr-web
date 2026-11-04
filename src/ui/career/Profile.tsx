@@ -1,6 +1,7 @@
+import { FEATURES } from '../../career/tuning';
 import { useLayoutEffect, useRef } from 'react';
 import { TraitChips } from './Traits';
-import { fanScore, findWrestler, getMove, globalScore, titlesHeldBy } from '../../data/rtr';
+import { fansIn, fansTotal, findWrestler, fmtFans, getMove, titlesHeldBy } from '../../data/rtr';
 import { C, CLAUSES, myBoutToday, person, promoName, type Career } from '../../career';
 import { ATTR_KEYS, ATTR_LONG, CLASS_NAME, divisionName } from '../../career/create';
 import { daysBetween, fmtDay } from '../../career/dates';
@@ -8,7 +9,7 @@ import { REGION_LABEL } from '../../career/places';
 import type { PopRegion } from '../../career/types';
 import { Head, money, Nm, Screen, useWords } from './parts';
 
-export type ProfileLink = 'contract' | 'history' | 'finances' | 'stats' | 'reputation' | 'relationships' | 'achievements';
+export type ProfileLink = 'contract' | 'history' | 'finances' | 'stats' | 'reputation' | 'relationships' | 'achievements' | 'week' | 'social';
 interface Props { c: Career; onBack: () => void; onOpen: (s: ProfileLink) => void; onShowDay: () => void; onHub: () => void }
 
 const REGIONS: PopRegion[] = ['northAmerica', 'southAmerica', 'europe', 'asia', 'africa', 'oceania'];
@@ -26,8 +27,9 @@ export function Profile({ c, onBack, onOpen, onShowDay, onHub }: Props) {
   const wins = c.history.filter((m) => m.result === 'win').length, losses = c.history.filter((m) => m.result === 'loss').length;
   const vals = ATTR_KEYS.map((key) => me.stats[key]);
   const best = Math.max(...vals);
-  const pops = [['GLOBAL', globalScore(me)] as const, ...REGIONS.map((r) => [SHORT[r], fanScore(me, r)] as const)];
-  const bestPop = Math.max(...REGIONS.map((r) => fanScore(me, r)));
+  // Fans: where they are, as people (the bar is each region against your biggest).
+  const most = Math.max(1, ...REGIONS.map((r) => fansIn(me, r)));
+  const pops = REGIONS.map((r) => [SHORT[r], fansIn(me, r)] as const);
   const health = p.injury ? `Injured to ${fmtDay(p.injury.until, 'dm')}` : p.fatigue >= 60 ? 'Tired' : p.fatigue >= 30 ? 'Worn' : 'Healthy';
   const ini = me.name.replace(/"[^"]*"\s*/g, '').split(' ').map((s) => s[0]).join('').slice(0, 2);
   const clauseList = k ? k.clauses.map((t, i) => (t ? `${CLAUSES[i]!.name} T${t}` : '')).filter(Boolean) : [];
@@ -68,8 +70,8 @@ export function Profile({ c, onBack, onOpen, onShowDay, onHub }: Props) {
             {ATTR_KEYS.map((key, i) => <div key={key} className="c-barrow"><span className="c-lab">{ATTR_LONG[i]!.slice(0, 8)}</span><i><b className={vals[i] === best ? 'best' : ''} style={{ width: `${vals[i]}%` }} /></i><b>{vals[i]}</b></div>)}
           </div>
           <div className="c-bars">
-            <span className="c-sec" style={{ marginTop: 0 }}>{w('Popularity')}</span>
-            {pops.map(([l, v]) => <div key={l} className="c-barrow"><span className="c-lab">{l}</span><i><b className={v === bestPop ? 'best' : ''} style={{ width: `${v}%` }} /></i><b>{Math.round(v)}</b></div>)}
+            <span className="c-sec" style={{ marginTop: 0 }}>{w('Fans')} · {fmtFans(fansTotal(me))}</span>
+            {pops.map(([l, v]) => <div key={l} className="c-barrow"><span className="c-lab">{l}</span><i><b className={v === most ? 'best' : ''} style={{ width: `${Math.max(2, (v / most) * 100)}%` }} /></i><b>{fmtFans(v)}</b></div>)}
           </div>
         </div>
         <span className="c-sec">{w('Signatures & finishers')}</span>
@@ -90,15 +92,17 @@ export function Profile({ c, onBack, onOpen, onShowDay, onHub }: Props) {
           </div>
         )}
       </div>
-      <div className="c-pgrid">
+      <div className={`c-pgrid${FEATURES.days || FEATURES.social ? ' four' : ''}`}>
+        {FEATURES.days && <button onClick={() => onOpen('week')}>{w('My week')}</button>}
+        {FEATURES.social && <button onClick={() => onOpen('social')}>{w('Social')}</button>}
         <button onClick={() => onOpen('contract')}>{w('Contract')}</button>
         <button onClick={() => onOpen('history')}>{w('Career history', 'History')}</button>
         <button onClick={() => onOpen('finances')}>{w('Finances')}</button>
         <button onClick={() => onOpen('stats')}>{w('Statistics')}</button>
-        <button onClick={() => onOpen('relationships')}>{w('Relationships')}</button>
+        <button onClick={() => onOpen('relationships')}>{w(FEATURES.days || FEATURES.social ? 'Relations' : 'Relationships')}</button>
         <button onClick={onHub}>{w('The hub', 'Hub')}</button>
       </div>
-      <span className="c-hint" style={{ marginTop: 6, textAlign: 'center' }}>{money(c.money)} {w('in the bank')} · {REGION_LABEL[REGIONS.reduce((a, b) => (fanScore(me, b) > fanScore(me, a) ? b : a))]} {w('is your strongest region')}</span>
+      <span className="c-hint" style={{ marginTop: 6, textAlign: 'center' }}>{money(c.money)} {w('in the bank')} · {REGION_LABEL[REGIONS.reduce((a, b) => (fansIn(me, b) > fansIn(me, a) ? b : a))]} {w('is your strongest region')}</span>
     </Screen>
   );
 }

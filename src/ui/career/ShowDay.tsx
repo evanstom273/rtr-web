@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { findWrestler, TITLES } from '../../data/rtr';
-import { applyBout, boutRules, C, matchPay, myBoutToday, person, roundName, runToday, showsOn, type Career } from '../../career';
+import { C, matchPay, myBoutToday, person, roundName, runToday, showsOn, type Career } from '../../career';
 import { fmtDay } from '../../career/dates';
 import { runJobs } from '../../career/runner';
-import { outOf, simOne } from '../../career/sim';
 import { FATIGUE_PER_MATCH, OFF_SCRIPT_TITLE_BAN_DAYS, REP_OFF_SCRIPT } from '../../career/tuning';
-import { hashSeed } from '../../career/booker';
 import { stipulation } from '../../engine';
+import { simMyMatch } from './simMine';
 import { commit, Head, money, Nm, Screen, stars, useToast, useWords } from './parts';
 
 interface Props {
@@ -33,11 +32,8 @@ export function ShowDay({ c, onBack, onPlay }: Props) {
   const sim = async () => {
     if (!mine || working) return;
     setWorking(true);
-    const aIsYou = mine.bout.a === c.player;
-    const you = c.player, them = aIsYou ? mine.bout.b : mine.bout.a;
     // A simmed match leans towards the booker's plan, as AI matches do; going the other way is an upset, not off-script.
-    const { engine } = simOne({ key: 'mine', seed: hashSeed(c.seed, 'mine', show.id), you, them, rules: boutRules(c, show, mine.bout, you, them, true) });
-    applyBout(c, show, mine.index, outOf('mine', engine), aIsYou, 'simmed');
+    simMyMatch(c);
     await runToday(c, runJobs);
     commit();
     setWorking(false);

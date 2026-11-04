@@ -1,12 +1,12 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { findWrestler, globalScore, TITLES, WRESTLERS } from '../../data/rtr';
+import { fansIn, fansTotal, findWrestler, fmtFans, globalScore, TITLES, WRESTLERS } from '../../data/rtr';
 import {
   C, PATIENCE_FLOOR, PATIENCE_START, answerCounter, askApproach, askChallenge, askDayOff, askFinish, askIndieChallenge, askMore, askRelease, askReview,
   askRival, askShow, askSpot, askTitleShot, askTryout, askIndieTitleShot, askableIndieShows, askableIndieTitles, askableShows, askableTitles, caughtChance, cooldownLeft, counterLabel,
   bookerName, countersWaiting, exitTerms, finishAskable, firstAskable, myPromo, otherPromotions, patienceOf, person, previewChallenge, previewIndieChallenge,
   previewIndieTitle, previewMore, previewShow, previewSpot, previewTitle, promoName, standingWith, type Ask, type Career, type Preview, type Show,
 } from '../../career';
-import { regionalPop, titleMinGap } from '../../career/booker';
+import { titleMinGap } from '../../career/booker';
 import { isIndieBooker, patienceLog, promoOfBooker, showBooker } from '../../career/patience';
 import { addDays, daysBetween, fmtDay } from '../../career/dates';
 import { REGION_LABEL } from '../../career/places';
@@ -420,7 +420,7 @@ export function RequestFlow({ c, route, onBack, onNegotiate, onAnswered }: FlowP
       <button className="c-ans on" style={{ marginTop: 8, padding: '8px 10px' }} onClick={() => setPicking(true)}>
         <span className="c-rowsb"><span className="c-lab">{w('Challenging')}</span><span className="c-hint">{w('Tap to change')}</span></span>
         {them ? <span className="c-vs"><Nm id={them.id} /></span> : <b className="c-at" style={{ fontSize: 16 }}>Pick someone</b>}
-        {them && <span className="c-ad">{them.promotion === 'TIS' ? 'The Indie Scene' : them.promotion} · popularity {Math.round(regionalPop(them, s?.region ?? 'northAmerica'))} {REGION_LABEL[s?.region ?? 'northAmerica']}{TITLES.some((t) => t.holder === them.id) ? ' · champion' : ''}{c.feuds.some((f) => !f.done && (f.a === them.id || f.b === them.id)) ? ' · in a feud' : ''}</span>}
+        {them && <span className="c-ad">{them.promotion === 'TIS' ? 'The Indie Scene' : them.promotion} · {fmtFans(fansIn(them, s?.region ?? 'northAmerica'))} fans in {REGION_LABEL[s?.region ?? 'northAmerica']}{TITLES.some((t) => t.holder === them.id) ? ' · champion' : ''}{c.feuds.some((f) => !f.done && (f.a === them.id || f.b === them.id)) ? ' · in a feud' : ''}</span>}
       </button>
     );
   }
@@ -543,7 +543,7 @@ export function RequestFlow({ c, route, onBack, onNegotiate, onAnswered }: FlowP
             {pickList.map((x) => (
               <button key={x.id} className={target === x.id ? 'c-ans on' : 'c-ans'} onClick={() => { setTarget(x.id); setPicking(false); setI(0); if (promo && x.promotion !== promo) setIndie(true); }} style={{ padding: '7px 10px' }}>
                 <span className="c-rowsb"><Nm id={x.id} /><span className="c-hint">{x.promotion === 'TIS' ? 'INDIE' : x.promotion}</span></span>
-                <span className="c-ad">{x.gimmick} · popularity {Math.round(globalScore(x))}</span>
+                <span className="c-ad">{x.gimmick} · {fmtFans(fansTotal(x))} fans</span>
               </button>
             ))}
           </div>

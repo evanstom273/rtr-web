@@ -507,7 +507,9 @@ export const BRAND_POP_PER_STAR = 10;
  * Switches for player-facing rules that wait on their screens (Lyra's approval). Off: the game plays
  * as before. Each UI stage turns its own on.
  */
-export const FEATURES = { livingCosts: false, social: false, days: false, jobs: false, skip: false };
+/** Days on: a regional indie champion this many days without a defence isn't booked on indie shows outside their region. */
+export const REGIONAL_HOME_DAYS = 45;
+export const FEATURES = { livingCosts: true, social: true, days: true, jobs: true, skip: true };
 
 /**
  * Pay (Lyra's call: how many dates you get decides your income). A major promotion's weekly-show fee:

@@ -370,7 +370,7 @@ Noise is about ±2 points. Aggressive and Defensive got gentler downsides afterw
 - Each change is recorded in history.
 - Veterans with Mentor bring on a young wrestler near them: +1 a month to their weakest attribute, up to +4, and a mentor bond.
 
-## Social media (engine; switched on with its screen)
+## Social media (on)
 
 Optional and light, between matches (`career/social.ts`, `FEATURES.social`). There's no follower count, and posting takes no time.
 
@@ -458,7 +458,7 @@ Lyra's calls:
 
 **Starting money:** £1,000 + £2,000 × log10(worldwide fans ÷ 1,000) for someone you pick; £500 for a created wrestler.
 
-**Living costs** (switched on with their screens, `FEATURES.livingCosts`):
+**Living costs** (on; `FEATURES.livingCosts`):
 - Every Monday where you live: Europe £220, North America £253, Oceania £242, Asia £176, South America £132, Africa £110.
 - Keyed to the Monday, so a replayed night can't charge twice.
 - An existing career gets a letter and four weeks' notice; a new one pays from its first Monday.
@@ -525,9 +525,7 @@ Lyra's calls:
 - Signed contracts keep their fee whatever happens to it.
 - **Indie brands:** 5–30, moving a point a month towards 15 + (90-day average stars − 3) × 10.
 
-**Screens:**
-- Until the new screens are approved, wrestler screens show the same 0–100 bars, now computed from fans.
-- The approved screens will show fan counts everywhere. Promotion popularity stays 0–100.
+**Screens:** fan counts everywhere (profile, start, records, requests, the exhibition profile, the roster sort, the tale of the tape). Promotion popularity stays 0–100 and shows in the Records promotion header.
 
 ## Match ratings (recalibrated)
 
@@ -605,7 +603,7 @@ Budgets for the expansion:
 - main-thread work 50 ms or less a day;
 - saving 60 ms or less.
 
-## Days, travel, day jobs and skipping (engine; switched on with their screens)
+## Days, travel, day jobs and skipping (on)
 
 `career/day.ts`, `career/skip.ts`, `FEATURES.days` / `jobs` / `skip`.
 
@@ -624,6 +622,7 @@ Budgets for the expansion:
 - You go home the same way, unless your next date in the region is within 4 days (a tour).
 - A booking that would clash is refused, with the reason. Bookings made before days came on are honoured as they were.
 - The AI is never booked on two continents on consecutive days.
+- A regional indie champion 45+ days without a defence isn't booked on indie shows outside their region, so they're free for home (`REGIONAL_HOME_DAYS`; without it one thin division went 96 days).
 
 **Moving:**
 - £300 within your region, £1,500 abroad. It takes three days and ends a day job.
@@ -662,3 +661,10 @@ Budgets for the expansion:
   - news from work.
 - The advance button now saves only after a whole phase succeeds; a night that fails reloads the last save.
 - Matches run on a pool of up to four workers. Results are applied in show and card order, so the pool never changes the outcome.
+
+**Screens (Lyra approved them; every switch is on):**
+- **Calendar:** the date shows AM or PM. The big button moves on half a day ("On to the evening", "On to tomorrow") and says what you're doing; with a match tonight, the morning is still yours and the PM goes to the show. The » button opens the skip sheet: tomorrow morning, a week, a month, your next booking, and whether to stop for your matches or sim them. A skip shows its progress with a Stop button, saves at each day's end, and says why it stopped.
+- **My week** (Career grid): the next seven days half by half (tap a free one to switch train/rest; it repeats weekly), what to train first, when to skip training tired, match days, skipping. Work: your job (pay, shifts, holiday, warnings, quit) and the board. Home: where you live, living costs, travel times and moving.
+- **Social** (Career grid): one post a day with an estimate for each kind, who it's about, this week against the cap, and the feed.
+- **The gym:** a session in a free half-day, two points at most; shut while you're working, travelling, moving or overdrawn, or once you've trained that half-day.
+- **Finances:** living costs a week and your day job's pay.
