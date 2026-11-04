@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { fansTotal, fmtFans, globalScore, PROMOTIONS, TITLES, type Wrestler, WRESTLERS } from '../../data/rtr';
-import { contractFee, CLAUSES } from '../../career';
+import { contractFee, CLAUSES, debutYear, onesToWatch } from '../../career';
 import { NO_CLAUSES } from '../../career/clauses';
 import { ATTR_KEYS, ATTR_SHORT, CLASS_NAME, divisionName } from '../../career/create';
 import { fmtDay } from '../../career/dates';
@@ -17,13 +17,15 @@ interface Props {
   onBack: () => void;
   onPick: (id: string, deal?: StartDeal) => void;
   onCreate: () => void;
+  /** Simulate history first (a fresh world only). */
+  onHistory?: () => void;
 }
 
 const ORDER = ['VWF', 'TCG', 'NWGP', 'ZWA', 'SLN', 'END', 'IVW', 'SSWC', 'UFC', 'AAWA', 'TIS'];
 const overall = (w: Wrestler) => Math.round(ATTR_KEYS.reduce((t, k) => t + w.stats[k], 0) / 6);
 
 /** New career: cycle through the promotions and pick anyone, or create your own. */
-export function Start({ hasCareer, fresh, onBack, onPick, onCreate }: Props) {
+export function Start({ hasCareer, fresh, onBack, onPick, onCreate, onHistory }: Props) {
   const { skin, w } = useWords();
   const [pi, setPi] = useState(0);
   const [sel, setSel] = useState<string | null>(null);
@@ -33,7 +35,15 @@ export function Start({ hasCareer, fresh, onBack, onPick, onCreate }: Props) {
   const promo = PROMOTIONS.find((p) => p.initials === ORDER[pi])!;
   const roster = useMemo(() => WRESTLERS.filter((x) => x.promotion === promo.initials)
     .sort((a, b) => Number(TITLES.some((t) => t.holder === b.id)) - Number(TITLES.some((t) => t.holder === a.id)) || globalScore(b) - globalScore(a)), [promo]);
-  const picked = roster.find((x) => x.id === sel);
+  // Better picking (Lyra's call): sorts, an age filter, debut years, and (after a history) ones to watch.
+  const [sort, setSort] = useState<'card' | 'fans' | 'ability' | 'age' | 'debut'>('card');
+  const [ages, setAges] = useState<'all' | 'young' | 'prime' | 'vet'>('all');
+  const [watch, setWatch] = useState(false);
+  const watchIds = useMemo(() => onesToWatch(), []);
+  const inAge = (x: Wrestler) => ages === 'all' || (ages === 'young' ? x.age <= 25 : ages === 'prime' ? x.age > 25 && x.age <= 32 : x.age > 32);
+  const shown = (watch ? watchIds.map((id) => WRESTLERS.find((x) => x.id === id)).filter((x): x is Wrestler => !!x) : roster).filter(inAge);
+  if (sort !== 'card') shown.sort((a, b) => sort === 'fans' ? fansTotal(b) - fansTotal(a) : sort === 'ability' ? overall(b) - overall(a) : sort === 'age' ? a.age - b.age : (debutYear(b.id) ?? '0').localeCompare(debutYear(a.id) ?? '0'));
+  const picked = shown.find((x) => x.id === sel) ?? roster.find((x) => x.id === sel);
   const ranked = [...roster].sort((a, b) => overall(b) - overall(a));
   const move = (d: number) => { setPi((pi + d + ORDER.length) % ORDER.length); setSel(null); setDeal(undefined); };
   const tis = promo.initials === 'TIS';
@@ -56,13 +66,21 @@ export function Start({ hasCareer, fresh, onBack, onPick, onCreate }: Props) {
         </div>
         <button className="c-stepb" onClick={() => move(1)} aria-label="Next promotion" style={{ minHeight: 52 }}>›</button>
       </div>
+      {onHistory && <button className="c-b3" style={{ marginTop: 8 }} onClick={onHistory}>{w('Simulate history first ›')}</button>}
+      <div className="c-chips c-pickf" style={{ marginTop: 8 }}>
+        {([['card', 'Card'], ['fans', 'Fans'], ['ability', 'Ability'], ['age', 'Age'], ...(watchIds.length ? [['debut', 'Debut']] : [])] as [typeof sort, string][]).map(([k, l]) => <button key={k} className={`c-chip${sort === k ? ' on' : ''}`} onClick={() => setSort(k)}>{w(l)}</button>)}
+        <span className="c-hint" style={{ alignSelf: 'center' }}>·</span>
+        {([['all', 'All ages'], ['young', '≤25'], ['prime', '26–32'], ['vet', '33+']] as [typeof ages, string][]).map(([k, l]) => <button key={k} className={`c-chip${ages === k ? ' on' : ''}`} onClick={() => setAges(k)}>{w(l)}</button>)}
+        {watchIds.length > 0 && <button className={`c-chip${watch ? ' on' : ''}`} onClick={() => setWatch(!watch)}>{w('Ones to watch')}</button>}
+      </div>
       <div className="c-body" style={{ marginTop: 8, gap: 4 }}>
-        {roster.map((x) => {
+        {watch && <span className="c-note">The young wrestlers who’ve come on most in the last year, from every promotion.</span>}
+        {shown.map((x) => {
           const best = Math.max(...ATTR_KEYS.map((k) => x.stats[k]));
           return (
             <button key={x.id} className={x.id === sel ? 'c-ans on' : 'c-ans'} onClick={() => { setSel(x.id); setDeal(undefined); }} style={{ padding: '7px 10px 8px' }}>
               <span className="c-rowsb"><Nm w={x} /><span className="c-hint">{fmtFans(fansTotal(x))} FANS</span></span>
-              <span className="c-ad"><i>{x.gimmick}</i> · {divisionName(x)} · {x.classes.map((k) => CLASS_NAME[k]).join(' · ')} · {x.country}</span>
+              <span className="c-ad"><i>{x.gimmick}</i> · {divisionName(x)} · {x.classes.map((k) => CLASS_NAME[k]).join(' · ')} · {x.country} · {x.age}{debutYear(x.id) ? ` · debut ${debutYear(x.id)}` : ''}{watch ? ` · ${x.promotion === 'TIS' ? 'indies' : x.promotion}` : ''}</span>
               <span className="c-mini">
                 {ATTR_KEYS.map((k, i) => (
                   <span key={k}>

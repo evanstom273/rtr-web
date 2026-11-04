@@ -87,6 +87,7 @@ export function startCareer(o: StartOptions): Career {
   };
   if (k) {
     delete c.people[k.player];
+    person(c, o.player);
     // You're not retiring: whatever they'd announced in history, you're carrying on.
     const me = c.people[o.player];
     if (me) delete me.retiring;

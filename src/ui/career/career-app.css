@@ -246,3 +246,7 @@
 .cr .c-coach .c-chip{min-height:34px;padding:0;justify-content:center}
 .cr .c-wk.content{border-left-color:var(--cr-champ)}
 .cr .c-wk.hustle{border-left-color:var(--cr-good);background:var(--cr-panel2)}
+/* ---- the history sim ---- */
+.cr .c-hbar{display:block;height:8px;background:var(--cr-panel2);position:relative;overflow:hidden;margin:6px 0 2px}
+.cr .c-hbar b{position:absolute;inset:0 auto 0 0;background:var(--cr-hi);transition:width .25s}
+.cr .c-pickf .c-chip{min-height:30px;padding:0 8px;font-size:13px}
