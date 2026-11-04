@@ -8,13 +8,14 @@ import { hashSeed, seededRng } from '../engine/rng';
 import { activeWorld } from '../world/world';
 import { moveBond } from '../world/people';
 import { letter, person, setCareerHooks } from './career';
+import { calledOut } from './mail';
 import { addDays, daysBetween, fmtDay, type Day } from './dates';
 import { leanTo } from './leans';
 import { moveRelation } from './relations';
 import {
   FEATURES, SOCIAL_AI_POSTS, SOCIAL_BACKLASH, SOCIAL_BACKLASH_LOSS, SOCIAL_BUZZ_GREAT, SOCIAL_BUZZ_MATCH, SOCIAL_CONV, SOCIAL_FEED_MAX,
   SOCIAL_REACH_BASE, SOCIAL_REACH_EXP, SOCIAL_REACH_MULT, SOCIAL_REL, SOCIAL_REPEAT_DAYS, SOCIAL_REPEAT_MULT, SOCIAL_WEEK_CAP_BASE,
-  SOCIAL_WEEK_CAP_SHARE,
+  SOCIAL_WEEK_CAP_SHARE, MAIL_BACKFIRE_LOSS,
 } from './tuning';
 import type { Career, Show } from './types';
 
@@ -80,6 +81,28 @@ function addFans(me: Wrestler, n: number): void {
   const total = FAN_REGIONS.reduce((t, r) => t + fansIn(me, r) + 1, 0);
   for (const r of FAN_REGIONS) me.fans[r] = Math.max(0, me.fans[r] + Math.round((n * (fansIn(me, r) + 1)) / total));
 }
+
+/**
+ * Something you say in public (to the press, to fans, online, in a reply): fans from your reach, inside this
+ * week's social cap so replies can't out-earn wrestling; it can backfire. Seeded per day and what it was.
+ */
+export function publicSay(c: Career, share: number, backfire: number, salt: string): { fans: number; backfired: boolean } {
+  const me = findWrestler(c.player)!;
+  const s = state(c);
+  const rnd = seededRng(hashSeed(c.seed, 'public', c.today, salt));
+  if (backfire && rnd() < backfire) {
+    const loss = -Math.round(reach(me) * MAIL_BACKFIRE_LOSS);
+    addFans(me, loss);
+    person(c, c.player).rep = Math.max(0, person(c, c.player).rep - 1);
+    return { fans: loss, backfired: true };
+  }
+  const fans = Math.round(Math.max(0, Math.min(reach(me) * share, capLeft(c, me))));
+  addFans(me, fans);
+  s.weekFans += fans;
+  return { fans, backfired: false };
+}
+/** You've called someone out (online or in a reply): a challenge against them is easier to ask for. */
+export function noteCallout(c: Career, id: string): void { state(c).callouts[id] = c.today; }
 
 /**
  * Post something. Returns what happened (fans won or lost, and a line for the screen). Call-outs and
@@ -168,7 +191,8 @@ function aiWeek(c: Career): void {
   }
   // Someone calling you out is worth knowing about.
   const atMe = s.feed.find((p) => p.day === c.today && p.target === c.player);
-  if (atMe) letter(c, { kind: 'news', from: findWrestler(atMe.who)?.name ?? 'Online', subject: 'You’re being called out online', body: [atMe.text] });
+  if (atMe && FEATURES.mail) calledOut(c, atMe.who, atMe.text);
+  else if (atMe) letter(c, { kind: 'news', from: findWrestler(atMe.who)?.name ?? 'Online', subject: 'You’re being called out online', body: [atMe.text] });
 }
 
 function daily(c: Career): void {

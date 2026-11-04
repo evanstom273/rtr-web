@@ -20,7 +20,7 @@ import { addEvent, type ArchivedShow, type WorldHistory } from '../world/history
 import { bookerKey, movePatience, showBooker } from './patience';
 import { remember } from './relations';
 import {
-  BOOK_AHEAD_DAYS, CIRCUIT_KEEP, CONTRACT_MONTHS, FAN_IDLE_LOSS, FATIGUE_HARDCORE_EXTRA, FATIGUE_PER_MATCH, FATIGUE_RECOVERY_PER_DAY, FATIGUE_STAMINA_DIVISOR, FEATURES, FRIEND_LOAN_REPAY, INJURY_BASE_PCT, INJURY_HARDCORE_MULT, INJURY_PER_FATIGUE, INJURY_SEVERITY, LIVING_GRACE_DAYS, LOSS_CUT_BY_TIER, MEDICAL_BILL_COVER, MEDICAL_PAY_COVER, MEDICAL_PER_DAY, MERCH_PER_FAN_FREE, MERCH_PER_FAN_SIGNED, MERCH_SHARE, OFF_SCRIPT_TITLE_BAN_DAYS, PATIENCE_NO_SHOW, PLANNED_NUDGE, PLANNED_RETRIES, POACH_CHANCE, POP_IDLE_DAYS, RELEASE_MONTHLY_BOTTOM, RENEW_CHANCE_REST, RENEW_CHANCE_TOP, REP_FOUR_STAR, REP_OFF_SCRIPT, REP_PER_DATE, REP_START, ROOKIE_EVERY_DAYS, ROSTER_FLOOR, ROSTER_SCOUT_DAYS, ROSTER_TARGET, SLEEP_RECOVERY, SLEEP_RECOVERY_AFTER_MATCH, SOCIAL_PROMOTE_BOOST, START_CONTRACT_MONTHS_LEFT, START_MONEY_BASE, START_MONEY_CREATED, START_MONEY_PER_DECADE, TRAIT_BACKSTAGE, TRAIT_FX, TRYOUT_MIN_STARS,
+  BOOK_AHEAD_DAYS, CIRCUIT_KEEP, CONTRACT_MONTHS, FAN_IDLE_LOSS, FATIGUE_HARDCORE_EXTRA, FATIGUE_PER_MATCH, FATIGUE_RECOVERY_PER_DAY, FATIGUE_STAMINA_DIVISOR, FEATURES, FRIEND_LOAN_REPAY, INJURY_BASE_PCT, INJURY_HARDCORE_MULT, INJURY_PER_FATIGUE, INJURY_SEVERITY, LIVING_GRACE_DAYS, LOSS_CUT_BY_TIER, MAIL_MAX, MEDICAL_BILL_COVER, MEDICAL_PAY_COVER, MEDICAL_PER_DAY, MERCH_PER_FAN_FREE, MERCH_PER_FAN_SIGNED, MERCH_SHARE, OFF_SCRIPT_TITLE_BAN_DAYS, PATIENCE_NO_SHOW, PLANNED_NUDGE, PLANNED_RETRIES, POACH_CHANCE, POP_IDLE_DAYS, RELEASE_MONTHLY_BOTTOM, RENEW_CHANCE_REST, RENEW_CHANCE_TOP, REP_FOUR_STAR, REP_OFF_SCRIPT, REP_PER_DATE, REP_START, ROOKIE_EVERY_DAYS, ROSTER_FLOOR, ROSTER_SCOUT_DAYS, ROSTER_TARGET, SLEEP_RECOVERY, SLEEP_RECOVERY_AFTER_MATCH, SOCIAL_PROMOTE_BOOST, START_CONTRACT_MONTHS_LEFT, START_MONEY_BASE, START_MONEY_CREATED, START_MONEY_PER_DECADE, TRAIT_BACKSTAGE, TRAIT_FX, TRYOUT_MIN_STARS,
 } from './tuning';
 import type { Bout, Career, Contract, Letter, Person, PlayerMatch, PopRegion, Show } from './types';
 
@@ -108,8 +108,10 @@ export function startCareer(o: StartOptions): Career {
 
 export function letter(c: Career, l: Omit<Letter, 'id' | 'day' | 'read'> & { day?: Day }): Letter {
   const full: Letter = { id: `l${++c.seq}`, day: l.day ?? c.today, read: false, ...l };
+  // Mail can take a letter elsewhere (world news waits for Monday's digest).
+  if (hooks.mail?.route(c, l)) return full;
   c.letters.unshift(full);
-  if (c.letters.length > 200) c.letters.length = 200;
+  if (c.letters.length > (FEATURES.mail ? MAIL_MAX : 200)) c.letters.length = FEATURES.mail ? MAIL_MAX : 200;
   return full;
 }
 
@@ -200,6 +202,8 @@ export function applyBout(c: Career, show: Show, index: number, out: SimOut, aIs
   bout.result = { winner, finish: out.finish, t: out.t, stars: out.stars, ...(out.move ? { move: out.move } : {}) };
   const hardcore = !!bout.stip && HARDCORE_STIPS.has(bout.stip);
   const changes: Record<string, number> = {};
+  const mineHere = bout.a === c.player || bout.b === c.player;
+  const was = mineHere && FEATURES.mail ? hooks.mail?.before(c, show, bout.a === c.player ? bout.b : bout.a) : undefined;
   let titleChanged = false;
 
   // Titles change hands on a pinfall, submission or the like, not a DQ or count-out.
@@ -264,7 +268,7 @@ export function applyBout(c: Career, show: Show, index: number, out: SimOut, aIs
     if (feud.payoff === show.id) feud.done = true;
   }
 
-  if (bout.a === c.player || bout.b === c.player) settleMine(c, show, bout, out, aIsYou, changes[c.player] ?? 0, titleChanged, how);
+  if (mineHere) settleMine(c, show, bout, out, aIsYou, changes[c.player] ?? 0, titleChanged, how, was);
 }
 
 function injure(c: Career, id: string, show: Show, rnd: Rng): void {
@@ -302,13 +306,13 @@ function injure(c: Career, id: string, show: Show, rnd: Rng): void {
 }
 
 /** Your side of a match: pay, history, the planned finish, tryouts, letters. */
-function settleMine(c: Career, show: Show, bout: Bout, out: SimOut, aIsYou: boolean, popDelta: number, titleChanged: boolean, how: 'played' | 'simmed' = 'played'): void {
+function settleMine(c: Career, show: Show, bout: Bout, out: SimOut, aIsYou: boolean, popDelta: number, titleChanged: boolean, how: 'played' | 'simmed' = 'played', was?: MailBefore): void {
   const me = person(c, c.player);
   const oppId = bout.a === c.player ? bout.b : bout.a;
   const opp = findWrestler(oppId)!;
   const winner = bout.result!.winner;
   const result = winner === null ? 'draw' : winner === c.player ? 'win' : 'loss';
-  let fee = 0, bonus = 0;
+  let fee = 0, bonus = 0, travel = 0;
   // Against the plan isn't always sabotage: winning when booked to lose, in a match you played, is going
   // off-script; losing when booked to win is failing to deliver; a simmed match going the other way is an upset.
   let planned: PlayerMatch['planned'] = null;
@@ -318,6 +322,7 @@ function settleMine(c: Career, show: Show, bout: Bout, out: SimOut, aIsYou: bool
   const indie = show.promo === 'TIS';
   if (indie) {
     const deal = c.indie[show.id] ?? { fee: indieFee(findWrestler(c.player)!, show), travel: 0 };
+    travel = deal.travel;
     fee = result === 'loss' ? round5(deal.fee * (1 - LOSS_CUT_BY_TIER[0]!)) : deal.fee;
     if (deal.travel) spend(c, -deal.travel, `Travel · ${show.city}`, 'travel');
     delete c.indie[show.id];
@@ -339,7 +344,16 @@ function settleMine(c: Career, show: Show, bout: Bout, out: SimOut, aIsYou: bool
     day: show.date, show: show.id, showName: show.name, promo: show.promo, kind: show.kind, opp: oppId, oppName: opp.name, result,
     finish: out.finish, t: out.t, stars: out.stars, ...(bout.title ? { title: bout.title } : {}), ...(titleChanged && winner === c.player ? { wonTitle: true } : {}),
     planned, fee: fee + bonus, indie, stats, ...(out.move ? { move: out.move } : {}), ...(how === 'played' ? { played: true } : {}),
+    ...(out.report ? { grades: out.report.grades.map((g) => g.v) } : {}),
   });
+  if (was) {
+    // Mail on: the full letter, written once the match's knock-on effects (relationships, patience) have landed.
+    if (bout.tryout) tryoutVerdict(c, show, result === 'win' || out.stars >= TRYOUT_MIN_STARS);
+    for (const f of hooks.mine) f(c, show, bout, c.history[0]!);
+    hooks.mail?.result(c, show, bout, c.history[0]!, out, was, fee + bonus, travel);
+    hooks.mail?.after(c, show, c.history[0]!);
+    return;
+  }
   const region = REGION_LABEL[show.region];
   letter(c, {
     kind: 'result', from: show.name, subject: `${result === 'win' ? 'You beat' : result === 'loss' ? 'You lost to' : 'A draw with'} ${opp.name}`,
@@ -699,13 +713,22 @@ function playerContractEnds(c: Career, w: Wrestler, day: Day): void {
 
 /** Promotions noticing you (and players near the end of a deal). Filled in by the offers rules. */
 type Hook = (c: Career, rnd: Rng) => void;
-const hooks: { notice: Hook[]; daily: Hook[]; monthly: Hook[]; mine: ((c: Career, show: Show, bout: Bout, m: PlayerMatch) => void)[] } = { notice: [], daily: [], monthly: [], mine: [] };
+/** Mail plugs in here too: where a letter goes, and the full result letter (mail.ts). */
+export interface MailHooks {
+  route: (c: Career, l: Omit<Letter, 'id' | 'day' | 'read'>) => boolean;
+  before: (c: Career, show: Show, opp: string) => MailBefore;
+  result: (c: Career, show: Show, bout: Bout, m: PlayerMatch, out: SimOut, b: MailBefore, paid: number, travel: number) => void;
+  after: (c: Career, show: Show, m: PlayerMatch) => void;
+}
+export interface MailBefore { fans: Record<string, number>; rep: number; patience: number; bond: number; label: string }
+const hooks: { notice: Hook[]; daily: Hook[]; monthly: Hook[]; mine: ((c: Career, show: Show, bout: Bout, m: PlayerMatch) => void)[]; mail: MailHooks | null } = { notice: [], daily: [], monthly: [], mine: [], mail: null };
 /** Other career modules (offers, requests) plug in here; each adds to the list. */
-export function setCareerHooks(h: { notice?: Hook; daily?: Hook; monthly?: Hook; mine?: (c: Career, show: Show, bout: Bout, m: PlayerMatch) => void }): void {
+export function setCareerHooks(h: { notice?: Hook; daily?: Hook; monthly?: Hook; mine?: (c: Career, show: Show, bout: Bout, m: PlayerMatch) => void; mail?: MailHooks }): void {
   if (h.notice) hooks.notice.push(h.notice);
   if (h.daily) hooks.daily.push(h.daily);
   if (h.monthly) hooks.monthly.push(h.monthly);
   if (h.mine) hooks.mine.push(h.mine);
+  if (h.mail) hooks.mail = h.mail;
 }
 const noticePlayer = (c: Career, rnd: Rng) => { for (const f of hooks.notice) f(c, rnd); };
 const dailyPlayer = (c: Career, rnd: Rng) => { for (const f of hooks.daily) f(c, rnd); };

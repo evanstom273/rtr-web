@@ -169,7 +169,7 @@ export interface Feud {
   done: boolean;
 }
 
-export type LetterKind = 'offer' | 'result' | 'news' | 'injury' | 'contract' | 'event';
+export type LetterKind = 'offer' | 'result' | 'news' | 'injury' | 'contract' | 'event' | 'person' | 'booker' | 'digest' | 'press';
 export type LetterAction =
   | { type: 'indie'; show: string; fee: number; travel: number; needsApproval?: boolean }
   | { type: 'negotiate'; offer: string }
@@ -193,6 +193,33 @@ export interface Letter {
   /** Career events: what you picked and what came of it. */
   picked?: string;
   outcome?: string;
+  /** Mail: who wrote it (a wrestler or staff id), for voices and replies. */
+  fromId?: string;
+  /** A match result's report card, the booker's verdict, what it did and the reaction online. */
+  report?: MatchReport;
+  /** The weekly digest's sections. */
+  sections?: { h: string; lines: string[] }[];
+  /** Ways to answer, what you said, and what came of it. */
+  replies?: MailReply[];
+  replied?: string;
+  /** Leaving it unanswered past this day has a consequence (a rival's call-out, a friend's note). */
+  ignore?: { by: Day; kind: 'rival' | 'friend' | 'press' };
+  /** What a reply works on: the opponent, the booker key, the show. */
+  ctx?: Record<string, string>;
+}
+
+export interface MailReply { id: string; label: string; detail?: string }
+export interface MatchReport {
+  stars: number;
+  label: string;
+  verdict: string;
+  recap: string;
+  /** Crowd, Story, Drama, Craft, Action: 0–1 and a note. */
+  grades: { l: string; v: number; n: string }[];
+  /** Your booker or promoter on the night, in their own words. */
+  booker?: { who: string; lines: string[] };
+  effects: [string, string][];
+  posts: { who: string; text: string; id?: string }[];
 }
 
 export interface Offer {
@@ -239,6 +266,8 @@ export interface PlayerMatch {
     /** For personality: high-risk tries, taunts, dirty tactics, rests, kickouts after a finisher, holds. */
     highTried?: number; taunts?: number; dirty?: number; rests?: number; fk?: number; holds?: number };
   move?: string;
+  /** Your report card (0–1 each: crowd, story, drama, craft, action), when the engine gave one. */
+  grades?: number[];
 }
 
 export interface Career {
@@ -261,6 +290,11 @@ export interface Career {
   ledger: Entry[];
   /** Every pound by kind since the career began (the ledger keeps only the last 400 entries). */
   totals?: Partial<Record<Entry['kind'], { amount: number; n: number }>>;
+  /** Mail: the week's world news waiting for Monday's digest, and when the last digest and check-in went out. */
+  mailBox?: { day: Day; subject: string; body: string; kind?: 'news' | 'injury' }[];
+  digestAt?: Day;
+  checkinAt?: Day;
+  pressAt?: Day;
   /** Social media: your recent posts, the weekly cap, who you've called out, and the feed. */
   social?: import('./social').SocialState;
   /** AM or PM of `today` (days on). Missing: the AM. */
@@ -427,6 +461,8 @@ export interface Routine {
   maxTrainFatigue: number;
   /** Sim your own matches during a skip instead of stopping. */
   simMine: boolean;
+  /** Which mail stops a skip (Lyra's call: all of it, unless you say otherwise). */
+  stopFor?: { decisions: boolean; people: boolean; checkins: boolean; news: boolean };
 }
 export interface DayJob {
   id: 'office' | 'warehouse' | 'retail' | 'hospitality' | 'gig';

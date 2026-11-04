@@ -23,6 +23,8 @@ export interface SimOut {
   stars: number;
   move?: string;
   stats: Record<SideKey, StatLine>;
+  /** Your match only (never through the workers): the report card, for the result letter. */
+  report?: { label: string; verdict: string; recap: string; grades: { l: string; v: number; n: string }[] };
 }
 
 const line = (s: SideStats): StatLine => ({
@@ -42,6 +44,7 @@ export function outOf(key: string, e: MatchEngine): SimOut {
     stars: S.rating?.stars ?? 2,
     move: R?.move?.name,
     stats: { you: line(S.you.stats), them: line(S.them.stats) },
+    ...(key === 'mine' && S.rating ? { report: { label: S.rating.label, verdict: S.rating.verdict, recap: S.rating.recap, grades: S.rating.parts.map((p) => ({ l: p.l, v: p.v, n: p.n })) } } : {}),
   };
 }
 

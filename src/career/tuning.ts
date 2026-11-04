@@ -509,7 +509,39 @@ export const BRAND_POP_PER_STAR = 10;
  */
 /** Days on: a regional indie champion this many days without a defence isn't booked on indie shows outside their region. */
 export const REGIONAL_HOME_DAYS = 45;
-export const FEATURES = { livingCosts: true, social: true, days: true, jobs: true, skip: true };
+/**
+ * Mail (Lyra's calls): results with the full report card, the booker's verdict, what it did and the reaction online;
+ * wrestlers writing in character; a booker check-in and a digest of everything everywhere every Monday; the press;
+ * replies on anything (relationships, personality, fans and reputation, bookings); ignoring sometimes matters;
+ * every letter can stop a skip; a year of mail kept.
+ */
+export const MAIL_KEEP_DAYS = 365;
+export const MAIL_MAX = 1500;
+/** Posts in a result letter's reaction: 2 for a quiet match, up to 5 for a great one. */
+export const MAIL_POSTS = [2, 5] as const;
+/** After a match, the chance your opponent writes; a friend writes after a title or a match this good. */
+export const MAIL_OPP_CHANCE = 0.45;
+export const MAIL_FRIEND_STARS = 4;
+export const MAIL_FRIEND_BOND = 30;
+/** Days to answer before ignoring counts: a rival's call-out, a friend's note, the press. */
+export const MAIL_IGNORE_DAYS = { rival: 5, friend: 7, press: 5 } as const;
+/** Ignoring a rival: reputation and a share of your reach in fans; ignoring a friend: their bond. */
+export const MAIL_IGNORE_RIVAL_REP = -1;
+export const MAIL_IGNORE_RIVAL_FANS = 0.02;
+export const MAIL_IGNORE_FRIEND = -3;
+/** The press: once you've this many fans, a chance a week of an interview request (at most one in three weeks). */
+export const MAIL_PRESS_FANS = 2000;
+export const MAIL_PRESS_CHANCE = 0.4;
+export const MAIL_PRESS_GAP = 21;
+/** Replies: relationship moves by tone, booker patience, and public replies' fans (share of reach) and backfire odds. */
+export const MAIL_REL = { warm: 4, respect: 2, cold: -2, cocky: -3, hot: -6 } as const;
+export const MAIL_PATIENCE = { thanks: 1, push: -2, complain: -5, deny: 2, confirm: -4 } as const;
+export const MAIL_PUBLIC = { humble: 0.01, cocky: 0.03, hot: 0.05 } as const;
+export const MAIL_BACKFIRE = { humble: 0, cocky: 0.2, hot: 0.35 } as const;
+export const MAIL_BACKFIRE_LOSS = 0.02;
+/** Lines per digest section before "and N more". */
+export const DIGEST_LINES = 8;
+export const FEATURES = { livingCosts: true, social: true, days: true, jobs: true, skip: true, mail: true };
 
 /**
  * Pay (Lyra's call: how many dates you get decides your income). A major promotion's weekly-show fee:
