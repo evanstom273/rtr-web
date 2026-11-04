@@ -4,9 +4,9 @@
 // places it's about, and its choices. This file is the engine: pacing (a daily chance shaped by your
 // situation, a gap between events, at most a couple waiting on you), the effects every choice draws
 // on, follow-ups that land weeks later, and the memory of what you chose.
-import { TITLES, WRESTLERS, findWrestler, type Attributes, type Wrestler } from '../data/rtr';
+import { type Attributes, findWrestler, fmtFans, globalScore, shiftFans, TITLES, type Wrestler, WRESTLERS } from '../data/rtr';
 import { seededRng, type Rng } from '../engine/rng';
-import { hashSeed, regionalPop } from './booker';
+import { hashSeed } from './booker';
 import { letter, person, setCareerHooks, spend } from './career';
 import { C } from './clauses';
 import { ATTR_KEYS, ATTR_LONG } from './create';
@@ -123,10 +123,8 @@ export const fx = {
   },
   pop(x: EvCtx, n: number, region: PopRegion | 'home' = 'home'): string {
     const r: PopRegion = region === 'home' ? homeRegion(x) : region;
-    const before = regionalPop(x.me, r);
-    x.me.popularity[r] = r1(clamp(before + n, 0, 100));
-    x.me.popularity.global = r1(clamp(x.me.popularity.global + n * 0.3, 0, 100));
-    return `popularity ${n > 0 ? '+' : ''}${n}`;
+    const gained = shiftFans(x.me, r, n);
+    return `${gained >= 0 ? '+' : '−'}${fmtFans(Math.abs(gained))} fans`;
   },
   fatigue(x: EvCtx, n: number): string {
     x.p.fatigue = clamp(x.p.fatigue + n, 0, 100);
@@ -191,8 +189,8 @@ export function eventChance(x: EvCtx): number {
   if (recent >= 4) m *= EVENT_BUSY_MULT;
   if (!x.k) m *= EVENT_FREE_AGENT_MULT;
   if (titlesHeld(x).length) m *= EVENT_CHAMP_MULT;
-  if (x.me.popularity.global >= 60) m *= EVENT_STAR_MULT;
-  if (x.me.popularity.global < 15) m *= EVENT_UNKNOWN_MULT;
+  if (globalScore(x.me) >= 60) m *= EVENT_STAR_MULT;
+  if (globalScore(x.me) < 15) m *= EVENT_UNKNOWN_MULT;
   return m;
 }
 

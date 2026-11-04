@@ -6,7 +6,9 @@ import { seededRng } from '../../engine/rng';
 import {
   ATTR_KEYS, ATTR_LONG, ATTR_SHORT, BASE, CLASS_MODS, CLASS_NAME, CLASS_ORDER, QUESTIONS, classMods, historyMods, startingAttributes, storyTrait, templateMoveset,
 } from '../../career/create';
+import { createdFans } from '../../career/fanStart';
 import { REGION_OF } from '../../career/places';
+import type { PopRegion } from '../../career/types';
 import { MovesetEditor, type Kit } from './MovesetEditor';
 import { Screen, useWords } from './parts';
 
@@ -71,11 +73,10 @@ export function Create({ hasCareer, onBack, onDone }: Props) {
 
   const build = (): Wrestler => {
     const [regionKey, regionLabel] = REGION_NAME[region] ?? ['EUROPE', 'Europe'];
-    const pop = { global: 10, northAmerica: 5, southAmerica: 5, europe: 5, asia: 5, africa: 5, oceania: 5, [region]: 20 };
     return {
       id: `custom_${Date.now().toString(36)}`, wrestlerId: 0, name: name.trim(), gimmick: gimmick.trim() || 'The Newcomer', gimmickDescription: desc.trim(),
       classes: cls, gender, disposition: align, age, height: `${Math.floor(h / 12)}'${h % 12}`, weight: wt, region: regionKey, regionLabel, country,
-      promotion: 'TIS', division: gender === 'MALE' ? 'MENS' : 'WOMENS', stats, popularity: pop as Wrestler['popularity'],
+      promotion: 'TIS', division: gender === 'MALE' ? 'MENS' : 'WOMENS', stats, fans: createdFans(region as PopRegion),
       moves: kit.moves as string[], signatures: kit.signatures as string[], finishers: kit.finishers as string[],
       traits: [storyTrait(ans)],
     };

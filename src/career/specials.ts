@@ -2,7 +2,7 @@
 // retired ones, crossover showcases between two promotions, cups over three fortnightly shows, and
 // farewells. They're announced weeks ahead, go on the calendar like any other show, and are booked by the
 // same booker (see the special handling in bookShow). You hear about the ones in reach and can take part.
-import { PROMOTIONS, TITLES, WRESTLERS, findWrestler, type Title, type Wrestler } from '../data/rtr';
+import { findWrestler, fmtFans, globalScore, PROMOTIONS, shiftFans, type Title, TITLES, type Wrestler, WRESTLERS } from '../data/rtr';
 import { seededRng, type Rng } from '../engine/rng';
 import { activeWorld } from '../world/world';
 import { addEvent } from '../world/history';
@@ -13,7 +13,7 @@ import { addDays, daysBetween, fmtDay, weekStart, type Day } from './dates';
 import { indieFee, travelCost } from './economy';
 import { type EvCtx, type EvData, type EventDef, type FollowDef, ctxFor, fire, fx, homeRegion, join, money, registerEvents, round5 } from './events';
 import { indieAllowed, joinIndie } from './offers';
-import { CITIES, PROMO_COUNTRIES, REGION_KEY, REGION_OF } from './places';
+import { CITIES, PROMO_COUNTRIES, REGION_KEY, REGION_LABEL, REGION_OF } from './places';
 import { affinity } from './relations';
 import { indieTitleShow } from './requests';
 import { roundName, tourneyPairs } from './tourney';
@@ -205,7 +205,7 @@ function charity(c: Career, rnd: Rng): boolean {
   if (!date) return false;
   const s = addShow(c, { promo: 'TIS', name, kind: 'indie', date, ...v, special: { kind: 'charity', tag: `Charity: ${short}` } });
   const me = findWrestler(c.player)!;
-  if (!indieShut(c) && (near(c, v.region) || me.popularity.global >= 45) && rnd() < 0.7) {
+  if (!indieShut(c) && (near(c, v.region) || globalScore(me) >= 45) && rnd() < 0.7) {
     invite(c, 'invite_charity', { show: s.id, name, cause, city: s.city, date: s.date, fee: indieFee(me, s.region), travel: travelCost(me.country, s.country) });
   }
   return true;
@@ -213,9 +213,9 @@ function charity(c: Career, rnd: Rng): boolean {
 
 function benefit(c: Career, rnd: Rng): boolean {
   const w = world(c);
-  const hurt = WRESTLERS.filter((x) => x.id !== c.player && x.popularity.global >= BENEFIT_MIN_POP && !c.people[x.id]?.retired
+  const hurt = WRESTLERS.filter((x) => x.id !== c.player && globalScore(x) >= BENEFIT_MIN_POP && !c.people[x.id]?.retired
     && (c.people[x.id]?.injury?.until ?? '') >= addDays(c.today, BENEFIT_MIN_INJURY_DAYS) && !w.seen[`benefit:${x.id}`])
-    .sort((a, b) => b.popularity.global - a.popularity.global);
+    .sort((a, b) => globalScore(b) - globalScore(a));
   const who = hurt[0];
   if (!who) return false;
   w.seen[`benefit:${who.id}`] = c.today;
@@ -235,8 +235,8 @@ function tribute(c: Career, rnd: Rng): boolean {
   const w = world(c);
   const gone = WRESTLERS.filter((x) => {
     const p = c.people[x.id];
-    return p?.retired && p.retiredOn && daysBetween(p.retiredOn, c.today) >= 30 && daysBetween(p.retiredOn, c.today) <= 90 && x.popularity.global >= TRIBUTE_MIN_POP && !w.seen[`tribute:${x.id}`];
-  }).sort((a, b) => b.popularity.global - a.popularity.global);
+    return p?.retired && p.retiredOn && daysBetween(p.retiredOn, c.today) >= 30 && daysBetween(p.retiredOn, c.today) <= 90 && globalScore(x) >= TRIBUTE_MIN_POP && !w.seen[`tribute:${x.id}`];
+  }).sort((a, b) => globalScore(b) - globalScore(a));
   const who = gone[0];
   if (!who) return false;
   w.seen[`tribute:${who.id}`] = c.today;
@@ -288,7 +288,7 @@ function tournament(c: Career, rnd: Rng): boolean {
   const d1 = nights[0]!;
   const me0 = findWrestler(c.player)!;
   // One division per cup: yours when it's near you (so you can enter), otherwise either.
-  const gender = near(c, v.region) || me0.popularity.global >= 45 ? me0.gender : rnd() < 0.6 ? 'MALE' : 'FEMALE';
+  const gender = near(c, v.region) || globalScore(me0) >= 45 ? me0.gender : rnd() < 0.6 ? 'MALE' : 'FEMALE';
   const t: Tourney = { id: `cup${++c.seq}`, name, shows: [], entrants: [], won: [], fee: 0, prize: 0, gender };
   for (let r = 0; r < 3; r++) {
     const s = addShow(c, { promo: 'TIS', name: `${name}: ${['Quarter-finals', 'Semi-finals', 'Final'][r]}`, kind: 'indie', date: addDays(d1, r * CUP_ROUND_GAP), ...v, special: { kind: 'tournament', tag: `Cup ${['quarter-finals', 'semi-finals', 'final'][r]}`, noTitles: true, tourney: t.id, round: r } });
@@ -297,7 +297,7 @@ function tournament(c: Career, rnd: Rng): boolean {
   (c.tourneys ??= []).push(t);
   const me = findWrestler(c.player)!;
   t.prize = round5(indieFee(me, v.region) * CUP_PRIZE_MULT);
-  if (!indieShut(c) && gender === me.gender && (near(c, v.region) || me.popularity.global >= 45)) {
+  if (!indieShut(c) && gender === me.gender && (near(c, v.region) || globalScore(me) >= 45)) {
     invite(c, 'invite_cup', { tourney: t.id, show: t.shows[0]!, name, city: v.city, date: d1, d2: addDays(d1, CUP_ROUND_GAP), d3: addDays(d1, 2 * CUP_ROUND_GAP), fee: indieFee(me, v.region), travel: travelCost(me.country, v.country), prize: t.prize });
   }
   return true;
@@ -341,7 +341,7 @@ function settleCups(c: Career): void {
       tourneyPairs(t, r).forEach(([x, y], slot) => {
         if (won[slot]) return;
         const b = show.card?.find((z) => z.tourney?.round === r && z.tourney.slot === slot);
-        const pop = (id: string) => findWrestler(id)?.popularity.global ?? 0;
+        const pop = (id: string) => { const w = findWrestler(id); return w ? globalScore(w) : 0; };
         if (b?.result) won[slot] = b.result.winner ?? (pop(b.a) >= pop(b.b) ? b.a : b.b);
         else if (b) won[slot] = b.a === me ? b.b : b.b === me ? b.a : b.a; // you didn't wrestle it: they go through
         else won[slot] = x || y || null;
@@ -408,10 +408,9 @@ function crown(c: Career, t: Tourney, id: string, final: Show): void {
     spend(c, t.prize, `Winning ${t.name}`, 'bonus');
     const p = person(c, id);
     p.rep = Math.min(100, p.rep + CUP_WIN_REP);
-    w.popularity.global = Math.min(100, Math.round((w.popularity.global + CUP_WIN_POP * 0.5) * 10) / 10);
     const r = final.region;
-    w.popularity[r] = Math.min(100, Math.round(((w.popularity[r] ?? 0) + CUP_WIN_POP) * 10) / 10);
-    letter(c, { kind: 'result', from: t.name, subject: `You won ${t.name}!`, body: [`Three rounds, three wins. ${money(t.prize)} prize money, and the trophy’s yours.${shotLine}`], terms: [['Prize', money(t.prize)], ['Popularity', `+${CUP_WIN_POP} ${r}`], ['Reputation', `+${CUP_WIN_REP}`]] });
+    const gained = shiftFans(w, r, CUP_WIN_POP);
+    letter(c, { kind: 'result', from: t.name, subject: `You won ${t.name}!`, body: [`Three rounds, three wins. ${money(t.prize)} prize money, and the trophy’s yours.${shotLine}`], terms: [['Prize', money(t.prize)], ['Fans', `+${fmtFans(gained)} in ${REGION_LABEL[r]}`], ['Reputation', `+${CUP_WIN_REP}`]] });
   } else if (t.player || near(c, final.region)) {
     letter(c, { kind: 'news', from: 'The news desk', subject: `${w.name} wins ${t.name}`, body: [`${w.name} won ${t.name} in ${final.city}${title ? `, and a shot at the ${title.name}` : ''}.`] });
   }

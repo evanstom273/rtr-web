@@ -1,10 +1,10 @@
 // Negotiating contracts clause by clause, signing, pay reviews and getting out of a deal.
 import { roundsAdjust, willingnessMult } from './bookerLeans';
 import { leanFrom, playerHas } from './leans';
-import { WRESTLERS, findWrestler } from '../data/rtr';
+import { fansForScore, findWrestler, fmtFans, globalScore, WRESTLERS } from '../data/rtr';
 import { seededRng } from '../engine/rng';
 import { hashSeed, promoRegion, regionalPop } from './booker';
-import { BUDGET, C, CLAUSES, attitude, patience } from './clauses';
+import { budgetOf, C, CLAUSES, attitude, patience } from './clauses';
 import { letter, person, promoName, spend, indieBeltOnSigning } from './career';
 import { addDays, addMonths, daysBetween, fmtDay } from './dates';
 import { round5 } from './economy';
@@ -25,8 +25,8 @@ export type Mood = 'keen' | 'happy' | 'hesitant' | 'losing';
 export function willingness(c: Career, promo: string, excludeOffer?: string): number {
   const me = findWrestler(c.player)!;
   const p = person(c, c.player);
-  const pop = NEGO_REGION_WEIGHT * regionalPop(me, promoRegion(promo)) + (1 - NEGO_REGION_WEIGHT) * me.popularity.global;
-  let base = (FEE_BASE + FEE_PER_POP * pop) * (BUDGET[promo] ?? 0.5);
+  const pop = NEGO_REGION_WEIGHT * regionalPop(me, promoRegion(promo)) + (1 - NEGO_REGION_WEIGHT) * globalScore(me);
+  let base = (FEE_BASE + FEE_PER_POP * pop) * budgetOf(promo);
   base *= 1 + ((p.rep - 50) / 50) * NEGO_REP_SWING;
   const last = c.history.slice(0, 10);
   if (last.length) {
@@ -57,8 +57,8 @@ export function gate(c: Career, promo: string, i: number, tier: number): string 
   if (tier >= 3 && p.rep < NEGO_GATE_REP_T3) return `Tier 3 needs reputation ${NEGO_GATE_REP_T3} (you: ${Math.round(p.rep)})`;
   if (attitude(promo, i) === 'resist') {
     const pop = regionalPop(me, promoRegion(promo));
-    if (tier >= 3 && pop < NEGO_GATE_POP_RESIST_T3) return `They won’t give Tier 3 below ${NEGO_GATE_POP_RESIST_T3} popularity here`;
-    if (tier >= 2 && pop < NEGO_GATE_POP_RESIST_T2) return `They won’t give Tier 2 below ${NEGO_GATE_POP_RESIST_T2} popularity here`;
+    if (tier >= 3 && pop < NEGO_GATE_POP_RESIST_T3) return `They won’t give Tier 3 below about ${fmtFans(fansForScore(NEGO_GATE_POP_RESIST_T3))} fans here`;
+    if (tier >= 2 && pop < NEGO_GATE_POP_RESIST_T2) return `They won’t give Tier 2 below about ${fmtFans(fansForScore(NEGO_GATE_POP_RESIST_T2))} fans here`;
   }
   return null;
 }

@@ -25,6 +25,8 @@ export interface Brand {
   promoter: string | null;
   from: Day;
   closed?: Day;
+  /** 0–100 (5–30 for an indie brand): its reach. Moves a little each month (world rev 7). */
+  popularity?: number;
 }
 
 /** What a relationship has become. Mentor is directional: `mentor` names the teacher. */

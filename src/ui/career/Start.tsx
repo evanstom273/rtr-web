@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { PROMOTIONS, TITLES, WRESTLERS, type Wrestler } from '../../data/rtr';
+import { globalScore, PROMOTIONS, TITLES, type Wrestler, WRESTLERS } from '../../data/rtr';
 import { ATTR_KEYS, ATTR_SHORT, CLASS_NAME, divisionName } from '../../career/create';
 import { fmtDay } from '../../career/dates';
 import { activeWorld } from '../../world/world';
@@ -24,7 +24,7 @@ export function Start({ hasCareer, fresh, onBack, onPick, onCreate }: Props) {
   const [sel, setSel] = useState<string | null>(null);
   const promo = PROMOTIONS.find((p) => p.initials === ORDER[pi])!;
   const roster = useMemo(() => WRESTLERS.filter((x) => x.promotion === promo.initials)
-    .sort((a, b) => Number(TITLES.some((t) => t.holder === b.id)) - Number(TITLES.some((t) => t.holder === a.id)) || b.popularity.global - a.popularity.global), [promo]);
+    .sort((a, b) => Number(TITLES.some((t) => t.holder === b.id)) - Number(TITLES.some((t) => t.holder === a.id)) || globalScore(b) - globalScore(a)), [promo]);
   const picked = roster.find((x) => x.id === sel);
   const ranked = [...roster].sort((a, b) => overall(b) - overall(a));
   const move = (d: number) => { setPi((pi + d + ORDER.length) % ORDER.length); setSel(null); };
@@ -53,7 +53,7 @@ export function Start({ hasCareer, fresh, onBack, onPick, onCreate }: Props) {
           const best = Math.max(...ATTR_KEYS.map((k) => x.stats[k]));
           return (
             <button key={x.id} className={x.id === sel ? 'c-ans on' : 'c-ans'} onClick={() => setSel(x.id)} style={{ padding: '7px 10px 8px' }}>
-              <span className="c-rowsb"><Nm w={x} /><span className="c-hint">POP {Math.round(x.popularity.global)}</span></span>
+              <span className="c-rowsb"><Nm w={x} /><span className="c-hint">POP {Math.round(globalScore(x))}</span></span>
               <span className="c-ad"><i>{x.gimmick}</i> · {divisionName(x)} · {x.classes.map((k) => CLASS_NAME[k]).join(' · ')} · {x.country}</span>
               <span className="c-mini">
                 {ATTR_KEYS.map((k, i) => (

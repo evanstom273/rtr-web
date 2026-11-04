@@ -3,7 +3,7 @@
 // and day. Under the yes chance: yes. In the next band: a counter. Anything else: no.
 import { askLean, likesLine, promiseRollsBonus } from './bookerLeans';
 import { leanFrom, playerHas } from './leans';
-import { PROMOTIONS, TITLES, WRESTLERS, findWrestler, type Title, type Wrestler } from '../data/rtr';
+import { fansTotal, findWrestler, fmtFans, globalScore, PROMOTIONS, type Title, TITLES, type Wrestler, WRESTLERS } from '../data/rtr';
 import { seededRng } from '../engine/rng';
 import { activeWorld } from '../world/world';
 import { available, bookChance, contenders, datesThisMonth, hashSeed, isIndieTitle, playerBookable, promoRegion, regionalEligible, regionalPop, setIndieRoll, showTitles, titleMinGap, titleRegion } from './booker';
@@ -406,7 +406,7 @@ export function previewIndieChallenge(c: Career, targetId: string, showId: strin
   const them = findWrestler(targetId);
   const mine = me(c);
   const allowed = show ? indieAllowed(c, show.date) : { ok: false, why: '' };
-  const gap = them ? them.popularity.global - mine.popularity.global : 0;
+  const gap = them ? globalScore(them) - globalScore(mine) : 0;
   const k = them ? c.people[them.id]?.contract : null;
   const theirClash = !!k && !!show && Object.values(c.shows).some((s) => s.date === show.date && (s.promos ?? [s.promo]).includes(k.promo) && s.promo !== 'TIS');
   const clauseOk = !k || ((k.clauses[C.indie] ?? 0) >= 1 && (!theirClash || (k.clauses[C.indie] ?? 0) >= 3));
@@ -421,7 +421,7 @@ export function previewIndieChallenge(c: Career, targetId: string, showId: strin
             : c.people[them.id]?.injury && c.people[them.id]!.injury!.until > show.date ? `${them.name} is injured.` : null;
   return {
     hard, chance: side, nag: cooldownLeft(c, 'challenge', COOLDOWN_CHALLENGE),
-    stand: [['Popularity', them ? `You ${Math.round(mine.popularity.global)} · ${them.name.split(' ')[0]} ${Math.round(them.popularity.global)} (global)` : '—'], ['Reputation', `${Math.round(person(c, c.player).rep)}`],
+    stand: [['Popularity', them ? `You ${Math.round(globalScore(mine))} · ${them.name.split(' ')[0]} ${Math.round(globalScore(them))} (global)` : '—'], ['Reputation', `${Math.round(person(c, c.player).rep)}`],
       ['Their deal', !k ? 'Indie Scene' : clauseOk ? `${k.promo}: indie dates allowed` : `${k.promo}: their promotion decides`]],
     weigh: [{ t: gap > 0 ? `${Math.round(gap)} above you` : 'Not above you', s: gap > 0 ? -1 : 1 }, { t: `Reputation ${Math.round(person(c, c.player).rep)}`, s: Math.sign(repPoints(c)) },
       { t: clauseOk ? 'Their deal allows it' : `${k?.promo} decides`, s: clauseOk ? 1 : -1 }, { t: `Promoter patience ${Math.round(patienceOf(c, promoter))}`, s: Math.sign(patiencePoints(c, promoter)) }],
@@ -438,7 +438,7 @@ export function askIndieChallenge(c: Career, targetId: string, showId: string): 
   const nagged = nag(c, 'challenge', COOLDOWN_CHALLENGE, promoter);
   (c.asked ??= {})[show.id] = true;
   const mine = me(c);
-  const spot = Math.min(ASK_SPOT_MAX_PCT, ASK_SPOT_BASE_PCT + mine.popularity.global) + patiencePoints(c, promoter) + trustPoints(c, promoter);
+  const spot = Math.min(ASK_SPOT_MAX_PCT, ASK_SPOT_BASE_PCT + globalScore(mine)) + patiencePoints(c, promoter) + trustPoints(c, promoter);
   if (roll(c, `spot:${show.id}`) >= spot) return record(c, { kind: 'indieChallenge', to: promoter, what, key: 'challenge', answer: 'no', said: '“We’re full. Maybe next time.”' });
   const side = nagged ? previewIndieChallenge(c, targetId, showId).chance : pv.chance;
   const r = outcome(side, roll(c, `indie-ch:${targetId}:${showId}`));
@@ -619,11 +619,11 @@ export function previewSpot(c: Career, showId: string): Preview {
       : c.indie[showId] ? 'You’re already on it.'
         : c.asked?.[showId] ? `${show.name} already gave you an answer.`
           : patienceOf(c, promoter) < PATIENCE_FLOOR ? `${show.name}’s promoter won’t hear it: patience too low.` : null;
-  const base = Math.min(ASK_SPOT_MAX_PCT, ASK_SPOT_BASE_PCT + me(c).popularity.global);
+  const base = Math.min(ASK_SPOT_MAX_PCT, ASK_SPOT_BASE_PCT + globalScore(me(c)));
   return {
     hard, chance: base + patiencePoints(c, promoter) + trustPoints(c, promoter), nag: 0,
-    stand: [['Popularity', `${Math.round(me(c).popularity.global)} (global)`], ['Fee', show ? `£${indieFee(me(c), show.region).toLocaleString('en-GB')}` : '—'], ['Travel', show ? (travelCost(me(c).country, show.country) ? `£${travelCost(me(c).country, show.country)}` : 'None') : '—']],
-    weigh: [{ t: `Popularity ${Math.round(me(c).popularity.global)}`, s: 1 }, { t: `Promoter patience ${Math.round(patienceOf(c, promoter))}`, s: Math.sign(patiencePoints(c, promoter)) },
+    stand: [['Fans', `${fmtFans(fansTotal(me(c)))} worldwide`], ['Fee', show ? `£${indieFee(me(c), show.region).toLocaleString('en-GB')}` : '—'], ['Travel', show ? (travelCost(me(c).country, show.country) ? `£${travelCost(me(c).country, show.country)}` : 'None') : '—']],
+    weigh: [{ t: `${fmtFans(fansTotal(me(c)))} fans`, s: 1 }, { t: `Promoter patience ${Math.round(patienceOf(c, promoter))}`, s: Math.sign(patiencePoints(c, promoter)) },
       { t: trustLabel(trust(c, promoter)), s: Math.sign(trustPoints(c, promoter)) }],
   };
 }

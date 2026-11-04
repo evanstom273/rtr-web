@@ -1,7 +1,7 @@
 // Bookers and promoters as people: how their personality (and how they feel about you) leans the
 // decisions they already make. Personal feeling and professional trust stay separate: liking you is a
 // small, capped nudge on requests; it never books you a title.
-import { PROMOTIONS, hasTrait, type Staffer, type TraitId, type Wrestler } from '../data/rtr';
+import { globalScore, hasTrait, PROMOTIONS, type Staffer, type TraitId, type Wrestler } from '../data/rtr';
 import { hashSeed, seededRng } from '../engine/rng';
 import { activeWorld } from '../world/world';
 import { bondOf, bookerOf } from '../world/people';
@@ -93,8 +93,8 @@ export function willingnessMult(promo: string, me: Wrestler, roster: readonly Wr
   let m = 1;
   if (has(s, 'mercenary')) m *= BF.mercenary.willingness;
   if (has(s, 'ambitious')) {
-    const pops = roster.map((w) => w.popularity.global).sort((a, b) => b - a);
-    if (me.popularity.global >= (pops[Math.floor(pops.length / 4)] ?? Infinity)) m *= BF.ambitious.starPay;
+    const pops = roster.map((w) => globalScore(w)).sort((a, b) => b - a);
+    if (globalScore(me) >= (pops[Math.floor(pops.length / 4)] ?? Infinity)) m *= BF.ambitious.starPay;
   }
   return m;
 }

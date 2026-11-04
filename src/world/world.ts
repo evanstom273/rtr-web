@@ -1,7 +1,9 @@
 // The world: the one save shared by exhibition and career (Wrestling Empire style). It holds the live
 // database plus, once a career is running, everything the career tracks. Kept in IndexedDB; if that's
 // unavailable the world lives in memory for the session.
-import { PROMOTIONS, TITLES, WRESTLERS, applyDatabase, databaseChanged, rollCount, rollTraits, shippedDatabase, shippedWrestler, type Database, type Wrestler } from '../data/rtr';
+import { PROMOTIONS, TITLES, WRESTLERS, applyDatabase, databaseChanged, fansFromPopularity, rollCount, rollTraits, shippedDatabase, shippedWrestler, type Database, type Wrestler } from '../data/rtr';
+import { BUDGET } from '../career/clauses';
+import { BRAND_POP_BOUNDS } from '../career/tuning';
 import { hashSeed, seededRng } from '../engine/rng';
 import { tx } from '../storage/db';
 import type { Career } from '../career/types';
@@ -11,7 +13,7 @@ import { bookerOf, freshPeople, pairKey, type Bond, type People } from './people
 import { crownIndies, growIndies, populateIndies } from './populate';
 
 /** The world save's revision: each step in `upgrade` runs once, in order, on older saves. */
-export const WORLD_REV = 6;
+export const WORLD_REV = 7;
 
 export interface World {
   v: 1;
@@ -65,6 +67,8 @@ function upgrade(w: World): void {
   }
   if (w.day === undefined) w.day = w.career?.today ?? null;
   const rev = w.rev ?? 1;
+  // Rev 7 first: everything after reads fans (traits, crowning, the indie top-up).
+  if (rev < 7) toFans(w);
   if (rev < 2) giveTraits(w);
   if (rev < 3) meetThePeople(w);
   w.people ??= freshPeople();
@@ -78,6 +82,24 @@ function upgrade(w: World): void {
   }
   // Rev 6: the indie scene is a straight 200 (Lyra's call), so an older one grows to it.
   if (rev < 6 && w.indies) w.indies.generated += growIndies({ seed: w.seed, wrestlers: w.db.wrestlers, people: w.people, retired: (id) => !!w.career?.people[id]?.retired });
+}
+
+/**
+ * Rev 7 (Lyra's call): popularity becomes fans. Every wrestler's six regional scores convert exactly
+ * (150 × 10^(score ÷ 20)), so regional order and every formula built on the old scale stay as they
+ * were; worldwide is the sum. Promotions get their 0–100 popularity (10 + 70 × their old budget) and
+ * indie brands theirs (5–30, the same for this world every time).
+ */
+export function toFans(w: World): void {
+  for (const x of w.db.wrestlers) {
+    if (!x.fans && x.popularity) x.fans = fansFromPopularity(x.popularity);
+    delete x.popularity;
+  }
+  for (const p of w.db.promotions) p.popularity ??= Math.round((10 + 70 * (BUDGET[p.initials] ?? 0.5)) * 10) / 10;
+  for (const b of Object.values(w.people?.brands ?? {})) {
+    const [lo, hi] = BRAND_POP_BOUNDS;
+    b.popularity ??= lo + (Math.abs(hashSeed(w.seed, 'brand-pop', b.id)) % (hi - lo + 1));
+  }
 }
 
 /**

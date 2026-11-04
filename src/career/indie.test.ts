@@ -2,7 +2,7 @@
 // one-offs and cups included; regions stay active over time without a weekly promise; at most two title
 // matches on an indie card; and nobody available is ever locked out by accident.
 import { describe, expect, it } from 'vitest';
-import { TITLES, WRESTLERS } from '../data/rtr';
+import { globalScore, TITLES, WRESTLERS } from '../data/rtr';
 import { activeWorld } from '../world/world';
 import { indieWeight, isIndieTitle, regionFactor } from './booker';
 import { addDays, weekStart, type Day } from './dates';
@@ -108,8 +108,8 @@ describe('indie booking', () => {
       const joined = H.events.some((e) => e.who === w.id && (e.kind === 'released' || e.kind === 'expired' || e.kind === 'debut') && e.day >= since);
       const why = p?.retired || (p?.injury && p.injury.until >= since) || (p?.last && p.last >= since) // worked a promotion date, or injured
         || joined // only on the indies for part of the window
-        || w.popularity.global < 15; // a low-popularity unknown: plausible to struggle for dates
-      expect(!!why, `${w.name} (${w.region}, pop ${w.popularity.global}) had no dates in 120 days for no reason`).toBe(true);
+        || globalScore(w) < 15; // a low-popularity unknown: plausible to struggle for dates
+      expect(!!why, `${w.name} (${w.region}, pop ${globalScore(w)}) had no dates in 120 days for no reason`).toBe(true);
     }
   }, 120000);
 });

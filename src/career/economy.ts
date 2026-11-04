@@ -1,6 +1,6 @@
 // Money: fees, travel and the training price curve.
 import type { Wrestler } from '../data/rtr';
-import { BUDGET, C } from './clauses';
+import { budgetOf, C } from './clauses';
 import { promoRegion, regionalPop } from './booker';
 import { regionOfCountry } from './places';
 import {
@@ -13,7 +13,7 @@ export const round5 = (v: number): number => Math.round(v / 5) * 5;
 
 /** A promotion's weekly-show fee for a wrestler, from their popularity in its home region. */
 export function contractFee(w: Wrestler, promo: string): number {
-  return round5((FEE_BASE + FEE_PER_POP * regionalPop(w, promoRegion(promo))) * (BUDGET[promo] ?? 0.5));
+  return round5((FEE_BASE + FEE_PER_POP * regionalPop(w, promoRegion(promo))) * budgetOf(promo));
 }
 
 export function indieFee(w: Wrestler, region: PopRegion): number {

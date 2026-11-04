@@ -3,7 +3,7 @@
 // grow traits by how you play (always confirmed on a card) or buy them in Training.
 //
 // Traits shift chances. They never decide anything outright.
-import { TITLES, TRAITS, WRESTLERS, canAdd, conflictOf, hasTrait, traitName, type TraitId, type Wrestler, type WrestlerClass } from '../data/rtr';
+import { canAdd, conflictOf, globalScore, hasTrait, TITLES, type TraitId, traitName, TRAITS, type Wrestler, type WrestlerClass, WRESTLERS } from '../data/rtr';
 import { hashSeed, seededRng, type Rng } from '../engine/rng';
 import { activeWorld } from '../world/world';
 import { addEvent } from '../world/history';
@@ -225,7 +225,7 @@ function mentorship(c: Career, rnd: Rng): void {
     const current = bondsOf(people, m.id).find((b) => b.bond.kind === 'mentor' && b.bond.mentor === m.id && (b.bond.given ?? 0) < M.max);
     const young = current ? WRESTLERS.find((w) => w.id === current.other) : WRESTLERS.filter((w) => w.id !== c.player && w.age <= M.protegeMaxAge && !c.people[w.id]?.retired
       && (m.promotion === 'TIS' ? w.promotion === 'TIS' && w.region === m.region : w.promotion === m.promotion) && !bondsOf(people, w.id).some((b) => b.bond.kind === 'mentor'))
-      .sort((a, b) => a.popularity.global - b.popularity.global)[0];
+      .sort((a, b) => globalScore(a) - globalScore(b))[0];
     if (!young) continue;
     const keys = ['strength', 'speed', 'stamina', 'skill', 'striking', 'charisma'] as const;
     const low = keys.reduce((a, b) => (young.stats[b] < young.stats[a] ? b : a));

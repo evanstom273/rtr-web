@@ -5,7 +5,7 @@
 // Succession (Lyra's call): a new booker gets the office's files, not the old booker's feelings. Their
 // memory of your work starts at a share of the last one's; their patience starts fresh; how they feel
 // about you is whatever it already was between you. Every open promise is honoured or refused, on record.
-import { PROMOTIONS, WRESTLERS, canAdd, TRAITS, type Staffer, type TraitId } from '../data/rtr';
+import { canAdd, globalScore, PROMOTIONS, type Staffer, type TraitId, TRAITS, WRESTLERS } from '../data/rtr';
 import { personName } from '../data/rtr/names';
 import { hashSeed, seededRng, type Rng } from '../engine/rng';
 import { activeWorld } from '../world/world';
@@ -17,9 +17,7 @@ import { letter, promoName, setCareerHooks } from './career';
 import { addDays, daysBetween, type Day } from './dates';
 import { CITIES, PROMO_COUNTRIES, REGION_OF } from './places';
 import {
-  BOOKER_BAD_STARS, BOOKER_FIRE_BAD, BOOKER_FIRE_MONTHLY, BOOKER_FX, BOOKER_QUIT_MONTHLY, BOOKER_RETIRE_AGE, BOOKER_RETIRE_BASE,
-  BOOKER_RETIRE_PER_YEAR, BOOKER_RETURN_DAYS, BOOKER_RETURN_MAX_AGE, INDIE_BRAND_EVERY, INDIE_DOW, PLEDGE_HONOUR_BASE,
-  PLEDGE_HONOUR_SWING, PROMOTER_CLOSE_MONTHLY, PROMOTER_PROMOTE_MIN_REP, STAFF_REP_PER_YEAR, TRUST_INHERIT,
+  BOOKER_BAD_STARS, BOOKER_FIRE_BAD, BOOKER_FIRE_MONTHLY, BOOKER_FX, BOOKER_QUIT_MONTHLY, BOOKER_RETIRE_AGE, BOOKER_RETIRE_BASE, BOOKER_RETIRE_PER_YEAR, BOOKER_RETURN_DAYS, BOOKER_RETURN_MAX_AGE, BRAND_POP_BOUNDS, INDIE_BRAND_EVERY, INDIE_DOW, PLEDGE_HONOUR_BASE, PLEDGE_HONOUR_SWING, PROMOTER_CLOSE_MONTHLY, PROMOTER_PROMOTE_MIN_REP, STAFF_REP_PER_YEAR, TRUST_INHERIT,
 } from './tuning';
 import type { BookerMemory, Career, PopRegion } from './types';
 
@@ -77,13 +75,13 @@ function wrestlerTurnedBooker(c: Career, rnd: Rng, promo: string): Staffer | und
   const P = people();
   const home = PROMO_COUNTRIES[promo]?.[0];
   const region = home ? REGION_OF[home] : undefined;
-  const cands = WRESTLERS.filter((w) => c.people[w.id]?.retired && !P.staff[w.id] && w.age >= 38 && w.age <= 65 && w.popularity.global >= 35
+  const cands = WRESTLERS.filter((w) => c.people[w.id]?.retired && !P.staff[w.id] && w.age >= 38 && w.age <= 65 && globalScore(w) >= 35
     && (!region || w.region === REGION_DATA[region]));
-  const w = weighted(rnd, cands, (x) => x.popularity.global);
+  const w = weighted(rnd, cands, (x) => globalScore(x));
   if (!w) return undefined;
   const s: Staffer = {
     id: w.id, name: w.name, born: addDays(c.today, -Math.round(w.age * 365.25)), country: w.country, gender: w.gender === 'FEMALE' ? 'FEMALE' : 'MALE', background: 'wrestler',
-    traits: backstageTraits(rnd, w.traits ?? []), rep: Math.min(80, 40 + Math.round(w.popularity.global / 2)), job: null, spells: [],
+    traits: backstageTraits(rnd, w.traits ?? []), rep: Math.min(80, 40 + Math.round(globalScore(w) / 2)), job: null, spells: [],
     bio: `${w.gimmick} in the ring for years. Now on the other side of the curtain.`,
   };
   P.staff[s.id] = s;
@@ -173,7 +171,8 @@ function openBrand(c: Career, region: PopRegion, rnd: Rng): void {
   const every = INDIE_BRAND_EVERY[0] + Math.floor(rnd() * (INDIE_BRAND_EVERY[1] - INDIE_BRAND_EVERY[0] + 1));
   let r = rnd(), dow = 5;
   for (let d = 0; d < 7; d++) { r -= INDIE_DOW[d]!; if (r <= 0) { dow = d; break; } }
-  P.brands[id] = { id, name, country, city, region, every, dow, promoter: null, from: c.today };
+  // A new brand starts small.
+  P.brands[id] = { id, name, country, city, region, every, dow, promoter: null, from: c.today, popularity: BRAND_POP_BOUNDS[0] + Math.floor(rnd() * 6) };
   // Sometimes someone between jobs, or a retired wrestler, starts it; otherwise a new promoter.
   const free = Object.values(P.staff).filter((s) => !s.job && !s.retired && REGION_OF[s.country] === region);
   const founder = free.length && rnd() < 0.4 ? pick(rnd, free) : undefined;

@@ -2,6 +2,7 @@
 // traits say how they go about it. Every wrestler has one to three, any mix of in-ring and backstage.
 // What each trait does, in numbers, lives in career/tuning.ts (TRAIT_FX), so the engine and the career
 // read the same values.
+import { globalScore } from '.';
 import { TRAIT_COUNTS_GENERATED, TRAIT_MAX } from '../../career/tuning';
 import type { Wrestler } from './types';
 
@@ -117,8 +118,8 @@ export function traitWeights(w: Wrestler): Record<TraitId, number> {
   if (s.stamina >= 85) add('resilient', 1);
   if (w.age >= 34) { add('mentor', 3); add('methodical', 1); add('loyal', 1); add('professional', 1); }
   if (w.age <= 24) { add('ambitious', 2); add('inconsistent', 2); add('risk_taker', 1); add('hot_headed', 1); }
-  if (w.popularity.global >= 45) { add('big_match', 2); add('egotistical', 1); add('ambitious', 1); }
-  if (w.popularity.global < 20) { add('ambitious', 1); add('team_player', 1); }
+  if (globalScore(w) >= 45) { add('big_match', 2); add('egotistical', 1); add('ambitious', 1); }
+  if (globalScore(w) < 20) { add('ambitious', 1); add('team_player', 1); }
   return k;
 }
 

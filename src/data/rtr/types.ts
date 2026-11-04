@@ -69,6 +69,17 @@ export interface Attributes {
   charisma: number;
 }
 
+/** A wrestler's fans in each of the six regions: whole people. Worldwide is their sum; there's no global pool. */
+export interface Fans {
+  northAmerica: number;
+  southAmerica: number;
+  europe: number;
+  asia: number;
+  africa: number;
+  oceania: number;
+}
+
+/** Before fan counts (saves before world rev 7, the original import): 0–100 scores. Converted on load. */
 export interface Popularity {
   global: number;
   northAmerica: number;
@@ -98,7 +109,9 @@ export interface Wrestler {
   promotion: string;
   division: 'MENS' | 'WOMENS' | '';
   stats: Attributes;
-  popularity: Popularity;
+  fans: Fans;
+  /** Only on data from before fan counts; converted to `fans` and dropped on load. */
+  popularity?: Popularity;
   /** Move ids. 40 regular, 2 signatures, 3 finishers. */
   moves: string[];
   signatures: string[];
@@ -144,6 +157,8 @@ export interface Promotion {
   indie: boolean;
   region: string;
   titles: string[];
+  /** 0–100: how big the promotion is, which sets its reach and pay. Moves a little each month (world rev 7). */
+  popularity?: number;
 }
 
 export interface Title {

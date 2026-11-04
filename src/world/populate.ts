@@ -1,13 +1,14 @@
 // The indie scene: generated for every new world (Lyra's call). Wrestlers built by the same rules as
 // rookies and created wrestlers, indie brands with their own promoters, and the indie titles crowned.
 // Everything here rolls from the world's seed, so the same world always gets the same scene.
-import { canAdd, rollCount, rollTraits, TRAITS, type Staffer, type Title, type TraitId, type Wrestler, type WrestlerClass } from '../data/rtr';
+import { canAdd, fanScore, fansFromScore, globalScore, rollCount, rollTraits, type Staffer, type Title, type TraitId, TRAITS, type Wrestler, type WrestlerClass } from '../data/rtr';
 import { personName, wrestlerGimmick, wrestlerName } from '../data/rtr/names';
 import { CLASS_ORDER, QUESTIONS, startingAttributes, templateMoveset, LIMIT } from '../career/create';
-import { CITIES, NEIGHBOURS, REGION_LABEL, REGION_OF } from '../career/places';
+import { newcomerFans } from '../career/fanStart';
+import { CITIES, REGION_LABEL, REGION_OF } from '../career/places';
 import {
-  INDIE_ARCHETYPES, INDIE_BRAND_EVERY, INDIE_DOW, INDIE_ELSEWHERE_SHARE, INDIE_FEMALE_SHARE, INDIE_GENERATED,
-  INDIE_GLOBAL_SHARE, INDIE_NEIGHBOUR_SHARE, INDIE_POOL_MIN, INDIE_REGION_SHARES, PROMOTER_REP,
+  INDIE_ARCHETYPES, INDIE_BRAND_EVERY, INDIE_DOW, INDIE_FEMALE_SHARE, INDIE_GENERATED,
+  INDIE_POOL_MIN, BRAND_POP_BOUNDS, INDIE_REGION_SHARES, PROMOTER_REP,
 } from '../career/tuning';
 import type { PopRegion } from '../career/types';
 import { hashSeed, seededRng, type Rng } from '../engine/rng';
@@ -66,7 +67,6 @@ export function makeIndie(rnd: Rng, roster: readonly Wrestler[], id: string, reg
   const kit = templateMoveset(classes, stats, rnd);
   const heel = rnd() < 0.5;
   const hp = between(rnd, A.pop);
-  const pop = Object.fromEntries(REGIONS.map((r) => [r, Math.max(2, Math.round(hp * (r === home ? 1 : NEIGHBOURS[home].includes(r) ? INDIE_NEIGHBOUR_SHARE : INDIE_ELSEWHERE_SHARE)))])) as Record<PopRegion, number>;
   const w: Wrestler = {
     id, wrestlerId: 0,
     name: wrestlerName(rnd, country, gender, new Set(roster.map((x) => x.name))),
@@ -75,7 +75,7 @@ export function makeIndie(rnd: Rng, roster: readonly Wrestler[], id: string, reg
     classes, gender, disposition: heel ? 'HEEL' : 'FACE', age: between(rnd, A.age),
     height: model.height, weight: model.weight, region: REGION_DATA[home], regionLabel: REGION_LABEL[home], country,
     promotion: 'TIS', division: gender === 'FEMALE' ? 'WOMENS' : 'MENS', stats,
-    popularity: { global: Math.max(2, Math.round(hp * INDIE_GLOBAL_SHARE)), ...pop },
+    fans: newcomerFans(rnd, home, fansFromScore(hp)),
     ...kit,
   };
   w.traits = rollTraits(w, rnd, rollCount(rnd));
@@ -154,6 +154,7 @@ export function makeBrands(rnd: Rng, P: People, indies: readonly Wrestler[], pre
       const b: Brand = {
         id, name: brandName(rnd, country, city, taken), country, city, region: r, every: between(rnd, INDIE_BRAND_EVERY),
         dow: weighted(rnd, [0, 1, 2, 3, 4, 5, 6], (d) => INDIE_DOW[d]!), promoter: null, from: `${between(rnd, [2006, 2025])}-${String(between(rnd, [1, 12])).padStart(2, '0')}-01`,
+        popularity: between(rnd, BRAND_POP_BOUNDS),
       };
       P.brands[id] = b;
       capacity += 7 / b.every;
@@ -169,7 +170,7 @@ const BRAND_SPARE = 1.4;
 
 /** How good a wrestler looks to a promoter crowning a champion: popularity first, then ability. */
 export const champScore = (w: Wrestler, region?: PopRegion): number =>
-  (region ? w.popularity[region] : w.popularity.global) * 2 + (w.stats.strength + w.stats.speed + w.stats.stamina + w.stats.skill + w.stats.striking + w.stats.charisma) / 30;
+  (region ? fanScore(w, region) : globalScore(w)) * 2 + (w.stats.strength + w.stats.speed + w.stats.stamina + w.stats.skill + w.stats.striking + w.stats.charisma) / 30;
 
 /**
  * Give each vacant indie title to the best indie for it (regional titles: the best in that region).

@@ -1,6 +1,6 @@
 // The career loop: starting one, a day at a time, and what every match changes in the world.
 import { poachMult, renewLean, retryAdjust } from './leans';
-import { PROMOTIONS, TITLES, WRESTLERS, databaseChanged, findWrestler, hasTrait, shippedWomenShare, type Wrestler } from '../data/rtr';
+import { PROMOTIONS, TITLES, WRESTLERS, databaseChanged, fanScore, findWrestler, fmtFans, globalScore, hasTrait, shiftFans, shippedWomenShare, type Wrestler } from '../data/rtr';
 import { seededRng, type Rng } from '../engine/rng';
 import type { MatchRulesConfig } from '../engine/types';
 import { HARDCORE_STIPS, available, bookAhead, hashSeed, heated, isIndieTitle, promoRegion, regionalDates, regionalPop, titleRegion } from './booker';
@@ -19,7 +19,7 @@ import { remember } from './relations';
 import {
   BOOK_AHEAD_DAYS, CONTRACT_MONTHS, FATIGUE_HARDCORE_EXTRA, FATIGUE_PER_MATCH, FATIGUE_RECOVERY_PER_DAY, FATIGUE_STAMINA_DIVISOR,
   INJURY_BASE_PCT, INJURY_HARDCORE_MULT, INJURY_PER_FATIGUE, INJURY_SEVERITY, MEDICAL_BILL_COVER, MEDICAL_PAY_COVER, MEDICAL_PER_DAY, MERCH_INDIE,
-  MERCH_SHARE, MERCH_SIGNED, OFF_SCRIPT_TITLE_BAN_DAYS, PLANNED_NUDGE, PLANNED_RETRIES, POACH_CHANCE, POP_CEILING, POP_GLOBAL_SHARE, POP_IDLE_DAYS,
+  MERCH_SHARE, MERCH_SIGNED, OFF_SCRIPT_TITLE_BAN_DAYS, PLANNED_NUDGE, PLANNED_RETRIES, POACH_CHANCE, POP_CEILING, POP_IDLE_DAYS,
   POP_IDLE_DECAY, POP_LOSS, POP_PER_STAR, POP_STAR_PIVOT, POP_TITLE_WIN, POP_WIN, RELEASE_MONTHLY_BOTTOM, RENEW_CHANCE_REST,
   CIRCUIT_KEEP, TRAIT_BACKSTAGE, TRAIT_FX, RENEW_CHANCE_TOP, REP_FOUR_STAR, REP_OFF_SCRIPT, REP_PER_DATE, REP_START, ROOKIE_EVERY_DAYS, ROSTER_FLOOR, ROSTER_SCOUT_DAYS, ROSTER_TARGET,
   START_CONTRACT_MONTHS_LEFT, START_MONEY_CREATED, START_MONEY_PER_POP, TRYOUT_MIN_STARS, PATIENCE_NO_SHOW,
@@ -46,7 +46,7 @@ export function aiContract(rnd: Rng, w: Wrestler, promo: string, start: Day, mon
   const clauses = NO_CLAUSES();
   // Bigger names have a perk or two, in the areas the promotion doesn't mind giving.
   const roster = WRESTLERS.filter((x) => x.promotion === promo);
-  const rank = roster.filter((x) => x.popularity.global > w.popularity.global).length / Math.max(1, roster.length);
+  const rank = roster.filter((x) => globalScore(x) > globalScore(w)).length / Math.max(1, roster.length);
   if (rank < 0.25) {
     const easy = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].filter((i) => attitude(promo, i) === 'flexible');
     for (const i of easy.slice(0, 1 + Math.floor(rnd() * 2))) clauses[i] = 1 + Math.floor(rnd() * 2);
@@ -92,7 +92,7 @@ export function startCareer(o: StartOptions): Career {
   }
   activeWorld().day = o.today;
   const me = findWrestler(o.player)!;
-  c.money = o.created ? START_MONEY_CREATED : START_MONEY_PER_POP * me.popularity.global;
+  c.money = o.created ? START_MONEY_CREATED : START_MONEY_PER_POP * globalScore(me);
   c.ledger.push({ day: o.today, text: 'Starting money', amount: c.money, kind: 'start' });
   extendCalendar(c);
   bookAhead(c, o.today, BOOK_AHEAD_DAYS, WRESTLERS);
@@ -174,12 +174,14 @@ export function worldJobs(c: Career): SimJob[] {
   return jobs;
 }
 
+/**
+ * A match's effect on someone's fans in the show's region (the old popularity rules, on the old scale,
+ * applied to their fan count until the fan-growth stage replaces them). Returns the change in people.
+ */
 function popChange(w: Wrestler, region: PopRegion, delta: number): number {
-  const before = w.popularity[region];
-  const scaled = delta > 0 ? delta * (1 - before / POP_CEILING) : delta;
-  w.popularity[region] = r1(clamp(before + scaled, 0, 100));
-  w.popularity.global = r1(clamp(w.popularity.global + scaled * POP_GLOBAL_SHARE, 0, 100));
-  return w.popularity[region] - before;
+  const before = fanScore(w, region);
+  const scaled = delta > 0 ? delta * Math.max(0.05, 1 - before / POP_CEILING) : delta;
+  return shiftFans(w, region, scaled);
 }
 
 /** Apply a finished match to the world: popularity, fatigue, injuries, titles, feuds, and your pay. */
@@ -337,7 +339,7 @@ function settleMine(c: Career, show: Show, bout: Bout, out: SimOut, aIsYou: bool
   letter(c, {
     kind: 'result', from: show.name, subject: `${result === 'win' ? 'You beat' : result === 'loss' ? 'You lost to' : 'A draw with'} ${opp.name}`,
     body: [`${out.stars}★${out.move ? ` · ${out.move}` : ''}.${planned === 'off-script' ? ' You went off-script.' : planned === 'botched' ? ' You were booked to win.' : planned === 'upset' ? ' Not the finish they planned, but no one’s blaming you.' : ''}`],
-    terms: [['Paid', `£${(fee + bonus).toLocaleString('en-GB')}`], ['Popularity', `${popDelta >= 0 ? '+' : ''}${r1(popDelta)} ${region}`], ['Reputation', `${r1(me.rep)}`]],
+    terms: [['Paid', `£${(fee + bonus).toLocaleString('en-GB')}`], ['Fans', `${popDelta >= 0 ? '+' : '−'}${fmtFans(Math.abs(popDelta))} in ${region}`], ['Reputation', `${r1(me.rep)}`]],
     read: false,
   } as Omit<Letter, 'id' | 'day'>);
   if (bout.tryout) tryoutVerdict(c, show, result === 'win' || out.stars >= TRYOUT_MIN_STARS);
@@ -517,19 +519,18 @@ function monthly(c: Career, day: Day, rnd: Rng): void {
   for (const w of WRESTLERS) {
     const p = c.people[w.id];
     if (p?.last && daysBetween(p.last, day) > POP_IDLE_DAYS) {
-      for (const k of POP_KEYS) w.popularity[k] = Math.max(0, r1(w.popularity[k] - POP_IDLE_DECAY));
-      w.popularity.global = Math.max(0, r1(w.popularity.global - POP_IDLE_DECAY));
+      for (const k of POP_KEYS) shiftFans(w, k, -POP_IDLE_DECAY);
     }
   }
   const me = findWrestler(c.player)!;
   const mine = c.people[c.player]!;
-  const pop = me.popularity.global;
+  const pop = globalScore(me);
   const pleaser = hasTrait(findWrestler(c.player), 'crowd_pleaser') ? TRAIT_FX.crowd_pleaser.merch : 1;
   const merch = mine.contract ? round5(pop * pop * MERCH_SIGNED * (MERCH_SHARE[mine.contract.clauses[C.merch] ?? 0] ?? 0) * pleaser) : round5(pop * pop * MERCH_INDIE * pleaser);
   spend(c, merch, mine.contract && !(mine.contract.clauses[C.merch] ?? 0) ? 'Merch (no Merchandise Rights)' : 'Merch', 'merch');
   // Mid-contract releases at the bottom of each roster.
   for (const p of PROMOTIONS.filter((x) => !x.indie)) {
-    const roster = WRESTLERS.filter((w) => w.promotion === p.initials).sort((a, b) => a.popularity.global - b.popularity.global);
+    const roster = WRESTLERS.filter((w) => w.promotion === p.initials).sort((a, b) => globalScore(a) - globalScore(b));
     for (const w of roster.slice(0, Math.floor(roster.length / 4))) {
       if (w.id === c.player || TITLES.some((t) => t.holder === w.id)) continue;
       if (rnd() < RELEASE_MONTHLY_BOTTOM) release(c, w, 'released');
@@ -614,12 +615,13 @@ function contractsEnding(c: Career, day: Day, rnd: Rng): void {
     if (!p || !k || k.end >= day) continue;
     if (w.id === c.player) { playerContractEnds(c, w, day); continue; }
     const roster = WRESTLERS.filter((x) => x.promotion === w.promotion);
-    const median = [...roster].sort((a, b) => a.popularity.global - b.popularity.global)[Math.floor(roster.length / 2)]?.popularity.global ?? 0;
+    const byPop = [...roster].sort((a, b) => globalScore(a) - globalScore(b));
+    const median = byPop.length ? globalScore(byPop[Math.floor(byPop.length / 2)]!) : 0;
     const champ = TITLES.some((t) => t.holder === w.id);
     // Personality: Loyal stays more, Mercenary less; the Ambitious leave if they're stuck below the top third.
-    const third = [...roster].sort((a, b) => b.popularity.global - a.popularity.global)[Math.floor(roster.length / 3)]?.popularity.global ?? 0;
-    const restless = hasTrait(w, 'ambitious') && w.popularity.global < third && rnd() < TRAIT_BACKSTAGE.ambitious.leave;
-    if (champ || (!restless && rnd() < (w.popularity.global >= median ? RENEW_CHANCE_TOP : RENEW_CHANCE_REST) + renewLean(w))) {
+    const third = byPop.length ? globalScore(byPop[byPop.length - 1 - Math.floor(byPop.length / 3)]!) : 0;
+    const restless = hasTrait(w, 'ambitious') && globalScore(w) < third && rnd() < TRAIT_BACKSTAGE.ambitious.leave;
+    if (champ || (!restless && rnd() < (globalScore(w) >= median ? RENEW_CHANCE_TOP : RENEW_CHANCE_REST) + renewLean(w))) {
       p.contract = aiContract(rnd, w, w.promotion, day, CONTRACT_MONTHS[1]!);
       p.renewals = (p.renewals ?? 0) + 1;
       continue;

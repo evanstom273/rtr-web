@@ -1,7 +1,7 @@
 // The career event library (career expansion, stage 3). Each event says when it can happen, who and
 // where it's about (drawn from the live world), its choices and what they do. Add one by appending an
 // EventDef to the right list; the engine (events.ts) handles pacing, letters, follow-ups and memory.
-import { PROMOTIONS, TITLES, WRESTLERS, findWrestler, type Wrestler } from '../data/rtr';
+import { findWrestler, globalScore, PROMOTIONS, TITLES, type Wrestler, WRESTLERS } from '../data/rtr';
 import { contenders, isIndieTitle, promoRegion } from './booker';
 import { makeOffer, promoName } from './career';
 import { C } from './clauses';
@@ -30,7 +30,7 @@ const healthy = (w: Wrestler, x: EvCtx) => !(x.c.people[w.id]?.injury && x.c.peo
 /** Whoever runs the indie show an event is about. */
 const promoterOf = (x: EvCtx, d: Record<string, string | number>) => { const s = x.c.shows[String(d.show)]; return s ? showBooker(s) : indieKey(String(d.name)); };
 const veteran = (x: EvCtx) => scene(x).filter((w) => w.age >= 35 && healthy(w, x) && !(relationOf(x.c, w.id)?.kind === 'mentor'));
-const youngster = (x: EvCtx) => scene(x).filter((w) => w.age <= 24 && w.popularity.global < x.me.popularity.global - 3 && healthy(w, x));
+const youngster = (x: EvCtx) => scene(x).filter((w) => w.age <= 24 && globalScore(w) < globalScore(x.me) - 3 && healthy(w, x));
 const colleague = (x: EvCtx) => scene(x).filter((w) => healthy(w, x));
 const rivals = (x: EvCtx) => relationsList(x.c).filter((r) => r.r.v <= -25 || r.r.kind === 'rival').map((r) => findWrestler(r.id)!).filter((w) => w && healthy(w, x));
 const friendly = (x: EvCtx, min = 15) => relationsList(x.c).filter((r) => r.r.v >= min).map((r) => findWrestler(r.id)!).filter((w) => w && healthy(w, x));
@@ -70,7 +70,7 @@ const TRAINING: EventDef[] = [
     ],
   },
   {
-    id: 'seminar', cat: 'training', weight: 2, cooldown: 60, when: (x) => x.me.popularity.global >= 35 || x.p.rep >= 60,
+    id: 'seminar', cat: 'training', weight: 2, cooldown: 60, when: (x) => globalScore(x.me) >= 35 || x.p.rep >= 60,
     setup: (x) => ({ city: nearbyCity(x).city, amount: fee(x, 1.5) }),
     from: (_x, d) => `Seminar organiser · ${d.city}`, subject: () => 'Teach a seminar?',
     body: (x, d) => [`We’re putting on a weekend seminar in ${d.city} and want you to lead it: two sessions, Q&A, photos.`, `We pay ${stated(x, d)}.`],
@@ -176,7 +176,7 @@ const COMMUNITY: EventDef[] = [
     ],
   },
   {
-    id: 'hospital_visit', cat: 'community', weight: 1.5, cooldown: 75, when: (x) => x.me.popularity.global >= 25,
+    id: 'hospital_visit', cat: 'community', weight: 1.5, cooldown: 75, when: (x) => globalScore(x.me) >= 25,
     setup: (x) => ({ city: nearbyCity(x).city }),
     from: (_x, d) => `Children’s ward · ${d.city}`, subject: () => 'A visit, if you can spare an afternoon',
     body: () => ['A few of the children on the ward are big fans. No cameras, no press. Just an afternoon.'],
@@ -201,7 +201,7 @@ const COMMUNITY: EventDef[] = [
 
 const MEDIA: EventDef[] = [
   {
-    id: 'podcast', cat: 'media', weight: 3, cooldown: 30, when: (x) => x.me.popularity.global >= 15,
+    id: 'podcast', cat: 'media', weight: 3, cooldown: 30, when: (x) => globalScore(x.me) >= 15,
     setup: (x) => ({ show: pick(x.rnd, ['Bumps & Bruises', 'The Turnbuckle Tapes', 'Kayfabe Kitchen', 'Three Count', 'Behind the Curtain', 'The Hot Tag', 'Dead Crowd Radio'])! }),
     from: (_x, d) => String(d.show), subject: () => 'Come on the podcast?',
     body: (_x, d) => [`${d.show} want you on for an hour: your career so far, your matches, the business.`],
@@ -215,7 +215,7 @@ const MEDIA: EventDef[] = [
     ],
   },
   {
-    id: 'documentary', cat: 'media', weight: 1, cooldown: 240, when: (x) => x.me.popularity.global >= 35,
+    id: 'documentary', cat: 'media', weight: 1, cooldown: 240, when: (x) => globalScore(x.me) >= 35,
     setup: (x) => ({ amount: fee(x, 2.5) }),
     from: () => 'An independent film crew', subject: () => 'Can we follow you for a month?',
     body: () => ['We’re making a documentary about life on the road in wrestling and want you at the heart of it: the travel, the locker rooms, the matches.'],
@@ -239,7 +239,7 @@ const MEDIA: EventDef[] = [
   },
   {
     id: 'newspaper_profile', cat: 'media', weight: 2, cooldown: 90,
-    when: (x) => x.me.popularity.global >= 20 && x.me.popularity.global <= 60 && x.c.history.slice(0, 5).filter((m) => m.result === 'win').length >= 3,
+    when: (x) => globalScore(x.me) >= 20 && globalScore(x.me) <= 60 && x.c.history.slice(0, 5).filter((m) => m.result === 'win').length >= 3,
     setup: (x) => ({ paper: `The ${nearbyCity(x).city} ${pick(x.rnd, ['Gazette', 'Echo', 'Evening Post', 'Herald', 'Chronicle'])}` }),
     from: (_x, d) => String(d.paper), subject: () => 'A profile: “the rising star”',
     body: (_x, d) => [`${d.paper} wants to run a feature on you. A photographer, an hour’s interview, your story.`],
@@ -293,8 +293,8 @@ const MEDIA: EventDef[] = [
     ],
   },
   {
-    id: 'convention', cat: 'media', weight: 2, cooldown: 90, when: (x) => x.me.popularity.global >= 25,
-    setup: (x) => ({ city: nearbyCity(x).city, amount: round5(feeBase(x) * (1 + x.me.popularity.global / 50)) }),
+    id: 'convention', cat: 'media', weight: 2, cooldown: 90, when: (x) => globalScore(x.me) >= 25,
+    setup: (x) => ({ city: nearbyCity(x).city, amount: round5(feeBase(x) * (1 + globalScore(x.me) / 50)) }),
     from: (_x, d) => `${d.city} Wrestling Con`, subject: () => 'A signing table at the con?',
     body: (x, d) => [`We’d like you at the ${d.city} convention: a signing table, a Q&A panel and photos. ${stated(x, d)} plus a cut of the photos.`],
     options: [
@@ -313,7 +313,7 @@ const MEDIA: EventDef[] = [
     ],
   },
   {
-    id: 'sponsor', cat: 'media', weight: 1.5, cooldown: 150, when: (x) => x.me.popularity.global >= 30,
+    id: 'sponsor', cat: 'media', weight: 1.5, cooldown: 150, when: (x) => globalScore(x.me) >= 30,
     setup: (x) => ({ brand: pick(x.rnd, ['a local gym chain', 'an energy drink', 'a protein shake company', 'a tattoo studio', 'a barber shop chain', 'a car dealership'])!, amount: fee(x, 3) }),
     from: (_x, d) => `Marketing at ${d.brand}`, subject: () => 'A sponsorship deal',
     body: (x, d) => [`${String(d.brand).replace(/^an? /, (m) => m[0]!.toUpperCase() + m.slice(1))} want you in their ads for the next few months: ${stated(x, d)}.`],
@@ -324,8 +324,8 @@ const MEDIA: EventDef[] = [
     ],
   },
   {
-    id: 'merch_design', cat: 'media', weight: 1.5, cooldown: 120, when: (x) => x.me.popularity.global >= 20,
-    setup: (x) => ({ amount: round5(x.me.popularity.global * x.me.popularity.global * 0.6 + 50) }),
+    id: 'merch_design', cat: 'media', weight: 1.5, cooldown: 120, when: (x) => globalScore(x.me) >= 20,
+    setup: (x) => ({ amount: round5(globalScore(x.me) * globalScore(x.me) * 0.6 + 50) }),
     from: () => 'An independent merch company', subject: () => 'A new T-shirt design?',
     body: () => ['We’ve mocked up a shirt with your catchphrase on it and reckon it’ll sell. You get a cut of every one.'],
     options: [
@@ -334,7 +334,7 @@ const MEDIA: EventDef[] = [
     ],
   },
   {
-    id: 'video_game', cat: 'media', weight: 0.5, cooldown: 365, when: (x) => x.me.popularity.global >= 70,
+    id: 'video_game', cat: 'media', weight: 0.5, cooldown: 365, when: (x) => globalScore(x.me) >= 70,
     setup: (x) => ({ amount: fee(x, 10) }),
     from: () => 'A video game studio', subject: () => 'You, in our next game',
     body: (x, d) => ['We want to put you in our next wrestling game: motion capture, your moves, your voice.', `${stated(x, d)} for the rights.`],
@@ -540,7 +540,7 @@ const CAREER: EventDef[] = [
     ],
   },
   {
-    id: 'rival_interest', cat: 'career', weight: 1.5, cooldown: 120, when: (x) => !!x.k && x.me.popularity.global >= 35 && daysBetween(x.day, x.k.end) <= 150 && !x.p.next,
+    id: 'rival_interest', cat: 'career', weight: 1.5, cooldown: 120, when: (x) => !!x.k && globalScore(x.me) >= 35 && daysBetween(x.day, x.k.end) <= 150 && !x.p.next,
     setup: (x) => { const p = pick(x.rnd, PROMOTIONS.filter((y) => !y.indie && y.initials !== x.k!.promo && standingWith(x.c, y.initials).mine >= standingWith(x.c, y.initials).q1)); return p ? { promo: p.initials } : null; },
     from: (_x, d) => promoName(String(d.promo)), subject: () => 'Off the record…',
     body: (_x, d) => [`${promoName(String(d.promo))} have been watching. Nothing official while you’re under contract, but they’d like to talk about when it ends.`],
@@ -668,7 +668,7 @@ const PERSONAL: EventDef[] = [
     ],
   },
   {
-    id: 'paid_appearance', cat: 'personal', weight: 2, cooldown: 45, when: (x) => x.me.popularity.global >= 15,
+    id: 'paid_appearance', cat: 'personal', weight: 2, cooldown: 45, when: (x) => globalScore(x.me) >= 15,
     setup: (x) => ({ venue: `${pick(x.rnd, ['a sports bar', 'a nightclub', 'a comic shop', 'a gym opening', 'a car show'])} in ${nearbyCity(x).city}`, amount: fee(x, 0.8) }),
     from: (_x, d) => `Bookings · ${d.venue}`, subject: () => 'A paid meet-and-greet',
     body: (x, d) => [`${String(d.venue)[0]!.toUpperCase()}${String(d.venue).slice(1)} would pay ${stated(x, d)} for two hours of photos and signings.`],
@@ -678,7 +678,7 @@ const PERSONAL: EventDef[] = [
     ],
   },
   {
-    id: 'fan_gift', cat: 'fun', weight: 1, cooldown: 90, when: (x) => x.me.popularity.global >= 20,
+    id: 'fan_gift', cat: 'fun', weight: 1, cooldown: 90, when: (x) => globalScore(x.me) >= 20,
     setup: (x) => ({ gift: pick(x.rnd, ['a hand-made replica title belt', 'a painting of your finisher', 'a knitted version of you, finisher and all', 'a scrapbook of every match you’ve had'])! }),
     from: () => 'A fan', subject: () => 'For you',
     body: (_x, d) => [`A parcel arrives: ${d.gift}, with a note saying your matches got them through a hard year.`],
@@ -698,7 +698,7 @@ const PERSONAL: EventDef[] = [
     ],
   },
   {
-    id: 'airport', cat: 'fun', weight: 1, cooldown: 120, when: (x) => x.me.popularity.global >= 50,
+    id: 'airport', cat: 'fun', weight: 1, cooldown: 120, when: (x) => globalScore(x.me) >= 50,
     from: () => 'Departures', subject: () => 'Recognised at the gate',
     body: () => ['A family spots you at the gate. The kid is shaking. Your flight’s boarding.'],
     options: [

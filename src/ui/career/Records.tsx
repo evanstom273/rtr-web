@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { REGION_KEY, REGION_LABEL } from '../../career/places';
 import { TraitChips } from './Traits';
-import { PROMOTIONS, TITLES, WRESTLERS, findWrestler, getMove, titlesHeldBy } from '../../data/rtr';
+import { findWrestler, getMove, globalScore, PROMOTIONS, TITLES, titlesHeldBy, WRESTLERS } from '../../data/rtr';
 import { askableIndieTitles, askableTitles, person, promoName, type Career } from '../../career';
 import { ATTR_KEYS, ATTR_LONG, CLASS_NAME, divisionName } from '../../career/create';
 import { daysBetween, fmtDay } from '../../career/dates';
@@ -65,7 +65,7 @@ export function Records({ c, onBack, onMoveset, onNewCareer, onRequest }: Props)
   // ---- Rosters (as the world stands today) ----
   const promo = PROMOTIONS.find((p) => p.initials === ORDER[pi])!;
   const roster = useMemo(() => WRESTLERS.filter((x) => x.promotion === promo.initials && !c.people[x.id]?.retired)
-    .sort((a, b) => Number(titlesHeldBy(b).length > 0) - Number(titlesHeldBy(a).length > 0) || b.popularity.global - a.popularity.global), [promo, c.today]);
+    .sort((a, b) => Number(titlesHeldBy(b).length > 0) - Number(titlesHeldBy(a).length > 0) || globalScore(b) - globalScore(a)), [promo, c.today]);
   const champs = promo.titles.map((id) => TITLES.find((t) => t.id === id)).filter((t) => t?.holder);
 
   // ---- Shows ----
@@ -127,7 +127,7 @@ export function Records({ c, onBack, onMoveset, onNewCareer, onRequest }: Props)
             <div className="c-rowsb"><span className="c-sec c-grow">{w('The roster', 'Roster')}</span><span className="c-hint">{roster.length}</span></div>
             {roster.map((y) => (
               <button key={y.id} className={y.id === c.player ? 'c-ans on' : 'c-ans'} onClick={() => open({ k: 'wr', id: y.id })} style={{ padding: '7px 10px' }}>
-                <span className="c-rowsb"><Nm w={y} /><span className="c-hint">pop {Math.round(y.popularity.global)}</span></span>
+                <span className="c-rowsb"><Nm w={y} /><span className="c-hint">pop {Math.round(globalScore(y))}</span></span>
                 <span className="c-ad">{y.gimmick} · {divisionName(y)} · {y.classes.map((k) => CLASS_NAME[k]).join(' · ')} · {y.country}{person(c, y.id).injury ? ' · injured' : ''}</span>
               </button>
             ))}
@@ -375,7 +375,7 @@ function File({ id, c, tab, setTab, onClose, onShow, onTitle, onMoveset, onChall
             <span className="c-sec">{w('Attributes')}</span>
             {ATTR_KEYS.map((k, i) => <div key={k} className="c-frow" style={{ gridTemplateColumns: '90px minmax(0, 1fr) 28px' }}><span className="c-lab">{ATTR_LONG[i]}</span><span className="c-bar"><i className={x.stats[k] === best ? 'c-fill best' : 'c-fill'} style={{ width: `${x.stats[k]}%` }} /></span><b className="c-big">{x.stats[k]}</b></div>)}
             <div className="c-kv">
-              <span className="c-lab">{w('Popularity')}</span><span className="c-val">Global {Math.round(x.popularity.global)}</span>
+              <span className="c-lab">{w('Popularity')}</span><span className="c-val">Global {Math.round(globalScore(x))}</span>
               <span className="c-lab">{w('Reputation')}</span><span className="c-val">{Math.round(p.rep)}</span>
               <span className="c-lab">{w('Finishers')}</span><span className="c-val">{x.finishers.map((m) => getMove(m).name).join(', ')}</span>
               <span className="c-lab">{w('Signatures')}</span><span className="c-val">{x.signatures.map((m) => getMove(m).name).join(', ')}</span>

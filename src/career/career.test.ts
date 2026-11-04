@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TITLES, WRESTLERS, findWrestler } from '../data/rtr';
+import { findWrestler, globalScore, TITLES, WRESTLERS } from '../data/rtr';
 import { freshWorld, setWorld } from '../world/world';
 import { acceptLetter, applyBout, finishDay, myBoutToday, propose, showsOn, signOffer, startCareer, worldJobs } from './index';
 import { simJobs, type SimJob, type SimOut } from './sim';
@@ -9,7 +9,7 @@ import type { Career } from './types';
 const quick = async (jobs: SimJob[]): Promise<SimOut[]> => jobs.map((j) => {
   const a = findWrestler(j.you)!, b = findWrestler(j.them)!;
   const h = (j.seed % 1000) / 1000;
-  const pa = a.popularity.global / (a.popularity.global + b.popularity.global);
+  const pa = globalScore(a) / (globalScore(a) + globalScore(b));
   const zero = { movesTried: 20, movesLanded: 12, finTried: 1, finHit: 1, sigTried: 1, sigHit: 1, reversalTries: 5, reversalWins: 2, kickouts: 2, pinTries: 3 };
   return { key: j.key, winner: h < pa ? 'you' : 'them', finish: 'PINFALL', t: 600 + (j.seed % 600), stars: 2 + (j.seed % 30) / 10, stats: { you: zero, them: zero } };
 });
@@ -36,7 +36,7 @@ describe('a career', () => {
     const c = begin();
     expect(c.today).toBe('2026-11-03');
     expect(c.people.jamie_mercer!.contract!.promo).toBe('VWF');
-    expect(c.money).toBe(46 * 100);
+    expect(c.money).toBe(Math.round(globalScore(findWrestler('jamie_mercer')!) * 100));
     expect(Object.values(c.shows).length).toBeGreaterThan(100);
     const booked = Object.values(c.shows).filter((s) => s.card && s.card.length);
     expect(booked.length).toBeGreaterThan(10);
