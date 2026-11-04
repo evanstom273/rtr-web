@@ -17,6 +17,7 @@ import { Letters } from './Letters';
 import { MovesetEditor } from './MovesetEditor';
 import { Negotiate } from './Negotiate';
 import { Creative } from './Creative';
+import { Rebrand } from './Rebrand';
 import { HistoryScreen, HistorySetup } from './HistorySim';
 import { commit, Head, Screen, useCareer, useWords } from './parts';
 import { Profile, type ProfileLink } from './Profile';
@@ -217,6 +218,8 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
   if (screen === 'start' || screen === 'create') return startScreen(screen);
   if (!c) return startScreen('start');
 
+  // You've left a promotion that owned your name: pick a new one before anything else.
+  if (c.rebrand) return <Rebrand c={c} onDone={() => setStack((st) => [...st])} />;
   if (typeof screen === 'object') {
     if ('negotiate' in screen) return <Negotiate c={c} offerId={screen.negotiate} onBack={back} onDone={home} />;
     if ('requests' in screen) return <Requests c={c} tab={screen.requests} onBack={back} onFlow={(r) => go(r)} onNegotiate={(id) => go({ negotiate: id })} />;

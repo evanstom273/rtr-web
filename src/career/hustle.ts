@@ -7,7 +7,7 @@ import { fansIn, fansTotal, findWrestler, WRESTLERS, type Wrestler } from '../da
 import { hashSeed, seededRng } from '../engine/rng';
 import { letter, person, setCareerHooks, spend } from './career';
 import { tierOf } from './clauses';
-import { dealsOf, sideWork } from './deals';
+import { dealsOf, dealWith, sideWork } from './deals';
 import { addDays, daysBetween, fmtDay, weekday, type Day } from './dates';
 import { attributeTotal, indieFee, livingCost, baseRegion, travelCost } from './economy';
 import { ctxFor, fire, registerEvents, type EventDef } from './events';
@@ -85,6 +85,8 @@ function sellAtShow(c: Career, show: Show, _bout: Bout, m: PlayerMatch): void {
   if (!FEATURES.hustles) return;
   const h = hustleOf(c);
   if (!h.stock) return;
+  // Your own table at a promotion's show needs Merchandise Rights Tier 2 with them (Lyra's call).
+  if (show.promo !== 'TIS' && !(show.promos ?? [show.promo]).some((x) => tierOf(dealWith(c.people[c.player], x), 'merch') >= 2)) return;
   const n = Math.min(h.stock, merchUnits(me(c), show, m.stars));
   if (!n) return;
   h.stock -= n; h.sold += n;

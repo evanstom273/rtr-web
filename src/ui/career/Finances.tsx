@@ -1,8 +1,9 @@
-import { baseRegion, livingCost, shiftPay, type Career, type Entry } from '../../career';
+import { useState } from 'react';
+import { advanceAvailable, baseRegion, livingCost, shiftPay, takeAdvance, type Career, type Entry } from '../../career';
 import { REGION_LABEL } from '../../career/places';
 import { FEATURES, JOBS } from '../../career/tuning';
 import { fmtDay } from '../../career/dates';
-import { Head, money, Screen, useWords } from './parts';
+import { commit, Head, money, Screen, useToast, useWords } from './parts';
 
 interface Props { c: Career; onBack: () => void }
 
@@ -19,6 +20,10 @@ export function Finances({ c, onBack }: Props) {
   const inM = thisMonth.filter((e) => e.amount > 0).reduce((t, e) => t + e.amount, 0);
   const outM = -thisMonth.filter((e) => e.amount < 0).reduce((t, e) => t + e.amount, 0);
   const amt = (v: number) => ({ v: `${v > 0 ? '+' : ''}${money(v)}`, c: v > 0 ? 'c-amt pos' : v < 0 ? 'c-amt neg' : 'c-amt' });
+  const [toast, say] = useToast();
+  const [, bump] = useState(0);
+  // Signing Bonus & Advances: borrow against your fees when you're skint.
+  const adv = advanceAvailable(c);
   return (
     <Screen>
       <Head title={skin === 'paper' ? 'The Books' : 'FINANCES'} meta={w(fmtDay(c.today, 'long'), fmtDay(c.today))} onBack={onBack} />
@@ -32,6 +37,17 @@ export function Finances({ c, onBack }: Props) {
             <span className="c-fact"><span className="c-lab">{w('Net')}</span><b className={amt(inM - outM).c}>{amt(inM - outM).v}</b></span>
           </div>
         </div>
+        {adv.k && (adv.amount > 0 || adv.owed > 0) && (
+          <div className="c-kv">
+            <span className="c-lab">{w('An advance')}</span>
+            {adv.amount > 0
+              ? <button className="c-ans" style={{ padding: '7px 10px' }} onClick={() => { say(takeAdvance(c)); commit(); bump((n) => n + 1); }}>
+                  <span className="c-rowsb"><b className="c-at" style={{ fontSize: 15 }}>{w(`Ask ${adv.k.promo} for ${money(adv.amount)}`)}</b><span className="c-eff gold">{w('Advance')}</span></span>
+                  <span className="c-ad">You’d pay back {money(adv.owed)} out of your fees.</span>
+                </button>
+              : <span className="c-val">You owe {adv.k.promo} {money(adv.owed)}: it comes out of your fees.</span>}
+          </div>
+        )}
         {(FEATURES.livingCosts || c.job) && (
           <div className="c-kv">
             {FEATURES.livingCosts && <><span className="c-lab">{w('Living costs')}</span><span className="c-val">{money(livingCost(baseRegion(c)))} a week in {REGION_LABEL[baseRegion(c)]}, every Monday</span></>}
@@ -61,6 +77,7 @@ export function Finances({ c, onBack }: Props) {
         })}
       </div>
       <div className="c-nav"><button className="c-b2" onClick={onBack}>{w('‹ Back')}</button><button className="c-b1" onClick={onBack}>{w('Done')}</button></div>
+      {toast}
     </Screen>
   );
 }
