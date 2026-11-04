@@ -305,6 +305,17 @@ export function refreshFeuds(c: Career, show: Show, roster: readonly Wrestler[])
   }
   let others = live.filter((f) => !f.title).length;
   const free = pool.filter((w) => !busy.has(w.id) && !TITLES.some((t) => t.holder === w.id)).sort((a, b) => regionalPop(b, region) - regionalPop(a, region));
+  // Angles from real life (relationships stage 6): real heat between two on the roster becomes the storyline.
+  if (others < FEUDS_PER_PROMOTION && free.length >= 2) {
+    const pair = heatPick(c, free.map((w) => w.id), rnd);
+    const payoff = pair && payoffFor();
+    if (pair && payoff) {
+      for (const id of pair) free.splice(free.findIndex((w) => w.id === id), 1);
+      c.feuds.push({ id: `f${++c.seq}`, promo, a: pair[0], b: pair[1], start: show.date, payoff: payoff.id, matches: 0, done: false, real: true });
+      angleNews(c, promo, pair);
+      others++;
+    }
+  }
   while (others < FEUDS_PER_PROMOTION && free.length >= 2) {
     const a = free.splice(Math.floor(rnd() * Math.min(free.length, 8)), 1)[0]!;
     const near = free.filter((w) => w.gender === a.gender).slice(0, 6);
@@ -626,6 +637,11 @@ function defenceChance(c: Career, show: Show, titleId: string, sinceLast: number
 function pickStip(rnd: Rng): StipulationId {
   return weightedPick(rnd, STIPS, (s) => s[1])![0];
 }
+
+/** Real heat a booker can use (rumours plugs in): a pair among these who can't stand each other, or null. */
+let heatPick: (c: Career, ids: string[], rnd: Rng) => [string, string] | null = () => null;
+let angleNews: (c: Career, promo: string, pair: [string, string]) => void = () => undefined;
+export const setAngles = (pick: typeof heatPick, news: typeof angleNews): void => { heatPick = pick; angleNews = news; };
 
 /** How keen a booker is to put two in the ring (politics plugs in: rivals, friends who lobby, enemies who refuse). */
 let pairBias: (a: string, b: string) => number = () => 1;

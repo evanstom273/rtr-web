@@ -1386,3 +1386,43 @@ and away from enemies (−3 each), as points on the signing grade.
 **Screens.**
 - **Relationships:** your standing in each locker room, its leaders, and your clique.
 - **A wrestler's file:** their clique (and whether they lead it).
+
+## Relationships and social life, stage 6: gossip and angles (on)
+
+`career/rumours.ts`, with the real-heat hook in `booker.ts` (`setAngles`). Every number is in `tuning.ts` under *Gossip and angles*, and all of them are **proposals**. All six stages' numbers are on one page in `docs/relationships-numbers.md`, generated from `tuning.ts`.
+
+**The rumour mill** (Lyra's call: true or false, started on purpose by anyone). Every Wednesday:
+- **True stories arise** from what's going on: a new couple, the booker's pet (they like someone 60+), someone who wants out of their promotion.
+- **Liars make things up.** Someone sly, hot-headed or a politician who can't stand someone (−40 or worse) invents a story: cheating (if they've a partner), badmouthing a friend, wanting out, faking an injury, the booker's pet, thrown out of a bar.
+- **It spreads.** Each holder tells each friend (like 30+, familiarity 30+) with a 25% chance; gossips 1.6×, the professional and reliable half that. It reaches up to 30 people, and lasts up to 120 days.
+- **Believing it** (75% from a friend, 40% otherwise) moves how they feel:
+  - the one badmouthed: −8 for the badmouther;
+  - the one cheated on: −15, and −2 from anyone who likes them;
+  - a booker told someone wants out: −3;
+  - roster mates of the booker's pet: −2;
+  - an injury "faked": −3 respect;
+  - a booker told about the bar: −2.
+
+**When it reaches you.** A friend who has it tells you (at most once a week):
+- **About you:**
+  - *Deny it:* works 70% of the time if it's false, 25% if it's true. It dies and you gain a little standing; if nobody buys it, you lose some.
+  - *Find out who started it:* you're told who, and have it out with them (−5 both ways) and it dies. If it was true, it's awkward (−3 standing).
+  - *Let it go.*
+- **About someone else:**
+  - *Really?* You think less of them.
+  - *Pass it on* (politician): all your friends hear it, and it might come back to you.
+  - *Don't believe a word.*
+
+**Starting one yourself.** The phone's *Spread a rumour*: about someone you dislike (−20 or worse), told to whoever you're messaging. Whether it's true is checked (are they really cheating, wanting out, the booker's pet). They might believe it. Each week a false one you started is traced back to you 20% of the time: −25 from them, −4 standing everywhere you work, and everyone knows.
+
+**Angles from real life.** When a booker starts a new (non-title) feud, half the time they use real heat if they can: two free on the roster (same division) who are enemies or rivals, the worst first. It's news on your roster, and if it's you, you're told every match will be personal. Real best friends are less likely to be booked against each other (0.6×): on-screen allies, as far as the career's one-on-one cards allow (no tag division yet).
+
+**Validation** (`SOCIAL=1 MONTHS=12 SEEDS=7,11`, everything on, stand-in sims):
+- **Rumours:** 20–30 going at any time (a third to a half true), the widest reaching 30 people.
+- **Cliques:** up to 9 by the end of the year.
+- **Real heat:** up to 12 real-heat feuds.
+- **Couples:** steady.
+- **Wellbeing:** a spread from struggling (a dozen at 30 or under) to flying (a dozen and a half at 85 or over).
+- **Messages:** you'd get about five person-to-person messages a week (the phone's cap is 6, plus match notes).
+- **Speed:** a day takes about 15–17 ms with every stage on, against about 13 before stages 2–6.
+- **World health:** a year's contracts run is healthy (rosters 39–40, no titles held off-roster).
