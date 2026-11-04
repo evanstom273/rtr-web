@@ -4,7 +4,8 @@
 // places it's about, and its choices. This file is the engine: pacing (a daily chance shaped by your
 // situation, a gap between events, at most a couple waiting on you), the effects every choice draws
 // on, follow-ups that land weeks later, and the memory of what you chose.
-import { type Attributes, findWrestler, fmtFans, globalScore, shiftFans, TITLES, type Wrestler, WRESTLERS } from '../data/rtr';
+import { eventFans } from './fanGrowth';
+import { type Attributes, findWrestler, fmtFans, globalScore, TITLES, type Wrestler, WRESTLERS } from '../data/rtr';
 import { seededRng, type Rng } from '../engine/rng';
 import { hashSeed } from './booker';
 import { letter, person, setCareerHooks, spend } from './career';
@@ -123,7 +124,7 @@ export const fx = {
   },
   pop(x: EvCtx, n: number, region: PopRegion | 'home' = 'home'): string {
     const r: PopRegion = region === 'home' ? homeRegion(x) : region;
-    const gained = shiftFans(x.me, r, n);
+    const gained = eventFans(x.me, r, n);
     return `${gained >= 0 ? '+' : '−'}${fmtFans(Math.abs(gained))} fans`;
   },
   fatigue(x: EvCtx, n: number): string {

@@ -203,8 +203,11 @@ export function contenders(c: Career, title: Title, pool: Wrestler[], region: Po
     if (p?.contract?.titleShotBy) s += 100;
     return s;
   };
-  const eligible = pool.filter((w) => w.id !== title.holder && w.gender === title.gender && !(c.people[w.id]?.titleBanUntil && c.people[w.id]!.titleBanUntil! > day)
-    && (!home || regionalEligible(c, w, home, day)));
+  const open = pool.filter((w) => w.id !== title.holder && w.gender === title.gender && !(c.people[w.id]?.titleBanUntil && c.people[w.id]!.titleBanUntil! > day));
+  let eligible = open.filter((w) => !home || regionalEligible(c, w, home, day));
+  // A thin regional division: when nobody here tonight has worked the region enough, someone from the
+  // region can still challenge (so a champion isn't left without a defence for months).
+  if (home && !eligible.length) eligible = open.filter((w) => REGION_KEY[w.region] === home);
   // Champions don't chase other titles, unless there's nobody else. An indie title doesn't count
   // against a promotion's titles: you can hold one of each.
   const indie = isIndieTitle(title.id);

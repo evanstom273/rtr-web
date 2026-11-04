@@ -35,16 +35,9 @@ export const INJURY_SEVERITY: { share: number; days: [number, number]; label: st
 ];
 export const MEDICAL_PER_DAY = 100;
 
-// --- Popularity and reputation -----------------------------------------------------------------
-export const POP_PER_STAR = 1.2;
-export const POP_STAR_PIVOT = 2.5;
-export const POP_WIN = 0.8;
-export const POP_LOSS = -0.3;
-/** Gains shrink near the top: × (1 − popularity ÷ this). */
-export const POP_CEILING = 120;
-export const POP_TITLE_WIN = 3;
+// --- Fans (section 16: FAN_*) and reputation ---------------------------------------------------
+/** No match for this long and fans start drifting away (FAN_IDLE_LOSS a month). */
 export const POP_IDLE_DAYS = 30;
-export const POP_IDLE_DECAY = 1;
 export const REP_START = 50;
 export const REP_FOUR_STAR = 1;
 export const REP_PER_DATE = 0.25;
@@ -387,7 +380,7 @@ export const TRAIT_FX = {
   big_match: { dice: 2, stars: 0.1 },
   inconsistent: { form: [-2, -1, 0, 1, 2], weights: [0.15, 0.2, 0.3, 0.2, 0.15], temperature: 2.5 },
   submission_specialist: { aiHold: 10, pressure: 8, holdDamage: 1.2, tapHp: 50, tapCondition: 55 },
-  crowd_pleaser: { heat: 1.15, popPerMatch: 0.2, merch: 1.1 },
+  crowd_pleaser: { heat: 1.15, fanMult: 1.15, merch: 1.1 },
   hot_headed: { aiStrike: 4, aiRest: -8, aiDirty: 8 },
   unpredictable: { temperature: 2.5 },
   reliable: { injury: 0.9 },
@@ -555,3 +548,37 @@ export const START_MONEY_PER_DECADE = 2000;
 export const LIVING_COST_EUROPE = 220;
 export const COST_INDEX: Record<PopRegion, number> = { northAmerica: 1.15, oceania: 1.1, europe: 1, asia: 0.8, southAmerica: 0.6, africa: 0.5 };
 export const LIVING_GRACE_DAYS = 28;
+
+/**
+ * Fan growth (replaces the old popularity rules). A show reaches an audience: a major promotion's
+ * weekly TV about 1M at popularity 80 (×10 every 40 points), an indie brand about 300 at popularity 5
+ * to 15k at 30, live and streaming; full at the promotion's home, 35% next door, 15% elsewhere; by the
+ * size of the show. A match converts some of it (1.5% of a thousand-strong crowd, less of a bigger
+ * one), doubled per star above 3, more for a win or a title, and none once your fans in that region
+ * pass 20 × the audience. 4★+ matches spill a little to other regions. Idle: −0.5% a month.
+ */
+export const FAN_AUD_MAJOR = 1_000_000;
+export const FAN_AUD_MAJOR_AT = 80;
+export const FAN_AUD_MAJOR_SLOPE = 40;
+export const FAN_AUD_INDIE = 300;
+export const FAN_AUD_INDIE_SLOPE = 14.7;
+export const FAN_AUD_KIND: Record<ShowKind, number> = { weekly: 1, tour: 0.6, special: 2, flagship: 3, indie: 1 };
+export const FAN_AUD_WEEKLY_FLAGSHIP = 1.3;
+export const FAN_AUD_INDIE_SPECIAL = 1.5;
+export const FAN_REACH = { home: 1, neighbour: 0.35, elsewhere: 0.15 };
+export const FAN_CONV = 0.015;
+export const FAN_CONV_EXP = -0.23;
+export const FAN_WIN = 1.3;
+export const FAN_LOSS = 0.8;
+export const FAN_TITLE_WIN = 1.5;
+export const FAN_SATURATION = 20;
+/** A 4★+ match reaches people who don't usually watch: this share of the gain, 60% to your strongest other region. */
+export const FAN_SPILL: [number, number][] = [[4, 0.05], [4.5, 0.1], [5, 0.15]];
+export const FAN_SPILL_TOP = 0.6;
+/** A real stinker (under 1.5★) costs a few: this share of your fans there. */
+export const FAN_BAD_STARS = 1.5;
+export const FAN_BAD_LOSS = 0.003;
+export const FAN_IDLE_LOSS = 0.005;
+/** Events and cups: each old "popularity point" is this share of your fans there, at least the floor. */
+export const FAN_EVENT_PER_POINT = 0.015;
+export const FAN_EVENT_FLOOR = 15;
