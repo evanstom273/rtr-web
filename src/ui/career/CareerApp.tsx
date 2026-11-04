@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { WRESTLERS, databaseChanged, type Wrestler } from '../../data/rtr';
-import { ctxFor, eventLibrary, finishDay, fire, makeOffer, makeSpecial, person, startCareer } from '../../career';
+import { advancePhase, ctxFor, eventLibrary, fire, makeOffer, makeSpecial, person, startCareer } from '../../career';
 import { todayReal } from '../../career/dates';
 import { runJobs } from '../../career/runner';
-import { activeWorld, freshWorld, resetCareer, saveWorld, setWorld, type World } from '../../world/world';
+import { activeWorld, freshWorld, reloadWorld, resetCareer, saveWorld, setWorld, type World } from '../../world/world';
 import { useBackLayer } from '../backStack';
 import { Calendar } from './Calendar';
 import { Contract } from './Contract';
@@ -110,14 +110,18 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
     if (!c || busy !== null) return;
     setBusy(0.15);
     try {
-      await finishDay(c, async (jobs) => {
+      // A phase (days on) or a day. Saved only once it's all done: a night that fails isn't half-saved.
+      await advancePhase(c, async (jobs) => {
         setBusy(0.4);
         const out = await runJobs(jobs);
         setBusy(0.9);
         return out;
       });
-    } finally {
       commit();
+    } catch {
+      await reloadWorld();
+      databaseChanged();
+    } finally {
       setBusy(null);
     }
   };

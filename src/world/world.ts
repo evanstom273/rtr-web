@@ -254,6 +254,12 @@ export async function saveWorld(w: World = activeWorld()): Promise<void> {
   }
 }
 
+/** Put the world back as it was last saved (after something went wrong mid-day). */
+export async function reloadWorld(): Promise<void> {
+  const w = await loadSaved();
+  if (w) setWorld(w);
+}
+
 async function loadSaved(): Promise<World | null> {
   try {
     const w = await tx<World | undefined>('world', 'readonly', (s) => s.get(KEY) as IDBRequest<World | undefined>);

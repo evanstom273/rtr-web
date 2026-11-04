@@ -11,6 +11,7 @@ import './personality';
 import './staff';
 import './promoPopularity';
 import './social';
+import './day';
 
 export * from './career';
 export * from './contracts';
@@ -29,3 +30,5 @@ export { trainingPrice, attributeTotal, contractFee, indieFee, matchPay, travelC
 export { buyBlock, buyTrait, offerAt, offerDue, traitPrice, lean } from './personality';
 export { handover, promisesOnHandover } from './staff';
 export { nextMatch, reach as socialReach, socialAct, socialPreview, weekCap as socialWeekCap, type SocialKind, type SocialPost } from './social';
+export { activityAt, advancePhase, defaultRoutine, fits, jobBoard, phaseOf, quitJob, relocate, relocateCost, routineOf, shiftPay, takeJob, timeOff, trainSession, type Activity } from './day';
+export { skip, type SkipTarget } from './skip';

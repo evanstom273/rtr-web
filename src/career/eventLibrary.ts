@@ -560,15 +560,15 @@ const CAREER: EventDef[] = [
   },
   {
     id: 'far_booking', cat: 'career', weight: 1.5, cooldown: 60,
-    when: (x) => (!x.k || (x.k.clauses[C.indie] ?? 0) >= 1) && askableIndieShows(x.c).some((s) => s.region !== homeRegion(x) && indieAllowed(x.c, s.date).ok),
+    when: (x) => (!x.k || (x.k.clauses[C.indie] ?? 0) >= 1) && askableIndieShows(x.c).some((s) => s.region !== homeRegion(x) && indieAllowed(x.c, s).ok),
     setup: (x) => {
-      const s = pick(x.rnd, askableIndieShows(x.c).filter((y) => y.region !== homeRegion(x) && indieAllowed(x.c, y.date).ok && !x.c.asked?.[y.id]).slice(0, 30));
+      const s = pick(x.rnd, askableIndieShows(x.c).filter((y) => y.region !== homeRegion(x) && indieAllowed(x.c, y).ok && !x.c.asked?.[y.id]).slice(0, 30));
       return s ? { show: s.id, name: s.name, city: s.city, country: s.country, date: s.date, amount: round5(indieFee(x.me, s) * 1.3) } : null;
     },
     from: (_x, d) => `${d.name} · ${d.city}, ${d.country}`, subject: () => 'We’ll fly you out',
     body: (x, d) => [`We’re running ${d.name} in ${d.city} on ${fmtDay(String(d.date), 'long')} and want you on it. ${stated(x, d)}, and we cover the travel.`],
     options: [
-      { id: 'yes', label: 'Accept', run: (x, d) => { const s = x.c.shows[String(d.show)]; if (!s || !indieAllowed(x.c, s.date).ok) return 'The date doesn’t work any more.'; joinIndie(x.c, s, Number(d.amount), 0); return `You’re booked: ${d.name}, ${fmtDay(String(d.date), 'dm')}. Travel’s on them.`; } },
+      { id: 'yes', label: 'Accept', run: (x, d) => { const s = x.c.shows[String(d.show)]; if (!s || !indieAllowed(x.c, s).ok) return 'The date doesn’t work any more.'; joinIndie(x.c, s, Number(d.amount), 0); return `You’re booked: ${d.name}, ${fmtDay(String(d.date), 'dm')}. Travel’s on them.`; } },
       { id: 'no', label: 'Decline', decline: true, run: (x, d) => join('Maybe next time', fx.snub(x, promoterOf(x, d))) },
     ],
   },
@@ -577,7 +577,7 @@ const CAREER: EventDef[] = [
     when: (x) => titlesHeld(x).some(isIndieTitle) && (!x.k || (x.k.clauses[C.indie] ?? 0) >= 1),
     setup: (x) => {
       const indieTitle = titlesHeld(x).find(isIndieTitle);
-      const s = pick(x.rnd, askableIndieShows(x.c).filter((y) => indieAllowed(x.c, y.date).ok && trust(x.c, showBooker(y)) >= 45 && !x.c.asked?.[y.id]).slice(0, 25));
+      const s = pick(x.rnd, askableIndieShows(x.c).filter((y) => indieAllowed(x.c, y).ok && trust(x.c, showBooker(y)) >= 45 && !x.c.asked?.[y.id]).slice(0, 25));
       return indieTitle && s ? { show: s.id, name: s.name, city: s.city, country: s.country, date: s.date, title: indieTitle, amount: round5(indieFee(x.me, s) * 1.5), travel: travelCost(x.me.country, s.country) } : null;
     },
     from: (_x, d) => `${d.name} · ${d.city}, ${d.country}`, subject: () => 'We want the champion',
@@ -585,7 +585,7 @@ const CAREER: EventDef[] = [
     options: [
       { id: 'yes', label: 'Put the title on the line', run: (x, d) => {
         const s = x.c.shows[String(d.show)];
-        if (!s || !indieAllowed(x.c, s.date).ok) return 'The date doesn’t work any more.';
+        if (!s || !indieAllowed(x.c, s).ok) return 'The date doesn’t work any more.';
         joinIndie(x.c, s, Number(d.amount), Number(d.travel));
         (x.c.pledges ??= []).push({ id: `p${++x.c.seq}`, promo: 'TIS', kind: 'defence', title: String(d.title), show: s.id });
         return `You’re defending on ${d.name}, ${fmtDay(String(d.date), 'dm')}.`;
@@ -602,7 +602,7 @@ const CAREER: EventDef[] = [
     setup: (x) => {
       const m = x.c.history.find((y) => y.planned === 'off-script' && y.wonTitle)!;
       const crossed = x.c.shows[m.show] ? showBooker(x.c.shows[m.show]!) : '';
-      const s = pick(x.rnd, askableIndieShows(x.c).filter((y) => showBooker(y) !== crossed && indieAllowed(x.c, y.date).ok && !x.c.asked?.[y.id]).slice(0, 25));
+      const s = pick(x.rnd, askableIndieShows(x.c).filter((y) => showBooker(y) !== crossed && indieAllowed(x.c, y).ok && !x.c.asked?.[y.id]).slice(0, 25));
       return s ? { show: s.id, name: s.name, city: s.city, date: s.date, title: m.title!, opp: m.opp, amount: round5(indieFee(x.me, s) * 1.4), travel: travelCost(x.me.country, s.country) } : null;
     },
     from: (_x, d) => `${d.name} · ${d.city}`, subject: () => '“The Stolen Title”',
@@ -610,7 +610,7 @@ const CAREER: EventDef[] = [
     options: [
       { id: 'yes', label: 'Give them the rematch', run: (x, d) => {
         const s = x.c.shows[String(d.show)];
-        if (!s || !indieAllowed(x.c, s.date).ok) return 'The date doesn’t work any more.';
+        if (!s || !indieAllowed(x.c, s).ok) return 'The date doesn’t work any more.';
         joinIndie(x.c, s, Number(d.amount), Number(d.travel));
         (x.c.pledges ??= []).push({ id: `p${++x.c.seq}`, promo: 'TIS', kind: 'defence', title: String(d.title), show: s.id, opp: String(d.opp) });
         return join(`The rematch is on: ${d.name}, ${fmtDay(String(d.date), 'dm')}`, fx.pop(x, 1));

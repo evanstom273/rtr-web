@@ -604,3 +604,61 @@ Budgets for the expansion:
 - a day takes a median of 1.5 s or less (p95 3 s);
 - main-thread work 50 ms or less a day;
 - saving 60 ms or less.
+
+## Days, travel, day jobs and skipping (engine; switched on with their screens)
+
+`career/day.ts`, `career/skip.ts`, `FEATURES.days` / `jobs` / `skip`.
+
+**AM and PM:**
+- Each day has an AM and a PM.
+- A free phase follows your routine: rest (−4 fatigue) or a training session.
+- A training session buys up to 2 points at today's prices and adds +6 fatigue. Injury chance by fatigue before the session: none under 40, 0.25% at 40+, 0.75% at 60+, 2% at 80+.
+- Sleep takes −10 fatigue, or −4 after a match.
+- A legacy save starts at the AM of its day; nothing is replayed.
+
+**Travel:**
+- A booking reserves the whole trip:
+  - same country: no time;
+  - same region: the AM of the show day;
+  - another continent: the whole day before.
+- You go home the same way, unless your next date in the region is within 4 days (a tour).
+- A booking that would clash is refused, with the reason. Bookings made before days came on are honoured as they were.
+- The AI is never booked on two continents on consecutive days.
+
+**Moving:**
+- £300 within your region, £1,500 abroad. It takes three days and ends a day job.
+- Signing with a promotion in another region brings an offer to pay 75%.
+- A fully paid move goes through even when you're overdrawn.
+
+**Day jobs:**
+
+| Job | Shifts | Pay a week (Europe) |
+| --- | --- | --- |
+| Office | Mon–Fri AM | £420 |
+| Warehouse | Mon–Fri AM | £450 |
+| Retail | Mon/Wed/Fri AM | £250 |
+| Hospitality | Thu–Sat PM | about £250 |
+| Gig | any phases you pick | £45 a shift |
+
+- Pay scales with the region's cost index, and wages are paid on Fridays.
+- Time off:
+  - 7+ days' notice: unpaid, no strike;
+  - shorter notice: it comes out of your 20 paid phases of holiday a year;
+  - otherwise it's a strike. Three strikes in 90 days and you're sacked.
+- A booking against a shift follows your standing answer (take the time off, keep the shift) or comes as a letter asking.
+
+**Money trouble:**
+- At −£1,500 with no job, a letter offers gig work (always), a job off the board, a loan from a friend with a bond of 40+ (£1,000, repaid from 20% of your fees), or riding it out.
+- It comes at most every four weeks.
+
+**Skipping:**
+- Moves on a phase, a day, some days, to a date, or to your next booking.
+- It does everything a normal advance does: the same world as pressing the button each time (tested).
+- It stops for:
+  - your match (unless you sim them);
+  - a letter that needs an answer;
+  - an injury;
+  - a contract change;
+  - news from work.
+- The advance button now saves only after a whole phase succeeds; a night that fails reloads the last save.
+- Matches run on a pool of up to four workers. Results are applied in show and card order, so the pool never changes the outcome.
