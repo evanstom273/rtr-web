@@ -370,6 +370,58 @@ Noise is about ±2 points. Aggressive and Defensive got gentler downsides afterw
 - Each change is recorded in history.
 - Veterans with Mentor bring on a young wrestler near them: +1 a month to their weakest attribute, up to +4, and a mentor bond.
 
+## Match ratings (recalibrated)
+
+Lyra's targets, long-run and never quotas:
+- median about 3★;
+- 4★ or better about 12% (a strong performance);
+- 4.5★ or better about 2% (exceptional);
+- 5★ about 1 match in 1,000.
+
+Before the recalibration, about half of all matches rated 4★ or better.
+
+**How a match is rated** (`engine/rating.ts`):
+
+Five style-neutral scores, each 0–1:
+
+| Score | What feeds it |
+| --- | --- |
+| **Crowd** | Average and peak heat |
+| **Story** | Heat segment, comeback, limb work and its payoff |
+| **Drama** | Near-falls, finisher kickouts, reversals (capped), counters of a counter, deep escapes from a hold, stipulation moments |
+| **Craft** | Finish quality, length, variety, pacing; DQs and count-outs cost |
+| **Spectacle** | High-risk moves, outside spots, big hard-hitting moves, hardcore |
+
+- **The best four count**, weighted: crowd 1.2, story 1.0, drama 1.1, craft 0.9, spectacle 0.8. A technical or submission classic isn't marked down for having no high spots; a brawl isn't marked down for having little limb work.
+- **One fixed curve** turns that composite into quarter stars (`RATING_CURVE`). It's steeper at the top, and nothing in it depends on the promotion or the show's size.
+- A title adds a touch; the Big-Match trait adds its own bonus.
+- **New crowd moments** so technical styles can reach the top: near-tap +10 heat, escaping a hold you nearly tapped to +6, a counter straight back from a counter +6.
+- **Big hits** (impact 9+, not high-risk) count as spectacle, so powerhouses and strikers aren't stuck without one.
+
+**Measured** on 50,000 headless matches: the whole world, shipped and generated wrestlers, 12% with stipulations, 15% title matches, 30% played-style.
+
+| | Median | 4★+ | 4.5★+ | 5★ |
+| --- | --- | --- | --- | --- |
+| Before | 3.75–4 | 49–52% | 22–27% | 2–10% |
+| After | 3 | 12.3% | 2.1% | 0.11% |
+
+By style:
+- **4.5★+ rates** run from technical and powerhouse (about 1.6%) to strikers (about 3%), within ×2 of each other.
+- **5★ matches** came from six different styles.
+- **No size effect:** played and simmed matches are close (4★+ 13% / 12%), and indie and promotion matches are the same (12.5% / 12.0%).
+- **Ability barely matters,** before or after: a median 3★ at every ability band. That's how the engine's crowd works; it isn't changed here.
+
+**Refitting** (if the crowd model changes):
+1. Run `npx vite-node scripts/rating-corpus.ts N SEED out.jsonl` (four in parallel, about 11 minutes for 50,000).
+2. Run `python3 scripts/fit-rating.py out*.jsonl`, which mirrors `ratingDims` and `ratingComposite`.
+3. Copy the knots into `RATING_CURVE.at`.
+
+`RATING=1 npx vitest run src/engine/__tests__/rating.test.ts` checks 4,000 fresh matches against the targets.
+
+**Things that read stars:**
+- These stay at 4★, which is now a genuinely strong match: the reputation bonus, the booker's "good match" memory, the relationship boost, patience, and the great-match event.
+- Crowd Pleaser now also leans on a 3.75★ match (+8, or +15 at 4★+), so the trait still comes up.
+
 ## Performance
 
 Two opt-in harnesses keep an eye on speed and save size:

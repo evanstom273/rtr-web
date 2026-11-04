@@ -495,7 +495,7 @@ export const PLEDGE_LOG_MAX = 50;
  */
 export const RATING_WEIGHTS = { crowd: 1.2, story: 1.0, drama: 1.1, craft: 0.9, spectacle: 0.8 } as const;
 export const RATING_CURVE = {
-  at: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
+  at: [0, 0.0268, 0.2212, 0.3841, 0.6008, 0.705, 0.7896, 0.8362, 0.8994, 0.9428, 0.9742],
   stars: [0.25, 0.5, 1.25, 2.0, 2.5, 3.0, 3.5, 3.875, 4.375, 4.875, 5.25],
 };
 /** A title on the line adds a touch (the Big-Match trait's own bonus is TRAIT_FX.big_match.stars). */

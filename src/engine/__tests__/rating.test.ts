@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { WRESTLERS } from '../../data/rtr';
 import { RATING_CURVE } from '../../career/tuning';
 import { seededRng } from '../rng';
-import { matchFeatures, ratingComposite, ratingCurve, ratingDims, type MatchFeatures } from '../rating';
+import { matchFeatures, rate, ratingComposite, ratingCurve, ratingDims, type MatchFeatures } from '../rating';
 import { runHeadless } from '../sim/runHeadless';
 import type { MatchRulesConfig, StipulationId } from '../types';
 
@@ -62,11 +62,13 @@ describe('match ratings (Lyra’s call: median about 3★, 4★+ about 12%, 4.5�
     expect(median).toBeGreaterThanOrEqual(2.5);
     expect(median).toBeLessThanOrEqual(3.5);
     expect(four).toBeLessThan(0.3);
-    // The engine never reads promotion size: the same match rates the same under any banner.
+    // The rating never reads the promotion: the same finished match rates the same under any banner.
     const [a, b] = [WRESTLERS[0]!, WRESTLERS.find((w) => w.id !== WRESTLERS[0]!.id && w.gender === WRESTLERS[0]!.gender)!];
-    const big = runHeadless({ seed: 5, you: a.id, them: b.id, model: { kind: 'skill', sigmaSeconds: 0.1 }, rules: { eventPromotion: 'TCG' } as MatchRulesConfig });
-    const small = runHeadless({ seed: 5, you: a.id, them: b.id, model: { kind: 'skill', sigmaSeconds: 0.1 }, rules: { eventPromotion: '' } as MatchRulesConfig });
-    expect(big.rating!.stars).toBe(small.rating!.stars);
+    const S = runHeadless({ seed: 5, you: a.id, them: b.id, model: { kind: 'skill', sigmaSeconds: 0.1 }, rules: { eventPromotion: 'TCG' } as MatchRulesConfig }).engine.state;
+    const before = rate(S).stars;
+    S.rules.eventPromotion = '';
+    S.event = 'A village hall';
+    expect(rate(S).stars).toBe(before);
   }, 120_000);
 
   // The full check (RATING=1): a few thousand matches across stipulations and titles.

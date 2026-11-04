@@ -73,7 +73,7 @@ const sat = (x: number, k: number) => 1 - Math.exp(-Math.max(0, x) / k);
 export function ratingDims(f: MatchFeatures, live = false): Record<RatingDim, number> {
   const crowdRaw = clamp((f.avg - 25) / 35, 0, 1.2) + (f.peak >= 95 ? 0.35 : f.peak >= 85 ? 0.25 : f.peak >= 75 ? 0.1 : 0);
   const story = clamp(((f.heatSeg ? 0.3 : 0) + (f.comeback ? 0.5 : 0) + (f.limbN >= 5 ? 0.25 : 0) + (f.payoff ? 0.35 : 0)) / 1.4, 0, 1);
-  const dramaRaw = Math.min(0.7, f.nf * 0.15) + Math.min(0.7, f.fk * 0.35) + Math.min(0.5, f.finRev * 0.25) + Math.min(0.6, f.reversals * 0.05)
+  const dramaRaw = Math.min(0.7, f.nf * 0.15) + Math.min(0.7, f.fk * 0.35) + Math.min(0.5, f.finRev * 0.25) + Math.min(0.45, f.reversals * 0.05)
     + Math.min(0.3, f.counters * 0.08) + Math.min(0.4, f.ropeBreaks * 0.2) + Math.min(0.6, f.stip);
   const m = f.mins;
   let craft = 0.5;
@@ -95,7 +95,7 @@ export function ratingDims(f: MatchFeatures, live = false): Record<RatingDim, nu
     story,
     drama: sat(dramaRaw, 1.1),
     craft: clamp(craft, 0, 1),
-    spectacle: sat(Math.min(0.3, f.high * 0.06) + Math.min(0.3, f.bigHits * 0.05) + (f.spots > 0 ? 0.1 : 0) + hardcore, 0.45),
+    spectacle: sat(Math.min(0.3, f.high * 0.06) + Math.min(0.3, f.bigHits * 0.06) + (f.spots > 0 ? 0.1 : 0) + hardcore, 0.45),
   };
 }
 
