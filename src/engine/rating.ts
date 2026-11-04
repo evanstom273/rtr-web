@@ -36,7 +36,7 @@ function components(S: MatchState) {
 export interface MatchFeatures {
   mins: number; avg: number; peak: number; heatSeg: boolean; comeback: boolean; limbN: number; payoff: boolean;
   repeats: number; rest: number; nf: number; nearTaps: number; fk: number; finRev: number; reversals: number; counters: number; ropeBreaks: number;
-  stip: number; tableBreaks: number; weaponHits: number; bleeds: number; high: number; spots: number;
+  stip: number; tableBreaks: number; weaponHits: number; bleeds: number; high: number; spots: number; bigHits: number;
   how: 'pin' | 'sub' | 'countout' | 'dq' | 'stip' | 'none'; byFin: boolean; afterFk: boolean; byFlash: boolean; title: boolean; big: boolean;
 }
 
@@ -57,7 +57,7 @@ export function matchFeatures(S: MatchState): MatchFeatures {
     limbN: Math.max(topPart(S.you).n, topPart(S.them).n), payoff, repeats: c.repeats, rest: c.rest,
     nf: c.nf, nearTaps: c.nearTaps ?? 0, fk: c.fk, finRev: c.finRev, reversals: c.reversals, counters: c.counters ?? 0, ropeBreaks: c.ropeBreaks ?? 0,
     stip: c.climbStops * 0.15 + c.ladderPulls * 0.05 + c.cageClimbs * 0.06 + c.tenCounts * 0.12 + c.nearQuits * 0.2 + c.falls * 0.12,
-    tableBreaks: c.tableBreaks, weaponHits: c.weaponHits, bleeds: c.bleeds, high: c.high, spots: c.spots,
+    tableBreaks: c.tableBreaks, weaponHits: c.weaponHits, bleeds: c.bleeds, high: c.high, spots: c.spots, bigHits: c.bigHits ?? 0,
     how, byFin: !!R?.byFin, afterFk: !!R?.afterFk, byFlash: !!R?.byFlash, title: !!S.rules.title,
     big: !!S.you.big && (has(S.you, 'big_match') || has(S.them, 'big_match')),
   };
@@ -95,7 +95,7 @@ export function ratingDims(f: MatchFeatures, live = false): Record<RatingDim, nu
     story,
     drama: sat(dramaRaw, 1.1),
     craft: clamp(craft, 0, 1),
-    spectacle: sat(Math.min(0.3, f.high * 0.06) + (f.spots > 0 ? 0.1 : 0) + hardcore, 0.45),
+    spectacle: sat(Math.min(0.3, f.high * 0.06) + Math.min(0.3, f.bigHits * 0.05) + (f.spots > 0 ? 0.1 : 0) + hardcore, 0.45),
   };
 }
 

@@ -94,6 +94,7 @@ export function crowdObserve(ctx: Ctx, e: CrowdEvent): void {
         h += 4;
         c.spots++;
       }
+      if (e.move.impact >= 9 && !e.highRisk) c.bigHits = (c.bigHits ?? 0) + 1;
       heat(ctx, h * mult);
       if (e.finisher) heat(ctx, 18);
       else if (e.signature) heat(ctx, 12);
