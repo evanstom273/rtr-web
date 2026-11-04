@@ -30,6 +30,8 @@ export interface Show {
   special?: ShowSpecial;
   /** Indie shows: the brand putting it on (world people); its promoter books it. */
   brand?: string;
+  /** An afternoon or morning show; most are in the evening (PM). */
+  phase?: 'am' | 'pm';
 }
 
 export type SpecialKind = 'charity' | 'benefit' | 'tribute' | 'crossover' | 'tournament' | 'farewell';
@@ -261,6 +263,21 @@ export interface Career {
   totals?: Partial<Record<Entry['kind'], { amount: number; n: number }>>;
   /** Social media: your recent posts, the weekly cap, who you've called out, and the feed. */
   social?: import('./social').SocialState;
+  /** AM or PM of `today` (days on). Missing: the AM. */
+  phase?: 'am' | 'pm';
+  /** The first day days were on: bookings before it are honoured whatever their travel. */
+  daysFrom?: Day;
+  /** Your week: what each free phase is for (0 = Sunday), and how a clash with a shift is handled. */
+  routine?: Routine;
+  /** One-off plans for a phase (`2026-11-03|am`): train, rest, or a gig shift. */
+  plans?: Record<string, 'train' | 'rest' | 'work'>;
+  /** Your day job. */
+  job?: DayJob | null;
+  /** A move in progress. */
+  moving?: { to: string; until: Day };
+  /** Money owed to a friend, repaid from fees. */
+  loan?: { from: string; left: number };
+  moneyTroubleAt?: Day;
   /** The country you live in (your home country until you move). */
   base?: string;
   /** Living costs (Lyra's call): the first Monday they're due, and the last Monday paid. */
@@ -394,3 +411,33 @@ export interface BookerMemory {
 
 /** One choice in a career event letter. */
 export interface EventChoice { id: string; label: string; detail?: string; blocked?: string }
+
+export type PhaseName = 'am' | 'pm';
+export interface Routine {
+  /** For each weekday (0 = Sunday): what a free AM and PM are for. */
+  week: { am: 'train' | 'rest'; pm: 'train' | 'rest' }[];
+  /** Which attribute training sessions build first, and the most a session may spend. */
+  focus?: string;
+  spendCap?: number;
+  /** A booking against a shift: ask, take the booking (time off), or keep the shift. */
+  clash: 'ask' | 'take' | 'keep';
+  /** Train on a day you're wrestling? */
+  trainMatchDays: boolean;
+  /** Don't train above this fatigue. */
+  maxTrainFatigue: number;
+  /** Sim your own matches during a skip instead of stopping. */
+  simMine: boolean;
+}
+export interface DayJob {
+  id: 'office' | 'warehouse' | 'retail' | 'hospitality' | 'gig';
+  from: Day;
+  /** Gig work: the phases you've picked. */
+  gig?: [number, PhaseName][];
+  holiday: number;
+  /** Days off arranged (paid or unpaid). */
+  off: Day[];
+  strikes: Day[];
+  /** Shifts worked this week, paid on Friday night. */
+  worked: number;
+  paidWeek?: Day;
+}

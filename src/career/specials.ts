@@ -98,13 +98,13 @@ function indieBlock(x: EvCtx, d: EvData): string | null {
   const s = x.c.shows[String(d.show)];
   if (!s || s.date <= x.day) return 'That show’s been and gone.';
   if (s.promo !== 'TIS') return null;
-  const ok = indieAllowed(x.c, s.date);
+  const ok = indieAllowed(x.c, s);
   return ok.ok ? null : ok.why ?? 'You can’t make that date.';
 }
 /** Indie Bookings Tier 1: management has to say yes. */
 function approved(x: EvCtx, d: EvData): string | null {
   const s = x.c.shows[String(d.show)];
-  if (!s || s.promo !== 'TIS' || !indieAllowed(x.c, s.date).needsApproval) return null;
+  if (!s || s.promo !== 'TIS' || !indieAllowed(x.c, s).needsApproval) return null;
   return seededRng(hashSeed(x.c.seed, 'approve', s.id))() < INDIE_T1_APPROVAL ? null : `${x.k?.promo} said no to this one.`;
 }
 const booked = (x: EvCtx, d: EvData, fee: number) => { const s = x.c.shows[String(d.show)]!; if (s.promo === 'TIS') joinIndie(x.c, s, fee, Number(d.travel ?? 0)); return s; };
@@ -369,7 +369,7 @@ function cupLetters(c: Career, t: Tourney, r: number): void {
   }
   if (r === 2) return;
   const next = c.shows[t.shows[r + 1]!];
-  const ok = next ? indieAllowed(c, next.date) : { ok: false, why: 'the show’s gone' };
+  const ok = next ? indieAllowed(c, next) : { ok: false, why: 'the show’s gone' };
   if (next && ok.ok) joinIndie(c, next, t.fee, travelCost(findWrestler(me)!.country, next.country));
   letter(c, {
     kind: 'news', from: t.name, subject: ok.ok ? `Through to the ${roundName(r + 1).toLowerCase()}` : 'You’ll have to forfeit',

@@ -1,4 +1,5 @@
 // Work coming your way: indie bookings, asking for a spot, tryouts and contract offers.
+import { booked, fitsTrip } from './availability';
 import { findWrestler, globalScore, PROMOTIONS, TITLES, WRESTLERS } from '../data/rtr';
 import type { Rng } from '../engine/rng';
 import { seededRng } from '../engine/rng';
@@ -16,7 +17,9 @@ import { movePatience, showBooker } from './patience';
 import { remember, trust } from './relations';
 
 /** Can you take an indie date on this day? (Free agents always; signed wrestlers by their Indie Bookings tier.) */
-export function indieAllowed(c: Career, day: Day): { ok: boolean; why?: string; needsApproval?: boolean } {
+export function indieAllowed(c: Career, at: Day | Show): { ok: boolean; why?: string; needsApproval?: boolean } {
+  const day = typeof at === 'string' ? at : at.date;
+  if (typeof at !== 'string') { const f = fitsTrip(c, at); if (!f.ok) return { ok: false, why: f.why }; }
   const p = person(c, c.player);
   if (p.injury && p.injury.until > day) return { ok: false, why: 'You’re injured that day.' };
   if (Object.keys(c.indie).some((id) => c.shows[id]?.date === day)) return { ok: false, why: 'You’ve already got an indie date that day.' };
@@ -35,6 +38,7 @@ export function indieAllowed(c: Career, day: Day): { ok: boolean; why?: string; 
 /** Put you on an indie show you've agreed to. If its card is already drawn up, add a match. */
 export function joinIndie(c: Career, show: Show, fee: number, travel: number): void {
   c.indie[show.id] = { fee, travel };
+  booked(c, show);
   // Unrestricted indie bookings can clash with a contracted date: you miss that date, and it costs you.
   const k = person(c, c.player).contract;
   if (k) {
@@ -63,7 +67,7 @@ export function acceptLetter(c: Career, l: Letter): string {
   if (a.type === 'indie') {
     const show = c.shows[a.show];
     if (!show || show.date <= c.today) { l.done = 'expired'; return 'That show’s been and gone.'; }
-    const ok = indieAllowed(c, show.date);
+    const ok = indieAllowed(c, show);
     if (!ok.ok) return ok.why ?? 'You can’t make that date.';
     if (ok.needsApproval && seededRng(hashSeed(c.seed, 'approve', l.id))() >= INDIE_T1_APPROVAL) {
       l.done = 'declined';
@@ -96,7 +100,7 @@ export function declineLetter(c: Career, l: Letter): void {
 /** Ask an indie promoter for a spot on their show. */
 export function askForSpot(c: Career, show: Show): { ok: boolean; text: string } {
   if (show.done || show.date < c.today) return { ok: false, text: 'That show’s been and gone.' };
-  const allowed = indieAllowed(c, show.date);
+  const allowed = indieAllowed(c, show);
   if (!allowed.ok) return { ok: false, text: allowed.why ?? 'You can’t make that date.' };
   if (c.indie[show.id]) return { ok: false, text: 'You’re already on it.' };
   const me = findWrestler(c.player)!;
@@ -120,7 +124,7 @@ function indieOffers(c: Career, rnd: Rng): void {
   const n = INDIE_OFFERS_BASE + Math.floor(globalScore(me) / INDIE_OFFERS_PER_POP) + (champ ? 1 : 0);
   const home = me.region;
   const shows = Object.values(c.shows)
-    .filter((s) => s.promo === 'TIS' && s.date > addDays(c.today, 1) && s.date <= addDays(c.today, INDIE_OFFER_WINDOW_DAYS) && indieAllowed(c, s.date).ok)
+    .filter((s) => s.promo === 'TIS' && s.date > addDays(c.today, 1) && s.date <= addDays(c.today, INDIE_OFFER_WINDOW_DAYS) && indieAllowed(c, s).ok)
     .filter((s) => trust(c, showBooker(s)) >= TRUST_LOW)
     .map((s) => ({ s, w: (regionalPop(me, s.region) + 5) * (s.country === me.country ? 2 : 1) * (0.5 + rnd())
       * (trust(c, showBooker(s)) >= TRUST_HIGH ? INDIE_OFFER_TRUSTED : 1) * (champ ? INDIE_OFFER_CHAMPION : 1) }))
@@ -132,7 +136,7 @@ function indieOffers(c: Career, rnd: Rng): void {
     if (days.has(s.date)) continue;
     days.add(s.date);
     const fee = indieFee(me, s), travel = travelCost(me.country, s.country);
-    const ok = indieAllowed(c, s.date);
+    const ok = indieAllowed(c, s);
     const key = showBooker(s);
     const from = s.brand && activeWorld().people?.staff[key] ? `${activeWorld().people!.staff[key]!.name} · ${activeWorld().people!.brands[s.brand]?.name ?? s.city}` : `${s.name} · ${s.city}, ${s.country}`;
     letter(c, {
@@ -170,7 +174,7 @@ function tryoutInvite(c: Career, promo: string): void {
   const show = Object.values(c.shows)
     .filter((s) => s.promo === promo && s.date >= addDays(c.today, 3) && s.date <= addDays(c.today, 30) && (s.kind === 'weekly' || s.kind === 'tour' || s.kind === 'special'))
     .sort((a, b) => (a.date < b.date ? -1 : 1))
-    .find((s) => indieAllowed(c, s.date).ok || !person(c, c.player).contract);
+    .find((s) => indieAllowed(c, s).ok || !person(c, c.player).contract);
   if (!show) return;
   letter(c, {
     kind: 'offer', from: promoName(promo), subject: `Tryout: ${show.name}`,

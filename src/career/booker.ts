@@ -1,4 +1,5 @@
 // The AI bookers: who wrestles on each card, title defences, feuds and planned finishes.
+import { booked, fitsTrip } from './availability';
 import { changeLean, contenderBias, stipMult, titleBooker } from './bookerLeans';
 import { contenderLean } from './leans';
 import { fanScore, findWrestler, PROMOTIONS, type Title, TITLES, type Wrestler } from '../data/rtr';
@@ -9,9 +10,7 @@ import { NEIGHBOURS, REGION_KEY } from './places';
 import { activeWorld } from '../world/world';
 import { bondOf } from '../world/people';
 import {
-  CARD_SIZE, CIRCUIT_DAYS, PLEDGE_LOG_MAX, REGIONAL_CONTENDER_PER_DATE, REGIONAL_DEFENCE_CHANCE, REGIONAL_DEFENCE_OVERDUE, REGIONAL_ELIGIBLE_DATES, REGIONAL_WINDOW_DAYS, CONTENDER_T1_BONUS, INDIE_CHAMP_DRAW, INDIE_PICK_BOND_WEIGHT, INDIE_PICK_REP_WEIGHT, INDIE_REGION_WEIGHT, INDIE_TITLE_BOUTS_MAX, FEUD_WEEKS, INDIE_DEFENCE_CHANCE, INDIE_DEFENCE_OVERDUE, FEUDS_PER_PROMOTION, INTERGENDER_CHANCE,
-  CAUGHT_BOOK_MULT, INTERGENDER_CHANCE_INDIE, SCHEDULE_T2_MAX_PER_MONTH, STIP_CHANCE, TITLE_CHANGE_MAX, TITLE_CHANGE_PER_REIGN_YEAR,
-  TITLE_PLANNED_CHANGE, TITLE_RHYTHM, TRUST_HIGH, TRUST_LOW, TRUST_RETAIN_SWING_HIGH, TRUST_RETAIN_SWING_LOW, type TitleClass,
+  CARD_SIZE, CAUGHT_BOOK_MULT, CIRCUIT_DAYS, CONTENDER_T1_BONUS, FEATURES, FEUD_WEEKS, FEUDS_PER_PROMOTION, INDIE_CHAMP_DRAW, INDIE_DEFENCE_CHANCE, INDIE_DEFENCE_OVERDUE, INDIE_PICK_BOND_WEIGHT, INDIE_PICK_REP_WEIGHT, INDIE_REGION_WEIGHT, INDIE_TITLE_BOUTS_MAX, INTERGENDER_CHANCE, INTERGENDER_CHANCE_INDIE, PLEDGE_LOG_MAX, REGIONAL_CONTENDER_PER_DATE, REGIONAL_DEFENCE_CHANCE, REGIONAL_DEFENCE_OVERDUE, REGIONAL_ELIGIBLE_DATES, REGIONAL_WINDOW_DAYS, SCHEDULE_T2_MAX_PER_MONTH, STIP_CHANCE, TITLE_CHANGE_MAX, TITLE_CHANGE_PER_REIGN_YEAR, TITLE_PLANNED_CHANGE, TITLE_RHYTHM, type TitleClass, TRUST_HIGH, TRUST_LOW, TRUST_RETAIN_SWING_HIGH, TRUST_RETAIN_SWING_LOW,
 } from './tuning';
 import type { Bout, Career, Feud, Person, Pledge, PopRegion, Show } from './types';
 import { BRACKET, tourneyOf, tourneyPairs } from './tourney';
@@ -85,6 +84,17 @@ export function datesThisMonth(c: Career, id: string, day: Day): number {
   return n;
 }
 
+/** Wrestlers on a card the day before or after on another continent. */
+function farAway(c: Career, show: Show): Set<string> {
+  const out = new Set<string>();
+  const near = [addDays(show.date, -1), addDays(show.date, 1)];
+  for (const s of Object.values(c.shows)) {
+    if (!near.includes(s.date) || !s.card || s.region === show.region) continue;
+    for (const b of s.card) { out.add(b.a); out.add(b.b); }
+  }
+  return out;
+}
+
 /** Can the booker put the player on this promotion show? Respects their contract and indie dates. */
 export function playerBookable(c: Career, show: Show): boolean {
   const me = c.people[c.player];
@@ -96,6 +106,8 @@ export function playerBookable(c: Career, show: Show): boolean {
   const sched = me.contract?.clauses[6] ?? 0;
   if (sched >= 2 && datesThisMonth(c, c.player, show.date) >= SCHEDULE_T2_MAX_PER_MONTH) return false;
   if (me.daysOff?.includes(show.date)) return false;
+  // The whole trip has to fit (days on): travel there and back around everything else.
+  if (!fitsTrip(c, show).ok) return false;
   return true;
 }
 
@@ -317,8 +329,10 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
 
   const promisedHere = new Set(pledges.filter((p) => p.show === show.id)
     .map((p) => (p.kind === 'match' ? p.opp : p.kind === 'title' ? TITLES.find((t) => t.id === p.title)?.holder : undefined)).filter((x): x is string => !!x));
+  // Days on: nobody works two continents on consecutive days (the travel takes the day between).
+  const away = FEATURES.days ? farAway(c, show) : null;
   let pool = (indie ? indiePool(c, show, roster, rnd, promisedHere) : showRoster(show, roster))
-    .filter((w) => w.id !== c.player && !busy.has(w.id) && !reserved.has(w.id) && available(c.people[w.id], show.date));
+    .filter((w) => w.id !== c.player && !busy.has(w.id) && !reserved.has(w.id) && !away?.has(w.id) && available(c.people[w.id], show.date));
   const card: Bout[] = [];
   const used = new Set<string>();
   const take = (id: string) => { used.add(id); };
@@ -478,6 +492,7 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
     if (oppHere) {
       take(me.id); take(opp.id);
       card.push({ a: opp.id, b: me.id, ...(matchPledge.earn ? { earn: matchPledge.earn } : {}) });
+      booked(c, show);
       pledgeDone(c, matchPledge, `Booked: ${show.name}, against ${opp.name}.`);
     } else if (matchPledge.show === show.id) pledgeLater(c, matchPledge, show);
   }
@@ -505,6 +520,7 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
     if (opp) {
       take(me.id); take(opp.id);
       card.push({ a: opp.id, b: me.id, ...(tryout ? { tryout: true } : rnd() < STIP_CHANCE[show.kind] * stips ? { stip: pickStip(rnd) } : {}) });
+      booked(c, show);
     }
   }
 

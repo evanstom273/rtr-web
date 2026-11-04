@@ -507,7 +507,7 @@ export const BRAND_POP_PER_STAR = 10;
  * Switches for player-facing rules that wait on their screens (Lyra's approval). Off: the game plays
  * as before. Each UI stage turns its own on.
  */
-export const FEATURES = { livingCosts: false, social: false };
+export const FEATURES = { livingCosts: false, social: false, days: false, jobs: false, skip: false };
 
 /**
  * Pay (Lyra's call: how many dates you get decides your income). A major promotion's weekly-show fee:
@@ -608,3 +608,47 @@ export const SOCIAL_CALLOUT_DAYS = 30;
 export const SOCIAL_REL = { reply: 2, callout: -3, beef: -8 };
 export const SOCIAL_AI_POSTS: [number, number] = [2, 5];
 export const SOCIAL_FEED_MAX = 30;
+
+/**
+ * Days (Lyra's calls): an AM and a PM. A free phase is rest; a training session buys up to two points
+ * at today's prices, with fatigue and (only when already tired) a small injury risk. Sleep takes −10
+ * (−4 after a match). Travel: same country no time; same region the AM of the show day; another
+ * continent the whole day before. Back-to-back dates in a region within TOUR_DAYS keep you out on tour.
+ */
+export const REST_RECOVERY = 4;
+export const SLEEP_RECOVERY = 10;
+export const SLEEP_RECOVERY_AFTER_MATCH = 4;
+export const TRAIN_SESSION_POINTS = 2;
+export const TRAIN_SESSION_FATIGUE = 6;
+/** Injury chance in a session by fatigue before it: [from fatigue, chance]. */
+export const TRAIN_INJURY: [number, number][] = [[40, 0.0025], [60, 0.0075], [80, 0.02]];
+export const TOUR_DAYS = 4;
+/** Moving (Lyra's call): within your region, abroad; days it takes; a promotion abroad pays this share. */
+export const RELOCATE_COST = { region: 300, abroad: 1500 };
+export const RELOCATE_DAYS = 3;
+export const RELOCATE_SUBSIDY = 0.75;
+
+/**
+ * Day jobs (Lyra's call: optional, light). Europe wages a week, scaled by the region's cost index;
+ * shifts by weekday (0 = Sunday) and phase. Gig work is any phases you pick, £45 a shift, no penalties,
+ * always on the board. Time off: 20 paid phases a year; 7+ days' notice unpaid and no strike; short
+ * notice or a no-show is a strike; three in 90 days and you're sacked. Money trouble at −£1,500.
+ */
+export const JOBS = {
+  office: { name: 'Office', weekly: 420, shifts: [[1, 'am'], [2, 'am'], [3, 'am'], [4, 'am'], [5, 'am']], fatigue: 2 },
+  warehouse: { name: 'Warehouse', weekly: 450, shifts: [[1, 'am'], [2, 'am'], [3, 'am'], [4, 'am'], [5, 'am']], fatigue: 5 },
+  retail: { name: 'Retail', weekly: 250, shifts: [[1, 'am'], [3, 'am'], [5, 'am']], fatigue: 2 },
+  hospitality: { name: 'Hospitality', weekly: 250, shifts: [[4, 'pm'], [5, 'pm'], [6, 'pm']], fatigue: 3 },
+  gig: { name: 'Gig work', weekly: 0, shifts: [], fatigue: 3 },
+} as const;
+export const GIG_SHIFT_PAY = 45;
+export const GIG_DEFAULT_SHIFTS: [number, 'am' | 'pm'][] = [[1, 'am'], [2, 'am'], [3, 'am'], [4, 'am'], [5, 'am'], [6, 'am']];
+export const JOB_HOLIDAY = 20;
+export const JOB_NOTICE_DAYS = 7;
+export const JOB_STRIKES = 3;
+export const JOB_STRIKE_DAYS = 90;
+export const MONEY_TROUBLE_AT = -1500;
+export const MONEY_TROUBLE_EVERY = 28;
+export const FRIEND_LOAN = 1000;
+export const FRIEND_LOAN_BOND = 40;
+export const FRIEND_LOAN_REPAY = 0.2;

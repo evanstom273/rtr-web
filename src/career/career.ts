@@ -20,7 +20,7 @@ import { addEvent, type ArchivedShow, type WorldHistory } from '../world/history
 import { bookerKey, movePatience, showBooker } from './patience';
 import { remember } from './relations';
 import {
-  BOOK_AHEAD_DAYS, CIRCUIT_KEEP, CONTRACT_MONTHS, FAN_IDLE_LOSS, FATIGUE_HARDCORE_EXTRA, FATIGUE_PER_MATCH, FATIGUE_RECOVERY_PER_DAY, FATIGUE_STAMINA_DIVISOR, FEATURES, INJURY_BASE_PCT, INJURY_HARDCORE_MULT, INJURY_PER_FATIGUE, INJURY_SEVERITY, LIVING_GRACE_DAYS, LOSS_CUT_BY_TIER, MEDICAL_BILL_COVER, MEDICAL_PAY_COVER, MEDICAL_PER_DAY, MERCH_PER_FAN_FREE, MERCH_PER_FAN_SIGNED, MERCH_SHARE, OFF_SCRIPT_TITLE_BAN_DAYS, PATIENCE_NO_SHOW, PLANNED_NUDGE, PLANNED_RETRIES, POACH_CHANCE, POP_IDLE_DAYS, RELEASE_MONTHLY_BOTTOM, RENEW_CHANCE_REST, RENEW_CHANCE_TOP, REP_FOUR_STAR, REP_OFF_SCRIPT, REP_PER_DATE, REP_START, ROOKIE_EVERY_DAYS, ROSTER_FLOOR, ROSTER_SCOUT_DAYS, ROSTER_TARGET, SOCIAL_PROMOTE_BOOST, START_CONTRACT_MONTHS_LEFT, START_MONEY_BASE, START_MONEY_CREATED, START_MONEY_PER_DECADE, TRAIT_BACKSTAGE, TRAIT_FX, TRYOUT_MIN_STARS,
+  BOOK_AHEAD_DAYS, CIRCUIT_KEEP, CONTRACT_MONTHS, FAN_IDLE_LOSS, FATIGUE_HARDCORE_EXTRA, FATIGUE_PER_MATCH, FATIGUE_RECOVERY_PER_DAY, FATIGUE_STAMINA_DIVISOR, FEATURES, FRIEND_LOAN_REPAY, INJURY_BASE_PCT, INJURY_HARDCORE_MULT, INJURY_PER_FATIGUE, INJURY_SEVERITY, LIVING_GRACE_DAYS, LOSS_CUT_BY_TIER, MEDICAL_BILL_COVER, MEDICAL_PAY_COVER, MEDICAL_PER_DAY, MERCH_PER_FAN_FREE, MERCH_PER_FAN_SIGNED, MERCH_SHARE, OFF_SCRIPT_TITLE_BAN_DAYS, PATIENCE_NO_SHOW, PLANNED_NUDGE, PLANNED_RETRIES, POACH_CHANCE, POP_IDLE_DAYS, RELEASE_MONTHLY_BOTTOM, RENEW_CHANCE_REST, RENEW_CHANCE_TOP, REP_FOUR_STAR, REP_OFF_SCRIPT, REP_PER_DATE, REP_START, ROOKIE_EVERY_DAYS, ROSTER_FLOOR, ROSTER_SCOUT_DAYS, ROSTER_TARGET, SLEEP_RECOVERY, SLEEP_RECOVERY_AFTER_MATCH, SOCIAL_PROMOTE_BOOST, START_CONTRACT_MONTHS_LEFT, START_MONEY_BASE, START_MONEY_CREATED, START_MONEY_PER_DECADE, TRAIT_BACKSTAGE, TRAIT_FX, TRYOUT_MIN_STARS,
 } from './tuning';
 import type { Bout, Career, Contract, Letter, Person, PlayerMatch, PopRegion, Show } from './types';
 
@@ -124,6 +124,12 @@ export function spend(c: Career, amount: number, text: string, kind: Career['led
   t.n++;
   c.money += amount;
   c.ledger.unshift({ day: c.today, text, amount, kind });
+  if (c.loan && kind === 'fee' && amount > 0) {
+    const back = Math.min(c.loan.left, Math.round(amount * FRIEND_LOAN_REPAY));
+    c.loan.left -= back;
+    if (c.loan.left <= 0) delete c.loan;
+    spend(c, -back, 'Paying back a friend', 'event');
+  }
   if (c.ledger.length > 400) c.ledger.length = 400;
 }
 
@@ -452,7 +458,8 @@ export function endOfDay(c: Career): void {
   const mmdd = tomorrow.slice(5);
   for (const w of WRESTLERS) {
     const p = person(c, w.id);
-    if (!worked.has(w.id)) p.fatigue = Math.max(0, p.fatigue - FATIGUE_RECOVERY_PER_DAY);
+    if (FEATURES.days && w.id === c.player) p.fatigue = Math.max(0, p.fatigue - (worked.has(w.id) ? SLEEP_RECOVERY_AFTER_MATCH : SLEEP_RECOVERY));
+    else if (!worked.has(w.id)) p.fatigue = Math.max(0, p.fatigue - FATIGUE_RECOVERY_PER_DAY);
     if (p.injury && p.injury.until <= tomorrow) {
       p.injury = null;
       if (w.id === c.player) letter(c, { kind: 'injury', from: 'The doctor', subject: 'You’re fit again', body: ['Cleared to wrestle.'] });
