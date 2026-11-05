@@ -168,6 +168,27 @@ export const LINES = {
   doubleFail: '{a} fights off {d} and {x} together!',
   fiveCount: 'The referee counts {a} out, and they’re gone by four.',
   tagSaveBack: 'The referee orders {a} back to the corner.',
+
+  // Battle royals, Rumbles and gauntlets (match overhaul).
+  royalBell: '<g>The bell rings.</g> {n} of them in one ring: over the top rope, both feet on the floor, and you’re gone.',
+  rumbleBell: '<g>The bell rings.</g> Number one, {a}. Number two, {d}. Every {s} seconds, somebody new.',
+  gauntletBell: '<g>The bell rings.</g> {a} and {d} start the gauntlet. Lose and you’re out; win and you face whoever’s next.',
+  rumbleEntry: 'The countdown hits zero… <g>Number {n}: {a}!</g>',
+  rumbleSurprise: '<G>Number {n}… it’s {a}!</G> Nobody saw that coming!',
+  gauntletNext: '<g>Next in: {a}.</g>',
+  royalWait: '{a} has the ring to themselves, waiting for whoever’s next.',
+  royalTries: '{a} tries to heave {d} over the top rope!',
+  royalGoesForKnockOff: '{a} goes after {d}, still clinging on to the apron!',
+  royalOver: '<G>Over the top!</G> {a} dumps {d} to the floor.',
+  royalKnockedOff: '<G>{d} is knocked off!</G> {a} sends them crashing to the floor.',
+  royalHangsOn: '{a} gets {d} over the top, but {d} hangs on to the apron!',
+  royalBackfire: '<G>{a} turns it around!</G> {d} goes over the top instead!',
+  royalBackfireHang: '{a} turns it around and backdrops {d} over, but {d} lands on the apron!',
+  royalFightsOff: '{a} fights off {d} and stays in.',
+  royalSkinTheCat: '<g>{a} skins the cat!</g> Back in, and still alive.',
+  royalClimbsIn: '{a} drags themselves back through the ropes.',
+  royalFalls: '{a} loses their grip and falls to the floor!',
+  royalToTheFloor: '{a}’s feet hit the floor. They’re out.',
 } as const;
 
 export const COUNT_WORDS = ['', 'ONE!', 'TWO!', 'THREE!', 'FOUR!', 'FIVE!', 'SIX!', 'SEVEN!', 'EIGHT!', 'NINE!', 'TEN!'];
@@ -437,6 +458,7 @@ export const RATING = {
       TEN_COUNT: 'Ten, and they never got up. Brutal.',
       I_QUIT: 'They said it. You do not come back from that.',
       TIME_DECISION: 'The clock settled it. A war of attrition.',
+      OVER_THE_TOP: 'Over the top and to the floor. Last one standing.',
     },
   },
   labels: {
@@ -477,6 +499,7 @@ export const RATING = {
       TEN_COUNT: ' when they could not answer ten',
       I_QUIT: ' when they said I quit',
       TIME_DECISION: ' when time ran out',
+      OVER_THE_TOP: ' as the last one left',
     },
     falls: 'The falls finished {s}.',
   },

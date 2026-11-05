@@ -601,6 +601,9 @@ export const RATING_TYPE: Record<string, { fall: number; elim: number; /** Per p
   handicap: { fall: -0.25, elim: -0.8 },
   tornado: { fall: -0.6, elim: -0.8 },
   tag: { fall: -0.45, elim: -1.1, extra: -0.3 },
+  battle_royal: { fall: -0.15, elim: -0.15, extra: -0.025 },
+  rumble: { fall: -0.15, elim: -0.15, extra: -0.022 },
+  gauntlet: { fall: -1.3, elim: -1.3 },
 };
 
 export const RATING_CURVE = {

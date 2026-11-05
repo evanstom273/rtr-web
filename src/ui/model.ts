@@ -153,7 +153,7 @@ export function tape(a: Wrestler, b: Wrestler): Tape {
 export const FINISH_LABEL: Record<string, string> = {
   PINFALL: 'Pinfall', SUBMISSION: 'Submission', COUNT_OUT: 'Count-out', DOUBLE_COUNT_OUT: 'Double count-out',
   DISQUALIFICATION: 'Disqualification', TABLES: 'Through a table', LADDER: 'Ladder retrieval', CAGE_ESCAPE: 'Cage escape',
-  TEN_COUNT: 'Ten count', I_QUIT: 'I quit', TIME_DECISION: 'Time limit',
+  TEN_COUNT: 'Ten count', I_QUIT: 'I quit', TIME_DECISION: 'Time limit', OVER_THE_TOP: 'Over the top',
 };
 
 export interface Report {
@@ -184,6 +184,7 @@ const HEADLINE: Record<string, (w: string, l: string) => string> = {
   TEN_COUNT: (_w, l) => `${l} stays down`,
   I_QUIT: (_w, l) => `${l} says "I quit"`,
   TIME_DECISION: (w) => `${w} wins on the clock`,
+  OVER_THE_TOP: (w) => `${w} is the last one standing`,
 };
 
 /** A, B, C… from a part's 0–1 score. */

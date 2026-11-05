@@ -242,6 +242,31 @@ export function tagContest(A: Side, D: Side, peril: number, partnerFresh: boolea
   return { attack: side(A.key, aMods, aEdges), defend: side(D.key, dMods, dEdges) };
 }
 
+/** Over the top rope (battle royals and Rumbles): heaving them over against them clinging on. */
+export function ottContest(A: Side, D: Side, hanging: boolean): { attack: ContestSide; defend: ContestSide } {
+  const aMods: Mod[] = [], aEdges: ContestSide['edges'] = [];
+  push(aMods, `Strength ${A.w.stats.strength}`, statMod(A.w.stats.strength));
+  push(aMods, 'Booked to win', A.booked);
+  for (const m of anyRollMods(A)) push(aMods, m.label, m.value);
+  momentum(aMods, A);
+  push(aMods, 'Already hanging on', hanging ? 4 : 0);
+  push(aMods, 'Against the ropes', D.state.area === 'ROPES' || D.state.area === 'CORNER' ? 2 : 0);
+  push(aMods, 'Dead weight', D.state.position === 'GROUNDED' ? -2 : 0);
+  exhaustion(aMods, A, false);
+  if (exhaustionBand(A) === 'Spent') aEdges.push({ label: 'Spent', dir: -1 });
+  const dMods: Mod[] = [], dEdges: ContestSide['edges'] = [];
+  const cling = (D.w.stats.strength + D.w.stats.skill) / 2;
+  push(dMods, `Strength/Skill ${Math.round(cling)}`, statMod(cling));
+  momentum(dMods, D);
+  push(dMods, 'Booked to win', D.booked);
+  for (const m of anyRollMods(D)) push(dMods, m.label, m.value);
+  push(dMods, 'Bigger than them', D.w.weight - A.w.weight >= 60 ? 2 : D.w.weight - A.w.weight >= 30 ? 1 : 0);
+  exhaustion(dMods, D, false);
+  if (D.hp.HEAD < 40) push(dMods, 'Rattled (head)', -2);
+  if (exhaustionBand(D) === 'Spent') dEdges.push({ label: 'Spent', dir: -1 });
+  return { attack: side(A.key, aMods, aEdges), defend: side(D.key, dMods, dEdges) };
+}
+
 export function edgeOf(s: ContestSide): -1 | 0 | 1 {
   const n = s.edges.reduce((t, e) => t + e.dir, 0) + (s.pushed ? 1 : 0);
   return n > 0 ? 1 : n < 0 ? -1 : 0;

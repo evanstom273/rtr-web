@@ -19,7 +19,7 @@ const ORDER = ['VWF', 'TCG', 'NWGP', 'ZWA', 'SLN', 'END', 'IVW', 'SSWC', 'UFC', 
 const REGION_ORDER = ['NORTH_AMERICA', 'SOUTH_AMERICA', 'EUROPE', 'ASIA', 'AFRICA', 'OCEANIA'];
 const FINISH: Record<string, string> = {
   PINFALL: 'pinfall', SUBMISSION: 'submission', COUNT_OUT: 'count-out', DOUBLE_COUNT_OUT: 'double count-out', DISQUALIFICATION: 'DQ', TABLES: 'through a table',
-  LADDER: 'ladder', CAGE_ESCAPE: 'escaped the cage', TEN_COUNT: 'ten count', I_QUIT: 'I quit', TIME_DECISION: 'time limit',
+  LADDER: 'ladder', CAGE_ESCAPE: 'escaped the cage', TEN_COUNT: 'ten count', I_QUIT: 'I quit', TIME_DECISION: 'time limit', OVER_THE_TOP: 'over the top',
 };
 const PAGE = 40;
 const clock = (t: number) => `${Math.floor(t / 60)}:${String(Math.round(t % 60)).padStart(2, '0')}`;
