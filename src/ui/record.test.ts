@@ -43,3 +43,23 @@ describe('match records', () => {
     expect(new DataView(zz.buffer).getUint16(zz.length - 22 + 10, true)).toBe(4);
   });
 });
+
+describe('match records v2 (more than two people)', () => {
+  it('keep everyone, who went out how and when, and the entries', () => {
+    let engine: MatchEngine | null = null;
+    const ids = ['abril_sosa', 'adebayo_the_great_okoro', 'afa_togia', 'aguila_de_bronce', 'akira_nishimura', 'alamea_fepuleai'];
+    runHeadless({ seed: 9, you: ids[0]!, them: ids[1]!, extras: ids.slice(2).map((id, i) => ({ id, team: i + 2 })), type: 'rumble', model: { kind: 'fixed', rate: 0.6 }, onStep: (e) => { engine = e; } });
+    const S = (engine as MatchEngine | null)!.state;
+    const r = buildRecord(S, Date.UTC(2026, 10, 5, 2, 0))!;
+    expect(r.v).toBe(2);
+    expect(r.type).toBe('rumble');
+    expect(r.sides).toHaveLength(6);
+    expect(r.sides!.filter((s) => s.out)).toHaveLength(5);
+    expect(r.sides!.every((s) => typeof s.n === 'number')).toBe(true);
+    expect(r.winners).toHaveLength(1);
+    // The old reader still works: you, them and the side-by-side numbers.
+    expect(r.you.name).toBe(S.you.w.name);
+    expect(statRows(r)).toHaveLength(13);
+    expect(recordText(r)).toContain('THE COMMENTARY');
+  });
+});

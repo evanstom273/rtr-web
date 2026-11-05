@@ -213,7 +213,7 @@ export function RingView({ engine, version, variant }: { engine: MatchEngine; ve
         {posts.map((pt, i) => (
           <rect key={i} className="post" x={pt.x - 4.5} y={pt.y - 4.5} width="9" height="9" rx="2" />
         ))}
-        {S.rules.stipulation === 'steel_cage' && <rect className="cage" x={APRON.x - 4} y={APRON.y - 4} width={APRON.w + 8} height={APRON.h + 8} rx="2" />}
+        {(S.rules.stipulation === 'steel_cage' || S.rules.stipulation === 'hell_in_a_cell') && <rect className="cage" x={APRON.x - 4} y={APRON.y - 4} width={APRON.w + 8} height={APRON.h + 8} rx="2" />}
         <Objects engine={engine} />
         {pinning && <circle className="pinring" cx={pos[other(pinning)]!.x} cy={pos[other(pinning)]!.y} r="26" />}
         {subbing && <circle className="subring" cx={(pos.you.x + pos.them.x) / 2} cy={(pos.you.y + pos.them.y) / 2} r="30" />}

@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { buzz } from '../format';
 
-export type TeamKey = 'A' | 'B';
+export type TeamKey = 'A' | 'B' | 'C' | 'D';
 export interface DragItem {
   id: string;
   from: 'roster' | TeamKey;

@@ -238,6 +238,33 @@ A wrestler up on a structure has a `perch`.
   in particular loses). Climbers get targeted. The cash-in contract is the career's (stages 8 and 9).
 - **Stars**: `RATING_STIP` again (WarGames, Money in the Bank, Ultimate X).
 
+## Stage 7: the screens, the builder, records v2 (`ui/match/Field.tsx`, `ui/builder/state.ts`)
+
+From the approved mock-ups, in all three skins:
+
+- **The match screen** now always shows *you* (the player's side — your legal man in a tag match) and
+  *who you're going after*; in singles that's exactly you and them, as before. Every overlay and sheet
+  goes through `engine.pk` / `engine.opp` / `engine.me` / `engine.foe` rather than assuming 'you'.
+- **More than two**: the **field strip** (everyone else in small cards: on the apron, down, hanging on,
+  in a pod, still to come, out and by whom; tap one to go after them), **Go after** chips in the dock,
+  the match's **own actions** (tag / hot tag, double-team, over the top, skin the cat, every
+  stipulation and structure action), the **save prompt** (break it up / steal it / let it go, with your
+  chance), the **ring in zones** (every marker in its zone, your target ringed, the legal men, the tag
+  corners, the pole, the X), and the **Rumble bar** (in it, out, who's next and when).
+- **Watching**: not in the fight (still to come, out, or AI vs AI) and the dock becomes the **feed**: what's
+  happening to you, the iron man so far, Faster, and Skip to my entry / Skip to the end
+  (`engine.fastForward`). Two AI wrestlers' exchanges play out without a dice card, quicker the less
+  you're involved.
+- **The builder** (behind the flag): a match type — singles, tag, tornado, handicap, elimination tag
+  (teams A–D, up to five a team), or a field — triple threat, four-way, multi-man, battle royal, Rumble,
+  gauntlet (you, and up to 29 others each for themselves); elimination, the Rumble's clock, what's on the
+  pole, and **Watch it (AI vs AI)**. The new stipulations only appear with the flag on.
+- **Results**: the winning team, the order of elimination, and the iron men.
+- **Records v2**: `v: 2` records keep the kind of match, everyone in it (team, how and when they went
+  out, entry number, time in it, eliminations) and the winners; `you`/`them` and the numbers still fill
+  in, so old screens and old records read as they always did.
+- Dev only: `?matches=1` turns the flag on for that session.
+
 ### Harness
 
 `MATCHES=1 npx vitest run src/engine/__tests__/matchesrun.test.ts` runs 40 of each type and reports:

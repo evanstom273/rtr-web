@@ -5,8 +5,9 @@ import type { Hit } from '../../storage/greatestHits';
 import { useBackLayer } from '../backStack';
 import { Profile } from '../builder/Profile';
 import { CLASSES, NO_FILTERS, SORTS, activeFilterCount, countries, promotionList, titleList, filterRoster, sortValue, type Filters, type SortMode, sortText } from '../builder/roster';
-import { IRON_MAN_MINUTES, STIPULATIONS, rulesEditable, stipulation, type StipulationId } from '../../engine';
-import { MAX_TEAM, type BuilderState } from '../builder/state';
+import { IRON_MAN_MINUTES, NEW_STIPS, STIPULATIONS, rulesEditable, stipulation, type StipulationId } from '../../engine';
+import { ALL_TEAMS, builderProblem, KINDS, maxOn, teamsInPlay, type BuilderState, type MatchKind } from '../builder/state';
+import { FEATURES } from '../../career/tuning';
 import { useDragSort, type DragItem, type DropTarget, type TeamKey } from '../builder/useDragSort';
 import { Name } from '../common/Name';
 import { buzz, classNames } from '../format';
@@ -24,7 +25,9 @@ interface Props {
 }
 
 const CLOCKS = [10, 15, 20, 25, 30];
-const OTHER: Record<TeamKey, TeamKey> = { A: 'B', B: 'A' };
+const OTHER: Record<TeamKey, TeamKey> = { A: 'B', B: 'A', C: 'A', D: 'A' };
+const ROYAL_SECONDS = [60, 90, 120];
+const POLE_OBJECTS: [string, string][] = [['brass_knuckles', 'Brass knuckles'], ['kendo_stick', 'A kendo stick'], ['steel_chair', 'A steel chair'], ['contract', 'A contract (grab it to win)']];
 
 /** The promotion whose titles can be on the line. */
 function titleHost(s: BuilderState): string {
@@ -49,16 +52,17 @@ export function Builder({ state: s, hits, onChange, onStart, onMenu }: Props) {
   const skin = useSkin();
   useBackLayer(showRules, () => setShowRules(false));
   const list = useMemo(() => filterRoster(f), [f]);
-  const teamOf = useCallback((id: string): TeamKey | null => (s.teams.A.includes(id) ? 'A' : s.teams.B.includes(id) ? 'B' : null), [s.teams]);
+  const teamOf = useCallback((id: string): TeamKey | null => ALL_TEAMS.find((t) => s.teams[t].includes(id)) ?? null, [s.teams]);
+  const kind = KINDS[s.matchType];
   const set = (patch: Partial<BuilderState>) => onChange({ ...s, ...patch });
 
   const place = useCallback((id: string, to: TeamKey | null, index: number | null = null) => {
-    const teams = { A: s.teams.A.filter((x) => x !== id), B: s.teams.B.filter((x) => x !== id) };
+    const teams = { A: s.teams.A.filter((x) => x !== id), B: s.teams.B.filter((x) => x !== id), C: s.teams.C.filter((x) => x !== id), D: s.teams.D.filter((x) => x !== id) };
     const from = teamOf(id);
     if (from && s.locked[from]) return buzz(40);
     if (to) {
       if (s.locked[to]) return buzz(40);
-      if (teams[to].length >= MAX_TEAM) return buzz(40);
+      if (teams[to].length >= maxOn(s, to)) return buzz(40);
       const at = index === null ? teams[to].length : Math.min(index - (from === to && s.teams[to].indexOf(id) < index ? 1 : 0), teams[to].length);
       teams[to].splice(Math.max(0, at), 0, id);
     }
@@ -89,8 +93,15 @@ export function Builder({ state: s, hits, onChange, onStart, onMenu }: Props) {
   const randomMatch = () => onChange(randomTeam('B', randomTeam('A')));
 
   const a = s.teams.A, b = s.teams.B;
-  const status = !a.length ? 'Team A needs one wrestler.' : !b.length ? 'Team B needs one wrestler.'
+  const status = FEATURES.matches ? builderProblem(s) : !a.length ? 'Team A needs one wrestler.' : !b.length ? 'Team B needs one wrestler.'
     : a.length > 1 || b.length > 1 ? 'Tag matches aren’t in yet — one wrestler per team for now.' : '';
+  /** Changing the kind of match: trim anyone who no longer fits. */
+  const setKind = (m: MatchKind) => {
+    const next = { ...s, matchType: m };
+    const teams = { ...s.teams };
+    for (const t of ALL_TEAMS) teams[t] = teams[t].slice(0, maxOn(next, t));
+    onChange({ ...next, teams });
+  };
   const ready = !status;
   const host = titleHost(s);
   const hostPromo = getPromotion(host);
@@ -111,7 +122,7 @@ export function Builder({ state: s, hits, onChange, onStart, onMenu }: Props) {
     <div className={`bd-team t${t}${s.locked[t] ? ' locked' : ''}${drag?.target?.zone === t ? ' over' : ''}`} data-drop={t}>
       <div className="bd-team-head">
         <span className="bd-team-name">
-          Team {t} <small>{t === 'A' ? 'you' : 'AI'}</small>
+          {kind.mode === 'field' ? (t === 'A' ? 'You' : 'The field') : `Team ${t}`} <small>{kind.mode === 'field' ? (t === 'A' ? '' : `${s.teams.B.length}/${kind.max}, each for themselves`) : t === 'A' ? (s.watch ? 'AI' : 'you') : 'AI'}</small>
         </span>
         <button className={`bd-lock${s.locked[t] ? ' on' : ''}`} aria-pressed={s.locked[t]} onClick={() => set({ locked: { ...s.locked, [t]: !s.locked[t] } })}>
           {s.locked[t] ? 'Locked' : 'Lock'}
@@ -163,10 +174,44 @@ export function Builder({ state: s, hits, onChange, onStart, onMenu }: Props) {
 
         {showRules && (
         <div className="bd-panel bd-rules">
+          {FEATURES.matches && (
+            <div className="bd-row">
+              <span className="bd-label">Type</span>
+              <select value={s.matchType} onChange={(e) => setKind(e.target.value as MatchKind)} aria-label="Match type">
+                {(Object.keys(KINDS) as MatchKind[]).map((m) => <option key={m} value={m}>{KINDS[m].label}</option>)}
+              </select>
+              {kind.mode === 'teams' && s.matchType !== 'singles' && s.matchType !== 'handicap' && (
+                <label className="bd-limit">
+                  Teams
+                  <select value={s.teamCount} onChange={(e) => onChange({ ...s, teamCount: Number(e.target.value) as BuilderState['teamCount'] })}>
+                    {[2, 3, 4].map((n) => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </label>
+              )}
+              {(kind.mode === 'field' && !kind.elimination && s.matchType !== 'battle_royal' && s.matchType !== 'rumble' && s.matchType !== 'gauntlet' || s.matchType === 'tornado') && (
+                <label className="tog">
+                  <input type="checkbox" checked={s.elimination} onChange={(e) => set({ elimination: e.target.checked })} />
+                  Elimination
+                </label>
+              )}
+              {s.matchType === 'rumble' && (
+                <label className="bd-limit">
+                  A new entrant every
+                  <select value={s.entryEvery} onChange={(e) => set({ entryEvery: Number(e.target.value) })}>
+                    {ROYAL_SECONDS.map((n) => <option key={n} value={n}>{n} sec</option>)}
+                  </select>
+                </label>
+              )}
+              <label className="tog">
+                <input type="checkbox" checked={s.watch} onChange={(e) => set({ watch: e.target.checked })} />
+                Watch it (AI vs AI)
+              </label>
+            </div>
+          )}
           <div className="bd-row">
             <span className="bd-label">Match</span>
             <select value={s.stipulation} onChange={(e) => set({ stipulation: e.target.value as StipulationId })} aria-label="Stipulation">
-              {STIPULATIONS.map((x) => (
+              {STIPULATIONS.filter((x) => FEATURES.matches || !NEW_STIPS.has(x.id)).map((x) => (
                 <option key={x.id} value={x.id}>
                   {x.name}
                 </option>
@@ -174,6 +219,17 @@ export function Builder({ state: s, hits, onChange, onStart, onMenu }: Props) {
             </select>
             <span className="bd-blurb">{stip.blurb}</span>
           </div>
+          {s.stipulation === 'pole' && (
+            <div className="bd-row">
+              <span className="bd-label" />
+              <label className="bd-limit">
+                On the pole
+                <select value={s.poleObject} onChange={(e) => set({ poleObject: e.target.value })}>
+                  {POLE_OBJECTS.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+                </select>
+              </label>
+            </div>
+          )}
           {(s.stipulation === 'iron_man' || s.stipulation === 'ladder' || s.stipulation === 'steel_cage') && (
             <div className="bd-row">
               <span className="bd-label" />
@@ -274,6 +330,7 @@ export function Builder({ state: s, hits, onChange, onStart, onMenu }: Props) {
               vs
             </span>
             {team('B')}
+            {teamsInPlay(s).slice(2).map((t) => <span key={t} style={{ display: 'contents' }}><span className="bd-vs" aria-hidden>vs</span>{team(t)}</span>)}
           </div>
           <div className="bd-panel bd-roster">
             <input type="search" className="bd-search" placeholder="Search name, country, region, class, face/heel, title…" value={f.q}
@@ -367,11 +424,11 @@ export function Builder({ state: s, hits, onChange, onStart, onMenu }: Props) {
                     ) : (
                       <span className="bd-adds">
                         <button className="bd-add tA" aria-label={`Add ${w.name} to your team`} onPointerDown={(e) => e.stopPropagation()}
-                          onClick={(e) => { e.stopPropagation(); buzz(); place(w.id, 'A'); }} disabled={s.locked.A || s.teams.A.length >= MAX_TEAM}>
+                          onClick={(e) => { e.stopPropagation(); buzz(); place(w.id, 'A'); }} disabled={s.locked.A || s.teams.A.length >= maxOn(s, 'A')}>
                           You
                         </button>
                         <button className="bd-add tB" aria-label={`Add ${w.name} to the AI's team`} onPointerDown={(e) => e.stopPropagation()}
-                          onClick={(e) => { e.stopPropagation(); buzz(); place(w.id, 'B'); }} disabled={s.locked.B || s.teams.B.length >= MAX_TEAM}>
+                          onClick={(e) => { e.stopPropagation(); buzz(); place(w.id, 'B'); }} disabled={s.locked.B || s.teams.B.length >= maxOn(s, 'B')}>
                           AI
                         </button>
                       </span>
@@ -385,7 +442,7 @@ export function Builder({ state: s, hits, onChange, onStart, onMenu }: Props) {
 
           <div className="bd-foot">
             <p className={`bd-status${ready ? ' ok' : ''}`}>
-              {ready ? `${findWrestler(a[0]!)!.name} vs ${findWrestler(b[0]!)!.name}` : status}
+              {ready ? (s.matchType === 'singles' || !FEATURES.matches ? `${findWrestler(a[0]!)!.name} vs ${findWrestler(b[0]!)!.name}` : `${kind.label}: ${teamsInPlay(s).reduce((n, t) => n + s.teams[t].length, 0)} wrestlers`) : status}
             </p>
             <div className="bd-actions">
               <button className="ghost sm" onClick={randomMatch}>
@@ -408,7 +465,7 @@ export function Builder({ state: s, hits, onChange, onStart, onMenu }: Props) {
         <div className="bd-ghost" style={{ transform: `translate(${drag.x}px, ${drag.y}px)` }}>
           {findWrestler(drag.item.id)?.name}
           <small>
-            {drag.target?.zone === 'A' || drag.target?.zone === 'B'
+            {drag.target && drag.target.zone !== 'roster'
               ? s.locked[drag.target.zone] ? `Team ${drag.target.zone} is locked` : `→ Team ${drag.target.zone}`
               : drag.item.from !== 'roster' && drag.target?.zone === 'roster' ? 'Remove from team' : 'Drop on a team'}
           </small>

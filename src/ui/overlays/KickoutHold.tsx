@@ -81,7 +81,7 @@ export function KickoutHold({ engine, spec }: { engine: MatchEngine; spec: Kicko
   return (
     <div className={`ov pin ${state}`}>
       <div className="inner">
-        <div className="mt-kicker def">{S.them.w.name} covers you</div>
+        <div className="mt-kicker def">{S.sides[spec.pinner]!.w.name} covers you</div>
         <div className="pin-count" ref={countEl}>
           {state === 'hit' ? 'KICKOUT!' : state === 'pinned' ? COUNT_WORDS[3] : '…'}
         </div>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { BySide, MatchEngine } from '../../engine';
-import { buzz, nameTone, reduceMotion } from '../format';
+import { buzz, reduceMotion } from '../format';
 import { Dock } from '../match/Dock';
 import { Log } from '../match/Log';
 import { MoveWheel } from '../match/MoveWheel';
@@ -23,7 +23,8 @@ import { useEngine } from '../useEngine';
 import { useMedia } from '../useMedia';
 import { useBackLayer } from '../backStack';
 import { useSkin } from '../skin';
-import { BroadcastMatch, BuildingMatch, PaperMatch, type MatchSlots } from '../skins/MatchLayouts';
+import { BroadcastMatch, BuildingMatch, PaperMatch, tonesOf, type MatchSlots } from '../skins/MatchLayouts';
+import { ExtraActions, FieldStrip, RoyalBar, SavePrompt, Spectate, spectating, TargetChips, useAutoApply, ZoneRing } from '../match/Field';
 
 const THUMB_W = 112;
 
@@ -41,8 +42,12 @@ type Impact = 'light' | 'medium' | 'heavy';
 const hpTotal = (hp: Record<string, number>) => Object.values(hp).reduce((a, b) => a + b, 0);
 
 export function Match({ engine, onOver }: { engine: MatchEngine; onOver: () => void }) {
-  const version = useEngine(engine);
+  const [fast, setFast] = useState(false);
+  const watching = spectating(engine.state);
+  const version = useEngine(engine, fast ? 4 : watching ? 2 : 1);
   const S = engine.state, p = S.pending, v = S.view;
+  const multi = S.order.length > 2, pk = engine.pk, opp = engine.opp;
+  useAutoApply(engine, fast);
   const wide = useMedia('(min-width: 700px)');
   const skin = useSkin();
   const vw = useViewportWidth();
@@ -53,8 +58,9 @@ export function Match({ engine, onOver }: { engine: MatchEngine; onOver: () => v
   const [pinned, setPinned] = useState(false);
   const pulse = useRef(0);
   const seenEvent = useRef(0);
-  const lastHp = useRef(hpTotal(v.sides.you.hp) + hpTotal(v.sides.them.hp));
-  const tones: BySide<string> = { you: nameTone(S.you.w), them: nameTone(S.them.w) };
+  const allHp = () => S.order.reduce((t, k) => t + hpTotal(v.sides[k]?.hp ?? {}), 0);
+  const lastHp = useRef(allHp());
+  const tones: BySide<string> = tonesOf(S);
 
   // Engine events: big-word flashes, crowd pulses. Hits shake the screen (and the phone) by how much
   // they took off: a jab nudges it, a piledriver rattles it.
@@ -70,7 +76,7 @@ export function Match({ engine, onOver }: { engine: MatchEngine; onOver: () => v
       else if (ev.beat === 'crash') hit = strong = true;
       else if (ev.beat === 'move_landed') hit = true;
     }
-    const hp = hpTotal(v.sides.you.hp) + hpTotal(v.sides.them.hp);
+    const hp = allHp();
     const dmg = Math.max(0, lastHp.current - hp);
     lastHp.current = hp;
     if (!hit && !strong && dmg < 1) return;
@@ -93,7 +99,12 @@ export function Match({ engine, onOver }: { engine: MatchEngine; onOver: () => v
   const ringBusy = p.kind === 'defend' || p.kind === 'contest' || p.kind === 'contestRoll' || p.kind === 'pinChoice' || p.kind === 'sigConvert' || p.kind === 'subChoice' || p.kind === 'kickout' || p.kind === 'refCount' || p.kind === 'sub' || p.kind === 'tenCount' || p.kind === 'refTen';
 
   // Paper keeps the ring as a tap-to-pop thumbnail on phones; broadcast and the building put it centre stage.
-  const ring = wide || skin !== 'paper' ? (
+  const ring = multi ? (
+    <div id="ringpanel">
+      <RoyalBar engine={engine} />
+      <ZoneRing engine={engine} />
+    </div>
+  ) : wide || skin !== 'paper' ? (
     <div id="ringpanel">
       <RingView engine={engine} version={version} variant="panel" />
     </div>
@@ -104,13 +115,15 @@ export function Match({ engine, onOver }: { engine: MatchEngine; onOver: () => v
       <RingView engine={engine} version={version} variant={pop ? 'panel' : 'thumb'} />
     </button>
   );
+  const meCard = <WrestlerCard w={S.sides[pk]!.w} v={v.sides[pk] ?? v.sides.you} active={v.control === pk} onSpecials={() => setSheet('specials-you')} />;
   const slots: MatchSlots = {
-    engine, S, wide, pulse, ring,
-    you: <WrestlerCard w={S.you.w} v={v.sides.you} active={v.control === 'you'} onSpecials={() => setSheet('specials-you')} />,
-    them: <WrestlerCard w={S.them.w} v={v.sides.them} active={v.control === 'them'} focus={S.you.targetFocus} onPick={(part) => engine.setFocus(part)}
+    engine, S, wide, pulse, ring, left: pk, right: opp,
+    you: multi ? <div className="m-mecol"><FieldStrip engine={engine} />{meCard}</div> : meCard,
+    them: <WrestlerCard w={S.sides[opp]!.w} v={v.sides[opp] ?? v.sides.them} active={v.control === opp} focus={engine.me.targetFocus} onPick={(part) => engine.setFocus(part)}
       onSpecials={() => setSheet('specials-them')} />,
     log: <Log entries={S.log} tones={tones} />,
-    dock: <Dock engine={engine} onMoves={() => setSheet('moves')} onSetup={() => setSheet('setup')} />,
+    dock: watching ? <Spectate engine={engine} fast={fast} setFast={setFast} />
+      : <Dock engine={engine} onMoves={() => setSheet('moves')} onSetup={() => setSheet('setup')} extra={<><TargetChips engine={engine} /><ExtraActions engine={engine} /></>} />,
   };
   const Layout = skin === 'paper' ? PaperMatch : skin === 'broadcast' ? BroadcastMatch : BuildingMatch;
 
@@ -122,12 +135,13 @@ export function Match({ engine, onOver }: { engine: MatchEngine; onOver: () => v
       {sheet === 'moves' && p.kind === 'awaitPlayer' && <MoveWheel engine={engine} onClose={close} />}
       {sheet === 'setup' && p.kind === 'awaitPlayer' && <SetupSheet engine={engine} onClose={close} />}
       {(sheet === 'specials-you' || sheet === 'specials-them') && (
-        <SpecialsSheet engine={engine} initial={sheet === 'specials-you' ? 'you' : 'them'} onClose={close} />
+        <SpecialsSheet engine={engine} initial={sheet === 'specials-you' ? pk : opp} onClose={close} />
       )}
       {p.kind === 'defend' && <DefendChoice key={p.spec.id} engine={engine} spec={p.spec} />}
-      {(p.kind === 'contest' || p.kind === 'contestRoll') && <ContestCard key={p.spec.id} engine={engine} />}
+      {(p.kind === 'contest' || p.kind === 'contestRoll') && (p.spec.attacker === pk || p.spec.defender === pk) && S.player && <ContestCard key={p.spec.id} engine={engine} />}
+      {p.kind === 'save' && <SavePrompt key={p.spec.id} engine={engine} spec={p.spec} />}
       {p.kind === 'kickout' && <KickoutHold key={p.spec.id} engine={engine} spec={p.spec} />}
-      {p.kind === 'refCount' && <RefCount key={p.id} engine={engine} kickoutAt={p.kickoutAt} />}
+      {p.kind === 'refCount' && <RefCount key={p.id} engine={engine} kickoutAt={p.kickoutAt} pinner={p.pinner} save={p.save} />}
       {p.kind === 'sub' && <SubmissionTug key={p.spec.id} engine={engine} spec={p.spec} />}
       {p.kind === 'subChoice' && <SubChoice key={p.spec.id} engine={engine} spec={p.spec} />}
       {p.kind === 'pinChoice' && <PinChoice key={p.spec.id} engine={engine} spec={p.spec} />}

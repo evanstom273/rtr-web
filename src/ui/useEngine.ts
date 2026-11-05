@@ -9,7 +9,7 @@ const aiThinkMs = () => 700 + Math.random() * 350;
  * then call advance(). Timing interactions (meter, kickout, ref count, submission) are driven by
  * their overlay components instead.
  */
-export function useEngine(engine: MatchEngine): number {
+export function useEngine(engine: MatchEngine, speed = 1): number {
   const version = useSyncExternalStore(engine.subscribe, engine.getVersion);
   const pending = engine.state.pending;
   useEffect(() => {
@@ -17,8 +17,8 @@ export function useEngine(engine: MatchEngine): number {
     if (pending.kind === 'continue') ms = pending.delay;
     else if (pending.kind === 'aiThinking') ms = aiThinkMs();
     if (ms === null) return;
-    const id = window.setTimeout(() => engine.advance(), ms);
+    const id = window.setTimeout(() => engine.advance(), ms / speed);
     return () => window.clearTimeout(id);
-  }, [engine, pending]);
+  }, [engine, pending, speed]);
   return version;
 }

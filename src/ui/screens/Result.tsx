@@ -1,8 +1,8 @@
-import { clamp, type MatchState, type Rating } from '../../engine';
+import { clamp, fmtClock, ironMen, type MatchState, type Rating } from '../../engine';
 import type { Hit } from '../../storage/greatestHits';
 import { Name } from '../common/Name';
 import { GreatestHits } from '../GreatestHits';
-import { report, starText, surname, type Report } from '../model';
+import { FINISH_LABEL, report, starText, surname, type Report } from '../model';
 import { useSkin } from '../skin';
 
 interface Props {
@@ -16,6 +16,35 @@ interface Props {
   onCareer?: () => void;
 }
 
+/** More than two people: the winning side, and who went out how (and, in a Rumble, the iron men). */
+function Field({ S }: { S: MatchState }) {
+  const R = S.result!;
+  const winners = (R.winners ?? []).map((k) => S.sides[k]!.w.name);
+  const im = S.entries ? ironMen(S) : null;
+  return (
+    <div className="rp-field">
+      {winners.length > 1 && <p className="rp-winner">Winners: {winners.join(' & ')}</p>}
+      {S.elims.length > 0 && (
+        <>
+          <span className="fs-h">Order of elimination</span>
+          <ol className="rp-elims">
+            {S.elims.map((e) => (
+              <li key={e.k}>
+                <b>{S.sides[e.k]!.w.name}</b> · {FINISH_LABEL[e.finish] ?? e.finish}{e.by ? ` by ${S.sides[e.by]!.w.name}` : ''} · {fmtClock(e.t)}
+              </li>
+            ))}
+          </ol>
+        </>
+      )}
+      {im?.longest && (
+        <p className="mk-note">
+          Iron man: {S.sides[im.longest]!.w.name} ({fmtClock(im.secs)}){im.most ? ` · Most eliminations: ${S.sides[im.most]!.w.name} (${im.elims})` : ''}
+        </p>
+      )}
+    </div>
+  );
+}
+
 /** The match report. One model (the result, the rating, the headline), three dresses. */
 export function Result({ S, rating, hits, onRematch, onNewMatch, onMenu, onCareer }: Props) {
   const skin = useSkin();
@@ -26,6 +55,7 @@ export function Result({ S, rating, hits, onRematch, onNewMatch, onMenu, onCaree
     <section id="result" className={`report r-${skin}`}>
       <div className="wrap">
         <Body r={r} S={S} />
+        {S.order.length > 2 && <Field S={S} />}
         <div className="ractions">
           {onCareer ? (
             <button className="primary" onClick={onCareer}>

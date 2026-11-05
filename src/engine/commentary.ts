@@ -40,7 +40,9 @@ export function fill(S: MatchState, tpl: string, p: FillParams = {}): Seg[] {
     text(tpl.slice(last, m.index));
     last = (m.index ?? 0) + m[0].length;
     if (m[1]) {
-      out.push({ k: 'gold', v: format(m[2] ?? '', vars), big: m[1] === 'G' });
+      // Names inside a highlight (match overhaul lines: "<G>{d} is out!</G>") read as plain names there.
+      const named = { ...vars, ...(p.a ? { a: S.sides[p.a]!.w.name } : {}), ...(p.d ? { d: S.sides[p.d]!.w.name } : {}) };
+      out.push({ k: 'gold', v: format(m[2] ?? '', named), big: m[1] === 'G' });
       continue;
     }
     const key = m[3] ?? '';
