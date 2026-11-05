@@ -23,6 +23,8 @@ import { applyBout, boutRules, promoName, runToday } from '../career';
 import { runJobs } from '../career/runner';
 import { outOf, simOne } from '../career/sim';
 import { hashSeed } from '../career/booker';
+import { boutEngine, boutLabel } from '../career/bouts';
+import type { SideKey } from '../engine/types';
 import { activeWorld, resetCareer } from '../world/world';
 
 /** A career match being played: which show and which match on its card. */
@@ -93,13 +95,21 @@ export function App() {
     const show = c?.shows[cb.showId];
     const bout = show?.card?.[cb.index];
     if (!c || !show || !bout) return null;
+    // Match overhaul: a tag match, a multi-man, a Rumble — the first two leads face off, everyone else comes
+    // in as extras, and you control your own side (always one of the two leads).
+    if (bout.sides && FEATURES.matches) {
+      const e = boutEngine(bout);
+      const player: SideKey = e.you === c.player ? 'you' : 'them';
+      return { c, show, bout, you: e.you, them: e.them, aIsYou: true, rules: { ...boutRules(c, show, bout, e.you, e.them, false), ...e.rules },
+        shape: { extras: e.extras, ...(e.type ? { type: e.type } : {}), player }, multiRules: e.rules };
+    }
     const them = bout.a === c.player ? bout.b : bout.a;
-    return { c, show, bout, you: c.player, them, aIsYou: bout.a === c.player, rules: boutRules(c, show, bout, c.player, them, false) };
+    return { c, show, bout, you: c.player, them, aIsYou: bout.a === c.player, rules: boutRules(c, show, bout, c.player, them, false), shape: null, multiRules: {} };
   }, []);
   const startCareerMatch = useCallback((cb: CareerBout) => {
     const s = careerSetup(cb);
     if (!s) return;
-    const engine = new MatchEngine({ you: s.you, them: s.them, rules: s.rules });
+    const engine = new MatchEngine({ you: s.you, them: s.them, ...(s.shape ?? {}), rules: s.rules });
     if (import.meta.env.DEV) (window as unknown as { __rtr: MatchEngine }).__rtr = engine;
     setScreen({ name: 'match', engine, career: cb });
   }, [careerSetup]);
@@ -171,7 +181,8 @@ export function App() {
     const you = s ? findWrestler(s.you) : undefined, them = s ? findWrestler(s.them) : undefined;
     if (s && you && them) {
       const cb = screen.career;
-      const line = [s.show.name, s.bout.title ? 'Title match' : '', stipulation(s.bout.stip ?? 'standard').name].filter(Boolean).join(' · ');
+      const line = [s.show.name, s.bout.sides ? boutLabel(s.bout, (id) => findWrestler(id)?.name ?? id) : '', s.bout.title ? 'Title match' : '',
+        stipulation(s.bout.stip ?? 'standard').name].filter(Boolean).join(' · ');
       body = <Tape you={you} them={them} rules={line} onBack={() => toCareer('show')} onBell={() => startCareerMatch(cb)} />;
     }
   } else if (screen.name === 'setup') {
@@ -199,7 +210,8 @@ export function App() {
             setLeaving(false);
             const st = careerSetup(cb);
             if (st) settleCareer(cb, simOne({ key: 'mine', seed: hashSeed(st.c.seed, 'mine', st.show.id), you: st.you, them: st.them,
-              rules: boutRules(st.c, st.show, st.bout, st.you, st.them, true) }).engine, 'simmed');
+              ...(st.shape ? { extras: st.shape.extras, ...(st.shape.type ? { type: st.shape.type } : {}) } : {}),
+              rules: { ...boutRules(st.c, st.show, st.bout, st.you, st.them, true), ...st.multiRules } }).engine, 'simmed');
             toCareer('show');
           }} />
         )}

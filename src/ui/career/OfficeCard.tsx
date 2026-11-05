@@ -8,6 +8,13 @@ import { fmtDay } from '../../career/dates';
 import { stipulation } from '../../engine/stipulations';
 import type { LogEntry } from '../../engine/types';
 import { commit, stars, useWords } from './parts';
+import { boutKind, boutLabel, boutWinners, inBout, multiBout } from '../../career/bouts';
+import { STAKE_LABEL, type StakeKind } from '../../career/stakes';
+import { FEATURES } from '../../career/tuning';
+import { STIPULATIONS } from '../../engine/stipulations';
+import { activeTeams } from '../../world/matchWorld';
+import { activeWorld } from '../../world/world';
+import type { MatchType, StipulationId } from '../../engine/types';
 
 const nm = (id: string) => findWrestler(id)?.name ?? id;
 const FINISHES: BookedFinish[] = ['clean', 'cheat', 'dq', 'countout', 'nocontest'];
@@ -108,12 +115,13 @@ function Booking({ c, show, say }: { c: Career; show: Show; say: (s: string) => 
               <div key={`${b.a}${b.b}${i}`} style={{ display: 'contents' }}>
                 <div className="c-ans" style={{ padding: '6px 8px' }}>
                   <span className="c-rowsb">
-                    <b className="c-at" style={{ fontSize: 15 }}>{nm(b.a)} vs {nm(b.b)}</b>
+                    <b className="c-at" style={{ fontSize: 15 }}>{b.sides ? boutLabel(b, nm) : `${nm(b.a)} vs ${nm(b.b)}`}</b>
                     <span className="c-hint">{i === card.length - 1 ? 'MAIN EVENT' : i === 0 ? 'OPENER' : `MATCH ${i + 1}`}</span>
                   </span>
                   <span className="c-ad">
-                    {[b.title ? titlesFor(show).find((t) => t.id === b.title)?.name : '', b.stip && b.stip !== 'standard' ? stipulation(b.stip).name : '',
-                      b.result ? `${b.result.winner ? nm(b.result.winner) : 'No contest'} · ${stars(b.result.stars)}` : b.planned ? `${nm(b.planned)} wins · ${FINISH_LABEL[b.finish ?? 'clean']}` : b.finish === 'nocontest' ? 'No contest' : 'Winner: theirs to decide'].filter(Boolean).join(' · ')}
+                    {[boutKind(b) ?? '', b.title ? titlesFor(show).find((t) => t.id === b.title)?.name : '', b.stip && b.stip !== 'standard' ? stipulation(b.stip).name : '',
+                      b.stakes ? STAKE_LABEL[b.stakes.kind] : '',
+                      b.result ? `${boutWinners(b, nm) ?? 'No contest'} · ${stars(b.result.stars)}` : b.planned ? `${nm(b.planned)} wins · ${FINISH_LABEL[b.finish ?? 'clean']}` : b.finish === 'nocontest' ? 'No contest' : 'Winner: theirs to decide'].filter(Boolean).join(' · ')}
                   </span>
                   {!started && (
                     <span className="c-chips" style={{ marginTop: 4 }}>
@@ -122,7 +130,7 @@ function Booking({ c, show, say }: { c: Career; show: Show; say: (s: string) => 
                       <button className="c-chip" onClick={() => drop(i)}>{w('Drop')}</button>
                     </span>
                   )}
-                  {tonight && !b.result && b.a !== c.player && b.b !== c.player && !changed && <button className="c-chip" style={{ marginTop: 4 }} onClick={() => watch(i)}>{w('Watch it ›')}</button>}
+                  {tonight && !b.result && !inBout(b, c.player) && !changed && <button className="c-chip" style={{ marginTop: 4 }} onClick={() => watch(i)}>{w('Watch it ›')}</button>}
                 </div>
                 {segs.filter((g) => g.after === i).map((g) => <SegRow key={`s${i}${g.who.join()}${g.kind}`} g={g} onDrop={started ? undefined : () => setSegs(segs.filter((x) => x !== g))} />)}
               </div>
@@ -142,7 +150,9 @@ function Booking({ c, show, say }: { c: Career; show: Show; say: (s: string) => 
           {tonight && <span className="c-note">Tonight: watch any match as it happens (what you watch is what happens). The rest are wrestled when the night runs.</span>}
         </>
       )}
-      {sheet === 'match' && card && <MatchSheet show={show} pool={pool.filter((x) => !card.some((b) => b.a === x.id || b.b === x.id))} onClose={() => setSheet(null)} onAdd={(b) => { setCardDraft([...card, b]); setSheet(null); }} />}
+      {sheet === 'match' && card && (FEATURES.matches
+        ? <BigMatchSheet show={show} pool={pool.filter((x) => !card.some((b) => inBout(b, x.id)))} onClose={() => setSheet(null)} onAdd={(b) => { setCardDraft([...card, b]); setSheet(null); }} />
+        : <MatchSheet show={show} pool={pool.filter((x) => !card.some((b) => b.a === x.id || b.b === x.id))} onClose={() => setSheet(null)} onAdd={(b) => { setCardDraft([...card, b]); setSheet(null); }} />)}
       {sheet === 'seg' && card && <SegSheet card={card} pool={pool} onClose={() => setSheet(null)} onAdd={(g) => { setSegs([...segs, g]); setSheet(null); }} />}
       {watching && <Watch log={watching.log} text={watching.text} onClose={() => setWatching(null)} />}
     </>
@@ -259,6 +269,129 @@ function Watch({ log, text, onClose }: { log: LogEntry[]; text: string; onClose:
           ))}
         </div>
         {done ? <button className="c-b1" onClick={onClose}>{w('Back to the card')}</button> : <button className="c-b2" onClick={() => setN(lines.length)}>{w('Skip to the end')}</button>}
+      </div>
+    </div>
+  );
+}
+
+type Kind = 'singles' | 'tag' | 'trios' | 'triple' | 'fourway' | 'royal';
+const KINDS: { k: Kind; label: string; shape: number[] }[] = [
+  { k: 'singles', label: 'Singles', shape: [1, 1] }, { k: 'tag', label: 'Tag team', shape: [2, 2] }, { k: 'trios', label: 'Trios', shape: [3, 3] },
+  { k: 'triple', label: 'Triple threat', shape: [1, 1, 1] }, { k: 'fourway', label: 'Fatal four-way', shape: [1, 1, 1, 1] }, { k: 'royal', label: 'Battle royal', shape: [] },
+];
+const KIND_TYPE: Record<Kind, MatchType> = { singles: 'singles', tag: 'tag', trios: 'tag', triple: 'triple', fourway: 'fourway', royal: 'battle_royal' };
+/** Stakes you can put on a match from the office (a career against a title, or a contract, are for the story writers). */
+const OFFICE_STAKES: StakeKind[] = ['loser_leaves', 'mask', 'hair', 'mask_vs_hair', 'retirement', 'contendership', 'briefcase'];
+
+/**
+ * Add a match, match overhaul edition: any kind (singles, tag, trios, a triple threat, a four-way, a battle royal or
+ * a Rumble), any stipulation, a title of the right kind, something riding on it, and who wins.
+ */
+function BigMatchSheet({ show, pool, onClose, onAdd }: { show: Show; pool: ReturnType<typeof bookerPool>; onClose: () => void; onAdd: (b: Bout) => void }) {
+  const { w } = useWords();
+  const [kind, setKind] = useState<Kind>('singles');
+  const [gender, setGender] = useState<'MALE' | 'FEMALE'>(pool.some((x) => x.gender === 'MALE') ? 'MALE' : 'FEMALE');
+  const field = pool.filter((x) => x.gender === gender);
+  const shape = KINDS.find((x) => x.k === kind)!.shape;
+  const [picks, setPicks] = useState<string[]>([]);
+  const [royal, setRoyal] = useState<{ n: number; rumble: boolean }>({ n: 10, rumble: false });
+  const [title, setTitle] = useState('');
+  const [stip, setStip] = useState<string>('standard');
+  const [stake, setStake] = useState<StakeKind | ''>('');
+  const [win, setWin] = useState<number>(-1);
+  const [finish, setFinish] = useState<BookedFinish>('clean');
+  // The sides: picked slot by slot (anyone not picked falls back to the next free name), or a battle royal's field.
+  const slots = shape.reduce((n, x) => n + x, 0);
+  const chosen: string[] = [];
+  for (let i = 0; i < slots; i++) {
+    const want = picks[i];
+    const id = want && field.some((x) => x.id === want) && !chosen.includes(want) ? want : field.find((x) => !chosen.includes(x.id))?.id;
+    if (id) chosen.push(id);
+  }
+  const sides: string[][] = kind === 'royal'
+    ? [...field].sort((a, b) => Object.values(b.fans).reduce((x, y) => x + y, 0) - Object.values(a.fans).reduce((x, y) => x + y, 0)).slice(0, royal.n).map((x) => [x.id])
+    : shape.map((_, i) => chosen.slice(shape.slice(0, i).reduce((a, b) => a + b, 0), shape.slice(0, i + 1).reduce((a, b) => a + b, 0)));
+  const full = kind === 'royal' ? sides.length >= 6 : chosen.length === slots;
+  const setPick = (i: number, id: string) => setPicks((p) => { const n = [...p]; n[i] = id; return n; });
+  // Tag and trios: established teams, one tap to fill a side.
+  const teamSize = kind === 'tag' ? 2 : kind === 'trios' ? 3 : 0;
+  const teams = teamSize ? activeTeams(activeWorld()).filter((t) => t.members.length === teamSize && t.members.every((id) => field.some((x) => x.id === id))) : [];
+  const pickTeam = (members: string[]) => {
+    const first = sides[0]!.every((id) => !members.includes(id)) && picks.slice(0, teamSize).filter(Boolean).length === 0;
+    setPicks((p) => { const n = [...p]; members.forEach((id, j) => { n[(first ? 0 : teamSize) + j] = id; }); return n; });
+  };
+  const titleKinds = kind === 'tag' ? ['tag'] : kind === 'trios' ? ['trios'] : ['singles', 'hardcore', undefined];
+  const titles = titlesFor(show).filter((t) => (t.gender === 'FEMALE') === (gender === 'FEMALE') && titleKinds.includes(t.kind));
+  const t = titles.find((x) => x.id === title);
+  const held = t ? (t.holders?.length ? t.holders : t.holder ? [t.holder] : []) : [];
+  const holderOk = !t || held.every((id) => sides.flat().includes(id));
+  const planned = finish === 'nocontest' || win < 0 ? undefined : sides[win]?.[0];
+  const stips = STIPULATIONS.map((x) => x.id);
+  const top = titlesFor(show).find((x) => !x.kind && x.gender === gender);
+  const add = () => {
+    const extra: Partial<Bout> = {
+      ...(title ? { title } : {}), ...(stip !== 'standard' ? { stip: stip as StipulationId } : {}), ...(planned ? { planned } : {}), ...(finish !== 'clean' ? { finish } : {}),
+      ...(stake ? { stakes: stake === 'contendership' ? { kind: stake, ...(top ? { title: top.id } : {}) } : { kind: stake } } : {}),
+    };
+    if (kind === 'singles' && !stake) return onAdd({ a: sides[0]![0]!, b: sides[1]![0]!, ...extra });
+    onAdd(multiBout(sides, { type: kind === 'royal' && royal.rumble ? 'rumble' : KIND_TYPE[kind], ...(teamSize ? { tag: true } : {}), ...extra }));
+  };
+  const sideName = (s: string[]) => s.map(nm).join(' & ');
+  return (
+    <div className="c-sheet" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div>
+        <div className="c-sh"><div><span>{show.name}</span><b>{w('Add a match')}</b></div><button onClick={onClose} aria-label="Close">✕</button></div>
+        <div className="c-chips">{KINDS.map((x) => <button key={x.k} className={`c-chip${kind === x.k ? ' on' : ''}`} onClick={() => { setKind(x.k); setPicks([]); setTitle(''); setWin(-1); }}>{w(x.label)}</button>)}</div>
+        <div className="c-chips">{(['MALE', 'FEMALE'] as const).map((g) => <button key={g} className={`c-chip${gender === g ? ' on' : ''}`} onClick={() => { setGender(g); setPicks([]); setTitle(''); }}>{w(g === 'MALE' ? 'Men' : 'Women')}</button>)}</div>
+        {kind === 'royal' ? (
+          <>
+            <div className="c-chips">{[10, 20, 30].map((n) => <button key={n} className={`c-chip${royal.n === n ? ' on' : ''}`} onClick={() => setRoyal({ ...royal, n })}>{n}</button>)}
+              <button className={`c-chip${royal.rumble ? ' on' : ''}`} onClick={() => setRoyal({ ...royal, rumble: !royal.rumble })}>{w('Rumble rules')}</button></div>
+            <span className="c-note">{sides.length} {w('in it, the biggest names who are free')}{sides.length < royal.n ? ` (only ${sides.length} free)` : ''}.</span>
+          </>
+        ) : (
+          <>
+            {teams.length > 0 && <div className="c-chips">{teams.slice(0, 8).map((tm) => <button key={tm.id} className="c-chip" onClick={() => pickTeam(tm.members)}>{tm.name}</button>)}</div>}
+            {shape.map((n, i) => (
+              <div key={i}>
+                {i > 0 && <span className="c-lab">{w('against')}</span>}
+                {Array.from({ length: n }, (_, j) => {
+                  const slot = shape.slice(0, i).reduce((a, b) => a + b, 0) + j;
+                  const cur = chosen[slot] ?? '';
+                  return <select key={j} className="c-fld" value={cur} onChange={(e) => setPick(slot, e.target.value)} aria-label={`Side ${i + 1}, ${j + 1}`}>
+                    {field.filter((x) => x.id === cur || !chosen.includes(x.id)).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+                  </select>;
+                })}
+              </div>
+            ))}
+          </>
+        )}
+        {titles.length > 0 && (
+          <select className="c-fld" value={title} onChange={(e) => setTitle(e.target.value)} aria-label="Title">
+            <option value="">{w('No title on the line')}</option>
+            {titles.map((x) => <option key={x.id} value={x.id}>{x.name}{x.holders?.length ? ` (${x.holders.map(nm).join(' & ')})` : x.holder ? ` (${nm(x.holder)})` : ' (vacant)'}</option>)}
+          </select>
+        )}
+        <select className="c-fld" value={stip} onChange={(e) => setStip(e.target.value)} aria-label="Stipulation">{stips.map((x) => <option key={x} value={x}>{stipulation(x).name}</option>)}</select>
+        <select className="c-fld" value={stake} onChange={(e) => setStake(e.target.value as StakeKind | '')} aria-label="Stakes">
+          <option value="">{w('Nothing else riding on it')}</option>
+          {OFFICE_STAKES.map((k) => <option key={k} value={k}>{STAKE_LABEL[k]}</option>)}
+        </select>
+        <span className="c-lab">{w('Who wins')}</span>
+        <div className="c-chips">
+          {kind !== 'royal' && sides.map((sd, i) => <button key={i} className={`c-chip${win === i ? ' on' : ''}`} onClick={() => setWin(i)}>{sideName(sd)}</button>)}
+          {kind === 'royal' && (
+            <select className="c-fld" value={win} onChange={(e) => setWin(Number(e.target.value))} aria-label="Winner">
+              <option value={-1}>{w('Let them work it out')}</option>
+              {sides.map((sd, i) => <option key={i} value={i}>{nm(sd[0]!)}</option>)}
+            </select>
+          )}
+          {kind !== 'royal' && <button className={`c-chip${win < 0 ? ' on' : ''}`} onClick={() => setWin(-1)}>{w('Let them work it out')}</button>}
+        </div>
+        <span className="c-lab">{w('How')}</span>
+        <div className="c-chips">{FINISHES.map((f) => <button key={f} className={`c-chip${finish === f ? ' on' : ''}`} onClick={() => setFinish(f)}>{w(FINISH_LABEL[f])}</button>)}</div>
+        {!holderOk && <span className="c-note">{held.length > 1 ? 'The champions have' : 'The champion has'} to be in a title match.</span>}
+        <button className="c-b1" disabled={!full || !holderOk || (finish !== 'nocontest' && finish !== 'clean' && !planned)} onClick={add}>{w('Add it')}</button>
       </div>
     </div>
   );

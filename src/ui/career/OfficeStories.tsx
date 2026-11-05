@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { FEATURES } from '../../career/tuning';
 import {
   alliancesOf, companyOf, createTitle, cupPairs, cupRoundName, cupsOf, DIVISION_LABEL, dispositionLabel, dropStory, formAlliance, isMajorTier, renameTitle, retireTitle, setDivision, setPayoff,
   showsToBook, startCup, startStory, storiesOf, storyLabel, titleLimit, titlesOf, turn, unifyTitles, vacateTitle, type Career, type Division,
@@ -93,6 +94,7 @@ export function OfficeTitles({ c, promo, say }: { c: Career; promo: string; say:
   const [name, setName] = useState('');
   const [gender, setGender] = useState<'MALE' | 'FEMALE'>('MALE');
   const [div, setDiv] = useState<Division>('world');
+  const [kind, setKind] = useState<'singles' | 'tag' | 'trios' | 'hardcore'>('singles');
   const [editing, setEditing] = useState<string | null>(null);
   const [rename, setRename] = useState('');
   const [keep, setKeep] = useState(titles[0]?.id ?? '');
@@ -100,6 +102,7 @@ export function OfficeTitles({ c, promo, say }: { c: Career; promo: string; say:
   const [cupName, setCupName] = useState('');
   const [size, setSize] = useState<4 | 8>(8);
   const [cupGender, setCupGender] = useState<'MALE' | 'FEMALE'>('MALE');
+  const [cupTeams, setCupTeams] = useState(false);
   const [prize, setPrize] = useState('');
   const act = (s: string) => { say(s); commit(); };
   const cups = cupsOf(c, promo).slice(-3);
@@ -132,7 +135,8 @@ export function OfficeTitles({ c, promo, say }: { c: Career; promo: string; say:
       <input className="c-fld" value={name} maxLength={50} placeholder="Championship name" onChange={(e) => setName(e.target.value)} aria-label="Title name" />
       <div className="c-chips">{(['MALE', 'FEMALE'] as const).map((g) => <button key={g} className={`c-chip${gender === g ? ' on' : ''}`} onClick={() => setGender(g)}>{w(g === 'MALE' ? 'Men' : 'Women')}</button>)}</div>
       <div className="c-chips">{DIVS.map((d) => <button key={d} className={`c-chip${div === d ? ' on' : ''}`} onClick={() => setDiv(d)}>{w(DIVISION_LABEL[d])}</button>)}</div>
-      <button className="c-b3" onClick={() => { act(createTitle(c, promo, { name, gender, division: div })); setName(''); }}>{w('Create it ›')}</button>
+      {FEATURES.matches && <div className="c-chips">{(['singles', 'tag', 'trios', 'hardcore'] as const).map((k) => <button key={k} className={`c-chip${kind === k ? ' on' : ''}`} onClick={() => setKind(k)}>{w(KIND_LABEL[k])}</button>)}</div>}
+      <button className="c-b3" onClick={() => { act(createTitle(c, promo, { name, gender, division: div, kind })); setName(''); }}>{w('Create it ›')}</button>
 
       {titles.length > 1 && (
         <>
@@ -156,13 +160,16 @@ export function OfficeTitles({ c, promo, say }: { c: Career; promo: string; say:
       <div className="c-chips">
         {([4, 8] as const).map((n) => <button key={n} className={`c-chip${size === n ? ' on' : ''}`} onClick={() => setSize(n)}>{n} {w('in')}</button>)}
         {(['MALE', 'FEMALE'] as const).map((g) => <button key={g} className={`c-chip${cupGender === g ? ' on' : ''}`} onClick={() => setCupGender(g)}>{w(g === 'MALE' ? 'Men' : 'Women')}</button>)}
+        {FEATURES.matches && <button className={`c-chip${cupTeams ? ' on' : ''}`} onClick={() => { setCupTeams(!cupTeams); setPrize(''); }}>{w('Tag teams')}</button>}
       </div>
       <select className="c-fld" value={prize} onChange={(e) => setPrize(e.target.value)} aria-label="Prize">
         <option value="">{w('For bragging rights')}</option>
-        {titles.filter((t) => (t.gender === 'FEMALE') === (cupGender === 'FEMALE')).map((t) => <option key={t.id} value={t.id}>{t.holder ? `A shot at the ${t.name}` : `The vacant ${t.name}`}</option>)}
+        {titles.filter((t) => (t.gender === 'FEMALE') === (cupGender === 'FEMALE') && (t.kind === 'tag') === cupTeams).map((t) => <option key={t.id} value={t.id}>{t.holder ? `A shot at the ${t.name}` : `The vacant ${t.name}`}</option>)}
       </select>
-      <button className="c-b3" onClick={() => act(startCup(c, promo, { name: cupName || `${promo} Cup`, size, gender: cupGender, prize: prize || undefined }))}>{w('Start it ›')}</button>
+      <button className="c-b3" onClick={() => act(startCup(c, promo, { name: cupName || `${promo} ${cupTeams ? 'Tag Cup' : 'Cup'}`, size, gender: cupGender, prize: prize || undefined, teams: cupTeams }))}>{w('Start it ›')}</button>
       <span className="c-note">A round on each of your next shows: the biggest names in the division go in, seeded. The cup matches go first on each card.</span>
     </>
   );
 }
+
+const KIND_LABEL = { singles: 'Singles', tag: 'Tag team', trios: 'Trios', hardcore: 'Hardcore' } as const;

@@ -108,6 +108,17 @@ export interface Bout {
   farewell?: boolean;
   /** Booker mode: how it's booked to end (a planned winner's match). */
   finish?: BookedFinish;
+  /**
+   * Match overhaul (more than two people): every side (`a` and `b` are the first two sides' leads, and you're
+   * always one of them), the kind of match, elimination, tag rules, what's riding on it, and a Money in the
+   * Bank cash-in.
+   */
+  sides?: string[][];
+  type?: import('../engine/types').MatchType;
+  elimination?: boolean;
+  tag?: boolean;
+  stakes?: import('./stakes').Stakes;
+  cashIn?: boolean;
   result?: BoutResult;
 }
 
@@ -121,6 +132,9 @@ export interface BoutResult {
   move?: string;
   /** The title changed hands. */
   newChamp?: boolean;
+  /** More than two people: everyone on the winning side, and who went out how. */
+  winners?: string[];
+  elims?: { id: string; by: string | null; finish: FinishType; t: number }[];
 }
 
 export interface Contract {
@@ -469,6 +483,8 @@ export interface Career {
   tourneys?: Tourney[];
   /** Cup winners owed a shot at an indie title (you get a pledge instead). */
   cupShots?: { title: string; who: string; until: Day }[];
+  /** Match overhaul: when each promotion last put on its big gimmick match (a Rumble, the Chamber…), by show date. */
+  bigMatches?: Record<string, Day>;
   /** The living world: when each kind of one-off last went on, and what's already been noticed (milestones, retirements). */
   world?: { last: Partial<Record<SpecialKind, Day>>; seen: Record<string, Day> };
   events?: {

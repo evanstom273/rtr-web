@@ -40,6 +40,8 @@ const PART_LUCHA: ReadonlySet<string> = new Set(['SSWC']);
 export const HARDCORE_PROMOS: ReadonlySet<string> = new Set(['END', 'IVW']);
 /** Trios: SLN. */
 export const TRIOS_PROMOS: ReadonlySet<string> = new Set(['SLN']);
+/** Trios teams a trios promotion starts with (enough that the same two aren't always meeting). */
+export const TRIOS_TEAMS = 4;
 
 const ADJ = ['Iron', 'Midnight', 'Rapid', 'Savage', 'Golden', 'Crimson', 'Storm', 'Silver', 'Wild', 'Black', 'Northern', 'Lost', 'Royal', 'Rebel', 'Neon', 'Broken', 'Night', 'High', 'Wolf', 'Steel'];
 const NOUN = ['Saints', 'Riders', 'Express', 'Kings', 'Order', 'Syndicate', 'Brothers', 'Hounds', 'Society', 'Crew', 'Outlaws', 'Dynasty', 'Union', 'Machine', 'Collective', 'Regime', 'Breed', 'Faction', 'Alliance', 'Movement'];
@@ -194,7 +196,7 @@ export function seedTeams(w: World, promo: string, day: Day, out: (id: string) =
   }
   if (TRIOS_PROMOS.has(promo)) {
     const left = roster.filter((x) => x.gender === 'MALE' && !teamOf(w, x.id)).sort((x, y) => (y.masked ? 1 : 0) - (x.masked ? 1 : 0));
-    for (let i = 0; i + 2 < left.length && made.filter((t) => t.trios).length < 2; i += 3) made.push(formTeam(w, left.slice(i, i + 3), promo, day, rnd));
+    for (let i = 0; i + 2 < left.length && made.filter((t) => t.trios).length < TRIOS_TEAMS; i += 3) made.push(formTeam(w, left.slice(i, i + 3), promo, day, rnd));
   }
   return made;
 }

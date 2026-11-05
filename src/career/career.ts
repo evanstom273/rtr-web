@@ -6,8 +6,9 @@ import {
 } from '../data/rtr';
 import { seededRng, type Rng } from '../engine/rng';
 import type { MatchRulesConfig, SideKey } from '../engine/types';
-import { addWear, fadeWear, violenceOf, wearInjury, wearStart } from '../world/matchWorld';
+import { addWear, fadeWear, teamOf, violenceOf, wearInjury, wearStart } from '../world/matchWorld';
 import { stipulation } from '../engine/stipulations';
+import { boutEngine, boutPeople, inBout, plannedKey, sideOf } from './bouts';
 import { HARDCORE_STIPS, available, bookAhead, hashSeed, heated, isIndieTitle, promoRegion, regionalDates, regionalPop, titleRegion } from './booker';
 import { bondOf } from '../world/people';
 import { drawCalendar } from './calendar';
@@ -207,7 +208,10 @@ export function boutRules(c: Career, show: Show, bout: Bout, you: string, them: 
     stipulation: bout.stip ?? 'standard', freshness: { you: freshness(c, you), them: freshness(c, them) },
   };
   if (bout.title) { rules.titleId = bout.title; rules.title = true; }
-  if (nudge && bout.planned) rules.booked = { side: bout.planned === you ? 'you' : 'them', bonus: PLANNED_NUDGE, ...(bout.finish === 'cheat' ? { cheat: true } : {}) };
+  if (nudge && bout.planned) {
+    const side = bout.sides ? plannedKey(bout) : bout.planned === you ? 'you' : 'them';
+    if (side) rules.booked = { side, bonus: PLANNED_NUDGE, ...(bout.finish === 'cheat' ? { cheat: true } : {}) };
+  }
   // A big occasion (Big-Match Performers rise to it): a flagship or special, a cup final, a farewell. Title matches count anyway.
   if (show.kind === 'flagship' || show.kind === 'special' || bout.farewell || (bout.tourney && bout.tourney.round === 2)) rules.big = true;
   // Wellbeing (Lyra's call: it matters): in a good place, or not right in the head, on every roll.
@@ -222,12 +226,20 @@ export function boutRules(c: Career, show: Show, bout: Bout, you: string, them: 
     if (wy || wt) rules.wear = { ...(wy ? { you: wy } : {}), ...(wt ? { them: wt } : {}) };
   }
   // Someone booked to lose to a person they can't stand won't make it easy.
-  if (rules.booked && bout.planned) { const loser = bout.planned === bout.a ? bout.b : bout.a; const refuse = politics.refuse(c, loser, bout.planned); if (refuse) rules.booked = { ...rules.booked, bonus: rules.booked.bonus * (1 - refuse) }; }
+  if (rules.booked && bout.planned && !bout.sides) { const loser = bout.planned === bout.a ? bout.b : bout.a; const refuse = politics.refuse(c, loser, bout.planned); if (refuse) rules.booked = { ...rules.booked, bonus: rules.booked.bonus * (1 - refuse) }; }
   return rules;
 }
 
 export function boutJob(c: Career, show: Show, bout: Bout, index: number): SimJob {
-  return { key: `${show.id}#${index}`, seed: hashSeed(c.seed, show.id, index), you: bout.a, them: bout.b, rules: boutRules(c, show, bout, bout.a, bout.b, true) };
+  const job: SimJob = { key: `${show.id}#${index}`, seed: hashSeed(c.seed, show.id, index), you: bout.a, them: bout.b, rules: boutRules(c, show, bout, bout.a, bout.b, true) };
+  // More than two people: everyone else, the kind of match, and its rules.
+  if (bout.sides) {
+    const e = boutEngine(bout);
+    job.extras = e.extras;
+    if (e.type) job.type = e.type;
+    job.rules = { ...job.rules, ...e.rules };
+  }
+  return job;
 }
 
 /** Every unplayed match today except yours. */
@@ -235,7 +247,7 @@ export function worldJobs(c: Career): SimJob[] {
   const jobs: SimJob[] = [];
   for (const show of showsOn(c, c.today)) {
     show.card?.forEach((b, i) => {
-      if (!b.result && b.a !== c.player && b.b !== c.player) jobs.push(boutJob(c, show, b, i));
+      if (!b.result && !inBout(b, c.player)) jobs.push(boutJob(c, show, b, i));
     });
   }
   return jobs;
@@ -249,8 +261,13 @@ export function applyBout(c: Career, show: Show, index: number, out: SimOut, aIs
   dropStaleTitle(bout);
   const rnd = seededRng(hashSeed(c.seed, 'after', show.id, index));
   const sideId = (s: SideKey | null) => (s === null ? null : (s === 'you') === aIsYou ? bout.a : bout.b);
-  const winner = sideId(out.winner);
-  bout.result = { winner, finish: out.finish, t: out.t, stars: out.stars, ...(out.move ? { move: out.move } : {}) };
+  // More than two people: the winners come back by name (the first of them stands for the side).
+  const multi = out.multi && bout.sides ? out.multi : undefined;
+  const winners = multi ? multi.winners.filter((id) => inBout(bout, id)) : null;
+  const winner = multi ? winners![0] ?? null : sideId(out.winner);
+  bout.result = { winner, finish: out.finish, t: out.t, stars: out.stars, ...(out.move ? { move: out.move } : {}), ...(multi ? { winners: winners!, elims: multi.elims } : {}) };
+  const isWinner = (id: string) => (winners ? winners.includes(id) : winner === id);
+  const oppOf = (id: string) => (bout.sides ? boutPeople(bout).find((o) => o !== id && !sideOf(bout, id)?.includes(o)) ?? bout.b : id === bout.a ? bout.b : bout.a);
   const hardcore = !!bout.stip && HARDCORE_STIPS.has(bout.stip);
   const changes: Record<string, number> = {};
   const mineHere = bout.a === c.player || bout.b === c.player;
@@ -263,19 +280,25 @@ export function applyBout(c: Career, show: Show, index: number, out: SimOut, aIs
     const ts = (c.titles[t.id] ??= { since: show.date, defences: 0, last: null });
     const reigns = (history().reigns[t.id] ??= []);
     const nonTitleFinish = out.finish === 'DISQUALIFICATION' || out.finish === 'COUNT_OUT' || out.finish === 'DOUBLE_COUNT_OUT';
-    if (winner !== t.holder && !nonTitleFinish) {
+    // A team title: whoever won takes it as a team (their tag team, if they are one).
+    const held = t.holders?.length ? t.holders : t.holder ? [t.holder] : [];
+    if (!held.includes(winner) && !nonTitleFinish) {
       const reign = reigns.find((r) => r.to === null);
       if (reign) reign.to = show.date;
       const w = findWrestler(winner)!;
       const before = t.holder ? findWrestler(t.holder) : undefined;
-      reigns.push({ holder: winner, name: w.name, from: show.date, to: null, defences: 0, won: { show: show.name, from: before?.id ?? null, fromName: before?.name ?? null } });
+      const side = t.kind === 'tag' || t.kind === 'trios' ? sideOf(bout, winner) ?? [winner] : null;
+      const team = side ? teamOf(activeWorld(), winner) : undefined;
+      const reignName = side ? team?.name ?? side.map((id) => findWrestler(id)?.name ?? id).join(' & ') : w.name;
+      reigns.push({ holder: winner, name: reignName, from: show.date, to: null, defences: 0, won: { show: show.name, from: before?.id ?? null, fromName: before?.name ?? null } });
+      if (side) { t.holders = [...side]; if (team && side.every((id) => team.members.includes(id))) t.team = team.id; else delete t.team; }
       addEvent(history(), { day: show.date, kind: 'title', who: winner, name: w.name, promo: show.promo, title: t.id, show: show.name });
       ts.since = show.date; ts.defences = 0;
       t.holder = winner;
       titleChanged = true;
       if (w.age <= 24) person(c, winner).breakthrough = show.date;
       bout.result.newChamp = true;
-      const loser = findWrestler(winner === bout.a ? bout.b : bout.a)!;
+      const loser = findWrestler(multi ? multi.losers[0] ?? oppOf(winner) : winner === bout.a ? bout.b : bout.a)!;
       // A regional indie title only makes your news if it's your region, you've worked there lately, or you know someone in it.
       const region = titleRegion(t);
       const P = activeWorld().people;
@@ -294,11 +317,11 @@ export function applyBout(c: Career, show: Show, index: number, out: SimOut, aIs
     if (c.people[c.player]?.contract?.titleShotBy && (bout.a === c.player || bout.b === c.player)) delete c.people[c.player]!.contract!.titleShotBy;
   }
 
-  for (const id of [bout.a, bout.b]) {
+  for (const id of boutPeople(bout)) {
     const w = findWrestler(id);
     if (!w) continue;
     const p = person(c, id);
-    const won = winner === id, lost = winner !== null && !won;
+    const won = isWinner(id), lost = winner !== null && !won;
     // You promoted this one online: a few more people tuned in.
     const promoted = id === c.player && c.social?.promoted === show.id ? 1 + SOCIAL_PROMOTE_BOOST : 1;
     changes[id] = matchFans(w, show, out.stars, won, lost, won && titleChanged, promoted * mod('fans', c, id, show));
@@ -307,10 +330,10 @@ export function applyBout(c: Career, show: Show, index: number, out: SimOut, aIs
     // Contract clauses (Match Conditions' safer matches) scale the risk and the wear.
     const injuryPct = (INJURY_BASE_PCT + p.fatigue / INJURY_PER_FATIGUE) * (hardcore ? INJURY_HARDCORE_MULT : 1)
       * (hasTrait(w, 'resilient') ? TRAIT_FX.resilient.injury : 1) * (hasTrait(w, 'reliable') ? TRAIT_FX.reliable.injury : 1) * mod('injury', c, id, show)
-      * politics.stiff(c, id, id === bout.a ? bout.b : bout.a) * (FEATURES.matches ? wearInjury(p) : 1);
+      * politics.stiff(c, id, oppOf(id)) * (FEATURES.matches ? wearInjury(p) : 1);
     // Lasting damage: what this one took out of them.
-    if (FEATURES.matches && out.hp) {
-      const side = (id === bout.a) === aIsYou ? out.hp.you : out.hp.them, v = violenceOf(bout.stip);
+    if (FEATURES.matches && (out.hp || multi)) {
+      const side = multi ? multi.hp[id] ?? {} : (id === bout.a) === aIsYou ? out.hp!.you : out.hp!.them, v = violenceOf(bout.stip);
       addWear(p, side, v, v >= 2 && rnd() < 0.3 ? `${stipulation(bout.stip ?? 'standard').name}, ${show.date.slice(0, 4)}` : undefined);
     }
     p.fatigue = clamp(p.fatigue + (FATIGUE_PER_MATCH + (hardcore ? FATIGUE_HARDCORE_EXTRA : 0)) * mod('fatigue', c, id, show), 0, 100);
@@ -318,7 +341,7 @@ export function applyBout(c: Career, show: Show, index: number, out: SimOut, aIs
     p.circuit = [{ r: show.region, d: show.date }, ...(p.circuit ?? [])].slice(0, CIRCUIT_KEEP);
     p.recent = [...(p.recent ?? []), won ? 1 : 0].slice(-5);
     // Scouting: recent form, by who they were against, and the big nights.
-    trackForm(p, w, findWrestler(id === bout.a ? bout.b : bout.a), won, lost, out.stars, show.kind === 'special' || show.kind === 'flagship' || !!bout.title || !!bout.tourney || show.card?.at(-1) === bout);
+    trackForm(p, w, findWrestler(oppOf(id)), won, lost, out.stars, show.kind === 'special' || show.kind === 'flagship' || !!bout.title || !!bout.tourney || show.card?.at(-1) === bout);
     if (rnd() * 100 < injuryPct) injure(c, id, show, rnd);
   }
 
@@ -385,7 +408,7 @@ function injure(c: Career, id: string, show: Show, rnd: Rng): void {
   // Pull them from any card they were on.
   for (const s of Object.values(c.shows)) {
     if (s.done || s.date <= show.date || s.date >= p.injury.until || !s.card) continue;
-    s.card = s.card.filter((b) => b.a !== id && b.b !== id);
+    s.card = s.card.filter((b) => !inBout(b, id));
     // Still in your promotion's doghouse (Requests): a shorter card mustn't make you the main event.
     const last = s.card[s.card.length - 1];
     if (heated(c, s) && s.card.length > 1 && last && (last.a === c.player || last.b === c.player)) s.card.splice(s.card.length - 2, 0, s.card.pop()!);
@@ -398,7 +421,7 @@ function settleMine(c: Career, show: Show, bout: Bout, out: SimOut, aIsYou: bool
   const oppId = bout.a === c.player ? bout.b : bout.a;
   const opp = findWrestler(oppId)!;
   const winner = bout.result!.winner;
-  const result = winner === null ? 'draw' : winner === c.player ? 'win' : 'loss';
+  const result = winner === null ? 'draw' : winner === c.player || bout.result!.winners?.includes(c.player) ? 'win' : 'loss';
   let fee = 0, bonus = 0, travel = 0;
   // Against the plan isn't always sabotage: winning when booked to lose, in a match you played, is going
   // off-script; losing when booked to win is failing to deliver; a simmed match going the other way is an upset.
@@ -502,12 +525,19 @@ async function runNight(c: Career, run: (jobs: SimJob[]) => Promise<SimOut[]>): 
     const b = c.shows[showId!]?.card?.[Number(i)];
     // A DQ, count-out or no contest is how it ends however it went: nothing to wrestle again.
     if (b?.finish && b.finish !== 'clean' && b.finish !== 'cheat') return null;
-    return b?.planned ? (b.planned === j.you ? 'you' : 'them') : null;
+    return b?.planned ? (b.sides ? plannedKey(b) : b.planned === j.you ? 'you' : 'them') : null;
+  };
+  // Kept to plan: the planned winner won (in a tag match, either partner's fall counts).
+  const kept = (j: SimJob, want: string) => {
+    const o = byKey.get(j.key);
+    const [showId, i] = j.key.split('#');
+    const b = c.shows[showId!]?.card?.[Number(i)];
+    return o?.multi && b?.sides && b.planned ? o.multi.winners.includes(b.planned) : o?.winner === want;
   };
   // The would-be loser's personality: professionals do the job, the rebellious push back (fewer re-runs).
   const allowed = (j: SimJob) => { const want = plannedSide(j); const loser = want === 'you' ? j.them : j.you; return PLANNED_RETRIES + retryAdjust(findWrestler(loser)) - Math.round(politics.refuse(c, loser, want === 'you' ? j.you : j.them) * 2); };
   for (let attempt = 1; attempt <= PLANNED_RETRIES + 2; attempt++) {
-    const again = jobs.filter((j) => { const want = plannedSide(j); return want && attempt <= allowed(j) && byKey.get(j.key)?.winner !== want; })
+    const again = jobs.filter((j) => { const want = plannedSide(j); return want && attempt <= allowed(j) && !kept(j, want); })
       .map((j) => ({ ...j, seed: hashSeed(j.seed, 'again', attempt) }));
     if (!again.length) break;
     for (const o of await run(again)) byKey.set(o.key, o);
@@ -527,10 +557,13 @@ async function runNight(c: Career, run: (jobs: SimJob[]) => Promise<SimOut[]>): 
  * a count-out or a no contest is how it ends whatever went before: the booked winner gets it (nobody, in a no contest).
  */
 export function scripted(b: Bout, o: SimOut, aIsYou: boolean): SimOut {
-  if (b.finish === 'nocontest') return { ...o, winner: null, finish: 'NO_CONTEST', stars: Math.round(o.stars * 0.85 * 100) / 100, move: undefined };
+  const all = b.sides ? boutPeople(b) : [];
+  if (b.finish === 'nocontest') return { ...o, winner: null, finish: 'NO_CONTEST', stars: Math.round(o.stars * 0.85 * 100) / 100, move: undefined, ...(o.multi ? { multi: { ...o.multi, winners: [], losers: all } } : {}) };
   if (!b.planned || !b.finish || b.finish === 'clean' || b.finish === 'cheat') return o;
-  const side = (b.planned === b.a) === aIsYou ? 'you' : 'them';
-  return { ...o, winner: side, finish: b.finish === 'dq' ? 'DISQUALIFICATION' : 'COUNT_OUT', stars: Math.round(o.stars * 0.9 * 100) / 100, move: undefined };
+  const side = b.sides ? plannedKey(b) ?? 'you' : (b.planned === b.a) === aIsYou ? 'you' : 'them';
+  const won = b.sides ? sideOf(b, b.planned) ?? [b.planned] : [];
+  return { ...o, winner: side, finish: b.finish === 'dq' ? 'DISQUALIFICATION' : 'COUNT_OUT', stars: Math.round(o.stars * 0.9 * 100) / 100, move: undefined,
+    ...(o.multi ? { multi: { ...o.multi, winners: won, losers: all.filter((id) => !won.includes(id)) } } : {}) };
 }
 
 /** Run every remaining match today (yours must be done first), then move the world on a day. */
@@ -668,7 +701,7 @@ export function release(c: Career, w: Wrestler, how: 'released' | 'expired', fro
   const p = c.people[w.id]!;
   if (from !== w.promotion) dropDeal(p, w, from);
   else promoteDeal(p, w);
-  for (const s of Object.values(c.shows)) if (!s.done && s.date > c.today && s.card && (s.promos ?? [s.promo]).includes(from)) s.card = s.card.filter((b) => b.result || (b.a !== w.id && b.b !== w.id));
+  for (const s of Object.values(c.shows)) if (!s.done && s.date > c.today && s.card && (s.promos ?? [s.promo]).includes(from)) s.card = s.card.filter((b) => b.result || !inBout(b, w.id));
   if (worksFor(findWrestler(c.player)!, from)) letter(c, { kind: 'news', from: 'The news desk', subject: `${w.name} leaves ${from}`, body: [how === 'released' ? `${from} have released ${w.name}.` : `${w.name}’s contract ran out${w.promotion === 'TIS' ? ' and they’re a free agent' : ` (they’re still with ${w.promotion})`}.`] });
 }
 
@@ -779,7 +812,7 @@ function contractsEnding(c: Career, day: Day, rnd: Rng): void {
       if (w.id !== c.player && (champThere || rnd() < RENEW_CHANCE_REST + renewLean(w))) { x.start = day; x.end = addMonths(day, CONTRACT_MONTHS[1]!); continue; }
       addEvent(history(), { day, kind: 'expired', who: w.id, name: w.name, promo: x.promo });
       dropDeal(p, w, x.promo);
-      for (const s of Object.values(c.shows)) if (!s.done && s.date >= day && s.card && (s.promos ?? [s.promo]).includes(x.promo)) s.card = s.card.filter((b) => b.result || (b.a !== w.id && b.b !== w.id));
+      for (const s of Object.values(c.shows)) if (!s.done && s.date >= day && s.card && (s.promos ?? [s.promo]).includes(x.promo)) s.card = s.card.filter((b) => b.result || !inBout(b, w.id));
       if (w.id === c.player) {
         letter(c, { kind: 'contract', from: promoName(x.promo), subject: `Your ${x.promo} deal has ended`, body: [`You’re still with ${p.contract?.promo ?? 'The Indie Scene'}.`] });
         beltsOnMove(c, day);

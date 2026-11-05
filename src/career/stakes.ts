@@ -4,12 +4,13 @@
 import { findWrestler } from '../data/rtr';
 import { seededRng, hashSeed } from '../engine/rng';
 import { activeWorld } from '../world/world';
-import { giveBriefcase, monthlyTeams, shave, unmask } from '../world/matchWorld';
+import { briefcaseOf, giveBriefcase, monthlyTeams, recordTeamMatch, shave, unmask } from '../world/matchWorld';
+import { boutPeople } from './bouts';
 import { addDays, type Day } from './dates';
 import { letter, person, release, setCareerHooks } from './career';
 import { FEATURES } from './tuning';
 import { retire } from './worldEvents';
-import type { Career } from './types';
+import type { Bout, Career, Show } from './types';
 
 export type StakeKind = 'loser_leaves' | 'mask' | 'hair' | 'mask_vs_hair' | 'title_vs_career' | 'retirement' | 'contract' | 'contendership' | 'briefcase';
 
@@ -115,4 +116,17 @@ export function applyStakes(c: Career, s: Stakes, winners: string[], losers: str
   return out;
 }
 
-setCareerHooks({ monthly: (c) => monthlyMatchWorld(c, c.today) });
+/** After every bout (with the flag on): team records, what was riding on it, and a briefcase cashed in. */
+function afterBout(c: Career, show: Show, bout: Bout): void {
+  if (!FEATURES.matches || !bout.result) return;
+  const W = activeWorld(), r = bout.result;
+  const won = (id: string) => (r.winners ? r.winners.includes(id) : r.winner === id);
+  if (bout.sides) for (const side of bout.sides) if (side.length >= 2) recordTeamMatch(W, side, side.some(won));
+  if (bout.stakes && r.winner) {
+    const all = boutPeople(bout);
+    applyStakes(c, bout.stakes, all.filter(won), all.filter((id) => !won(id)), show.promo, show.date);
+  }
+  if (bout.cashIn) { const b = briefcaseOf(W, bout.a); if (b) b.cashed = show.date; }
+}
+
+setCareerHooks({ monthly: (c) => monthlyMatchWorld(c, c.today), bout: afterBout });

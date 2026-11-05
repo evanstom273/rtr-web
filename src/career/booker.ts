@@ -1,5 +1,6 @@
 // The AI bookers: who wrestles on each card, title defences, feuds and planned finishes.
 import { booked, fitsTrip } from './availability';
+import { boutPeople } from './bouts';
 import { changeLean, contenderBias, stipMult, titleBooker } from './bookerLeans';
 import { contenderLean } from './leans';
 import { fanScore, findWrestler, PROMOTIONS, type Title, TITLES, type Wrestler, worksFor } from '../data/rtr';
@@ -66,7 +67,7 @@ export function regionalEligible(c: Career, w: Wrestler, region: PopRegion, day:
 
 const busyOn = (c: Career, day: Day): Set<string> => {
   const busy = new Set<string>();
-  for (const s of Object.values(c.shows)) if (s.date === day && s.card) for (const b of s.card) { busy.add(b.a); busy.add(b.b); }
+  for (const s of Object.values(c.shows)) if (s.date === day && s.card) for (const b of s.card) for (const id of boutPeople(b)) busy.add(id);
   return busy;
 };
 
@@ -333,12 +334,12 @@ export function refreshFeuds(c: Career, show: Show, roster: readonly Wrestler[])
 }
 
 /** A title already on another unplayed card (titles are only ever on one at a time). */
-function titlePending(c: Career, titleId: string, show: Show): boolean {
+export function titlePending(c: Career, titleId: string, show: Show): boolean {
   return Object.values(c.shows).some((s) => s.id !== show.id && s.card?.some((b) => b.title === titleId && !b.result));
 }
 
 /** Days since a title was last defended or won, counting defences already booked on cards ahead. */
-function sinceLastDefence(c: Career, titleId: string, show: Show): number {
+export function sinceLastDefence(c: Career, titleId: string, show: Show): number {
   const ts = c.titles[titleId];
   let lastOrWon = ts?.last ?? ts?.since;
   for (const s of Object.values(c.shows)) {
@@ -478,6 +479,8 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
     || sinceLastDefence(c, y.id, show) - sinceLastDefence(c, x.id, show)) : titles;
   for (const t of ordered) {
     if (titleBouts() >= titleCap) break;
+    // Tag and trios titles are booked team against team (the match overhaul's style booking).
+    if (t.kind === 'tag' || t.kind === 'trios') continue;
     if (!t.holder) {
       // Vacant (its champion signed away without Indie Bookings): the top two contenders wrestle for it.
       if (titlePending(c, t.id, show)) continue;

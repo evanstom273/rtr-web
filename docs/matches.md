@@ -273,7 +273,7 @@ world played with the flag off picks it up the first time it's turned on).
 - **Teams** (`World.teams`): named (an "Iron Saints" sort of name, or their surnames), with a record,
   chemistry (0–100: their bonds at first, then +2 a win, −1 a loss) and, once they've the chemistry for
   it, a team finisher. Every major starts with four men's teams and two women's, friends first (both like
-  each other 25+), then whoever's left on the same side of the fence; SLN also has two trios (masked men
+  each other 25+), then whoever's left on the same side of the fence; SLN also has four trios (masked men
   first). Each month the AI forms a new team or two from friends who aren't in one, and splits stale ones
   (poor chemistry, or one outgrowing the other) — a heel in the team usually with a betrayal; a team whose
   members end up on different rosters is finished. A team title goes with a split.
@@ -296,6 +296,77 @@ world played with the flag off picks it up the first time it's turned on).
   number one contendership (a title shot for the AI, a promise for the player), and the Money in the Bank
   briefcase (`World.briefcases`: a shot whenever they like, for a year; unused ones run out). Booked and
   applied by the career in stage 9.
+
+## Stage 9: the career and the bookers (`career/bouts.ts`, `career/matchBooking.ts`, `career/teamPhone.ts`)
+
+**Bouts with more than two people.** `Bout` gains `sides` (everyone, team by team), `type`, `tag`,
+`elimination`, `stakes` and `cashIn`. `a` and `b` stay as the first two sides' leads, and the player, if
+they're in it, is always one of those two — so everything that reads a bout pairwise (your match tonight,
+the calendar, history) still works, and `boutPeople`/`inBout`/`sideOf` cover everyone. The worker's
+`SimJob` carries the extras and the type; `SimOut.multi` brings back the winners, the losers, the
+eliminations and everyone's damage. `applyBout` settles all of them: wins and losses for everyone, a tag or
+trios title to the winning team (named for the team in the history), wear on whoever took it, the team's
+record, the stakes, and a cashed briefcase.
+
+**The booker's plan by team.** A planned winner is a side's lead; the engine's nudge goes to their whole
+team (either partner can take the fall), the title re-runs count a partner's win as kept, and a booked DQ
+or count-out hands it to the planned team.
+
+**Booking by style** (`styleCard`, a card hook after the singles card is drawn; majors only, flag on). Each
+promotion's taste (`STYLE`):
+
+| Promotion | Tag match | Multi-man | Hardcore | Trios | Flagship match |
+|---|---|---|---|---|---|
+| VWF | 50% | 15% | 8% | | Rumble |
+| TCG | 45% | 12% | 6% | | Hell in a Cell |
+| SLN | 35% | 25% | 5% | 60% | Battle royal |
+| END | 45% | 10% | 35% | | WarGames |
+| IVW | 35% | 10% | 40% | | Money in the Bank |
+| NWGP | 70% | 10% | 4% | | Elimination Chamber |
+| ZWA | 65% | 10% | 5% | | Money in the Bank |
+| UFC | 40% | 10% | 10% | | Battle royal |
+| SSWC | 45% | 15% | 8% | | Hell in a Cell |
+| AAWA | 45% | 12% | 6% | | Elimination Chamber |
+
+- Only loose bouts are broken up to make room (no titles, cups, feuds, promises, farewells, tryouts — and
+  not yours); whoever's left over goes back into singles.
+- **Tag and trios titles** are booked team against team, never as singles: 30% a week, 90% on a big show,
+  sure once it's six weeks since the last; a vacant one goes to the two best free teams. The champions
+  retain 60% of the time. Your team defends when you're on the show.
+- **A tag match** at the promotion's rate (a second at half that), SLN's **trios**, and a **triple threat
+  or four-way** made from two loose bouts.
+- **Hardcore**: only for people who'll do it (willingness 0 or more), a deathmatch at END and IVW when
+  they all love it; a hardcore title is always defended under hardcore rules.
+- **The flagship's big match**: a Rumble (20, for a shot at the top title), Chamber (6), WarGames (4 on 4),
+  Money in the Bank (6, for the briefcase) — each once a year; a battle royal (12, for a shot) or the Cell
+  (on the night's hottest feud) half the time, two months apart at least (SLN's weekly show is its
+  flagship). You're in it half the time, if you're on the show in
+  nothing that matters.
+- **Cash-ins**: a briefcase holder on the show cashes in after a top-title match a quarter of the time.
+- **You and your partner**: if you've a team, about a third of your ordinary matches become tag matches.
+
+Over 120 days (one seed, the quick test runner) VWF booked 9 tag matches in 69, ZWA 8 in 52, SSWC 11 in
+83, and SLN 15 trios and 9 tag matches in 123, with triple threats and battle royals; IVW put a hardcore
+stipulation on half its matches (9 of 18), VWF on 2 of 69.
+
+**Your big match.** Your night starts the right match: the first two leads face off, everyone else comes
+in as extras, and you control your own side (`careerSetup` in `App.tsx`). The match screen's Spectate feed
+handles the rest — "Skip to my entry" in a Rumble, the fast feed once you're out. Simming it (or walking
+out) sims the whole thing the way the AI's matches are simmed. The show screen lists everyone, the kind of
+match and the stakes.
+
+**Booker mode.** The card's "Add a match" takes any kind (singles, tag, trios, triple threat, four-way, a
+battle royal or Rumble of 10, 20 or 30), with team quick-picks, every stipulation, a title of the right
+kind (tag titles only in tag matches, with the champions in), stakes, and who wins. You can create tag,
+trios and hardcore titles, and run tag-team cups (entrants are teams; each round is tag matches).
+
+**Teaming up** (the phone): "Ask them to team up" with someone on your roster (same division, neither in a
+team) — they say yes by how much they like you (from 20% at 25 like up to 90% at 60); a yes makes a real
+team and the bookers start pairing you. "Split the team" ends it (and a team title goes with it).
+
+**Known for stage 10.** Tag matches have a fat short tail (2–5 minute submissions, the odd quick DQ):
+SLN's trios came out at a 2★ median over two months of career with the real engine, against 3★ for its
+singles. The ratings refit is stage 10's.
 
 ### Harness
 

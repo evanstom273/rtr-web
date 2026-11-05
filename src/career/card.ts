@@ -3,6 +3,7 @@
 // interviews). Every match is simmed with the full engine; you can watch any of yours play out, and play your own. The
 // whole show's judged once it's over. Booking yourself is allowed, but the locker room and your opponents notice.
 import { findWrestler, fansIn, PROMOTIONS, TITLES, WRESTLERS, type Wrestler } from '../data/rtr';
+import { boutPeople, plannedKey } from './bouts';
 import { hashSeed, seededRng } from '../engine/rng';
 import type { LogEntry, StipulationId } from '../engine/types';
 import { activeWorld } from '../world/world';
@@ -37,7 +38,7 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
 /** Everyone booked on another show that night. */
 function busyOn(c: Career, show: Show): Set<string> {
   const out = new Set<string>();
-  for (const s of Object.values(c.shows)) if (s.id !== show.id && s.date === show.date && s.card) for (const b of s.card) { out.add(b.a); out.add(b.b); }
+  for (const s of Object.values(c.shows)) if (s.id !== show.id && s.date === show.date && s.card) for (const b of s.card) for (const id of boutPeople(b)) out.add(id);
   return out;
 }
 
@@ -76,23 +77,30 @@ export function setCard(c: Career, showId: string, card: Bout[], segs: Segment[]
   if (card.length > CARD_MAX.matches) return `${CARD_MAX.matches} matches at most.`;
   if (segs.length > CARD_MAX.segments) return `${CARD_MAX.segments} segments at most.`;
   const pool = new Set(bookerPool(c, show!).map((w) => w.id));
-  for (const b of show!.card ?? []) { pool.add(b.a); pool.add(b.b); }
+  for (const b of show!.card ?? []) for (const id of boutPeople(b)) pool.add(id);
   const seen = new Set<string>();
   for (const b of card) {
-    if (b.a === b.b) return 'Someone can’t wrestle themselves.';
-    for (const id of [b.a, b.b]) {
+    if (b.sides && !FEATURES.matches) return 'Only singles matches for now.';
+    const people = boutPeople(b);
+    if (new Set(people).size !== people.length) return 'Someone can’t wrestle themselves.';
+    if (b.sides && (b.sides.length < 2 || b.sides.some((x) => !x.length))) return 'A match needs two sides at least.';
+    for (const id of people) {
       if (!pool.has(id)) return `${nameOf(id)} isn’t free that night.`;
       if (seen.has(id)) return `${nameOf(id)} is on the card twice.`;
       seen.add(id);
     }
-    if (W(b.a)?.gender !== W(b.b)?.gender) return 'Matches are men against men and women against women.';
+    if (people.some((id) => W(id)?.gender !== W(b.a)?.gender)) return 'Matches are men against men and women against women.';
     if (b.title) {
       const t = titlesFor(show!).find((x) => x.id === b.title);
       if (!t) return 'That title isn’t this promotion’s.';
-      for (const id of [b.a, b.b]) { const no = W(id) ? titleAllows(t, W(id)!) : null; if (no) return no; }
-      if (t.holder && t.holder !== b.a && t.holder !== b.b) return `The champion has to be in a ${t.name} match.`;
+      const team = t.kind === 'tag' || t.kind === 'trios';
+      if (team && (!b.sides || b.sides.length !== 2 || b.sides.some((x) => x.length !== (t.kind === 'trios' ? 3 : 2)))) return `The ${t.name} is for ${t.kind === 'trios' ? 'trios' : 'tag teams'}.`;
+      if (!team && b.tag) return `The ${t.name} isn’t a tag title.`;
+      for (const id of people) { const no = W(id) ? titleAllows(t, W(id)!) : null; if (no) return no; }
+      const held = t.holders?.length ? t.holders : t.holder ? [t.holder] : [];
+      if (held.length && !held.every((id) => people.includes(id))) return `The champion${held.length > 1 ? 's have' : ' has'} to be in a ${t.name} match.`;
     }
-    if (b.planned && b.planned !== b.a && b.planned !== b.b) return 'The winner has to be in the match.';
+    if (b.planned && !people.includes(b.planned)) return 'The winner has to be in the match.';
     if (b.finish && b.finish !== 'nocontest' && !b.planned) return 'Pick a winner for that finish.';
   }
   for (const g of segs) {
@@ -105,7 +113,8 @@ export function setCard(c: Career, showId: string, card: Bout[], segs: Segment[]
   const storyOf = (b: Bout) => b.feud ?? c.feuds.find((f) => !f.done && f.promo === show!.promo && ((f.a === b.a && f.b === b.b) || (f.a === b.b && f.b === b.a)))?.id;
   show!.card = card.map((b) => {
     const feud = storyOf(b);
-    return { a: b.a, b: b.b, ...(b.title ? { title: b.title } : {}), ...(b.stip && b.stip !== 'standard' ? { stip: b.stip } : {}), ...(b.planned ? { planned: b.planned } : {}), ...(b.finish && b.finish !== 'clean' ? { finish: b.finish } : {}), ...(feud ? { feud } : {}), ...(b.tourney ? { tourney: b.tourney } : {}) };
+    return { a: b.a, b: b.b, ...(b.sides ? { sides: b.sides.map((x) => [...x]) } : {}), ...(b.type ? { type: b.type } : {}), ...(b.tag ? { tag: true } : {}),
+      ...(b.elimination ? { elimination: true } : {}), ...(b.stakes ? { stakes: { ...b.stakes } } : {}), ...(b.title ? { title: b.title } : {}), ...(b.stip && b.stip !== 'standard' ? { stip: b.stip } : {}), ...(b.planned ? { planned: b.planned } : {}), ...(b.finish && b.finish !== 'clean' ? { finish: b.finish } : {}), ...(feud ? { feud } : {}), ...(b.tourney ? { tourney: b.tourney } : {}) };
   });
   show!.segments = segs.map((g) => ({ kind: g.kind, who: [...g.who], after: g.after }));
   show!.booked = 'player';
@@ -247,7 +256,7 @@ export function rateShow(c: Career, show: Show): ShowRating {
   const payoffs = paying.length;
   const pay = r2(Math.min(STORY.payoffRate, paying.reduce((t, f) => t + (f.heat ?? 50) / 100 * STORY.payoffRate, 0), Math.max(SHOW_RATE.payoffMax, STORY.payoffRate)));
   if (pay) { parts.push(['Payoffs', r2(pay)]); notes.push(payoffs > 1 ? 'Feuds paid off.' : 'A feud paid off.'); }
-  const fans = [...new Set(card.flatMap((b) => [b.a, b.b]))].map((id) => (W(id) ? fansIn(W(id)!, show.region) : 0)).sort((a, b) => b - a).slice(0, 3);
+  const fans = [...new Set(card.flatMap(boutPeople))].map((id) => (W(id) ? fansIn(W(id)!, show.region) : 0)).sort((a, b) => b - a).slice(0, 3);
   const top = fans.reduce((t, x) => t + x, 0) / Math.max(1, fans.length);
   const stars = Math.min(SHOW_RATE.starMax, Math.max(0, Math.log10(Math.max(1, top) / SHOW_RATE.starFrom)) * SHOW_RATE.starPerDecade * 10);
   if (stars > 0.01) parts.push(['Star power', r2(stars)]);
@@ -278,8 +287,9 @@ export function watchBout(c: Career, showId: string, index: number): { log: LogE
   if (b.a === c.player || b.b === c.player) return 'That’s your match: wrestle it.';
   const job = boutJob(c, show, b, index);
   let r = simOne(job);
-  const want = b.planned && (!b.finish || b.finish === 'clean' || b.finish === 'cheat') ? (b.planned === b.a ? 'you' : 'them') : null;
-  for (let i = 1; want && r.out.winner !== want && i <= PLANNED_RETRIES; i++) r = simOne({ ...job, seed: hashSeed(job.seed, 'again', i) });
+  const want = b.planned && (!b.finish || b.finish === 'clean' || b.finish === 'cheat') ? (b.sides ? plannedKey(b) : b.planned === b.a ? 'you' : 'them') : null;
+  const kept = () => (r.out.multi && b.sides ? r.out.multi.winners.includes(b.planned!) : r.out.winner === want);
+  for (let i = 1; want && !kept() && i <= PLANNED_RETRIES; i++) r = simOne({ ...job, seed: hashSeed(job.seed, 'again', i) });
   const out = scripted(b, r.out, true);
   applyBout(c, show, index, out, true, 'simmed');
   const res = b.result!;

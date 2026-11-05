@@ -41,7 +41,7 @@ function getPool(): Slot[] | null {
 function runOn(slot: Slot, jobs: SimJob[]): Promise<SimOut[]> {
   const id = nextId++;
   // Only the wrestlers in these matches cross to the worker: the engine looks nobody else up.
-  const who = new Set(jobs.flatMap((j) => [j.you, j.them]));
+  const who = new Set(jobs.flatMap((j) => [j.you, j.them, ...(j.extras ?? []).map((x) => x.id)]));
   const db = { wrestlers: WRESTLERS.filter((x) => who.has(x.id)), promotions: PROMOTIONS, titles: TITLES };
   return new Promise<SimOut[]>((resolve, reject) => {
     slot.waiting.set(id, { resolve, reject });

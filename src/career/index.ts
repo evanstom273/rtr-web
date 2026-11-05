@@ -30,6 +30,8 @@ import './stories';
 import './belts';
 import './books';
 import './stakes';
+import './matchBooking';
+import './teamPhone';
 import './signing';
 import './morale';
 import './owners';
