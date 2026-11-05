@@ -56,7 +56,10 @@ export type SetupId =
 
 export type StipulationId =
   | 'standard' | 'no_dq' | 'tables' | 'ladder' | 'submission' | 'steel_cage' | 'falls_count_anywhere' | 'iron_man'
-  | 'two_out_of_three' | 'last_man_standing' | 'i_quit';
+  | 'two_out_of_three' | 'last_man_standing' | 'i_quit'
+  // Match overhaul, stage 5.
+  | 'street_fight' | 'no_holds_barred' | 'texas_death' | 'first_blood' | 'deathmatch'
+  | 'casket' | 'ambulance' | 'stretcher' | 'strap' | 'dog_collar' | 'bull_rope' | 'lumberjack' | 'pole';
 
 /** Where an object is and what it's doing. */
 export type ObjectState = 'held' | 'dropped' | 'flat' | 'corner' | 'stacked' | 'spread' | 'ladder' | 'broken' | 'consumed';
@@ -77,6 +80,9 @@ export interface EnvObject {
   climbStage: number;
   /** Stacked table: its partner. */
   stackedWith: number | null;
+  /** Match overhaul: tied on (a strap, a chain, a bull rope: never dropped or broken), and legal to use whatever the rules (that, or the object off the pole). */
+  fixed?: boolean;
+  legal?: boolean;
 }
 
 /** Stipulation progress (MatchObjectiveState). */
@@ -97,6 +103,10 @@ export interface Objective {
   finisherLanded: Record<SideKey, boolean>;
   /** A result reached mid-action (a DQ, a table break, time running out), settled when the action ends. */
   decision: Decision | null;
+  /** Match overhaul, stage 5: who's in the casket / ambulance / on the stretcher (and how far it's been wheeled), corners touched in a row, the object on the pole. */
+  container?: { victim: SideKey; by: SideKey; stage: number } | null;
+  corners?: Record<SideKey, number>;
+  pole?: { weaponId: string; taken: boolean };
 }
 
 export interface Decision {
@@ -129,6 +139,8 @@ export type FinishType =
   | 'CAGE_ESCAPE' | 'TEN_COUNT' | 'I_QUIT' | 'TIME_DECISION'
   /** Battle royals and Rumbles: over the top rope, both feet on the floor. */
   | 'OVER_THE_TOP'
+  /** Match overhaul, stage 5: first to bleed, in the casket / ambulance / past the line, all four corners, off the pole. */
+  | 'FIRST_BLOOD' | 'CASKET' | 'AMBULANCE' | 'STRETCHER' | 'CORNERS' | 'POLE'
   /** Booker mode: a run-in ends it, nobody wins. */
   | 'NO_CONTEST';
 
@@ -311,7 +323,7 @@ export type RingBeat = 'move_started' | 'move_landed' | 'reversal' | 'crash' | '
 /** A contested roll: a move attempt or a contested setup. See dice.ts. */
 export interface ContestSpec {
   id: number;
-  kind: 'move' | 'setup' | 'tag' | 'ott';
+  kind: 'move' | 'setup' | 'tag' | 'ott' | 'gimmick';
   attacker: SideKey;
   defender: SideKey;
   /** Move name or setup title. */
@@ -377,6 +389,11 @@ export interface SaveSpec {
   /** It ends the match for you (or your team) if it counts. */
   mustSave: boolean;
 }
+
+/** Stage 5 stipulation actions. */
+export type GimmickId =
+  | 'load_casket' | 'close_casket' | 'load_ambulance' | 'shut_ambulance' | 'load_stretcher' | 'wheel_stretcher'
+  | 'climb_out' | 'touch_corner' | 'climb_pole';
 
 /** A Rumble (or battle royal, or gauntlet) entrant: their number, when they came in and went out, and who they put out. */
 export interface Entry { n: number; inAt: number | null; outAt: number | null; elims: number }
@@ -582,6 +599,8 @@ export interface CrowdStats {
   saves?: number;
   steals?: number;
   elims?: number;
+  /** Stipulation spots (stage 5): loaded into the casket/ambulance/stretcher, escapes, corners touched, pole climbs, thrown back in by lumberjacks. */
+  gimmicks?: number;
   /** Battle royals and Rumbles: over-the-top tries, people left hanging on, saved by skinning the cat, surprise entrants. */
   ottTries?: number;
   hangs?: number;
@@ -675,6 +694,12 @@ export interface MatchRulesConfig {
   tag?: boolean;
   /** Established teams' finishers, by team index. */
   teamFinishers?: Record<number, string>;
+  /** Stage 5 stipulations: the object on the pole (a weapon id, or 'contract': grabbing it wins), whether grabbing it wins, the bull rope's corners rule, barbed-wire ropes, and the lumberjacks' names. */
+  poleObject?: string;
+  poleWins?: boolean;
+  corners?: boolean;
+  barbedRopes?: boolean;
+  lumberjacks?: string[];
   /** Rumble: the draw (a booked order of entry; otherwise it's drawn at random), surprise entrants, seconds between entries, and what the winner gets. */
   draw?: SideKey[];
   surprises?: SideKey[];
@@ -744,6 +769,7 @@ export type Txn =
   | { kind: 'setup'; k: SideKey; action: SetupId; chance: number }
   | { kind: 'tag'; k: SideKey; to: SideKey; chance: number }
   | { kind: 'ott'; k: SideKey; d: SideKey; hanging: boolean; chance: number }
+  | { kind: 'gimmick'; k: SideKey; d: SideKey; id: GimmickId; chance: number }
   | { kind: 'sub'; k: SideKey; move: Move; target: TargetResolution; nearTapSaid: boolean; nearEscapeSaid: boolean; lastMarker: number; quit?: boolean; save?: SavePlan; secs?: number; spec?: SubSpec };
 
 export interface PinContext {

@@ -23,7 +23,10 @@ export const findSetup = (S: MatchState, kind: Weapon['kind'], area: Area, state
   objectsIn(S, area, states).find((o) => weaponOf(o).kind === kind) ?? null;
 
 export function canRetrieve(S: MatchState, w: Weapon): boolean {
-  if (!w.retrievable) return false;
+  const st = S.rules.stipulation;
+  // The deathmatch kit only comes out in a deathmatch; tied together, your hands are full.
+  if (st === 'strap' || st === 'dog_collar' || st === 'bull_rope') return false;
+  if (!w.retrievable && !(st === 'deathmatch' && (w.id === 'glass_pane' || w.id === 'barbed_board' || w.id === 'light_tube_bundle'))) return false;
   const live = liveObjects(S);
   if (live.length >= MAX_LIVE_OBJECTS) return false;
   return live.filter((o) => o.weaponId === w.id).length < w.maxLive;
@@ -144,9 +147,9 @@ export const getWeaponMove = (id: string): Move | undefined => WEAPON_MOVES.find
 
 /** The attacks the side's held weapon gives them (positions not checked). */
 export function weaponMovesFor(S: MatchState, k: SideKey): Move[] {
-  if (!S.rules.weapons) return [];
   const held = heldBy(S, k);
-  if (!held) return [];
+  // Weapons off, but this one's legal (off the pole, or what ties them together).
+  if (!held || (!S.rules.weapons && !held.legal)) return [];
   return WEAPON_MOVES.filter((m) => weaponMoveInfo.get(m.id)!.weapon.id === held.weaponId);
 }
 

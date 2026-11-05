@@ -3,7 +3,10 @@
 // leave singles playing exactly as before. Regenerate only on purpose: GOLDEN=write npx vitest run src/engine/__tests__/golden.test.ts
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
-import { STIPULATIONS } from '../stipulations';
+import type { StipulationId } from '../types';
+
+/** The eleven stipulations from before the match overhaul: the fixture is pinned to these. */
+const ORIGINAL: StipulationId[] = ['standard', 'no_dq', 'tables', 'ladder', 'submission', 'steel_cage', 'falls_count_anywhere', 'iron_man', 'two_out_of_three', 'last_man_standing', 'i_quit'];
 import { pairings, runHeadless } from '../sim/runHeadless';
 
 const FILE = 'src/engine/__tests__/golden.json';
@@ -16,7 +19,7 @@ function hash(s: string): string {
 
 function fingerprints(): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const st of STIPULATIONS) {
+  for (const st of ORIGINAL.map((id) => ({ id }))) {
     pairings(8, 4100).forEach(([you, them], i) => {
       for (const model of [{ kind: 'skill', sigmaSeconds: 0.09 }, { kind: 'fixed', rate: 0.5 }] as const) {
         const r = runHeadless({ seed: 4100 + i * 7, you, them, model, rules: { stipulation: st.id } });

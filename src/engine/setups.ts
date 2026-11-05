@@ -2,6 +2,7 @@
 // _execute_contested_setup_action, _apply_reversed_setup_positions, taunts and Catch Breath.
 import { LINES, SETUP_TEXT, setupLogLine, tauntTitle } from '../data/commentary';
 import { isRoyal, ROYAL_BLOCKED } from './royal';
+import { TETHER, TETHER_BLOCKED } from './gimmicks';
 import { tauntProfile } from './attributes';
 import { advanceClock, sideIsOutside } from './clock';
 import type { Ctx } from './ctx';
@@ -39,10 +40,16 @@ export function validSetups(S: MatchState, k: SideKey): SetupId[] {
     if (path.actions.length && canUseMove(A, path.move)) firstSteps.add(path.actions[0]!);
   }
   const out: SetupId[] = [];
-  const cage = S.rules.stipulation === 'steel_cage', royal = isRoyal(S);
+  const cage = S.rules.stipulation === 'steel_cage', royal = isRoyal(S), tethered = !!TETHER[S.rules.stipulation], lumber = S.rules.stipulation === 'lumberjack';
   for (const id of actions) {
     if (cage && CAGE_BLOCKED.has(id)) continue;
     if (royal && ROYAL_BLOCKED.has(id)) continue;
+    if (tethered && TETHER_BLOCKED.has(id)) continue;
+    // A lumberjack match: throwing them out to the lumberjacks is half the point.
+    if (lumber && id === 'send_opponent_outside') {
+      out.push(id);
+      continue;
+    }
     // The AI only leaves the ring alone to fetch a weapon (Godot: only with DQs off).
     if (!isPlayer(S, k) && id === 'exit_ring' && !aiWantsWeaponTrip(S, k)) continue;
     if (id === 'taunt' && S.t < A.tauntCooldownUntil) continue;
@@ -52,7 +59,7 @@ export function validSetups(S: MatchState, k: SideKey): SetupId[] {
   if (S.rules.countOuts && !sideIsOutside(S, k) && sideIsOutside(S, foe(S, k)) && !out.includes('wait_for_count')) {
     out.push('wait_for_count');
   }
-  for (const id of extraSetups(S, k)) if (!out.includes(id)) out.push(id);
+  for (const id of extraSetups(S, k)) if (!out.includes(id) && !(tethered && TETHER_BLOCKED.has(id)) && !(royal && ROYAL_BLOCKED.has(id))) out.push(id);
   // The safety net: nothing to hit and nothing that changes where anyone stands (only showboating,
   // cheating, or catching a breath) is a dead end, however many of those there are. Without this a
   // wrestler with no moves could cheat and taunt forever and the fallback never came up.

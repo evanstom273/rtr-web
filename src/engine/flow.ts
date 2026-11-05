@@ -17,6 +17,7 @@ import { autoRecovery } from './setups';
 import { stipulation } from './stipulations';
 import { autoAim, eliminate, isMulti, opponents, pickTurn, sidesOfResult } from './multi';
 import { royalAfterAction } from './royal';
+import { gimmickAfterAction, gimmickBeforeSettle, texasDeath } from './gimmicks';
 import { tagAfterAction } from './tag';
 import type { ActionResult, Cont, Control, FinishType, Move, Side, SideKey, StipulationId } from './types';
 
@@ -84,6 +85,7 @@ export function setResolvedControl(ctx: Ctx, value: Control, a: SideKey, d: Side
 /** ensure_match_can_continue: settle the referee's count at the end of every action. */
 export function afterAction(ctx: Ctx): void {
   const S = ctx.S;
+  gimmickBeforeSettle(ctx);
   if (settleDecision(ctx)) return;
   observePhase(ctx, 'action');
   refereeAfterAction(ctx);
@@ -91,6 +93,7 @@ export function afterAction(ctx: Ctx): void {
   settleRefereeCount(ctx);
   tagAfterAction(ctx);
   royalAfterAction(ctx);
+  gimmickAfterAction(ctx);
 }
 
 /** A DQ, objective win or time-out reached during the action: act on it now. */
@@ -126,6 +129,8 @@ const GATE_LINES: Partial<Record<StipulationId, string>> = {
 export function endFall(ctx: Ctx, winner: SideKey | null, finish: FinishType, move: Move | null, lost?: SideKey | null): void {
   const S = ctx.S, o = S.obj, id = S.rules.stipulation;
   if (S.over) return;
+  // Texas death: the fall only starts a ten count.
+  if (winner && texasDeath(ctx, winner, finish)) return;
   // More than two people, elimination rules: the loser's out and it goes on.
   const out = lost ?? (winner ? foe(S, winner) : null);
   if (isMulti(S) && S.rules.elimination && out) return eliminate(ctx, out, winner, finish, move);

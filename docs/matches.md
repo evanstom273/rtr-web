@@ -176,6 +176,40 @@ with everyone legal. Count-outs and DQs stay on.
 - **Stars**: hanging on, skinning the cat and surprise entrants count as drama; `RATING_TYPE` has an entry
   for each (big fields a little more each person past four).
 
+## Stage 5: stipulations, part one (`gimmicks.ts`)
+
+Thirteen new stipulations, each with its own rules and actions (`gimmickActions`, played through
+`engine.gimmicks()` / `doGimmick()`, contested on the dice by `gimmickContest`). The original eleven
+never touch any of it — the golden fixture is pinned to them.
+
+- **Street fight**: no DQ, no count-outs, weapons; falls count in the ring and at ringside, and the fight
+  can go into the crowd and backstage (Falls Count Anywhere's brawling).
+- **No holds barred**: no DQ, no count-outs, anything goes.
+- **Texas death**: a pin or a submission only starts a ten count on the loser (the Last Man Standing
+  count); stay down and it's over, beat it and it goes on.
+- **First blood**: no pins or submissions; the first to bleed loses. Head shots (impact 6+) can bust
+  someone open in the hardcore stipulations, more so here.
+- **Deathmatch**: no DQ, no count-outs, and the kit under the ring — panes of glass and barbed-wire boards
+  (set up like tables, and they cut), bundles of light tubes — plus barbed-wire ropes that tear into
+  anyone sent into them.
+- **Casket, ambulance, stretcher**: no pins or submissions. Get them down and hurt (condition under 62 or
+  stamina under 35%), load them in (the casket's at ringside, the ambulance up the ramp; dragging them
+  there from the ring is harder), then shut the lid / the doors, or wheel the stretcher up the ramp and
+  over the line (two pushes). They can fight it off at every step, and climb out if they get a turn.
+- **Strap, dog collar, bull rope**: tied together. Both hold what ties them (strap, chain, cowbell) for the
+  whole match — never dropped, never broken, always legal — and nobody leaves without the other or picks
+  anything else up. Dog collar and bull rope go to a pin or submission; the strap is won by touching all
+  four corners in a row, and the run starts again the moment the other one takes over (`rules.corners`
+  gives the bull rope the same).
+- **Lumberjack**: leave the ring and the lumberjacks throw you back in, getting their shots in on the
+  way (and late on they might brawl among themselves). The AI sends people out to them.
+- **Object on a pole**: climb the corner for it (the other one can drag you down); once you have it it's
+  legal, DQs or not. `rules.poleObject` sets what's up there (brass knuckles by default); a contract
+  (`poleObject: 'contract'`) or `rules.poleWins` makes grabbing it the win.
+- **The AI**: goes for each stipulation's objective when it's on (loading and finishing, corners, the
+  pole), and with no count-outs takes a fight that's wandered off back to where it can be won.
+- **Stars**: stipulation spots count as drama, and `RATING_STIP` puts each new one on singles' spread.
+
 ### Harness
 
 `MATCHES=1 npx vitest run src/engine/__tests__/matchesrun.test.ts` runs 40 of each type and reports:
@@ -214,3 +248,7 @@ At stage 4:
 | Battle royal, 20 | 33 | 3 | 36 | 7.1 | 255 ms |
 | Rumble, 30 | 57 | 3.25 | 55 | 10.9 | 415 ms |
 | Gauntlet, 5 | 27 | 3 | | | 160 ms |
+
+At stage 5 (singles; median stars): street fight 23 min / 3, no holds barred 18 / 3, Texas death 27 / 3.25,
+first blood 13 / 3, deathmatch 20 / 3, casket 21 / 3.25, ambulance 21 / 3.25, stretcher 23 / 3.25,
+strap 18 / 3, dog collar 18 / 3.25, bull rope 17 / 3.25, lumberjack 18 / 3, pole 18 / 3.

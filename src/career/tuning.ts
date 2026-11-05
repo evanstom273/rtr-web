@@ -606,6 +606,11 @@ export const RATING_TYPE: Record<string, { fall: number; elim: number; /** Per p
   gauntlet: { fall: -1.3, elim: -1.3 },
 };
 
+/** Match overhaul: the new stipulations, each on singles' spread (first fit at stage 5; refitted in stage 10). */
+export const RATING_STIP: Record<string, number> = {
+  first_blood: 0.75, texas_death: -0.4, dog_collar: -0.35, bull_rope: -0.35, deathmatch: -0.15, street_fight: -0.15, no_holds_barred: -0.1, lumberjack: -0.1,
+};
+
 export const RATING_CURVE = {
   at: [0, 0.0268, 0.2212, 0.3841, 0.6008, 0.705, 0.7896, 0.8362, 0.8994, 0.9428, 0.9742],
   stars: [0.25, 0.5, 1.25, 2.0, 2.5, 3.0, 3.5, 3.875, 4.375, 4.875, 5.25],

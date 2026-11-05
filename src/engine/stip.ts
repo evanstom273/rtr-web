@@ -152,8 +152,9 @@ export function extraSetups(S: MatchState, k: SideKey): SetupId[] {
       add('climb_down_cage');
     }
   }
-  // Falls Count Anywhere: the whole building.
-  if (stip === 'falls_count_anywhere' && still && a.area === d.area && standingStill(d)) {
+  // Falls Count Anywhere (and a street fight): the whole building.
+  const anywhere = stip === 'falls_count_anywhere' || stip === 'street_fight';
+  if (anywhere && still && a.area === d.area && standingStill(d)) {
     if (a.area === 'OUTSIDE') add('enter_crowd');
     if (a.area === 'CROWD') {
       add('leave_crowd');
@@ -161,7 +162,7 @@ export function extraSetups(S: MatchState, k: SideKey): SetupId[] {
     }
     if (a.area === 'RAMP') add('fight_backstage');
   }
-  if (stip === 'falls_count_anywhere' && a.area === 'BACKSTAGE' && still) add('return_from_backstage');
+  if (anywhere && a.area === 'BACKSTAGE' && still) add('return_from_backstage');
   // Last Man Standing and I Quit.
   if (stip === 'last_man_standing' && S.obj.lmsFor === dk && GROUNDED.includes(d.position)) add('begin_standing_count');
   if (stip === 'i_quit' && still && quitCredible(S, k) && sameSpot(S, k)) add('ask_to_quit');
@@ -481,8 +482,10 @@ export function environmentAfterMove(ctx: Ctx, k: SideKey, move: Move, result: A
     const stacked = o.state === 'stacked';
     consumeObject(S, o, true);
     S.crowd.tableBreaks++;
-    say(ctx, credit === null ? LINES.tableCrash : stacked ? LINES.tableStacked : LINES.tableSpot, { a: credit ?? k, d: victim, m: move.name }, 'hl');
-    flash(ctx, 'Through the table!', true);
+    const glass = w.id === 'glass_pane', barbed = w.id === 'barbed_board';
+    say(ctx, credit === null ? LINES.tableCrash : glass ? LINES.glassSpot : barbed ? LINES.barbedSpot : stacked ? LINES.tableStacked : LINES.tableSpot, { a: credit ?? k, d: victim, m: move.name }, 'hl');
+    flash(ctx, glass ? 'Through the glass!' : barbed ? 'Barbed wire!' : 'Through the table!', true);
+    if (glass || barbed) maybeBleed(ctx, victim, w, w.impact, 'BODY', result === 'CLEAN_SUCCESS');
     crowdObserve(ctx, { type: 'spot', amount: stacked ? 26 : 18 });
     if (S.rules.stipulation === 'tables' && credit && S.obj.gateOpen) {
       S.obj.decision = { winner: credit, finish: 'TABLES', move: credit === k ? move : null };
@@ -511,6 +514,12 @@ export function standingRecovery(S: MatchState, k: SideKey): number {
     32 + s.w.stats.skill * 0.28 + staminaPercent(s) * 0.3 - s.fatigue * 0.22 - (100 - totalHp(s) / 6) * 0.2 - S.obj.lmsImpact * 1.5 - s.bleeding * 2,
     8, 78,
   );
+}
+
+/** Texas death (match overhaul): a fall starts a ten count on whoever lost it. */
+export function startTenCount(ctx: Ctx, k: SideKey, impact: number): void {
+  ctx.S.obj.lmsImpact = impact;
+  beginStandingCount(ctx, k);
 }
 
 function beginStandingCount(ctx: Ctx, k: SideKey): boolean {
@@ -636,6 +645,7 @@ export function pinAreaLegal(S: MatchState, k: SideKey): boolean {
   if (!S.rules.pins) return false;
   const a = S.sides[k]!.state.area, d = S.sides[foe(S, k)]!.state.area;
   if (S.rules.stipulation === 'falls_count_anywhere') return a === d && isSharedFlatArea(a);
+  if (S.rules.stipulation === 'street_fight') return a === d && (a === 'IN_RING' || a === 'OUTSIDE');
   return a === 'IN_RING' && d === 'IN_RING';
 }
 

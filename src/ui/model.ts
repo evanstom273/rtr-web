@@ -154,6 +154,7 @@ export const FINISH_LABEL: Record<string, string> = {
   PINFALL: 'Pinfall', SUBMISSION: 'Submission', COUNT_OUT: 'Count-out', DOUBLE_COUNT_OUT: 'Double count-out',
   DISQUALIFICATION: 'Disqualification', TABLES: 'Through a table', LADDER: 'Ladder retrieval', CAGE_ESCAPE: 'Cage escape',
   TEN_COUNT: 'Ten count', I_QUIT: 'I quit', TIME_DECISION: 'Time limit', OVER_THE_TOP: 'Over the top',
+  FIRST_BLOOD: 'First blood', CASKET: 'In the casket', AMBULANCE: 'In the ambulance', STRETCHER: 'Stretchered out', CORNERS: 'All four corners', POLE: 'Off the pole',
 };
 
 export interface Report {
@@ -185,6 +186,12 @@ const HEADLINE: Record<string, (w: string, l: string) => string> = {
   I_QUIT: (_w, l) => `${l} says "I quit"`,
   TIME_DECISION: (w) => `${w} wins on the clock`,
   OVER_THE_TOP: (w) => `${w} is the last one standing`,
+  FIRST_BLOOD: (w) => `${w} draws first blood`,
+  CASKET: (w) => `${w} shuts the casket`,
+  AMBULANCE: (w) => `${w} shuts the ambulance doors`,
+  STRETCHER: (w) => `${w} wheels them out`,
+  CORNERS: (w) => `${w} touches all four corners`,
+  POLE: (w) => `${w} gets it off the pole`,
 };
 
 /** A, B, C… from a part's 0–1 score. */

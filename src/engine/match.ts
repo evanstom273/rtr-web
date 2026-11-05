@@ -11,6 +11,7 @@ import { isMulti, playerSave, resolveSave, retargetAll, setTarget, targetable } 
 import { distance } from './zones';
 import { canDoubleTeam, canTag, doubleTeam, goForTag, setupTag, tagRules } from './tag';
 import { canOverTop, hanging, hasEntrants, isRoyal, overTheTop, RUMBLE_INTERVAL, setupRoyal, skinTheCat } from './royal';
+import { doGimmick, GIMMICK_TITLE, gimmickActions, setupGimmicks } from './gimmicks';
 import { mathRng, seededRng, type Rng } from './rng';
 import { aiDefence, type Defence } from './defence';
 import { executeSetup, validSetups } from './setups';
@@ -25,7 +26,7 @@ import { createState } from './state';
 import { aiGoesForTap, beginSubmission, openSub, resolveSubmission, runAiSub, startSubmission, submissionTick, workTheHold } from './submission';
 import { resolveTarget } from './targeting';
 import { endFall } from './flow';
-import type { EnvObject, MatchType, Side, SideKey, Cont, KickoutCount, MatchRulesConfig, MatchState, Move, SetupId, SubOutcome, TargetResolution } from './types';
+import type { EnvObject, GimmickId, MatchType, Side, SideKey, Cont, KickoutCount, MatchRulesConfig, MatchState, Move, SetupId, SubOutcome, TargetResolution } from './types';
 
 export interface MatchConfig {
   you: string;
@@ -78,6 +79,8 @@ export class MatchEngine {
     const ctx: Ctx = { S, rnd, hooks: cfg.hooks ?? {}, ai: undefined as unknown as Ctx['ai'] };
     ctx.ai = Object.fromEntries(S.order.map((k) => [k, new AiBrain(ctx, k)]));
     this.ctx = ctx;
+    // Stage 5 stipulations: whatever's tied on or hung up (nothing for the original eleven).
+    setupGimmicks(ctx);
     say(ctx, LINES.intro + (rules.title && S.titleName ? LINES.titleOnLine : ''), { vars: { event: S.event, venue: S.venue, title: S.titleName } }, 'dim');
     render(ctx);
     schedule(ctx, { to: 'bell' }, 900);
@@ -455,6 +458,19 @@ export class MatchEngine {
   setTarget(k: SideKey): boolean {
     if (!setTarget(this.state, this.pk, k)) return false;
     return this.act(() => render(this.ctx));
+  }
+
+  /** The stipulation's own actions open to the player right now (the casket, the corners, the pole…). */
+  gimmicks(): { id: GimmickId; title: string }[] {
+    if (!this.playerTurn) return [];
+    return gimmickActions(this.state, this.pk).map((id) => ({ id, title: GIMMICK_TITLE[id] }));
+  }
+  doGimmick(id: GimmickId): boolean {
+    if (!this.playerTurn || !gimmickActions(this.state, this.pk).includes(id)) return false;
+    return this.act(() => {
+      this.state.pending = { kind: 'idle' };
+      doGimmick(this.ctx, this.pk, id);
+    });
   }
 
   /** Battle royals: can the player try to throw their target over the top (or are they hanging on themselves)? */

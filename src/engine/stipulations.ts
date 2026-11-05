@@ -36,6 +36,20 @@ export const STIPULATIONS: Stipulation[] = [
   S('two_out_of_three', 'Two out of Three Falls', 'First to two falls wins.', [true, true, true, true, true], { multiFall: true }),
   S('last_man_standing', 'Last Man Standing', 'Keep them down for a ten count.', [false, false, false, false, true], { objective: true }),
   S('i_quit', 'I Quit', 'Make them say it.', [false, true, false, false, true], { objective: true }),
+  // Match overhaul, stage 5.
+  S('street_fight', 'Street Fight', 'No DQ, no count-outs, weapons everywhere. Falls count in the ring and at ringside.', [true, true, false, false, true]),
+  S('no_holds_barred', 'No Holds Barred', 'No rules at all: no DQ, no count-outs, anything goes.', [true, true, false, false, true]),
+  S('texas_death', 'Texas Death', 'A pin or a submission only starts a ten count. Stay down and you lose.', [true, true, false, false, true], { objective: true }),
+  S('first_blood', 'First Blood', 'The first one to bleed loses.', [false, false, false, false, true], { objective: true }),
+  S('deathmatch', 'Deathmatch', 'Barbed wire, light tubes, glass and tacks. No DQ, no count-outs.', [true, true, false, false, true]),
+  S('casket', 'Casket Match', 'Put them in the casket and shut the lid.', [false, false, false, false, true], { objective: true }),
+  S('ambulance', 'Ambulance Match', 'Put them in the ambulance and shut the doors.', [false, false, false, false, true], { objective: true }),
+  S('stretcher', 'Stretcher Match', 'Strap them to the stretcher and wheel them past the line.', [false, false, false, false, true], { objective: true }),
+  S('strap', 'Strap Match', 'Tied together by a leather strap. Touch all four corners in a row to win.', [false, false, false, false, true], { objective: true }),
+  S('dog_collar', 'Dog Collar Match', 'Chained together at the neck. Pinfall or submission.', [true, true, false, false, true]),
+  S('bull_rope', 'Bull Rope Match', 'Tied together by a bull rope, cowbell and all. Pinfall or submission.', [true, true, false, false, true]),
+  S('lumberjack', 'Lumberjack Match', 'Surrounded by lumberjacks: leave the ring and they throw you back in.', [true, true, false, true, false]),
+  S('pole', 'Object on a Pole', 'Something hangs on a pole in the corner. Climb up and get it, and it’s legal.', [true, true, false, true, false]),
 ];
 
 const byId = new Map(STIPULATIONS.map((s) => [s.id, s]));

@@ -1,5 +1,5 @@
 // Match of the Night's star rating, fed by the RtR engine's crowd stats.
-import { RATING_CURVE, RATING_TITLE_BONUS, RATING_TYPE, RATING_WEIGHTS, TRAIT_FX as FX } from '../career/tuning';
+import { RATING_CURVE, RATING_STIP, RATING_TITLE_BONUS, RATING_TYPE, RATING_WEIGHTS, TRAIT_FX as FX } from '../career/tuning';
 import { has } from './traits';
 import { PART_LABEL, RATING } from '../data/commentary';
 import { fmtClock, format, foe } from './commentary';
@@ -60,7 +60,7 @@ export function matchFeatures(S: MatchState): MatchFeatures {
     mins, avg: c.heatSum / Math.max(1, c.heatN), peak: c.heatPeak, heatSeg: !!c.heatSeg, comeback: !!c.comeback,
     limbN: Math.max(...S.order.map((k) => topPart(S.sides[k]!).n)), payoff, repeats: c.repeats, rest: c.rest,
     nf: c.nf, nearTaps: c.nearTaps ?? 0, fk: c.fk, finRev: c.finRev, reversals: c.reversals, counters: c.counters ?? 0, ropeBreaks: c.ropeBreaks ?? 0,
-    stip: c.climbStops * 0.15 + c.ladderPulls * 0.05 + c.cageClimbs * 0.06 + c.tenCounts * 0.12 + c.nearQuits * 0.2 + c.falls * 0.12,
+    stip: c.climbStops * 0.15 + c.ladderPulls * 0.05 + c.cageClimbs * 0.06 + c.tenCounts * 0.12 + c.nearQuits * 0.2 + c.falls * 0.12 + (c.gimmicks ?? 0) * 0.1,
     tableBreaks: c.tableBreaks, weaponHits: c.weaponHits, bleeds: c.bleeds, high: c.high, spots: c.spots, bigHits: c.bigHits ?? 0,
     how, byFin: !!R?.byFin, afterFk: !!R?.afterFk, byFlash: !!R?.byFlash, title: !!S.rules.title,
     big: !!S.you.big && S.order.some((k) => has(S.sides[k]!, 'big_match')),
@@ -170,6 +170,9 @@ export function rate(S: MatchState): Rating {
   const how = f.how;
   const bigMatch = f.big ? FX.big_match.stars : 0;
   let raw = ratingCurve(ratingComposite(d)) + (S.rules.title ? RATING_TITLE_BONUS : 0) + bigMatch + (S.rules.chemistry ?? 0);
+  // The overhaul's stipulations: each on its own terms (see RATING_STIP).
+  const stipAdj = RATING_STIP[S.rules.stipulation];
+  if (stipAdj) raw = Math.max(0.25, raw + stipAdj);
   // More than two people: judged on its own terms (see RATING_TYPE).
   if (S.order.length > 2) {
     const adj = RATING_TYPE[S.type] ?? RATING_TYPE.multi!;
