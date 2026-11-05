@@ -455,6 +455,9 @@
 /* Broadcast report */
 .rp-bug{height:52px}
 .rp-bug .bc-side:not(.won) .bc-nm{color:var(--mute)}
+/* A team match: two surnames a side, smaller and allowed onto two lines rather than cut off. */
+.rp-bug.teams .bc-nm{font-size:1rem;white-space:normal;line-height:1.05}
+@media (min-width:700px){.rp-bug.teams .bc-nm{font-size:1.3rem}}
 .rp-final{flex-direction:column;background:var(--gold);color:var(--on-gold);font-size:1.3rem;line-height:1;text-transform:uppercase}
 .rp-final small{font-family:var(--mono);font-size:10.5px;font-weight:600}
 .r-broadcast .rp-lower{margin:22px 22px 0 0}

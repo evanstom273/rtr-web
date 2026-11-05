@@ -4,7 +4,10 @@ import { MatchEngine } from '../match';
 import { runHeadless } from '../sim/runHeadless';
 import { seededRng } from '../rng';
 import { fighting } from '../commentary';
-import { canTag, cornerDistance, makeTag, partnerFor, tagAfterAction } from '../tag';
+import { aiTagInstinct, canTag, cornerDistance, makeTag, partnerFor, tagAfterAction } from '../tag';
+import { aiGoesForTap, restHold } from '../submission';
+import { resolveTarget } from '../targeting';
+import { getMove } from '../../data/rtr';
 import type { Ctx } from '../ctx';
 
 const pick = (seed: number, n: number) => {
@@ -179,5 +182,81 @@ describe('tag rules', () => {
       if (r.engine.state.log.some((l) => l.segs.some((s) => /TOTAL ECLIPSE|MIDNIGHT EXPRESS LANE/.test(s.v)))) hit++;
     }
     expect(hit).toBeGreaterThan(0);
+  });
+});
+
+describe('tag matches play like tag matches (Lyra’s 16: too few tags, partners never saved holds, a side headlock won it)', () => {
+  const line = (S: ReturnType<typeof runTag>['engine']['state'], re: RegExp) => S.log.filter((l) => re.test(l.segs.map((x) => x.v).join(''))).length;
+
+  it('2-on-2: plenty of tags, a hot tag most matches, and mostly won by pinfall', () => {
+    const c = { n: 0, tags: 0, hot: 0, subs: 0, pins: 0, zero: 0 };
+    for (let seed = 200; seed < 240; seed++) {
+      // The harness's model (the man at the controls plays like a person, not a coin).
+      const ids = pick(seed, 4);
+      const S = runHeadless({ seed, you: ids[0]!, them: ids[1]!, extras: [{ id: ids[2]!, team: 0 }, { id: ids[3]!, team: 1 }], model: { kind: 'skill', sigmaSeconds: 0.09 }, rules: { tag: true } }).engine.state;
+      c.n++;
+      c.tags += S.crowd.tags ?? 0;
+      c.hot += S.crowd.hotTags ?? 0;
+      if (!(S.crowd.tags ?? 0)) c.zero++;
+      if (S.result?.finish === 'SUBMISSION') c.subs++;
+      if (S.result?.finish === 'PINFALL') c.pins++;
+    }
+    console.log(c);
+    expect(c.tags / c.n).toBeGreaterThan(5);
+    expect(c.hot / c.n).toBeGreaterThan(0.6);
+    expect(c.zero).toBeLessThanOrEqual(2);
+    expect(c.subs / c.n).toBeLessThan(0.3);
+    expect(c.pins / c.n).toBeGreaterThan(0.6);
+  });
+
+  it('the man in peril reaches for his corner without needing a run of his own first', () => {
+    const e = tagMatch(7);
+    const S = e.state, ctx = ctxOf(e);
+    const A = S.sides.you!;
+    A.legalTurns = 0;
+    A.peakPeril = A.peril = 6;
+    A.state = { position: 'STANDING', orientation: 'FRONT', area: 'IN_RING', motion: 'STATIONARY' };
+    let tries = 0;
+    for (let i = 0; i < 200; i++) if (aiTagInstinct({ ...ctx, rnd: seededRng(i) }, 'you', []) === 'tag') tries++;
+    expect(canTag(S, 'you')).toBe(true);
+    expect(tries).toBeGreaterThan(40);
+  });
+
+  it('partners break up holds, and after a save the partners often brawl to the floor', () => {
+    let saves = 0, brawls = 0;
+    for (let seed = 200; seed < 240; seed++) {
+      const S = runTag(seed).engine.state;
+      saves += line(S, /stomps .* loose|breaks it up/);
+      brawls += line(S, /spill to the floor/);
+    }
+    expect(saves).toBeGreaterThan(20);
+    expect(brawls).toBeGreaterThan(5);
+  });
+
+  it('a rest hold never makes anyone tap: worked, not a finish (singles too)', () => {
+    const rest = getMove('side_headlock');
+    const e = tagMatch(9), S = e.state;
+    S.sides.them!.hp.HEAD = 5;
+    expect(restHold(S.sides.you!, rest)).toBe(true);
+    expect(aiGoesForTap(S, 'you', rest, resolveTarget(rest, 'NONE', S.sides.them!.hp))).toBe(false);
+    // ...unless it's somebody's finisher.
+    expect(restHold({ ...S.sides.you!, finishers: [rest] } as never, rest)).toBe(false);
+    for (let seed = 300; seed < 340; seed++) {
+      const ids = pick(seed, 2);
+      const r = runHeadless({ seed, you: ids[0]!, them: ids[1]!, model: { kind: 'skill', sigmaSeconds: 0.09 } });
+      if (r.result?.finish === 'SUBMISSION') expect(r.result.move!.impact, r.result.move!.name).toBeGreaterThan(3);
+    }
+  });
+
+  it('in a tag match, the AI won’t bet the match on an ordinary hold with the other man’s partner stood there', () => {
+    const e = tagMatch(11), S = e.state;
+    const hold = getMove('americana');
+    S.sides.them!.hp.LEFT_ARM = 5;
+    const t = resolveTarget(hold, 'LEFT_ARM', S.sides.them!.hp);
+    expect(S.sides.s3!.out).toBe('apron');
+    expect(aiGoesForTap(S, 'you', hold, t)).toBe(false);
+    // Partner knocked off the apron: now it's on.
+    S.sides.s3!.away = 3;
+    expect(aiGoesForTap(S, 'you', hold, t)).toBe(true);
   });
 });

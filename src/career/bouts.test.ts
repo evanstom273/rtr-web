@@ -115,6 +115,26 @@ describe('bouts with more than two people', () => {
     expect(t.holders).toEqual(rival.members);
     expect(t.team).toBe(rival.id);
     expect(W.history.reigns[t.id]!.at(-1)!.name).toBe(rival.name);
+    // Won from the team, not just its first man.
+    expect(W.history.reigns[t.id]!.at(-1)!.won?.fromName).toBe(champs.name);
     expect(boutPeople(show.card[0]!)).toHaveLength(4);
+  }, 60_000);
+
+  it('a scratch pair can win the tag titles too, and the history names both of them', () => {
+    const c = begin('@indie', 33);
+    const W = activeWorld();
+    ensureMatchWorld(W);
+    const t = TITLES.find((x) => x.id === 'VWF_TAG_TEAM_CHAMPIONSHIP')!;
+    const champs = teamOf(W, t.holders![0]!)!;
+    const pair = WRESTLERS.filter((w) => w.promotion === 'VWF' && w.gender === 'MALE' && !teamOf(W, w.id) && !champs.members.includes(w.id)).slice(0, 2).map((w) => w.id);
+    const show = nextShow(c, 'VWF');
+    show.card = [multiBout([champs.members, pair], { title: t.id, tag: true, type: 'tag' })];
+    const o = simOne(boutJob(c, show, show.card[0]!, 0)).out;
+    applyBout(c, show, 0, { ...o, winner: 'them', multi: { ...o.multi!, winners: [...pair], losers: [...champs.members] } }, true, 'simmed');
+    expect([...t.holders!].sort()).toEqual([...pair].sort());
+    expect(t.team).toBeUndefined();
+    const reign = W.history.reigns[t.id]!.at(-1)!;
+    expect(reign.name).toBe(pair.map((id) => findWrestler(id)!.name).join(' & '));
+    expect(reign.won?.fromName).toBe(champs.name);
   }, 60_000);
 });
