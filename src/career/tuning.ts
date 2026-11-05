@@ -601,14 +601,14 @@ export const RATING_TYPE: Record<string, { fall: number; elim: number; /** Per p
   handicap: { fall: -0.25, elim: -0.8 },
   tornado: { fall: -0.6, elim: -0.8 },
   tag: { fall: -0.45, elim: -1.1, extra: -0.3 },
-  battle_royal: { fall: -0.15, elim: -0.15, extra: -0.025 },
+  battle_royal: { fall: 0.1, elim: 0.1, extra: -0.025 },
   rumble: { fall: -0.15, elim: -0.15, extra: -0.022 },
   gauntlet: { fall: -1.3, elim: -1.3 },
 };
 
 /** Match overhaul: the new stipulations, each on singles' spread (first fit at stage 5; refitted in stage 10). */
 export const RATING_STIP: Record<string, number> = {
-  first_blood: 0.75, texas_death: -0.4, dog_collar: -0.35, bull_rope: -0.35, deathmatch: -0.15, street_fight: -0.15, no_holds_barred: -0.1, lumberjack: -0.1,
+  first_blood: 0.75, texas_death: -0.6, dog_collar: -0.35, bull_rope: -0.35, deathmatch: -0.4, street_fight: -0.15, no_holds_barred: -0.1, lumberjack: -0.1,
   wargames: -0.75, money_in_the_bank: 0.25, ultimate_x: 0.85,
 };
 

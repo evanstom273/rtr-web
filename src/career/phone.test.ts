@@ -138,7 +138,10 @@ describe('the phone', () => {
     const weeks = new Map<string, number>();
     for (let i = 0; i < 42; i++) {
       await day(c, quick, 'simmed');
-      const mine = c.letters.filter((l) => l.kind === 'person' && l.day === c.today && l.replies?.some((r) => ['chat', 'brief', 'tease', 'rise', 'fire_back', 'laugh_off', 'help', 'tip', 'brush'].includes(r.id)));
+      // What the cap covers: check-ins, digs, asks for advice. News (a title, a move, an injury: "happy" or
+      // "there" among the replies) doesn't wait on it, though it shares the "brief" reply.
+      const mine = c.letters.filter((l) => l.kind === 'person' && l.day === c.today && l.replies?.some((r) => ['chat', 'brief', 'tease', 'rise', 'fire_back', 'laugh_off', 'help', 'tip', 'brush'].includes(r.id))
+        && !l.replies.some((r) => r.id === 'happy' || r.id === 'there'));
       const wk = c.phone?.week ?? '';
       weeks.set(wk, (weeks.get(wk) ?? 0) + mine.length);
     }

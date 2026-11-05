@@ -3,7 +3,7 @@
 // and day. Under the yes chance: yes. In the next band: a counter. Anything else: no.
 import { askLean, likesLine, promiseRollsBonus } from './bookerLeans';
 import { leanFrom, playerHas } from './leans';
-import { fansTotal, findWrestler, fmtFans, globalScore, PROMOTIONS, type Title, TITLES, type Wrestler, WRESTLERS, rosterOf, worksFor } from '../data/rtr';
+import { fansTotal, findWrestler, fmtFans, globalScore, PROMOTIONS, type Title, TITLES, type Wrestler, WRESTLERS, rosterOf, worksFor, holds } from '../data/rtr';
 import { seededRng } from '../engine/rng';
 import { activeWorld } from '../world/world';
 import { available, bookChance, contenders, datesThisMonth, hashSeed, isIndieTitle, playerBookable, promoRegion, regionalEligible, regionalPop, setIndieRoll, showTitles, titleMinGap, titleRegion } from './booker';
@@ -104,7 +104,7 @@ const promoShows = (c: Career, promo: string, from: Day): Show[] =>
 export const showLine = (s: Show): string => `${s.name} · ${fmtDay(s.date, 'dm')}`;
 const busyThatNight = (c: Career, day: Day): boolean => !!person(c, c.player).daysOff?.includes(day) || Object.keys(c.indie).some((id) => c.shows[id]?.date === day);
 const inFeud = (c: Career, id: string) => c.feuds.find((f) => !f.done && (f.a === id || f.b === id));
-const holdsTitle = (id: string) => TITLES.some((t) => t.holder === id);
+const holdsTitle = (id: string) => TITLES.some((t) => holds(t, id));
 
 // ------------------------------------------------------------------ title shot
 
@@ -144,7 +144,7 @@ export function previewTitle(c: Career, titleId: string): Preview {
   const rank = promo ? titleRank(c, t) : 0;
   const feud = c.feuds.find((f) => f.title === t.id && !f.done);
   const hard = !promo ? 'You’re not signed anywhere.'
-    : TITLES.some((x) => x.holder === c.player && !isIndieTitle(x.id)) ? 'You already hold a title.'
+    : TITLES.some((x) => holds(x, c.player) && !isIndieTitle(x.id)) ? 'You already hold a title.'
       : p.titleBanUntil && p.titleBanUntil > c.today ? `No title matches until ${fmtDay(p.titleBanUntil, 'dm')} (off-script).`
         : patienceOf(c, promo) < PATIENCE_FLOOR ? `${promo}’s booker won’t hear it: patience too low.`
           : c.pledges?.some((x) => (x.kind === 'title' && x.title === t.id) || x.earn === t.id) ? 'You’ve already been promised a shot at this one.'

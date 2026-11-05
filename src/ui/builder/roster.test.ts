@@ -31,3 +31,25 @@ describe('match builder roster', () => {
     expect(filterRoster({ ...NO_FILTERS, title: 'VWF_CHAMPIONSHIP' }).map((w) => w.name)).toEqual(['Ray Hollis']);
   });
 });
+
+describe('tag champions in the roster', () => {
+  it('filtering or searching by a tag belt finds both champions, and both are marked (c)', async () => {
+    const { FEATURES } = await import('../../career/tuning');
+    const { freshWorld, setWorld } = await import('../../world/world');
+    const { displayName } = await import('../format');
+    const was = FEATURES.matches;
+    (FEATURES as { matches: boolean }).matches = true;
+    try {
+      setWorld(freshWorld(5));
+      const t = TITLES.find((x) => x.id === 'VWF_TAG_TEAM_CHAMPIONSHIP')!;
+      expect(t.holders).toHaveLength(2);
+      const found = filterRoster({ ...NO_FILTERS, title: t.id }).map((w) => w.id).sort();
+      expect(found).toEqual([...t.holders!].sort());
+      const searched = filterRoster({ ...NO_FILTERS, q: t.name }).map((w) => w.id);
+      for (const id of t.holders!) expect(searched).toContain(id);
+      for (const id of t.holders!) expect(displayName(WRESTLERS.find((w) => w.id === id)!)).toMatch(/^\(c\) /);
+    } finally {
+      (FEATURES as { matches: boolean }).matches = was;
+    }
+  });
+});

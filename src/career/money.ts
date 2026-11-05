@@ -1,7 +1,7 @@
 // The money clauses (Lyra's design): Guaranteed Pay's monthly minimum and pulled-from-the-card pay, Wage
 // Matching's raises and parity, Performance Bonuses, Merchandise Rights' online store cut, Profit Share,
 // Signing Bonus & Advances, Loyalty & Tenure, and Character & Image Rights (leave without them and you rebrand).
-import { fansTotal, findWrestler, getPromotion, globalScore, rosterOf, TITLES, WRESTLERS } from '../data/rtr';
+import { fansTotal, findWrestler, getPromotion, globalScore, rosterOf, TITLES, WRESTLERS, holds } from '../data/rtr';
 import type { Rng } from '../engine/rng';
 import { setCardHook } from './booker';
 import { letter, person, promoName, setCareerHooks, spend } from './career';
@@ -69,7 +69,7 @@ function afterMatch(c: Career, show: Show, bout: Bout, m: PlayerMatch): void {
   const hit = (t: BonusTrigger): boolean => {
     switch (t) {
       case 'title': return !!m.wonTitle;
-      case 'defence': return !!m.title && !m.wonTitle && m.result === 'win' && TITLES.find((x) => x.id === m.title)?.holder === c.player;
+      case 'defence': return !!m.title && !m.wonTitle && m.result === 'win' && (() => { const t = TITLES.find((x) => x.id === m.title); return !!t && holds(t, c.player); })();
       case 'great': return m.stars >= 4;
       case 'main': return show.card?.at(-1) === bout;
       case 'big': return show.kind === 'special' || show.kind === 'flagship';

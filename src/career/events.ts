@@ -5,7 +5,7 @@
 // situation, a gap between events, at most a couple waiting on you), the effects every choice draws
 // on, follow-ups that land weeks later, and the memory of what you chose.
 import { eventFans } from './fanGrowth';
-import { type Attributes, findWrestler, fmtFans, globalScore, TITLES, type Wrestler, WRESTLERS, worksFor } from '../data/rtr';
+import { type Attributes, findWrestler, fmtFans, globalScore, TITLES, type Wrestler, WRESTLERS, worksFor, holds } from '../data/rtr';
 import { seededRng, type Rng } from '../engine/rng';
 import { activeWorld } from '../world/world';
 import { hashSeed } from './booker';
@@ -91,7 +91,7 @@ export const round5 = (n: number): number => Math.max(5, Math.round(n / 5) * 5);
 export const homeRegion = (x: EvCtx): PopRegion => REGION_KEY[x.me.region] ?? 'europe';
 export const feeBase = (x: EvCtx): number => indieFee(x.me, homeRegion(x));
 /** The titles you hold right now. */
-export const titlesHeld = (x: EvCtx): string[] => TITLES.filter((t) => t.holder === x.c.player).map((t) => t.id);
+export const titlesHeld = (x: EvCtx): string[] => TITLES.filter((t) => holds(t, x.c.player)).map((t) => t.id);
 
 /** A city you'd plausibly be in: one of your recent shows', or one in your home country. */
 export function nearbyCity(x: EvCtx): { city: string; country: string } {

@@ -121,9 +121,12 @@ export const worksFor = (w: Wrestler, promo: string): boolean => w.promotion ===
 /** Everyone on a promotion's roster right now. */
 export const rosterOf = (promo: string): Wrestler[] => WRESTLERS.filter((w) => worksFor(w, promo));
 
-/** Titles a wrestler currently holds. */
+/** Whether someone holds a title: its champion, or either (any) of a tag or trios team's champions. */
+export const holds = (t: Title, id: string): boolean => t.holder === id || !!t.holders?.includes(id);
+
+/** Titles a wrestler currently holds (a tag title counts for both partners). */
 export function titlesHeldBy(w: Wrestler): Title[] {
-  return TITLES.filter((t) => t.holder === w.id);
+  return TITLES.filter((t) => holds(t, w.id));
 }
 
-export const isChampion = (w: Wrestler): boolean => TITLES.some((t) => t.holder === w.id);
+export const isChampion = (w: Wrestler): boolean => TITLES.some((t) => holds(t, w.id));

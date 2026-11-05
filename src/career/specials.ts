@@ -3,7 +3,7 @@
 // farewells. They're announced weeks ahead, go on the calendar like any other show, and are booked by the
 // same booker (see the special handling in bookShow). You hear about the ones in reach and can take part.
 import { eventFans } from './fanGrowth';
-import { findWrestler, fmtFans, globalScore, PROMOTIONS, type Title, TITLES, type Wrestler, WRESTLERS } from '../data/rtr';
+import { findWrestler, fmtFans, globalScore, PROMOTIONS, type Title, TITLES, type Wrestler, WRESTLERS, holds } from '../data/rtr';
 import { seededRng, type Rng } from '../engine/rng';
 import { activeWorld } from '../world/world';
 import { addEvent } from '../world/history';
@@ -382,7 +382,7 @@ function cupLetters(c: Career, t: Tourney, r: number): void {
 function cupTitle(w: Wrestler): Title | undefined {
   const ids = PROMOTIONS.find((p) => p.initials === 'TIS')?.titles ?? [];
   const order = ['WORLD_INDEPENDENT_CHAMPIONSHIP', ...ids];
-  return order.map((id) => TITLES.find((t) => t.id === id)).find((t): t is Title => !!t && ids.includes(t.id) && t.gender === w.gender && !!t.holder && t.holder !== w.id);
+  return order.map((id) => TITLES.find((t) => t.id === id)).find((t): t is Title => !!t && ids.includes(t.id) && t.gender === w.gender && !!t.holder && !holds(t, w.id));
 }
 
 function crown(c: Career, t: Tourney, id: string, final: Show): void {

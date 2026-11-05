@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { fansIn, fansTotal, findWrestler, fmtFans, globalScore, TITLES, WRESTLERS, rosterOf, worksFor } from '../../data/rtr';
+import { fansIn, fansTotal, findWrestler, fmtFans, globalScore, TITLES, WRESTLERS, rosterOf, worksFor, holds } from '../../data/rtr';
 import {
   C, PATIENCE_FLOOR, PATIENCE_START, answerCounter, askApproach, askChallenge, askDayOff, askIndieChallenge, askMore, askRelease, askReview,
   askRival, askShow, askSpot, askTitleShot, askTryout, askIndieTitleShot, askableIndieShows, askableIndieTitles, askableShows, askableTitles, caughtChance, cooldownLeft, counterLabel,
@@ -450,7 +450,7 @@ export function RequestFlow({ c, route, onBack, onNegotiate, onAnswered }: FlowP
       <button className="c-ans on" style={{ marginTop: 8, padding: '8px 10px' }} onClick={() => setPicking(true)}>
         <span className="c-rowsb"><span className="c-lab">{w('Challenging')}</span><span className="c-hint">{w('Tap to change')}</span></span>
         {them ? <span className="c-vs"><Nm id={them.id} /></span> : <b className="c-at" style={{ fontSize: 16 }}>Pick someone</b>}
-        {them && <span className="c-ad">{them.promotion === 'TIS' ? 'The Indie Scene' : them.promotion} · {fmtFans(fansIn(them, s?.region ?? 'northAmerica'))} fans in {REGION_LABEL[s?.region ?? 'northAmerica']}{TITLES.some((t) => t.holder === them.id) ? ' · champion' : ''}{c.feuds.some((f) => !f.done && (f.a === them.id || f.b === them.id)) ? ' · in a feud' : ''}</span>}
+        {them && <span className="c-ad">{them.promotion === 'TIS' ? 'The Indie Scene' : them.promotion} · {fmtFans(fansIn(them, s?.region ?? 'northAmerica'))} fans in {REGION_LABEL[s?.region ?? 'northAmerica']}{TITLES.some((t) => holds(t, them.id)) ? ' · champion' : ''}{c.feuds.some((f) => !f.done && (f.a === them.id || f.b === them.id)) ? ' · in a feud' : ''}</span>}
       </button>
     );
   }

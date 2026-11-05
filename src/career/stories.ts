@@ -2,7 +2,7 @@
 // heat: segments and matches between the two build it (by how good they were), the same match over and over wears it
 // out, a week with nothing cools it, and face against face makes less sense. It pays off on the show you set, by its
 // heat. Turns (face, heel, in between) land when they're shown; flip-flopping doesn't. Alliances can end in betrayal.
-import { findWrestler, PROMOTIONS, rosterOf, TITLES, type Disposition, type Wrestler } from '../data/rtr';
+import { findWrestler, PROMOTIONS, rosterOf, TITLES, type Disposition, type Wrestler, holds } from '../data/rtr';
 import { hashSeed, seededRng, type Rng } from '../engine/rng';
 import { activeWorld } from '../world/world';
 import { likeOf } from '../world/people';
@@ -185,7 +185,7 @@ function aiTurns(c: Career, rnd: Rng): void {
   if (!FEATURES.booker) return;
   for (const p of PROMOTIONS.filter((x) => !x.indie && !x.closed && !playerRuns(x.initials))) {
     if (rnd() >= STORY.aiTurn) continue;
-    const roster = rosterOf(p.initials).filter((w) => w.id !== c.player && !TITLES.some((t) => t.holder === w.id) && !c.feuds.some((f) => !f.done && (f.a === w.id || f.b === w.id)));
+    const roster = rosterOf(p.initials).filter((w) => w.id !== c.player && !TITLES.some((t) => holds(t, w.id)) && !c.feuds.some((f) => !f.done && (f.a === w.id || f.b === w.id)));
     const w = roster[Math.floor(rnd() * roster.length)];
     if (!w) continue;
     w.disposition = w.disposition === 'HEEL' ? 'FACE' : 'HEEL';

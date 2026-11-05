@@ -1,6 +1,6 @@
 // Work coming your way: indie bookings, asking for a spot, tryouts and contract offers.
 import { booked, fitsTrip } from './availability';
-import { findWrestler, globalScore, TITLES, WRESTLERS } from '../data/rtr';
+import { findWrestler, globalScore, TITLES, WRESTLERS, holds } from '../data/rtr';
 import type { Rng } from '../engine/rng';
 import { seededRng } from '../engine/rng';
 import { activeWorld } from '../world/world';
@@ -126,7 +126,7 @@ function indieOffers(c: Career, rnd: Rng): void {
   if (sideWork(p).rule === 'banned') return;
   const me = findWrestler(c.player)!;
   // A champion draws more interest.
-  const champ = TITLES.some((t) => t.holder === c.player);
+  const champ = TITLES.some((t) => holds(t, c.player));
   const n = INDIE_OFFERS_BASE + Math.floor(globalScore(me) / INDIE_OFFERS_PER_POP) + (champ ? 1 : 0);
   const home = me.region;
   const shows = Object.values(c.shows)

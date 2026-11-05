@@ -16,6 +16,7 @@ import { pinCondition } from './pin';
 import { clamp, type Rng } from './rng';
 import { has } from './traits';
 import type { Area, MatchState, SetupId, SideKey } from './types';
+import { BODY_PARTS } from './types';
 
 export const isRoyal = (S: MatchState): boolean => S.type === 'battle_royal' || S.type === 'rumble';
 /** Matches where people come in one at a time (on a clock, or when someone goes out). */
@@ -157,6 +158,9 @@ function regroup(ctx: Ctx): void {
 /** The brawl someone's in (empty in a small field). */
 export const clusterOf = (S: MatchState, k: SideKey): SideKey[] => S.clusters?.find((g) => g.includes(k)) ?? [];
 
+/** A Rumble breather, each action someone's not in: a share of their stamina back, and some fatigue off. */
+export const RUMBLE_BREATHER = { stamina: 0.01, fatigue: 0.4, hp: 0.3 };
+
 /* ---------- over the top ---------- */
 
 /** Whether k can try to throw their target over the top right now. */
@@ -176,7 +180,9 @@ export function overTheTop(ctx: Ctx, k: SideKey): boolean {
   const A = S.sides[k]!, d = A.target, D = S.sides[d]!, hanging = D.state.area === 'APRON';
   S.crowd.ottTries = (S.crowd.ottTries ?? 0) + 1;
   say(ctx, hanging ? LINES.royalGoesForKnockOff : LINES.royalTries, { a: k, d }, 'warn');
-  const { attack, defend } = ottContest(A, D, hanging);
+  const inAt = S.entries?.[d]?.inAt;
+  const ringWise = S.type === 'rumble' && inAt != null ? Math.min(4, Math.floor((S.t - inAt) / 480)) : 0;
+  const { attack, defend } = ottContest(A, D, hanging, ringWise);
   S.txn = { kind: 'ott', k, d, hanging, chance: 0 };
   startContest(ctx, { kind: 'ott', attacker: k, defender: d, title: hanging ? 'Knock them off' : 'Over the top', major: null, attack, defend });
   return true;
@@ -191,7 +197,8 @@ export function finishOverTop(ctx: Ctx, k: SideKey, d: SideKey, hanging: boolean
   const S = ctx.S, A = S.sides[k]!, D = S.sides[d]!, c = S.crowd;
   const margin = roll.attackerTotal - roll.defenderTotal;
   if (roll.landed) {
-    if (hanging || margin >= 5 || pinCondition(D) < 30) {
+    // Battered enough, there's nothing left to hang on with (a Rumble's long haul: only when really spent).
+    if (hanging || margin >= 5 || pinCondition(D) < (S.type === 'rumble' ? 15 : 30)) {
       say(ctx, hanging ? LINES.royalKnockedOff : LINES.royalOver, { a: k, d }, 'hl');
       D.state = { position: 'GROUNDED', orientation: 'FACE_UP', area: 'OUTSIDE', motion: 'STATIONARY' };
       D.lastHitBy = k;
@@ -264,9 +271,11 @@ export function aiRoyalInstinct(ctx: Ctx, k: SideKey): 'ott' | 'skin' | null {
   const D = S.sides[A.target]!;
   if (D.state.area === 'APRON') return ctx.rnd() < 0.85 ? 'ott' : null;
   const n = fighting(S).length;
-  let p = 0.08 + (100 - pinCondition(D)) / 300 + (D.state.area === 'ROPES' || D.state.area === 'CORNER' ? 0.12 : 0) + (n > 6 ? 0.06 : 0);
+  let p = 0.08 + (100 - pinCondition(D)) / (S.type === 'rumble' ? 600 : 300) + (D.state.area === 'ROPES' || D.state.area === 'CORNER' ? 0.12 : 0) + (n > 6 ? 0.06 : 0);
   if (n === 2) p += 0.1;
   if (has(A, 'aggressive')) p += 0.05;
+  // A Rumble still filling up: they brawl, and the heaving starts in earnest once the ring's full.
+  if (S.type === 'rumble' && nextEntrant(S)) p *= clamp(n / 8, 0.35, 1);
   return ctx.rnd() < clamp(p, 0.05, 0.6) ? 'ott' : null;
 }
 
@@ -274,6 +283,18 @@ export function aiRoyalInstinct(ctx: Ctx, k: SideKey): 'ott' | 'skin' | null {
 export function royalAfterAction(ctx: Ctx): void {
   const S = ctx.S;
   if (!isRoyal(S) || S.over) return;
+  // A Rumble's long haul: anyone not in this exchange lays low and gets a breather. Without it the early numbers
+  // were worn to nothing by the end and the last few in won nearly every time (Lyra: 54 of 60 from #21–30).
+  if (S.type === 'rumble') {
+    const ctl = S.control && S.sides[S.control] ? S.control : null, busy = new Set([ctl, ctl ? S.sides[ctl]!.target : null]);
+    for (const k of fighting(S)) {
+      if (busy.has(k)) continue;
+      const s = S.sides[k]!;
+      s.stamina = Math.min(s.maxStamina, s.stamina + s.maxStamina * RUMBLE_BREATHER.stamina);
+      s.fatigue = Math.max(0, s.fatigue - RUMBLE_BREATHER.fatigue);
+      for (const part of BODY_PARTS) s.hp[part] = Math.min(100, s.hp[part] + RUMBLE_BREATHER.hp);
+    }
+  }
   for (const k of fighting(S)) {
     const s = S.sides[k]!;
     if (!FLOOR.has(s.state.area)) continue;

@@ -42,6 +42,12 @@ export interface MatchFeatures {
   saves?: number; steals?: number; elims?: number; people?: number;
   /** Battle royals: people left hanging on, cats skinned, surprise entrants. */
   hangs?: number; skins?: number; surprises?: number;
+  /**
+   * Battle royals and Rumbles, judged on their own terms (Lyra: every Rumble came out 3–3.25): the longest
+   * anyone lasted, where in the draw the winner came from (a Rumble), the most anyone threw out, how long the
+   * final two had, and how many were in it.
+   */
+  royal?: { rumble: boolean; ironMin: number; winFrac: number | null; topElims: number; finalMin: number; entrants: number };
 }
 
 export function matchFeatures(S: MatchState): MatchFeatures {
@@ -66,6 +72,26 @@ export function matchFeatures(S: MatchState): MatchFeatures {
     big: !!S.you.big && S.order.some((k) => has(S.sides[k]!, 'big_match')),
     saves: c.saves ?? 0, steals: c.steals ?? 0, elims: c.elims ?? 0, people: S.order.length,
     hangs: c.hangs ?? 0, skins: c.skins ?? 0, surprises: c.surprises ?? 0,
+    ...(S.type === 'battle_royal' || S.type === 'rumble' ? { royal: royalFeatures(S) } : {}),
+  };
+}
+
+function royalFeatures(S: MatchState): NonNullable<MatchFeatures['royal']> {
+  const end = S.result?.t ?? S.t, E = S.entries ?? {};
+  let iron = 0;
+  for (const k of S.order) {
+    const e = E[k], inAt = e?.inAt ?? (e ? null : 0);
+    if (inAt == null) continue;
+    iron = Math.max(iron, ((e?.outAt ?? end) - inAt) / 60);
+  }
+  const by: Record<string, number> = {};
+  for (const x of S.elims) if (x.by) by[x.by] = (by[x.by] ?? 0) + 1;
+  const w = S.result?.winner;
+  const n = w ? E[w]?.n : undefined;
+  return {
+    rumble: S.type === 'rumble', ironMin: iron, entrants: S.order.length, topElims: Math.max(0, ...Object.values(by)),
+    winFrac: S.type === 'rumble' && n ? n / S.order.length : null,
+    finalMin: (end - (S.elims[S.elims.length - 2]?.t ?? 0)) / 60,
   };
 }
 
@@ -100,9 +126,24 @@ export function ratingDims(f: MatchFeatures, live = false): Record<RatingDim, nu
   craft += live && m < 10 ? 0 : m < 6 ? -0.4 : m < 10 ? -0.15 : m <= 28 ? 0.15 : m <= 35 ? 0 : -0.1;
   craft -= Math.min(0.4, f.repeats * 0.08) + Math.max(0, f.rest - 3) * 0.06;
   const hardcore = Math.min(0.6, (f.tableBreaks * 2 + f.weaponHits + f.bleeds * 1.5) * 0.08);
+  // A battle royal or a Rumble tells its story differently: an iron-man run, a winner from early in the draw,
+  // someone running riot, a surprise; and its craft is a proper final showdown and a sensible length for the field.
+  let royalStory: number | null = null;
+  if (f.royal) {
+    const r = f.royal;
+    const iron = r.ironMin >= 40 ? 0.3 : r.ironMin >= 28 ? 0.2 : r.ironMin >= 18 ? 0.1 : 0;
+    const draw = r.winFrac === null ? 0.15 : r.winFrac <= 0.34 ? 0.35 : r.winFrac <= 0.67 ? 0.18 : 0.04;
+    const riot = r.topElims >= 7 ? 0.25 : r.topElims >= 5 ? 0.15 : r.topElims >= 3 ? 0.06 : 0;
+    royalStory = clamp(iron + draw + riot + (f.surprises ? 0.1 : 0) + (f.comeback ? 0.1 : 0), 0, 1);
+    if (!live) {
+      const want = r.entrants * (r.rumble ? 2.1 : 1.7), off = Math.abs(m - want) / want;
+      craft = 0.3 + (r.finalMin >= 4 ? 0.3 : r.finalMin >= 2 ? 0.15 : 0) + (off <= 0.2 ? 0.2 : off <= 0.4 ? 0.08 : -0.1)
+        + ((f.hangs ?? 0) >= 4 ? 0.1 : 0) - Math.min(0.3, f.repeats * 0.05);
+    }
+  }
   return {
     crowd: clamp(crowdRaw / 1.55, 0, 1),
-    story,
+    story: royalStory ?? story,
     drama: sat(dramaRaw, 1.1),
     craft: clamp(craft, 0, 1),
     spectacle: sat(Math.min(0.3, f.high * 0.06) + Math.min(0.3, f.bigHits * 0.06) + (f.spots > 0 ? 0.1 : 0) + hardcore, 0.45),

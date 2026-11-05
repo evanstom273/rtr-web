@@ -3,7 +3,7 @@
 // grow traits by how you play (always confirmed on a card) or buy them in Training.
 //
 // Traits shift chances. They never decide anything outright.
-import { canAdd, conflictOf, globalScore, hasTrait, TITLES, type TraitId, traitName, TRAITS, type Wrestler, type WrestlerClass, WRESTLERS } from '../data/rtr';
+import { canAdd, conflictOf, globalScore, hasTrait, TITLES, type TraitId, traitName, TRAITS, type Wrestler, type WrestlerClass, WRESTLERS, holds } from '../data/rtr';
 import { hashSeed, seededRng, type Rng } from '../engine/rng';
 import { activeWorld } from '../world/world';
 import { addEvent } from '../world/history';
@@ -199,7 +199,7 @@ function shift(c: Career, w: Wrestler, add: TraitId, drop?: TraitId): boolean {
 /** Circumstances that change someone (Lyra's call: only these, never at random). */
 function drift(c: Career, w: Wrestler, p: Person, rnd: Rng): boolean {
   const D = TRAIT_DRIFT;
-  const reign = TITLES.filter((t) => t.holder === w.id).map((t) => c.titles[t.id]?.since).filter(Boolean) as Day[];
+  const reign = TITLES.filter((t) => holds(t, w.id)).map((t) => c.titles[t.id]?.since).filter(Boolean) as Day[];
   const moves = (p.moves ?? []).filter((d) => daysBetween(d, c.today) <= D.mercenaryMoves.days);
   if (hasTrait(w, 'risk_taker') && w.age >= D.ageMethodical.age && rnd() < D.ageMethodical.p) return shift(c, w, 'methodical', 'risk_taker');
   if (w.age >= D.ageMentor.age && !hasTrait(w, 'mentor') && rnd() < D.ageMentor.p) return shift(c, w, 'mentor');

@@ -10,7 +10,7 @@
 //   it matters (every roll in the ring, training, recovery, retiring);
 // - everyone else has a goal, from their situation and personality.
 // It's tiered (Lyra's call): your circle in detail, the rest of the world in broad strokes.
-import { findWrestler, hasTrait, TITLES, type Wrestler, WRESTLERS, worksFor } from '../data/rtr';
+import { findWrestler, hasTrait, TITLES, type Wrestler, WRESTLERS, worksFor, holds } from '../data/rtr';
 import { hashSeed, seededRng, type Rng } from '../engine/rng';
 import { activeWorld } from '../world/world';
 import { bondOf, bondsOf, bookerOf, dropBond, feelPair, freshPeople, kindOf, likeOf, promoterOf, together, type Bond, type BondKind, type Goal, type Life, type People } from '../world/people';
@@ -269,7 +269,7 @@ export function moodTarget(c: Career, id: string): { v: number; why: string[] } 
   }
   const great = id === c.player ? c.history.some((m) => m.stars >= 4 && daysBetween(m.day, c.today) <= 30) : (p?.form?.stars ?? 0) >= 3.75 && !!p?.last && daysBetween(p.last, c.today) <= 30;
   if (great) parts.push(['great', M.great]);
-  if (TITLES.some((t) => t.holder === id)) parts.push(['champ', M.champ]);
+  if (TITLES.some((t) => holds(t, id))) parts.push(['champ', M.champ]);
   const life = P.lives?.[id];
   if (life?.met && daysBetween(life.met, c.today) <= 90) parts.push(['goal_met', M.goalMet]);
   else if (life?.goal && STRIVING.has(life.goal.kind) && daysBetween(life.goal.since, c.today) > M.stuckDays) parts.push(['goal_stuck', M.goalStuck]);
