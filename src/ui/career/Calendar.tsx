@@ -26,7 +26,7 @@ interface Props {
   onAwayDone?: () => void;
   onAdvance: () => void;
   onShowDay: () => void;
-  onOpen: (screen: 'letters' | 'profile' | 'training' | 'records' | 'requests' | 'phone' | 'office') => void;
+  onOpen: (screen: 'letters' | 'profile' | 'training' | 'records' | 'requests' | 'phone' | 'office' | 'life') => void;
   onAsk: (r: ReqRoute) => void;
   onNegotiate: (offerId: string) => void;
 }
@@ -197,12 +197,13 @@ export function Calendar({ c, busy, skipping, onStop, onSkip, note, awayLog, onA
         </div>
       </div>
 
-      <nav className={`c-tabs4 ${FEATURES.booker ? 'six' : 'five'}`}>
+      <nav className={`c-tabs4 ${['four', 'five', 'six', 'seven'][3 + (FEATURES.booker ? 1 : 0) + (FEATURES.life ? 1 : 0) - 2]}`}>
         <button onClick={() => onOpen('letters')}>{skin === 'paper' ? 'Letters' : 'Mail'}{unread > 0 && <span className="c-badge">{unread}</span>}</button>
         <button onClick={() => onOpen('profile')}>{w('Career')}</button>
         <button onClick={() => onOpen('training')}>{w('Training')}</button>
         <button onClick={() => onOpen('records')}>{skin === 'paper' ? 'Records' : 'DATABASE'}</button>
         <button onClick={() => onOpen('requests')}>{w('Requests')}{waiting > 0 && <span className="c-badge">{waiting}</span>}</button>
+        {FEATURES.life && <button onClick={() => onOpen('life')}>{w('Life')}</button>}
         {FEATURES.booker && <button onClick={() => onOpen('office')}>{w('Office')}</button>}
       </nav>
 

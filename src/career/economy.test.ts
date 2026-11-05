@@ -9,6 +9,10 @@ import { hashSeed } from '../engine/rng';
 import { begin, day, type Runner } from './testkit';
 import { FEATURES } from './tuning';
 import type { Show } from './types';
+import { buyHome, homesValue, letHome, switchTo } from './life/homes';
+import { buyVehicle, garageValue } from './life/garage';
+import { hireAgent } from './life/money';
+import { life } from './life/state';
 
 const setFans = (w: Wrestler, region: (typeof FAN_REGIONS)[number], n: number) => { w.fans[region] = n; };
 const nextMonday = (d: string) => { let x = d; while (weekday(x) !== 1) x = addDays(x, 1); return x; };
@@ -116,7 +120,11 @@ describe('living costs (Lyra’s call: weekly, where you live; switched on with 
 
   it('a new career pays from its first Monday, by where it lives', async () => {
     FEATURES.livingCosts = true;
+    // The flat living cost (with Life on, it's rent on your home: see life.test.ts).
+    const life = FEATURES.life;
+    (FEATURES as { life: boolean }).life = false;
     const c = begin('@indie');
+    (FEATURES as { life: boolean }).life = false;
     expect(c.livingFrom).toBe(c.today);
     const start = c.money;
     for (let i = 0; i < 8; i++) await day(c);
@@ -124,6 +132,7 @@ describe('living costs (Lyra’s call: weekly, where you live; switched on with 
     expect(paid.length).toBe(1);
     expect(-paid[0]!.amount).toBe(livingCost('northAmerica'));
     expect(c.money).toBeLessThanOrEqual(start + 10000);
+    (FEATURES as { life: boolean }).life = life;
   });
 
   it('switched off, nobody pays rent', async () => {
@@ -156,7 +165,7 @@ const realistic: Runner = async (jobs) => jobs.map((j) => {
 });
 const STAT = { movesTried: 20, movesLanded: 12, finTried: 1, finHit: 1, sigTried: 1, sigHit: 1, reversalTries: 5, reversalWins: 2, kickouts: 2, pinTries: 3 };
 
-interface Life { name: string; player: string; setup?: (c: Career, w: Wrestler) => void; acceptPerMonth: number; wage: number }
+interface Life { name: string; player: string; setup?: (c: Career, w: Wrestler) => void; acceptPerMonth: number; wage: number; /** Spend spare money on training (the old sink); off for the Life lives. */ training?: boolean; /** Life: buy things on this day of the career. */ at?: number; buy?: (c: Career) => void }
 
 async function live(life: Life, months = 24) {
   const c = begin(life.player, 11);
@@ -184,11 +193,12 @@ async function live(life: Life, months = 24) {
       if (!acceptLetter(c, l).startsWith('That')) accepted++;
     }
     await day(c, realistic, 'simmed');
+    if (life.buy && c.today === addDays(c.startedOn, life.at ?? 0)) life.buy(c);
     me.fans = { ...fans };
     dates += c.history.length - before;
     if (weekday(c.today) === 1) {
       if (life.wage) spend(c, life.wage, 'Day job', 'wage');
-      for (let k = 0; k < 4 && c.money - trainingPrice(attributeTotal(me)) >= 1000; k++) {
+      for (let k = 0; k < 4 && life.training !== false && c.money - trainingPrice(attributeTotal(me)) >= 1000; k++) {
         const price = trainingPrice(attributeTotal(me));
         const key = (['strength', 'speed', 'stamina', 'skill', 'striking', 'charisma'] as const).find((s) => me.stats[s] < 100);
         if (!key) break;
@@ -204,14 +214,18 @@ async function live(life: Life, months = 24) {
     if ([90, 182, 365, 547, 730].some((d) => c.today === addDays(c.startedOn, d))) rows.push(`£${Math.round(c.money).toLocaleString('en-GB')}`);
   }
   const by = (k: string) => Math.round(c.totals?.[k as 'fee']?.amount ?? 0);
-  return `${life.name}: balance at 3/6/12/18/24 months ${rows.join(', ')} · ${(dates / months).toFixed(1)} dates a month · fees £${by('fee').toLocaleString('en-GB')} · merch £${by('merch').toLocaleString('en-GB')} · events £${by('event').toLocaleString('en-GB')} · wages £${by('wage').toLocaleString('en-GB')} · travel £${(-by('travel')).toLocaleString('en-GB')} · living £${(-by('living')).toLocaleString('en-GB')} · ${points} points (total ${startTotal} → ${attributeTotal(me)}) · fans ${fansTotal(me).toLocaleString('en-GB')}`;
+  // Life: what you own less what you owe.
+  const L = c.life;
+  const worth = Math.round(c.money + (L ? homesValue(c) + garageValue(c) - L.loans.reduce((t, l) => t + l.left, 0) : 0));
+  const life$ = L ? ` · rent £${(-by('rent')).toLocaleString('en-GB')} · homes £${(-by('home')).toLocaleString('en-GB')} · transport £${(-by('transport')).toLocaleString('en-GB')} · repayments £${(-by('loan')).toLocaleString('en-GB')} · tax £${(-by('tax')).toLocaleString('en-GB')} · agent £${(-by('agent')).toLocaleString('en-GB')} · worth £${worth.toLocaleString('en-GB')}${L.loans.length ? ` (owes £${Math.round(L.loans.reduce((t, l) => t + l.left, 0)).toLocaleString('en-GB')})` : ''}${c.letters.some((x) => /Repossessed/.test(x.subject)) ? ' · REPOSSESSED' : ''}` : '';
+  return `${life.name}: balance at 3/6/12/18/24 months ${rows.join(', ')} · ${(dates / months).toFixed(1)} dates a month · fees £${by('fee').toLocaleString('en-GB')} · merch £${by('merch').toLocaleString('en-GB')} · events £${by('event').toLocaleString('en-GB')} · wages £${by('wage').toLocaleString('en-GB')} · travel £${(-by('travel')).toLocaleString('en-GB')} · living £${(-by('living')).toLocaleString('en-GB')}${life$} · ${points} points (total ${startTotal} → ${attributeTotal(me)}) · fans ${fansTotal(me).toLocaleString('en-GB')}`;
 }
 
 describe.skipIf(!process.env.ECON)('ECON=1: two years of five lives', () => {
   it('reports', async () => {
     const indieWith = (homeFans: number) => (_c: Career, w: Wrestler) => {
       for (const r of FAN_REGIONS) w.fans[r] = Math.round(homeFans * (r === 'europe' ? 1 : 0.05));
-      w.country = 'England';
+      w.country = 'UK';
       w.region = 'EUROPE';
     };
     const lives: Life[] = [
@@ -221,6 +235,24 @@ describe.skipIf(!process.env.ECON)('ECON=1: two years of five lives', () => {
       { name: 'Successful indie (50k fans), full-time', player: '@indie', setup: indieWith(50000), acceptPerMonth: 10, wage: 0 },
       { name: 'Newly signed, bottom of VWF', player: [...WRESTLERS].filter((w) => w.promotion === 'VWF').sort((a, b) => fansTotal(a) - fansTotal(b))[0]!.id, acceptPerMonth: 0, wage: 0 },
       { name: 'Established star (Buck Stratton)', player: 'buck_stratton', acceptPerMonth: 0, wage: 0 },
+      ...(FEATURES.life ? [
+        // Life: a careful star (a house on a mortgage, a decent car, an established agent) and a flash one (a mansion
+        // and a jet on finance, a luxury car, a penthouse to let).
+        // Stars start a career with a few thousand in the bank: they buy three months in.
+        { name: 'Established star, careful', player: 'buck_stratton', acceptPerMonth: 0, wage: 0, training: false, setup: (c: Career) => { hireAgent(c, 'established'); }, at: 91, buy: (c: Career) => {
+          const L = life(c);
+          for (const t of ['house', 'flat'] as const) if (buyHome(c, L.city, t, true).ok) break;
+          const h = L.homes.find((x) => x.own); if (h) switchTo(c, h.id);
+          buyVehicle(c, 'car', false);
+        } },
+        { name: 'Established star, flash', player: 'buck_stratton', acceptPerMonth: 0, wage: 0, training: false, setup: (c: Career) => { hireAgent(c, 'super'); }, at: 91, buy: (c: Career) => {
+          const L = life(c);
+          for (const t of ['mansion', 'penthouse', 'house'] as const) if (buyHome(c, L.city, t, true).ok) break;
+          const h = L.homes.find((x) => x.own); if (h) switchTo(c, h.id);
+          buyVehicle(c, 'jet_share', true); buyVehicle(c, 'luxury_car', true); buyVehicle(c, 'tour_bus', true);
+          const second = buyHome(c, L.city === 'London' ? 'Manchester' : 'London', 'flat', true); if (second.id) letHome(c, second.id, true);
+        } },
+      ] as Life[] : []),
     ];
     for (const l of lives) console.log(await live(l));
     void fansForScore; void getPromotion;

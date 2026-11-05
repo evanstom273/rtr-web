@@ -66,8 +66,6 @@ export interface LifeState {
   /** How you fly abroad by default, and per-show upgrades. */
   fly: FlyClass;
   trips?: Record<string, FlyClass>;
-  /** Mates riding with you in the van or on the bus. */
-  crew?: string[];
   /** Tax this calendar year: what you've earned (taxable) and paid. */
   tax: { year: string; earned: number; paid: number };
   /** Taxable earnings by month (the last twelve), for what you can borrow. */
@@ -75,6 +73,10 @@ export interface LifeState {
   agent?: AgentState;
   /** When each month's bills last went out (YYYY-MM). */
   billed?: string;
+  /** Bankrupt: no borrowing until this day. */
+  bust?: Day;
+  /** Take mates along in the van or on the bus (they chip in; bonds grow on the road). */
+  crewOn?: boolean;
   seq: number;
 }
 

@@ -6,6 +6,7 @@ import { travelCost } from '../economy';
 import { cityFor, cityKm, regionOfCountry } from '../places';
 import { PRICE_BOOK as PB, TRAVEL_FATIGUE } from '../tuning';
 import type { Career } from '../types';
+import { roadCrew } from './garage';
 import { homeCity, life, on, type FlyClass, type Vehicle, type VehicleTier } from './state';
 
 export interface Place { country: string; city?: string }
@@ -35,7 +36,7 @@ export const jetOf = (c: Career): Vehicle | undefined => (on('homes') && c.life 
 export const flyClass = (c: Career, showId?: string): FlyClass => (showId && c.life?.trips?.[showId]) || c.life?.fly || 'economy';
 
 /** Mates riding along chip in (the van and the bus). */
-const chipIn = (c: Career, v: Vehicle | undefined): number => (v && PB.vehicles[v.tier].seats > 4 ? Math.min(c.life?.crew?.length ?? 0, PB.vehicles[v.tier].seats - 1) * PB.chipIn : 0);
+const chipIn = (c: Career, v: Vehicle | undefined): number => (v ? roadCrew(c, PB.vehicles[v.tier].seats).length * PB.chipIn : 0);
 
 const homePlace = (c: Career): Place => ({ country: homeCountry(c), city: homeCity(c) });
 
@@ -84,11 +85,13 @@ export const fastAbroad = (c: Career, showId?: string): boolean => !!jetOf(c) ||
  * morning of the show; abroad the whole day before (half a day by jet). Coming home: a long trip the next morning;
  * abroad the whole next day (the next morning by jet).
  */
-export function legHalves(c: Career, from: Place, to: Place, day: Day, after: boolean, showId?: string): [Day, 'am' | 'pm'][] {
+export function legHalves(c: Career, from: Place, to: Place, day: Day, after: boolean, showId?: string, amStart = false): [Day, 'am' | 'pm'][] {
   const b = band(from, to);
   if (b === 'local') return [];
-  if (b === 'short') return after ? [] : [[day, 'am']];
-  if (b === 'long' || (b === 'abroad' && fastAbroad(c, showId))) return [[after ? addDays(day, 1) : day, 'am']];
+  // Something that starts in the morning (a convention): you go the evening before.
+  const out: [Day, 'am' | 'pm'] = amStart ? [addDays(day, -1), 'pm'] : [day, 'am'];
+  if (b === 'short') return after ? [] : [out];
+  if (b === 'long' || (b === 'abroad' && fastAbroad(c, showId))) return [after ? [addDays(day, 1), 'am'] : out];
   const d = after ? addDays(day, 1) : addDays(day, -1);
   return [[d, 'am'], [d, 'pm']];
 }

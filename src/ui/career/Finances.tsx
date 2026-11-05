@@ -4,12 +4,15 @@ import { REGION_LABEL } from '../../career/places';
 import { FEATURES, JOBS } from '../../career/tuning';
 import { fmtDay } from '../../career/dates';
 import { commit, Head, money, Screen, useToast, useWords } from './parts';
+import { billsOf, homeName, rentWeek } from '../../career/life/homes';
+import { liveHome, on } from '../../career/life/state';
 
 interface Props { c: Career; onBack: () => void }
 
 const KINDS: [Entry['kind'][], string][] = [
   [['fee', 'bonus'], 'Match fees'], [['merch'], 'Merch'], [['event'], 'Appearances and events'], [['wage'], 'Wages'], [['travel'], 'Travel'], [['training'], 'Training'],
-  [['medical'], 'Medical'], [['living'], 'Living costs'], [['relocation'], 'Moving'], [['company'], 'Your promotion'], [['buyout'], 'Buyouts'], [['start'], 'Starting money'],
+  [['medical'], 'Medical'], [['living'], 'Living costs'], [['rent'], 'Rent'], [['home'], 'Homes'], [['transport'], 'Getting about'], [['loan'], 'Repayments'],
+  [['tax'], 'Tax'], [['agent'], 'Your agent'], [['relocation'], 'Moving'], [['company'], 'Your promotion'], [['buyout'], 'Buyouts'], [['start'], 'Starting money'],
 ];
 
 /** Career → Finances: the bank, this month, and every pound in and out. */
@@ -50,7 +53,9 @@ export function Finances({ c, onBack }: Props) {
         )}
         {(FEATURES.livingCosts || c.job) && (
           <div className="c-kv">
-            {FEATURES.livingCosts && <><span className="c-lab">{w('Living costs')}</span><span className="c-val">{money(livingCost(baseRegion(c)))} a week in {REGION_LABEL[baseRegion(c)]}, every Monday</span></>}
+            {FEATURES.livingCosts && (on('homes')
+              ? <><span className="c-lab">{w('Home')}</span><span className="c-val">{homeName(liveHome(c))} · {money(liveHome(c).own ? billsOf(liveHome(c)) : rentWeek(liveHome(c).tier as 'room', liveHome(c).city))} a week, every Monday</span></>
+              : <><span className="c-lab">{w('Living costs')}</span><span className="c-val">{money(livingCost(baseRegion(c)))} a week in {REGION_LABEL[baseRegion(c)]}, every Monday</span></>)}
             {c.job && <><span className="c-lab">{w('Day job')}</span><span className="c-val">{JOBS[c.job.id].name} · {money(shiftPay(c, c.job.id))} a shift, paid Fridays</span></>}
           </div>
         )}
@@ -73,7 +78,8 @@ export function Finances({ c, onBack }: Props) {
         {c.ledger.length === 0 && <span className="c-note">Nothing yet.</span>}
         {c.ledger.map((e, i) => {
           const a = amt(e.amount);
-          return <div key={i} className="c-led"><span className="c-hint">{fmtDay(e.day, 'dm')}</span><span className="c-val">{e.text}</span><b className={a.c}>{a.v}</b></div>;
+          const off = e.gross ? [e.tax ? `${money(e.tax)} tax` : '', e.agent ? `${money(e.agent)} agent` : ''].filter(Boolean).join(', ') : '';
+          return <div key={i} className="c-led"><span className="c-hint">{fmtDay(e.day, 'dm')}</span><span className="c-val">{e.text}{off ? <span className="c-hint"> · {money(e.gross!)} less {off}</span> : null}</span><b className={a.c}>{a.v}</b></div>;
         })}
       </div>
       <div className="c-nav"><button className="c-b2" onClick={onBack}>{w('‹ Back')}</button><button className="c-b1" onClick={onBack}>{w('Done')}</button></div>

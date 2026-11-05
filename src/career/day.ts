@@ -14,7 +14,10 @@ import { isOffice } from './company';
 import { addDays, daysBetween, fmtDay, weekday, type Day } from './dates';
 import { attributeTotal, trainingPrice } from './economy';
 import { fire, ctxFor, registerEvents, type EventDef } from './events';
-import { REGION_LABEL, regionOfCountry } from './places';
+import { cityFor, REGION_LABEL, regionOfCountry } from './places';
+import { homeCity, on, type RentTier } from './life/state';
+import { legHalves } from './life/travel';
+import { arrive } from './life/homes';
 import type { SimJob, SimOut } from './sim';
 import {
   COST_INDEX, FEATURES, FRIEND_LOAN, FRIEND_LOAN_BOND, GIG_DEFAULT_SHIFTS, GIG_SHIFT_PAY, JOB_HOLIDAY, JOB_NOTICE_DAYS, JOB_STRIKE_DAYS, JOB_STRIKES, JOBS,
@@ -36,13 +39,13 @@ export const baseCountry = (c: Career): string => c.base ?? me(c).country;
 
 // ------------------------------------------------------------------ bookings and the itinerary
 
-interface Booking { day: Day; country: string; show: string; name: string; ph: PhaseName; gig?: boolean }
+interface Booking { day: Day; country: string; city?: string; show: string; name: string; ph: PhaseName; gig?: boolean }
 
 /** Everything you're booked on from today: promotion cards, indie dates, tryouts, side gigs (and a candidate). */
 export function bookings(c: Career, extra?: Show, extraGig?: Gig): Booking[] {
   const out = new Map<string, Booking>();
-  const add = (s: Show) => out.set(s.id, { day: s.date, country: s.country, show: s.id, name: s.name, ph: s.phase ?? 'pm' });
-  const addGig = (g: Gig) => { for (const ph of g.phases) out.set(`${g.id}|${ph}`, { day: g.day, country: g.country, show: g.id, name: g.name, ph, gig: true }); };
+  const add = (s: Show) => out.set(s.id, { day: s.date, country: s.country, city: s.city, show: s.id, name: s.name, ph: s.phase ?? 'pm' });
+  const addGig = (g: Gig) => { for (const ph of g.phases) out.set(`${g.id}|${ph}`, { day: g.day, country: g.country, city: g.city, show: g.id, name: g.name, ph, gig: true }); };
   for (const s of Object.values(c.shows)) {
     if (s.date < c.today || s.done) continue;
     if (c.indie[s.id] || c.tryouts?.[s.id] || s.card?.some((b) => (b.a === c.player || b.b === c.player) && !b.result)) add(s);
@@ -68,15 +71,21 @@ export function occupied(c: Career, list = bookings(c)): Map<string, string[]> {
   const occ = new Map<string, string[]>();
   const put = (k: string, what: string) => occ.set(k, [...(occ.get(k) ?? []), what]);
   const base = baseCountry(c);
+  // Life: a trip is a distance between cities, and what you travel in sets how long it takes.
+  const cities = on('homes');
+  const home = { country: base, city: cities ? homeCity(c) : undefined };
+  const legs = (from: { country: string; city?: string }, to: { country: string; city?: string }, day: Day, after: boolean, show: string, am = false): string[] =>
+    cities ? legHalves(c, from, to, day, after, show, am).map(([d, h]) => pkey(d, h)) : (legPhases(place(from.country), place(to.country), day, after) as string[]);
   list.forEach((b, i) => {
     put(pkey(b.day, b.ph), b.gig ? `the gig (${b.name})` : `the show (${b.name})`);
     // A whole-day gig's two halves are one trip.
     if (b.gig && list[i - 1]?.show === b.show) return;
     const prev = list[i - 1], next = list[i + 1];
-    const from = prev && daysBetween(prev.day, b.day) <= TOUR_DAYS ? prev.country : base;
-    for (const k of legPhases(place(from), place(b.country), b.day, false)) put(k, `travelling to ${b.country}`);
+    const from = prev && daysBetween(prev.day, b.day) <= TOUR_DAYS ? prev : home;
+    const where = cities && b.city ? b.city : b.country;
+    for (const k of legs(from, b, b.day, false, b.show, b.ph === 'am')) put(k, `travelling to ${where}`);
     const after = next?.show === b.show ? list[i + 2] : next;
-    if (!(next?.show === b.show) && (!after || daysBetween(b.day, after.day) > TOUR_DAYS)) for (const k of legPhases(place(b.country), place(base), b.day, true)) put(k, `travelling home from ${b.country}`);
+    if (!(next?.show === b.show) && (!after || daysBetween(b.day, after.day) > TOUR_DAYS)) for (const k of legs(b, home, b.day, true, b.show)) put(k, `travelling home from ${where}`);
   });
   if (c.moving) for (let d = c.today; d < c.moving.until; d = addDays(d, 1)) { put(pkey(d, 'am'), 'moving house'); put(pkey(d, 'pm'), 'moving house'); }
   return occ;
@@ -295,16 +304,23 @@ const CLASH: EventDef = {
 export function relocateCost(c: Career, country: string): number {
   return regionOfCountry(country) === regionOfCountry(baseCountry(c)) ? RELOCATE_COST.region : RELOCATE_COST.abroad;
 }
-/** Move house: costs money (a promotion may pay), takes three days, ends a day job. */
-export function relocate(c: Career, country: string, subsidy = 0): string {
+/**
+ * Move house: costs money (a promotion may pay), takes three days, ends a day job if it's another country.
+ * Life: you move to a city, into a place (renting a tier, or a home you own); with no city given, the country's
+ * first city, renting what you rent now.
+ */
+export function relocate(c: Career, country: string, subsidy = 0, into?: { city: string; tier?: RentTier; home?: string }): string {
   if (c.moving) return 'You’re already moving.';
-  if (country === baseCountry(c)) return 'You already live there.';
-  const share = Math.round(relocateCost(c, country) * (1 - subsidy));
+  const city = on('homes') ? into?.city ?? cityFor(country) : undefined;
+  if (city ? city === homeCity(c) && !into?.tier && !into?.home : country === baseCountry(c)) return 'You already live there.';
+  const near = city && country === baseCountry(c);
+  const share = Math.round((near ? Math.round(RELOCATE_COST.region / 2) : relocateCost(c, country)) * (1 - subsidy));
   if (share > 0 && c.money - share < 0 && subsidy < 1) return 'You can’t afford the move right now.';
-  if (share > 0) spend(c, -share, `Moving to ${country}`, 'relocation');
-  if (c.job) quitJob(c, 'You’re moving away');
-  c.moving = { to: country, until: addDays(c.today, RELOCATE_DAYS) };
-  return `Moving to ${country}: three days, ${share ? `£${share.toLocaleString('en-GB')}` : 'paid for'}.`;
+  const where = city ? `${city}, ${country}` : country;
+  if (share > 0) spend(c, -share, `Moving to ${where}`, 'relocation');
+  if (c.job && !near) quitJob(c, 'You’re moving away');
+  c.moving = { to: country, until: addDays(c.today, RELOCATE_DAYS), ...(city ? { city, ...(into?.tier ? { tier: into.tier } : {}), ...(into?.home ? { home: into.home } : {}) } : {}) };
+  return `Moving to ${where}: three days, ${share ? `£${share.toLocaleString('en-GB')}` : 'paid for'}.`;
 }
 
 /** Travel & Accommodation: the share of a move a promotion pays (Tier 3 all of it; none without the clause). */
@@ -352,9 +368,11 @@ function daily(c: Career): void {
     c.daysFrom ??= c.today;
     if (c.moving && c.today >= c.moving.until) {
       const to = c.moving.to;
+      if (c.moving.city && on('homes')) arrive(c, c.moving);
       c.base = to;
+      const city = c.moving.city;
       delete c.moving;
-      letter(c, { kind: 'news', from: 'Home', subject: `Moved to ${to}`, body: [`You live in ${to} now (${REGION_LABEL[regionOfCountry(to)]}).`] });
+      letter(c, { kind: 'news', from: 'Home', subject: `Moved to ${city ?? to}`, body: [`You live in ${city ? `${city}, ${to}` : to} now (${REGION_LABEL[regionOfCountry(to)]}).`] });
     }
     // Signed somewhere far away: the promotion offers to move you, once a contract.
     const k = c.people[c.player]?.contract;

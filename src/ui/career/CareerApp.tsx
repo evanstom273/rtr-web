@@ -31,6 +31,7 @@ import { ShowDay } from './ShowDay';
 import { Start, type StartDeal } from './Start';
 import { OwnShow } from './OwnShow';
 import { Office } from './Office';
+import { Life } from './Life';
 import { Social } from './Social';
 import { Stats } from './Stats';
 import { Training } from './Training';
@@ -40,7 +41,7 @@ import './career.css';
 import './career-app.css';
 
 export type CareerScreen =
-  | 'cal' | 'show' | 'profile' | 'letters' | 'contract' | 'training' | 'finances' | 'history' | 'stats' | 'records' | 'moveset' | 'start' | 'create' | 'requests' | 'relationships' | 'week' | 'social' | 'ownshow' | 'history' | 'phone' | 'office'
+  | 'cal' | 'show' | 'profile' | 'letters' | 'contract' | 'training' | 'finances' | 'history' | 'stats' | 'records' | 'moveset' | 'start' | 'create' | 'requests' | 'relationships' | 'week' | 'social' | 'ownshow' | 'history' | 'phone' | 'office' | 'life'
   | { negotiate: string } | { requests: number } | { phone: string } | ReqRoute;
 
 interface Props {
@@ -253,6 +254,7 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
     case 'week': return <Week c={c} onBack={back} onOwnShow={() => go('ownshow')} />;
     case 'ownshow': return <OwnShow c={c} onBack={back} />;
     case 'office': return <Office c={c} onBack={back} />;
+    case 'life': return <Life c={c} onBack={back} />;
     case 'social': return <Social c={c} onBack={back} />;
     case 'requests': return <Requests c={c} onBack={back} onFlow={(r) => go(r)} onNegotiate={(id) => go({ negotiate: id })} />;
     case 'moveset': {

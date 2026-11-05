@@ -44,6 +44,9 @@ export function who(player: string): string {
 /** A fresh world and a career in it. (MATCHES_ON=1: with the match overhaul on, for the long-run harnesses.) */
 export function begin(player: string, seed = 7, today = '2026-11-03'): Career {
   if (process.env.MATCHES_ON) (FEATURES as { matches: boolean }).matches = true;
+  // LIFE_ON=1 / LIFE_OFF=1: the suite with Life on or off, whatever the default.
+  if (process.env.LIFE_ON) (FEATURES as { life: boolean }).life = true;
+  if (process.env.LIFE_OFF) (FEATURES as { life: boolean }).life = false;
   const w = setWorld(freshWorld(seed));
   const c = startCareer({ player: who(player), today, seed });
   w.career = c;

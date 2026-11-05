@@ -156,6 +156,10 @@
 .cr .c-tabs4.six{grid-template-columns:repeat(6,minmax(0,1fr));gap:3px}
 .cr .c-tabs4.six button{font-size:12px;letter-spacing:0;padding:0 1px}
 .cr .c-tabs4 button:nth-child(6){border-top-color:var(--cr-hi)}
+/* Seven (Life and the Office): two rows of four, so nothing's squeezed on a phone. */
+.cr .c-tabs4.seven{grid-template-columns:repeat(4,minmax(0,1fr));gap:3px}
+.cr .c-tabs4.seven button{min-height:44px;font-size:14px;letter-spacing:.02em}
+.cr .c-tabs4 button:nth-child(7){border-top-color:var(--cr-good)}
 .cr .c-search{min-height:42px;padding:0 12px;border:1px solid var(--cr-line);background:var(--cr-panel);color:var(--cr-fg);font:inherit;font-size:15px}
 .cr button.c-b1:disabled{opacity:.45}
 /* Relationships: a bar from the middle, green to the right for warmth, red to the left for bad blood. */

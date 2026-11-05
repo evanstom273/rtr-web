@@ -22,6 +22,10 @@ import type { Career, Contract, Offer } from './types';
 export interface Proposal { fee: number; months: number; clauses: number[]; dates?: number; triggers?: BonusTrigger[] }
 export type Mood = 'keen' | 'happy' | 'hesitant' | 'losing';
 
+/** Life: an agent gets you more (career/life/agent.ts plugs in). */
+let agentLift: (c: Career) => number = () => 1;
+export const setAgentLift = (f: (c: Career) => number): void => { agentLift = f; };
+
 /** What a promotion will pay you a weekly-show match on a standard (Major Exclusive) deal, before any other clauses. */
 export function willingness(c: Career, promo: string, excludeOffer?: string): number {
   const me = findWrestler(c.player)!;
@@ -38,6 +42,7 @@ export function willingness(c: Career, promo: string, excludeOffer?: string): nu
   if (playerHas(c, 'loyal') && p.contract?.promo === promo) base *= TRAIT_BACKSTAGE.loyal.ownRenewal;
   // ...and the booker's: a mercenary one pays less, an ambitious one pays for stars.
   base *= willingnessMult(promo, me, rosterOf(promo));
+  base *= agentLift(c);
   const rival = c.offers.filter((o) => o.status === 'open' && o.promo !== promo && o.id !== excludeOffer).reduce((m, o) => Math.max(m, o.fee), 0);
   return round5(Math.max(base, rival * (playerHas(c, 'mercenary') ? TRAIT_BACKSTAGE.mercenary.rivalLift : NEGO_RIVAL_LIFT)));
 }
@@ -178,7 +183,7 @@ export function signOffer(c: Career, o: Offer): string {
   }
   const start = p.contract && p.contract.promo !== o.promo ? o.start > c.today ? o.start : addDays(p.contract.end, 1) : c.today;
   const k: Contract = {
-    promo: o.promo, start, end: addMonths(start, o.months), fee: o.fee, clauses: [...o.clauses],
+    promo: o.promo, start, end: addMonths(start, o.months), fee: o.fee, clauses: [...o.clauses], ...(c.life?.agent ? { agent: true } : {}),
     ...(o.pkg ? { pkg: o.pkg } : {}), ...(o.dates ? { dates: o.dates } : {}), ...(o.triggers?.length ? { triggers: [...o.triggers] } : {}),
     since: p.contract?.promo === o.promo ? p.contract.since ?? p.contract.start : start,
   };
@@ -234,7 +239,7 @@ function signSecond(c: Career, o: Offer): string {
   }
   const dates = Math.max(1, Math.min(SPLIT_DATES_TOTAL - 2, o.dates ?? SPLIT_DEFAULT_NEW));
   const k: Contract = {
-    promo: o.promo, start: c.today, end: addMonths(c.today, o.months), fee: o.fee, clauses: [...o.clauses], dates, since: c.today,
+    promo: o.promo, start: c.today, end: addMonths(c.today, o.months), fee: o.fee, clauses: [...o.clauses], dates, since: c.today, ...(c.life?.agent ? { agent: true } : {}),
     ...(o.pkg ? { pkg: o.pkg } : {}), ...(o.triggers?.length ? { triggers: [...o.triggers] } : {}),
   };
   // Lyra's call: the month splits between them when you sign. The others share what's left.

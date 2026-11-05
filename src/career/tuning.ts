@@ -730,7 +730,7 @@ export const BACKDATE = { debut: [19, 22] as [number, number], potentialSpread: 
 /** Shipped wrestlers retire as if this many years younger (Lyra's call: the names you know stay a bit longer). */
 export const SHIPPED_RETIRE_YOUNGER = 3;
 /** Match overhaul (tag teams, multi-mans, battle royals, Rumbles, the new stipulations): off until Lyra approves. */
-export const FEATURES = { livingCosts: true, social: true, days: true, jobs: true, skip: true, mail: true, hustles: true, history: true, phone: true, booker: true, matches: true, life: false };
+export const FEATURES = { livingCosts: true, social: true, days: true, jobs: true, skip: true, mail: true, hustles: true, history: true, phone: true, booker: true, matches: true, life: true };
 /** Life (things to buy, own, run and lose): each part switches on as it's built. `on(part)` in career/life/state.ts. */
 export const LIFE_PARTS = { homes: true, money: true, staff: false, invest: false, ai: false, school: false, status: false, family: false, risk: false, after: false };
 
@@ -1387,8 +1387,8 @@ export const PRICE_BOOK = {
   /** A trip by distance (km): cost and fatigue by bus and train (the 'long' and 'abroad' rows are today's region and abroad). */
   trip: {
     local: { km: 100, cost: 0, fatigue: 0 },
-    short: { km: 500, cost: 40, fatigue: 2, road: 25 },
-    long: { km: Infinity, cost: 80, fatigue: 4, road: 60 },
+    short: { km: 500, cost: 20, fatigue: 2, road: 12 },
+    long: { km: Infinity, cost: 60, fatigue: 4, road: 40 },
     abroad: { cost: 250, fatigue: 10 },
   },
   /** Mates in the van or on the bus chip in this much a trip each. */
