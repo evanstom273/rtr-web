@@ -74,6 +74,9 @@ function careerSide(s: Side, rules: MatchRulesConfig, rnd: Rng): Side {
   s.form = rollForm(s, rnd);
   const mood = rules.mood?.[s.key];
   if (mood) s.mood = mood;
+  // Lasting damage: the worn parts start the match below full.
+  const wear = rules.wear?.[s.key];
+  if (wear) for (const [part, hp] of Object.entries(wear)) if (hp !== undefined) s.hp[part as keyof Side['hp']] = Math.max(1, Math.min(100, hp));
   const fresh = rules.freshness?.[s.key];
   if (fresh !== undefined && fresh < 1) s.stamina = Math.max(1, Math.round(s.maxStamina * Math.max(0, fresh)));
   return s;

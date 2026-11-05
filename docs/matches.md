@@ -265,6 +265,38 @@ From the approved mock-ups, in all three skins:
   in, so old screens and old records read as they always did.
 - Dev only: `?matches=1` turns the flag on for that session.
 
+## Stage 8: the world (`world/matchWorld.ts`, `career/stakes.ts`)
+
+Set up once per world, and only with the flag on (`ensureMatchWorld`, idempotent; no world revision, so a
+world played with the flag off picks it up the first time it's turned on).
+
+- **Teams** (`World.teams`): named (an "Iron Saints" sort of name, or their surnames), with a record,
+  chemistry (0–100: their bonds at first, then +2 a win, −1 a loss) and, once they've the chemistry for
+  it, a team finisher. Every major starts with four men's teams and two women's, friends first (both like
+  each other 25+), then whoever's left on the same side of the fence; SLN also has two trios (masked men
+  first). Each month the AI forms a new team or two from friends who aren't in one, and splits stale ones
+  (poor chemistry, or one outgrowing the other) — a heel in the team usually with a betrayal; a team whose
+  members end up on different rosters is finished. A team title goes with a split.
+- **Titles** (`Title.kind`, `holders`, `team`): a tag title for every major, trios for SLN, a hardcore
+  title for END and IVW (Lyra's hardcore promotions), crowned from the best team (fans) or the most
+  willing hardcore wrestler, with their reigns in the history under the team's name.
+- **Masks** (`Wrestler.masked`): most of SLN (70%), some of SSWC (25%), anyone whose gimmick says so, and
+  hardly anyone else (2%). Losing it (`unmask`) is for good: fans down a fifth — or, one time in seven, up
+  a little, the face behind it taking off. Hair matches shave a head (sympathy for a babyface, laughter at
+  a heel).
+- **Hardcore willingness** (`Wrestler.hardcore`: −1 won't, 0 will, 1 loves it): hardcore wrestlers and the
+  hardcore promotions love it; the careful (defensive, professional) and the over-40s are likelier to
+  refuse. The player has the existing Match Conditions ("No Hardcore") for theirs.
+- **Lasting damage** (`Person.wear`, `scars`): a match leaves wear on the parts that took it (12% of the
+  damage, half as much again for hardcore stipulations and double for deathmatches, the Cell and the
+  scaffold), fading about 8% a week; worn parts start the next match below full (half the wear) and make
+  injuries likelier (up to about +40%). Violent matches leave scars, kept on the record.
+- **Stakes** (`applyStakes`): loser leaves town (released, and barred for a year), mask vs mask / hair vs
+  hair / mask vs hair, title vs career (a career on the line retires the loser), retirement, a contract,
+  number one contendership (a title shot for the AI, a promise for the player), and the Money in the Bank
+  briefcase (`World.briefcases`: a shot whenever they like, for a year; unused ones run out). Booked and
+  applied by the career in stage 9.
+
 ### Harness
 
 `MATCHES=1 npx vitest run src/engine/__tests__/matchesrun.test.ts` runs 40 of each type and reports:
