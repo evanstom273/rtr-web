@@ -136,6 +136,19 @@ export const LINES = {
 
   pinWin: '<G>ONE, TWO, THREE!</G> {a} wins{x}.',
   subWin: '<G>{x} TAPS!</G> {a} wins with {m}.',
+
+  // More than two people (match overhaul).
+  multiBell: '<g>The bell rings.</g> {x}: {n} of them, and only one way this ends.',
+  multiBellElim: '<g>The bell rings.</g> {x}: {n} of them, and they go one at a time until there’s one left.',
+  multiUp: '{a} is back on their feet.',
+  multiBetrayal: '{a} turns on {d}! So much for the alliance.',
+  multiSave: '{a} dives in and breaks it up before one!',
+  multiSaveTwo: '<g>{a} breaks it up at two!</g> {d} had {x} beaten.',
+  multiSaveHold: '{a} stomps {d} loose. {x} is out of the hold.',
+  multiSteal: '<g>{a} throws {d} off and covers {x} themselves!</g>',
+  multiTooLate: '{a} can’t get there in time.',
+  multiElim: '<G>{d} is out!</G> {x} by {a}. {n} left.',
+  multiElimNoOne: '<G>{d} is out!</G> {x}. {n} left.',
 } as const;
 
 export const COUNT_WORDS = ['', 'ONE!', 'TWO!', 'THREE!', 'FOUR!', 'FIVE!', 'SIX!', 'SEVEN!', 'EIGHT!', 'NINE!', 'TEN!'];

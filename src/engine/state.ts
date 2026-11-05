@@ -88,6 +88,21 @@ export interface StateOpts {
   type?: MatchType;
 }
 
+/** What kind of match a set of teams makes, when the booker hasn't said. */
+export function inferType(teams: number[]): MatchType {
+  if (teams.length <= 2 && new Set(teams).size === 2) return 'singles';
+  const sizes = [...new Set(teams)].map((t) => teams.filter((x) => x === t).length);
+  if (sizes.every((n) => n === 1)) return teams.length === 3 ? 'triple' : teams.length === 4 ? 'fourway' : 'multi';
+  return sizes.every((n) => n === sizes[0]) ? 'tornado' : 'handicap';
+}
+
+/** Heels on different teams work together while there's a face to beat up (more than two teams only). */
+function allianceAtBell(sides: Side[]): MatchState['alliance'] {
+  if (new Set(sides.map((s) => s.team)).size < 3) return 'none';
+  const heels = sides.filter((s) => s.w.disposition === 'HEEL');
+  return new Set(heels.map((s) => s.team)).size >= 2 && heels.length < sides.length ? 'on' : 'none';
+}
+
 /** A record with an entry for every side. */
 export function perSide<T>(order: readonly SideKey[], v: () => T): Record<SideKey, T> {
   const out: Record<SideKey, T> = {};
@@ -109,11 +124,12 @@ export function createState(rnd: Rng, you: Wrestler, them: Wrestler, rules: Matc
     sides[key] = careerSide(createSide(x.w, key, x.team, 'you', player === key ? 'player' : 'ai'), rules, rnd);
     order.push(key);
   });
-  // Everyone starts going after the nearest side on another team.
+  // Everyone starts going after the nearest side on another team, from their own corner.
   for (const k of order) {
     const me = sides[k]!;
     me.target = order.find((o) => sides[o]!.team !== me.team) ?? me.target;
   }
+  if (order.length > 2) order.forEach((k, i) => { sides[k]!.spot = i % 4; });
   const zeros = () => perSide(order, () => 0), noes = () => perSide(order, () => false);
   const S: MatchState = {
     id: nextId++,
@@ -123,7 +139,7 @@ export function createState(rnd: Rng, you: Wrestler, them: Wrestler, rules: Matc
     sides,
     order,
     player,
-    type: opts.type ?? (order.length === 2 ? 'singles' : 'multi'),
+    type: opts.type ?? inferType(order.map((k) => sides[k]!.team)),
     t: 0,
     control: null,
     over: false,
@@ -153,6 +169,9 @@ export function createState(rnd: Rng, you: Wrestler, them: Wrestler, rules: Matc
     view: undefined as unknown as MatchView,
     seq: 0,
     heatLine: [],
+    turn: { k: null, n: 0 },
+    elims: [],
+    alliance: allianceAtBell(order.map((k) => sides[k]!)),
   };
   S.view = snapshotView(S);
   return S;

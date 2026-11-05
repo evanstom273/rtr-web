@@ -1,6 +1,7 @@
 // Moves: validity, execution, result application. Port of execute_move, apply_move_result,
 // apply_damage, apply_stamina_fatigue_momentum, apply_positions and the body-story commentary.
 import { LINES, PART_LABEL } from '../data/commentary';
+import { noteExchange } from './multi';
 import type { BodyPart } from '../data/rtr/types';
 import { moveAttributeProfile } from './attributes';
 import { advanceClock, observePhase, settleRefereeCount } from './clock';
@@ -250,6 +251,7 @@ function applyMoveResult(ctx: Ctx, k: SideKey, dk: SideKey, move: Move, result: 
   const outside = isOutsideSpot(A.state.area) || isOutsideSpot(D.state.area);
   recordMoveUsed(A, move, landed);
   const reversalLanded = result === 'REVERSAL' || result === 'HIGH_RISK_CRASH';
+  noteExchange(S, k, dk, landed, result === 'REVERSAL');
   if (reversalLanded) S.recentReversalSide = dk;
   else if (k === S.recentReversalSide) {
     if (!landed || !move.flashPin) S.recentReversalSide = null;

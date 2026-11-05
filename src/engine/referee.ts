@@ -57,8 +57,10 @@ export function refereeAfterAction(ctx: Ctx): void {
     say(ctx, LINES.refBack, {}, 'dim');
   }
   if (r.moving > 0) r.moving--;
-  const zone = refZone(S.you.state.area);
-  if (zone === refZone(S.them.state.area) && zone !== r.area) {
+  // The referee follows whoever's in control and who they're fighting (singles: the two of them).
+  const a = S.control && S.sides[S.control] ? S.control : S.order[0]!;
+  const zone = refZone(S.sides[a]!.state.area);
+  if (zone === refZone(S.sides[foe(S, a)]!.state.area) && zone !== r.area) {
     r.area = zone;
     r.moving = CATCH_UP_ACTIONS;
   }
@@ -68,7 +70,7 @@ export function refereeAfterAction(ctx: Ctx): void {
 export function disqualify(ctx: Ctx, offender: SideKey, why: string): void {
   say(ctx, LINES.dq, { a: offender, vars: { x: why } }, 'bad');
   flash(ctx, 'Disqualified', true);
-  ctx.S.obj.decision ??= { winner: foe(ctx.S, offender), finish: 'DISQUALIFICATION', move: null };
+  ctx.S.obj.decision ??= { winner: foe(ctx.S, offender), loser: offender, finish: 'DISQUALIFICATION', move: null };
 }
 
 /** A spotted infraction worth `points`. Four is a DQ where there are DQs. */

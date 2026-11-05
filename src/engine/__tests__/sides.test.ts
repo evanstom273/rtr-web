@@ -24,7 +24,7 @@ describe('any number of sides (match overhaul, stage 1)', () => {
     const e = new MatchEngine({ you: ids[0]!, them: ids[1]!, extras: [{ id: ids[2]!, team: 2 }], seed: 2 });
     const S = e.state;
     expect(S.order).toEqual(['you', 'them', 's2']);
-    expect(S.type).toBe('multi');
+    expect(S.type).toBe('triple');
     expect(S.sides.s2!.team).toBe(2);
     expect(S.sides.s2!.controller).toBe('ai');
     expect(fighting(S)).toEqual(['you', 'them', 's2']);

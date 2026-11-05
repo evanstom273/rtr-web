@@ -14,7 +14,8 @@ import { bleedPenalty } from './env';
 import { pinAreaLegal } from './stip';
 import { isFinisherMove, isSignatureMove, totalHp } from './side';
 import { staminaPercent } from './exhaustion';
-import type { KickoutCount, MatchState, Move, PinContext, Side, SideKey } from './types';
+import { planSave, saveOffer } from './multi';
+import type { KickoutCount, MatchState, Move, PinContext, SavePlan, Side, SideKey } from './types';
 
 export function canPin(S: MatchState, k: SideKey): boolean {
   const A = S.sides[k]!, D = S.sides[foe(S, k)]!;
@@ -60,8 +61,9 @@ function pinContextBase(S: MatchState, k: SideKey, embedded: boolean): PinContex
   return { embedded, lastMove: last, lastMoveWasFinisher: lastFin, flashQualified, flashSuccess: false, squashQualified: squash };
 }
 
-function buildPinContext(ctx: Ctx, k: SideKey, embedded: boolean): PinContext {
+function buildPinContext(ctx: Ctx, k: SideKey, embedded: boolean, steal = false): PinContext {
   const pc = pinContextBase(ctx.S, k, embedded);
+  if (steal) pc.steal = true;
   pc.flashSuccess = pc.flashQualified && ctx.rnd() * 100 < flashFinishChance(ctx.S.t) + flashEdge(ctx.S.sides[k]!);
   return pc;
 }
@@ -115,6 +117,8 @@ export function pinPressureAndResistance(S: MatchState, k: SideKey, pc: PinConte
   if (pc.lastMoveWasFinisher) pressure += 35;
   if (pc.flashSuccess) pressure += 65;
   if (pc.squashQualified) pressure += 45;
+  // A stolen pin: they've just been through a near fall and never saw the cover coming.
+  if (pc.steal) pressure += 40;
   if (D.hp.HEAD < 40) pressure += 10;
   if (D.hp.BODY < 40) pressure += 10;
   let resistance = D.momentum - lateMatchProfile(S.t).recoveryPenalty + conditionResistance(D) - bleedPenalty(D);
@@ -126,7 +130,7 @@ export function pinPressureAndResistance(S: MatchState, k: SideKey, pc: PinConte
   return { pressure, resistance };
 }
 
-export function startPin(ctx: Ctx, k: SideKey, embedded: boolean): boolean {
+export function startPin(ctx: Ctx, k: SideKey, embedded: boolean, steal = false): boolean {
   const S = ctx.S, dk = foe(S, k), A = S.sides[k]!;
   if (embedded) {
     if (!pinAreaLegal(S, k)) {
@@ -141,7 +145,7 @@ export function startPin(ctx: Ctx, k: SideKey, embedded: boolean): boolean {
   }
   A.stats.pinTries++;
   A.pinAttempts++;
-  const pc = buildPinContext(ctx, k, embedded);
+  const pc = buildPinContext(ctx, k, embedded, steal);
   S.pinContext = pc;
   S.recentReversalSide = null;
   ctx.ai[k]!.notePinAttempt(A, pc.lastMove);
@@ -149,6 +153,19 @@ export function startPin(ctx: Ctx, k: SideKey, embedded: boolean): boolean {
   if (pc.flashQualified) say(ctx, LINES.pinSurprise, { a: k, d: dk }, 'warn');
   ring(ctx, 'pin', k);
   render(ctx);
+  // More than two people and you could get there: break it up, steal it, or let it count?
+  const offer = saveOffer(S, k, dk);
+  if (offer) {
+    S.pending = { kind: 'save', spec: { id: ++S.seq, kind: 'pin', attacker: k, victim: dk, ...offer } };
+    return true;
+  }
+  countPin(ctx, k, null);
+  return true;
+}
+
+/** The count: the player's kickout, or the AI's, with anyone coming to break it up. */
+export function countPin(ctx: Ctx, k: SideKey, playerSave: SavePlan | null): void {
+  const S = ctx.S, dk = foe(S, k), pc = S.pinContext!;
   if (isPlayer(S, dk)) {
     const { pressure, resistance } = pinPressureAndResistance(S, k, pc, 2);
     const profile = pinProfile(18, pressure, resistance, 2, S.sides[dk]!);
@@ -161,6 +178,8 @@ export function startPin(ctx: Ctx, k: SideKey, embedded: boolean): boolean {
         fillDuration: 2.7, timeLimit: 3, forgiveness: 1,
       },
     };
+    const save = planSave(ctx, k, dk, 'pin');
+    if (save && S.pending.kind === 'kickout') S.pending.spec.save = save;
   } else {
     let kickoutAt: 1 | 2 | 3 | null = null;
     for (let count = 1; count <= 3; count++) {
@@ -171,9 +190,10 @@ export function startPin(ctx: Ctx, k: SideKey, embedded: boolean): boolean {
         break;
       }
     }
-    S.pending = { kind: 'refCount', id: ++S.seq, pinner: k, kickoutAt };
+    const save = planSave(ctx, k, dk, 'pin', playerSave);
+    // A save only matters if it comes before they'd have kicked out anyway.
+    S.pending = { kind: 'refCount', id: ++S.seq, pinner: k, kickoutAt, ...(save && (kickoutAt === null || save.at < kickoutAt) ? { save } : {}) };
   }
-  return true;
 }
 
 /** Both kickout paths end here. count: 0 (before one), 1, 2 or 3 (THREE—NO!). */
@@ -212,15 +232,15 @@ export function pinThree(ctx: Ctx, k: SideKey): void {
       S.pending = { kind: 'resiliency', id: ++S.seq, threat: 'pinfall', k: dk, by: k };
       return;
     }
-    if (aiShouldUseResiliency(S, dk, S.pinContext?.lastMove ?? null)) return useResiliency(ctx, dk, 'pinfall');
+    if (aiShouldUseResiliency(S, dk, S.pinContext?.lastMove ?? null, k)) return useResiliency(ctx, dk, 'pinfall');
   }
   const move = S.pinContext?.lastMove ?? null;
   S.pinContext = null;
-  endFall(ctx, k, 'PINFALL', move);
+  endFall(ctx, k, 'PINFALL', move, dk);
 }
 
-export function aiShouldUseResiliency(S: MatchState, dk: SideKey, move: Move | null): boolean {
-  const D = S.sides[dk]!, A = S.sides[foe(S, dk)]!;
+export function aiShouldUseResiliency(S: MatchState, dk: SideKey, move: Move | null, by?: SideKey): boolean {
+  const D = S.sides[dk]!, A = S.sides[by ?? foe(S, dk)]!;
   if (move && isFinisherMove(A, move)) return true;
   const avg = totalHp(D) / 6;
   if (S.t >= 900) return true;

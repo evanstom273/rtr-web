@@ -15,6 +15,7 @@ import { snapshotView } from './state';
 import { refereeAfterAction } from './referee';
 import { autoRecovery } from './setups';
 import { stipulation } from './stipulations';
+import { autoAim, eliminate, isMulti, pickTurn, sidesOfResult } from './multi';
 import type { ActionResult, Cont, Control, FinishType, Move, Side, SideKey, StipulationId } from './types';
 
 const FINISH_FLASH: Partial<Record<FinishType, string>> = {
@@ -41,6 +42,8 @@ export function render(ctx: Ctx): void {
 /** _set_controller: hand control over and queue whoever acts next. */
 export function setControl(ctx: Ctx, value: Control): void {
   const S = ctx.S;
+  // More than two people: whoever won the exchange is favoured, but anyone on their feet can jump in.
+  if (isMulti(S) && value !== 'neutral' && !S.over) value = pickTurn(ctx, value);
   const previous = S.control;
   if (value !== 'neutral') S.neutralFavoured = null;
   S.control = value;
@@ -52,6 +55,7 @@ export function setControl(ctx: Ctx, value: Control): void {
   if (S.over) return;
   if (value === 'neutral') schedule(ctx, { to: 'neutralRecovery' }, AI_DELAY_MS);
   else if (isPlayer(S, value)) {
+    if (isMulti(S)) autoAim(S, value);
     // Down with nothing to do but get up: get up, rather than making the player tap for it.
     const id = autoRecovery(S, value);
     if (id) schedule(ctx, { to: 'autoRecover', k: value, id }, AUTO_RECOVER_MS);
@@ -78,7 +82,7 @@ export function afterAction(ctx: Ctx): void {
   if (settleDecision(ctx)) return;
   observePhase(ctx, 'action');
   refereeAfterAction(ctx);
-  if (!S.obj.gateOpen && (S.you.finisherStock > 0 || S.them.finisherStock > 0)) openGate(ctx);
+  if (!S.obj.gateOpen && S.order.some((k) => S.sides[k]!.finisherStock > 0)) openGate(ctx);
   settleRefereeCount(ctx);
 }
 
@@ -89,8 +93,8 @@ export function settleDecision(ctx: Ctx): boolean {
   S.obj.decision = null;
   S.pinContext = null;
   S.txn = null;
-  if (d.final) endMatch(ctx, d.winner, d.finish, d.move);
-  else endFall(ctx, d.winner, d.finish, d.move);
+  if (d.final) endMatch(ctx, d.winner, d.finish, d.move, d.loser);
+  else endFall(ctx, d.winner, d.finish, d.move, d.loser);
   return true;
 }
 
@@ -112,10 +116,13 @@ const GATE_LINES: Partial<Record<StipulationId, string>> = {
  * A fall. In Iron Man and two out of three it's scored and the match goes on (both reset to a
  * neutral standing start, damage stays); otherwise it ends the match.
  */
-export function endFall(ctx: Ctx, winner: SideKey | null, finish: FinishType, move: Move | null): void {
+export function endFall(ctx: Ctx, winner: SideKey | null, finish: FinishType, move: Move | null, lost?: SideKey | null): void {
   const S = ctx.S, o = S.obj, id = S.rules.stipulation;
   if (S.over) return;
-  if (!stipulation(id).multiFall || !winner) return endMatch(ctx, winner, finish, move);
+  // More than two people, elimination rules: the loser's out and it goes on.
+  const out = lost ?? (winner ? foe(S, winner) : null);
+  if (isMulti(S) && S.rules.elimination && out) return eliminate(ctx, out, winner, finish, move);
+  if (!stipulation(id).multiFall || !winner) return endMatch(ctx, winner, finish, move, lost);
   o.score[winner] = (o.score[winner] ?? 0) + 1;
   o.falls.push({ k: winner, finish, t: S.t });
   S.crowd.falls++;
@@ -227,18 +234,19 @@ export function resolveControlAfterAction(ctx: Ctx, a: SideKey, d: SideKey, move
   setResolvedControl(ctx, adv ?? 'neutral', a, d);
 }
 
-export function endMatch(ctx: Ctx, winner: SideKey | null, finish: FinishType, move: Move | null): void {
+export function endMatch(ctx: Ctx, winner: SideKey | null, finish: FinishType, move: Move | null, lost?: SideKey | null): void {
   const S = ctx.S;
   if (S.over) return;
   S.over = true;
   S.control = null;
-  const loser = winner ? foe(S, winner) : null;
+  const loser = lost !== undefined ? lost : winner ? foe(S, winner) : null;
   S.result = {
     winner, loser, finish, move, t: S.t,
     byFin: !!move?.finisher,
     byFlash: !!move?.flashPin,
     afterFk: loser ? (S.crowd.fkAbsorbed[loser] ?? 0) > 0 : false,
     ...(stipulation(S.rules.stipulation).multiFall ? { score: { ...S.obj.score } } : {}),
+    ...(isMulti(S) ? { ...sidesOfResult(S, winner), elims: [...S.elims] } : {}),
   };
   if (winner) {
     if (finish === 'PINFALL') {
