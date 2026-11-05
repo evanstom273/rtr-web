@@ -14,7 +14,8 @@ import { Record } from './screens/Record';
 import { Result } from './screens/Result';
 import { Tape } from './screens/Tape';
 import { Settings } from './Settings';
-import { freshBuilder, type BuilderState } from './builder/state';
+import { freshBuilder, matchSides, type BuilderState } from './builder/state';
+import { FEATURES } from '../career/tuning';
 import { CareerApp, type CareerScreen } from './career/CareerApp';
 import { MatchMocks } from './mock/MatchMocks';
 import { commit } from './career/parts';
@@ -67,9 +68,13 @@ export function App() {
   const startMatch = useCallback(() => {
     const you = builder.teams.A[0], them = builder.teams.B[0];
     if (!you || !them) return;
+    // Match overhaul: any kind of match, any number of sides (the flag's off: singles as ever).
+    const sides = FEATURES.matches ? matchSides(builder) : null;
     const engine = new MatchEngine({
       you, them,
+      ...(sides ? { extras: sides.extras, type: sides.type, player: sides.player } : {}),
       rules: {
+        ...(sides?.rules ?? {}),
         actionClock: builder.actionClock, countOuts: builder.countOuts, countOutLimit: builder.countOutLimit,
         stipulation: builder.stipulation, dq: builder.dq, ironManMinutes: builder.ironManMinutes, ladderPrize: builder.ladderPrize,
         cageEscape: builder.cageEscape, cagePins: builder.cagePins, cageSubs: builder.cageSubs,

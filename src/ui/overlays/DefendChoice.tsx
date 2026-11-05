@@ -7,7 +7,7 @@ import { buzz } from '../format';
  * it, or ride it out.
  */
 export function DefendChoice({ engine, spec }: { engine: MatchEngine; spec: DefendSpec }) {
-  const S = engine.state, them = S.them.w.name;
+  const S = engine.state, them = S.sides[spec.attacker]!.w.name;
   const pick = (d: Defence) => {
     buzz(d === 'reverse' ? [12, 30, 12] : 10);
     engine.defend(d);
@@ -23,7 +23,7 @@ export function DefendChoice({ engine, spec }: { engine: MatchEngine; spec: Defe
     return () => document.removeEventListener('keydown', onKey);
   });
   const chance = Math.round(spec.reverseChance);
-  const sta = Math.round(staminaPercent(S.you));
+  const sta = Math.round(staminaPercent(engine.me));
   return (
     <div className={`ov defend${spec.major ? ' strong' : ''}`}>
       <div className="inner">

@@ -13,8 +13,26 @@ export interface RecordSide extends SideStats {
   warnings: number;
 }
 
+/** Match overhaul (records v2): everyone in a match with more than two people. */
+export interface RecordEntrant {
+  key: SideKey;
+  id: string;
+  name: string;
+  team: number;
+  /** How they went out (eliminations), by whom and when; entry number and time in it (Rumbles and the like). */
+  out?: { how: string; by: string | null; t: number };
+  n?: number;
+  secs?: number;
+  elims?: number;
+}
+
 export interface MatchRecord {
-  v: 1;
+  /** 1: two people. 2: more (the extra fields below). Old records are all v1, and still read as they always did. */
+  v: 1 | 2;
+  /** v2: the kind of match, everyone in it, and the winning side's names. */
+  type?: string;
+  sides?: RecordEntrant[];
+  winners?: string[];
   id: string;
   /** When it finished (epoch ms); 0 for matches carried over from before the archive. */
   at: number;
@@ -55,13 +73,29 @@ export function buildRecord(S: MatchState, at = Date.now()): MatchRecord | null 
   if (!R || !r) return null;
   const rep = report(S, r)!;
   const c = S.crowd;
+  const multi = S.order.length > 2;
+  // With more than two: the record's "you" is the player's side (or the first), and "them" whoever beat them, or the first they beat.
+  const me: SideKey = S.player ?? 'you';
+  const them: SideKey = multi ? (R.winner && R.winner !== me ? R.winner : R.loser && R.loser !== me ? R.loser : S.order.find((k) => k !== me)!) : 'them';
   return {
-    v: 1, id: `${at}-${S.id}`, at, stars: r.stars, label: r.label, verdict: r.verdict, recap: r.recap,
-    you: { id: S.you.w.id, name: S.you.w.name }, them: { id: S.them.w.id, name: S.them.w.name },
+    v: multi ? 2 : 1, id: `${at}-${S.id}`, at, stars: r.stars, label: r.label, verdict: r.verdict, recap: r.recap,
+    ...(multi ? {
+      type: S.type,
+      winners: (R.winners ?? []).map((k) => S.sides[k]!.w.name),
+      sides: S.order.map((k): RecordEntrant => {
+        const s = S.sides[k]!, el = S.elims.find((x) => x.k === k), e = S.entries?.[k];
+        return {
+          key: k, id: s.w.id, name: s.w.name, team: s.team,
+          ...(el ? { out: { how: FINISH_LABEL[el.finish] ?? el.finish, by: el.by ? S.sides[el.by]!.w.name : null, t: el.t } } : {}),
+          ...(e ? { n: e.n, secs: e.inAt === null ? 0 : (e.outAt ?? R.t) - e.inAt, elims: e.elims } : {}),
+        };
+      }),
+    } : {}),
+    you: { id: S.sides[me]!.w.id, name: S.sides[me]!.w.name }, them: { id: S.sides[them]!.w.id, name: S.sides[them]!.w.name },
     winner: R.winner, winnerName: rep.winner?.name ?? null, loserName: rep.loser?.name ?? null,
     finish: R.finish, how: rep.how, t: R.t, falls: rep.falls,
     stipulation: stipulation(S.rules.stipulation).name, venue: S.venue, event: S.event, title: S.rules.title ? S.titleName : '',
-    parts: r.parts, stats: { you: side(S, 'you'), them: side(S, 'them') },
+    parts: r.parts, stats: { you: side(S, me), them: side(S, them) },
     heat: { avg: Math.round(c.heatSum / Math.max(1, c.heatN)), peak: Math.round(c.heatPeak), line: [...S.heatLine] },
     log: S.log.map((l) => ({ t: l.t, cls: l.cls, segs: l.segs })),
   };

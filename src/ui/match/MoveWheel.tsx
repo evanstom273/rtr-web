@@ -52,7 +52,7 @@ function wedgePath(i: number, n: number, r0: number, r1: number, gap = 0.035): s
 }
 
 export function MoveWheel({ engine, onClose }: { engine: MatchEngine; onClose: () => void }) {
-  const S = engine.state, me = S.you, op = S.them;
+  const S = engine.state, me = engine.me, op = engine.foe;
   const [cat, setCat] = useState<MoveType | null>(null);
   const [, bump] = useState(0);
   // Android back from a move list returns to the wheel.

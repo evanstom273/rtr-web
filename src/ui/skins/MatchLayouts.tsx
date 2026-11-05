@@ -1,5 +1,5 @@
 import type { MutableRefObject, ReactNode } from 'react';
-import { fmtClock, heatWord, type MatchState } from '../../engine';
+import { fmtClock, heatWord, type MatchState, type SideKey } from '../../engine';
 import { CrowdCanvas } from '../match/CrowdCanvas';
 import { LiveStars, StipRow } from '../match/HudParts';
 import { Segment } from '../match/Log';
@@ -15,6 +15,9 @@ export interface MatchSlots {
   pulse: MutableRefObject<number>;
   you: ReactNode;
   them: ReactNode;
+  /** Whose cards those are: the player's side and whoever they're going after (singles: you and them). */
+  left?: SideKey;
+  right?: SideKey;
   /** The ring: a big panel, or (paper on phones) the tap-to-pop thumbnail. */
   ring: ReactNode;
   log: ReactNode;
@@ -22,6 +25,11 @@ export interface MatchSlots {
 }
 
 const pct = (n: number, d: number) => `${d ? Math.max(0, Math.min(100, (n / d) * 100)) : 0}%`;
+
+/** Name colours for everyone in the match. */
+export function tonesOf(S: MatchState) {
+  return Object.fromEntries(S.order.map((k) => [k, nameTone(S.sides[k]!.w)])) as { you: string; them: string } & Record<string, string>;
+}
 
 /** The headline moment, in whatever dress the skin gives `.moment`. */
 function Moment({ S }: { S: MatchState }) {
@@ -37,7 +45,7 @@ function Moment({ S }: { S: MatchState }) {
       {m.line && m.line.segs.some((s) => s.v !== m.big) && (
         <span className="mo-deck">
           {m.line.segs.map((s, i) => (
-            <Segment key={i} s={s} tones={{ you: nameTone(S.you.w), them: nameTone(S.them.w) }} />
+            <Segment key={i} s={s} tones={tonesOf(S)} />
           ))}
         </span>
       )}
@@ -50,7 +58,7 @@ const countOut = (S: MatchState) => (S.view.count !== null ? <span className="m-
 // ---------------------------------------------------------------- Broadcast
 
 export function BroadcastMatch(p: MatchSlots) {
-  const { S } = p, v = S.view, you = v.sides.you, them = v.sides.them;
+  const { S } = p, v = S.view, L = p.left ?? 'you', R = p.right ?? 'them', you = v.sides[L] ?? v.sides.you, them = v.sides[R] ?? v.sides.them;
   return (
     <>
       <header className="bc-top">
@@ -58,8 +66,8 @@ export function BroadcastMatch(p: MatchSlots) {
           <div className="bc-side you">
             <i className="bc-chip" />
             <span className="bc-nm">
-              {surname(S.you.w)}
-              {v.control === 'you' && <b className="bc-ctl" title="In control" />}
+              {surname(S.sides[L]!.w)}
+              {v.control === L && <b className="bc-ctl" title="In control" />}
             </span>
             <span className="bc-sta"><i style={{ width: pct(you.stamina, you.maxStamina) }} /></span>
           </div>
@@ -67,8 +75,8 @@ export function BroadcastMatch(p: MatchSlots) {
           <div className="bc-side them">
             <i className="bc-chip" />
             <span className="bc-nm">
-              {v.control === 'them' && <b className="bc-ctl" title="In control" />}
-              {surname(S.them.w)}
+              {v.control === R && <b className="bc-ctl" title="In control" />}
+              {surname(S.sides[R]!.w)}
             </span>
             <span className="bc-sta"><i style={{ width: pct(them.stamina, them.maxStamina) }} /></span>
           </div>

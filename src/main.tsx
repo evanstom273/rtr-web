@@ -1,3 +1,4 @@
+import { FEATURES } from './career/tuning';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './ui/App';
@@ -5,6 +6,9 @@ import { ErrorBoundary } from './ui/ErrorBoundary';
 import { bootWorld } from './world/world';
 import './ui/styles.css';
 import './ui/skins.css';
+
+// Dev only: ?matches=1 turns the match overhaul on for this session (the real flag stays off until Lyra says).
+if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('matches') === '1') (FEATURES as { matches: boolean }).matches = true;
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Missing #root');

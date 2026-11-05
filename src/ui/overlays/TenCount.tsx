@@ -10,7 +10,6 @@ const WORDS = ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', '
 export function TenCount({ engine, spec }: { engine: MatchEngine; spec: TenCountSpec }) {
   const cd = useLeadIn();
   const live = cd === null;
-  const S = engine.state;
   const fill = useRef<HTMLDivElement>(null);
   const countEl = useRef<HTMLDivElement>(null);
   const st = useRef({ t0: 0, holding: false, locked: false, fill: 0, done: false, last: 0 });
@@ -85,7 +84,7 @@ export function TenCount({ engine, spec }: { engine: MatchEngine; spec: TenCount
   return (
     <div className={`ov pin ${state}`}>
       <div className="inner">
-        <div className="mt-kicker def">You're down. {S.them.w.name} wants the ten.</div>
+        <div className="mt-kicker def">You're down. {engine.foe.w.name} wants the ten.</div>
         <div className="pin-count" ref={countEl}>
           …
         </div>
@@ -110,7 +109,6 @@ export function RefTen({ engine, beatenAt }: { engine: MatchEngine; beatenAt: nu
   const live = cd === null;
   const [text, setText] = useState('');
   const [hit, setHit] = useState<'' | 'kick' | 'three'>('');
-  const S = engine.state;
 
   useEffect(() => {
     if (!live) return;
@@ -141,7 +139,7 @@ export function RefTen({ engine, beatenAt }: { engine: MatchEngine; beatenAt: nu
   return (
     <div className={`ov pin ref ${hit}`}>
       <div className="inner">
-        <div className="mt-kicker off">{S.them.w.name} is down</div>
+        <div className="mt-kicker off">{engine.foe.w.name} is down</div>
         <div className="pin-count">{text || '…'}</div>
         <div className="pin-sub">The referee counts to ten…</div>
         {!live && cd !== null && <Countdown label={cd} />}

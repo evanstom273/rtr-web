@@ -79,7 +79,7 @@ export function SubmissionTug({ engine, spec }: { engine: MatchEngine; spec: Sub
     <div className={`ov sub ${attacking ? 'off' : 'def'}${out ? ' done' : ''}`}>
       <div className="inner">
         <div className={`mt-kicker ${attacking ? 'off' : 'def'}`}>
-          {attacking ? `You lock in ${S.them.w.name}` : `${S.them.w.name} has you locked in`} · {spec.partLabel}
+          {attacking ? `You lock in ${S.sides[spec.defender]!.w.name}` : `${S.sides[spec.attacker]!.w.name} has you locked in`} · {spec.partLabel}
         </div>
         <div className="sub-title">{spec.moveName}</div>
         <div className="pin-sub">{attacking ? 'Mash to drag the marker into TAP.' : 'Mash to drag the marker into ESCAPE.'}</div>

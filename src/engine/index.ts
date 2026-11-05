@@ -19,3 +19,13 @@ export { LADDER_PULLS, ladderUnder, armedSpot } from './stip';
 export { WARNING_LIMIT, detectionChance } from './referee';
 export { DEFENCES, DEFENCE_LABEL, DEFENCE_SHORT, BRACE_DAMAGE, CAUGHT_DAMAGE, RIDE_MOMENTUM, defenceValues, type Defence } from './defence';
 export { topPart } from './rating';
+// Match overhaul.
+export { foe, fighting, isPlayer } from './commentary';
+export { zoneOf, distance, inReach, type ZoneId } from './zones';
+export { isMulti, alive, teamsAlive, opponents, teammates, targetable, sameTeam } from './multi';
+export { tagRules, legalOf, partnerFor, cornerDistance } from './tag';
+export { isRoyal, hasEntrants, timedEntries, nextEntrant, entryInterval, ironMen, clusterOf } from './royal';
+export { NEW_STIPS, GIMMICK_TITLE, poleName } from './gimmicks';
+export { STRUCTURES } from './structures';
+export { isLadderStip } from './stipulations';
+export { gamesToWin, nextGame, recordGame, seriesLine, seriesScore, seriesWinner, type Series } from './series';

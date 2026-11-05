@@ -142,10 +142,10 @@ function Column({ engine, side, role, dice, kept, total, rolling, settled, won, 
   );
 }
 
-const myRoleIsAttack = (spec: ContestSpec) => spec.attacker === 'you';
+const myRoleIsAttack = (spec: ContestSpec, pk: SideKey) => spec.attacker === pk;
 
-function verdictFor(spec: ContestSpec, roll: ContestRoll): { text: string; tone: 'good' | 'bad' | 'gold' } {
-  const playerAttacks = spec.attacker === 'you';
+function verdictFor(spec: ContestSpec, roll: ContestRoll, pk: SideKey): { text: string; tone: 'good' | 'bad' | 'gold' } {
+  const playerAttacks = spec.attacker === pk;
   const good = roll.landed === playerAttacks;
   if (roll.crit === 'attackerTop') return { text: 'Critical!', tone: 'gold' };
   if (roll.crit === 'defenderTop') return { text: `Natural ${DEFEND_DIE}!`, tone: 'gold' };
@@ -199,22 +199,23 @@ export function ContestCard({ engine }: { engine: MatchEngine }) {
   useActionKey(() => doRoll());
 
   if (!spec) return null;
-  const playerKey: SideKey = 'you';
+  const playerKey: SideKey = engine.pk;
   const mine = spec.attacker === playerKey ? spec.attack : spec.defend;
   const theirs = spec.attacker === playerKey ? spec.defend : spec.attack;
   const myRole = spec.attacker === playerKey ? 'attack' : 'defend';
   const withPush = !roll && push;
   const chance = withPush
-    ? landChance(myRoleIsAttack(spec) ? { ...spec.attack, pushed: true } : spec.attack, myRoleIsAttack(spec) ? spec.defend : { ...spec.defend, pushed: true })
+    ? landChance(myRoleIsAttack(spec, engine.pk) ? { ...spec.attack, pushed: true } : spec.attack, myRoleIsAttack(spec, engine.pk) ? spec.defend : { ...spec.defend, pushed: true })
     : spec.chance;
   const odds = spec.attacker === playerKey ? chance : 100 - chance;
-  const verdict = roll && settled ? verdictFor(spec, roll) : null;
+  const verdict = roll && settled ? verdictFor(spec, roll, engine.pk) : null;
   const myWon = roll && settled ? roll.landed === (myRole === 'attack') : null;
   const diceFor = (s: ContestSide) => (!roll ? null : s === spec.attack ? roll.attackerDice : roll.defenderDice);
   const keptFor = (s: ContestSide) => (!roll ? null : s === spec.attack ? roll.attackerKept : roll.defenderKept);
   const totalFor = (s: ContestSide) => (!roll ? null : s === spec.attack ? roll.attackerTotal : roll.defenderTotal);
   const S = engine.state;
-  const pushWhy = spec.playerCanPush ? '' : S.you.signatureReady ? 'Signature banked — use it first' : `Needs ${PUSH_COST} momentum`;
+  const playerAttacks = spec.attacker === playerKey;
+  const pushWhy = spec.playerCanPush ? '' : engine.me.signatureReady ? 'Signature banked — use it first' : `Needs ${PUSH_COST} momentum`;
 
   return (
     <div className={`ov contest${spec.major ? ' strong' : ''}${verdict ? ` v-${verdict.tone}` : ''}`}
@@ -224,8 +225,8 @@ export function ContestCard({ engine }: { engine: MatchEngine }) {
           <div className="mt-kicker">
             {spec.major ? `${spec.major} · ` : ''}
             {myRole === 'attack'
-              ? spec.kind === 'move' ? (spec.defence === 'reverse' ? `You go for it · ${S.them.w.name} goes for the reversal` : 'You go for it') : 'You try to set it up'
-              : spec.kind === 'move' ? `${S.them.w.name} goes for it · you go for the reversal` : `${S.them.w.name} tries to set it up`}
+              ? spec.kind === 'move' ? (spec.defence === 'reverse' ? `You go for it · ${S.sides[playerAttacks ? spec.defender : spec.attacker]!.w.name} goes for the reversal` : 'You go for it') : 'You try to set it up'
+              : spec.kind === 'move' ? `${S.sides[playerAttacks ? spec.defender : spec.attacker]!.w.name} goes for it · you go for the reversal` : `${S.sides[playerAttacks ? spec.defender : spec.attacker]!.w.name} tries to set it up`}
           </div>
           <div className="mt-title">{spec.title}</div>
           <div className="cc-odds">

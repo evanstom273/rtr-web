@@ -1,4 +1,4 @@
-/* Dev-only: the match overhaul mock-ups. */
+/* The match overhaul: zones, the field strip, targets, the new prompts, the feed and the builder (from the approved mock-ups). */
 .zr-wrap{display:flex;flex-direction:column;gap:4px}
 .zr .mk-lab{font-family:var(--mono);font-size:8.5px;fill:var(--fg);text-anchor:middle;letter-spacing:.04em}
 .zr .mk-target{fill:none;stroke:var(--bad);stroke-width:2;stroke-dasharray:4 3}
@@ -58,3 +58,16 @@
 .mk-slot{font-family:var(--display);font-weight:800;font-size:.95rem}.mk-slot em{font-family:var(--mono);font-size:10px;font-style:normal;color:var(--gold)}
 .mk-add{font-family:var(--mono);font-size:10.5px;border:1px dashed var(--line);border-radius:5px;background:none;color:var(--mute);padding:5px}
 .mk-addside{align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;border-style:dashed;border-top-style:dashed;color:var(--mute)}
+
+/* Live (stage 7): picking a target from the strip, the spectate dock, the result's field. */
+.fs-card{font:inherit;color:var(--fg);text-align:left;cursor:default}
+.fs-card.pick{cursor:pointer}
+.fs-card.pick:hover{box-shadow:0 0 0 1px var(--fg)}
+.fs-card.pod{opacity:.6}
+.mk-far{font-family:var(--mono);font-size:9px;opacity:.7}
+.zr .mk.ctl circle:not(.mk-target):not(.mk-legal){stroke:var(--gold);stroke-width:2}
+#dock.spectate .chip{white-space:normal}
+.rp-field{display:flex;flex-direction:column;gap:6px;margin:10px 0}
+.rp-elims{margin:0;padding-left:20px;font-size:.92rem;line-height:1.35}
+.rp-elims b{font-family:var(--display);font-weight:800}
+.m-mecol{display:flex;flex-direction:column;gap:6px;min-width:0}

@@ -10,7 +10,7 @@ import { useSkin } from '../skin';
 import { useMedia } from '../useMedia';
 import { BroadcastMatch, BuildingMatch, PaperMatch, type MatchSlots } from '../skins/MatchLayouts';
 import { nameTone } from '../format';
-import './matchmocks.css';
+import '../match/field.css';
 
 type Scene = 'tag' | 'triple' | 'rumble' | 'cell' | 'builder' | 'feed';
 

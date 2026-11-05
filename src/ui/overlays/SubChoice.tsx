@@ -4,8 +4,7 @@ import { buzz } from '../format';
 
 /** A hold has landed: risk the tug for the win, or bank the damage and keep control. */
 export function SubChoice({ engine, spec }: { engine: MatchEngine; spec: SubChoiceSpec }) {
-  const S = engine.state;
-  const tech = S.you.w.classes.includes('TECHNICIAN');
+  const tech = engine.me.w.classes.includes('TECHNICIAN');
   const pick = (tap: boolean) => {
     buzz(tap ? [12, 30, 12] : 10);
     engine.resolveSubChoice(tap);

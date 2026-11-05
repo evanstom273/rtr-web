@@ -76,7 +76,7 @@ export function SetupSheet({ engine, onClose }: { engine: MatchEngine; onClose: 
             <div className="mgrid">
               {list.map((id) => (
                 <button key={id} className={`mv setup g-${g.split(' ')[0]!.toLowerCase()}`} onClick={() => pick(id)}>
-                  <span className="mn">{setupTitle(S.you, id)}</span>
+                  <span className="mn">{setupTitle(engine.me, id)}</span>
                   <span className="mi">{SETUP_TEXT[id].description}</span>
                 </button>
               ))}

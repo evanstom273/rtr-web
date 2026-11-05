@@ -4,7 +4,6 @@ import { buzz } from '../format';
 
 /** A pin combo has landed: hook the leg now, or keep the upper hand and wear them down first. */
 export function PinChoice({ engine, spec }: { engine: MatchEngine; spec: PinChoiceSpec }) {
-  const S = engine.state;
   const pick = (cover: boolean) => {
     buzz(cover ? [12, 30, 12] : 10);
     engine.resolvePinChoice(cover);
@@ -31,7 +30,7 @@ export function PinChoice({ engine, spec }: { engine: MatchEngine; spec: PinChoi
             They look <b className={spec.condition === 'wrecked' || spec.condition === 'worn' ? 'bad' : ''}>{spec.condition}</b>
           </span>
         </div>
-        {spec.resiliency && <p className="sc-note">{S.them.w.name} still has Resiliency and may survive a three.</p>}
+        {spec.resiliency && <p className="sc-note">{engine.foe.w.name} still has Resiliency and may survive a three.</p>}
         <div className="sc-actions">
           <button className="sc-btn tap" onClick={() => pick(true)}>
             <span className="pl">Hook the leg</span>

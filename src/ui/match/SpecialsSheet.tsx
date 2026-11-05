@@ -5,7 +5,7 @@ import { buzz } from '../format';
 
 function Special({ engine, s, side, canUse, onUsed }: { engine: MatchEngine; s: SpecialInfo; side: SideKey; canUse: boolean; onUsed: () => void }) {
   const S = engine.state, me = S.sides[side]!;
-  const you = side === 'you';
+  const you = side === engine.pk;
   const status = s.usable ? 'Ready now' : s.ready ? (s.fits ? 'Ready — not from here' : 'Ready — get in position') : s.needs ?? '';
   return (
     <li className={`sp ${s.kind === 'FINISHER' ? 'sp-f' : 'sp-s'}${s.usable ? ' usable' : s.ready ? ' ready' : ''}`}>
@@ -52,7 +52,7 @@ export function SpecialsSheet({ engine, initial, onClose }: { engine: MatchEngin
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
   const list = engine.specials(side);
-  const myTurn = S.pending.kind === 'awaitPlayer' && S.control === 'you';
+  const myTurn = S.pending.kind === 'awaitPlayer' && S.control === engine.pk;
   const sv = S.view.sides[side]!;
   return (
     <div className="wheel-ov" onClick={onClose}>
@@ -65,7 +65,7 @@ export function SpecialsSheet({ engine, initial, onClose }: { engine: MatchEngin
           </button>
         </div>
         <div className="seg sp-tabs" role="tablist">
-          {(['you', 'them'] as const).map((k) => (
+          {[engine.pk, engine.opp].map((k) => (
             <button key={k} role="tab" aria-selected={side === k} className={side === k ? 'on' : ''} onClick={() => setSide(k)}>
               <Name w={S.sides[k]!.w} side={k} />
             </button>
@@ -81,7 +81,7 @@ export function SpecialsSheet({ engine, initial, onClose }: { engine: MatchEngin
         </div>
         <ul className="sp-list">
           {list.map((s) => (
-            <Special key={s.move.id} engine={engine} s={s} side={side} canUse={side === 'you' && myTurn} onUsed={onClose} />
+            <Special key={s.move.id} engine={engine} s={s} side={side} canUse={side === engine.pk && myTurn} onUsed={onClose} />
           ))}
         </ul>
         <p className="sp-help">

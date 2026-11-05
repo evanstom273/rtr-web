@@ -127,6 +127,10 @@ export class MatchEngine {
   get foe(): Side {
     return this.state.sides[foe(this.state, this.pk)]!;
   }
+  /** Who the player's going after (singles: 'them'). */
+  get opp(): SideKey {
+    return foe(this.state, this.pk);
+  }
 
   private get playerTurn(): boolean {
     return this.state.pending.kind === 'awaitPlayer' && this.state.control === this.pk;
