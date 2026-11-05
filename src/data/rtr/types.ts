@@ -120,6 +120,11 @@ export interface Wrestler {
   finishers: string[];
   /** Personality: one to three traits (data/rtr/traits.ts). Missing on saves from before traits. */
   traits?: TraitId[];
+  /** Match overhaul: wears a mask (and when they lost it), had their head shaved, and how they feel about hardcore matches (−1 won't, 0 will, 1 loves them). */
+  masked?: boolean;
+  unmasked?: string;
+  shaved?: string;
+  hardcore?: -1 | 0 | 1;
   /** Hidden (never shown): the attribute total they can grow to, the age they peak, and a running fraction of a point. */
   potential?: number;
   peak?: number;
@@ -183,6 +188,10 @@ export interface Title {
   region?: string;
   /** Booker mode: its division (world, mid-card, cruiserweight, women's), when it was retired, and who made it. */
   division?: 'world' | 'midcard' | 'cruiser' | 'women' | 'open';
+  /** Match overhaul: singles (the default), a tag or trios title (held by a team: `holders`, and `holder` is its first), or the hardcore title. */
+  kind?: 'singles' | 'tag' | 'trios' | 'hardcore';
+  holders?: string[];
+  team?: string;
   retired?: string;
   createdBy?: string;
 }

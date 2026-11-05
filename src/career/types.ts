@@ -200,6 +200,11 @@ export interface Person {
   form?: { stars: number; res: number; n: number; big: number };
   /** Scouting: attribute totals at the start of recent months (growth, for potential). */
   grew?: { m: string; t: number }[];
+  /** Match overhaul: what the matches have taken out of them, by body part (fades week by week), and the scars. */
+  wear?: Partial<Record<import('../data/rtr/types').BodyPart, number>>;
+  scars?: string[];
+  /** Lost a loser-leaves-town match: can't work for this promotion until then. */
+  leftTown?: { promo: string; until: Day };
   /** Retired: no longer wrestles (their history stays). */
   retired?: boolean;
   retiredOn?: Day;

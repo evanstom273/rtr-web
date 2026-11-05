@@ -6,6 +6,8 @@ import {
 } from '../data/rtr';
 import { seededRng, type Rng } from '../engine/rng';
 import type { MatchRulesConfig, SideKey } from '../engine/types';
+import { addWear, fadeWear, violenceOf, wearInjury, wearStart } from '../world/matchWorld';
+import { stipulation } from '../engine/stipulations';
 import { HARDCORE_STIPS, available, bookAhead, hashSeed, heated, isIndieTitle, promoRegion, regionalDates, regionalPop, titleRegion } from './booker';
 import { bondOf } from '../world/people';
 import { drawCalendar } from './calendar';
@@ -214,6 +216,11 @@ export function boutRules(c: Career, show: Show, bout: Bout, you: string, them: 
   // Chemistry (relationships stage 5): how two work together shows in the stars; booker mode's road agents lift it.
   const chem = politics.chem(c, you, them) + boutBonus(c, show);
   if (chem) rules.chemistry = chem;
+  // Lasting damage (match overhaul): worn parts start below full.
+  if (FEATURES.matches) {
+    const wy = wearStart(c.people[you]), wt = wearStart(c.people[them]);
+    if (wy || wt) rules.wear = { ...(wy ? { you: wy } : {}), ...(wt ? { them: wt } : {}) };
+  }
   // Someone booked to lose to a person they can't stand won't make it easy.
   if (rules.booked && bout.planned) { const loser = bout.planned === bout.a ? bout.b : bout.a; const refuse = politics.refuse(c, loser, bout.planned); if (refuse) rules.booked = { ...rules.booked, bonus: rules.booked.bonus * (1 - refuse) }; }
   return rules;
@@ -300,7 +307,12 @@ export function applyBout(c: Career, show: Show, index: number, out: SimOut, aIs
     // Contract clauses (Match Conditions' safer matches) scale the risk and the wear.
     const injuryPct = (INJURY_BASE_PCT + p.fatigue / INJURY_PER_FATIGUE) * (hardcore ? INJURY_HARDCORE_MULT : 1)
       * (hasTrait(w, 'resilient') ? TRAIT_FX.resilient.injury : 1) * (hasTrait(w, 'reliable') ? TRAIT_FX.reliable.injury : 1) * mod('injury', c, id, show)
-      * politics.stiff(c, id, id === bout.a ? bout.b : bout.a);
+      * politics.stiff(c, id, id === bout.a ? bout.b : bout.a) * (FEATURES.matches ? wearInjury(p) : 1);
+    // Lasting damage: what this one took out of them.
+    if (FEATURES.matches && out.hp) {
+      const side = (id === bout.a) === aIsYou ? out.hp.you : out.hp.them, v = violenceOf(bout.stip);
+      addWear(p, side, v, v >= 2 && rnd() < 0.3 ? `${stipulation(bout.stip ?? 'standard').name}, ${show.date.slice(0, 4)}` : undefined);
+    }
     p.fatigue = clamp(p.fatigue + (FATIGUE_PER_MATCH + (hardcore ? FATIGUE_HARDCORE_EXTRA : 0)) * mod('fatigue', c, id, show), 0, 100);
     p.last = show.date;
     p.circuit = [{ r: show.region, d: show.date }, ...(p.circuit ?? [])].slice(0, CIRCUIT_KEEP);
@@ -553,6 +565,7 @@ export function endOfDay(c: Career): void {
     const p = person(c, w.id);
     if (FEATURES.days && w.id === c.player) p.fatigue = Math.max(0, p.fatigue - (worked.has(w.id) ? SLEEP_RECOVERY_AFTER_MATCH : SLEEP_RECOVERY) * mod('recovery', c, w.id));
     else if (!worked.has(w.id)) p.fatigue = Math.max(0, p.fatigue - FATIGUE_RECOVERY_PER_DAY);
+    if (FEATURES.matches && p.wear) fadeWear(p, 1);
     if (p.injury && p.injury.until <= tomorrow) {
       p.injury = null;
       if (w.id === c.player) letter(c, { kind: 'injury', from: 'The doctor', subject: 'You’re fit again', body: ['Cleared to wrestle.'] });

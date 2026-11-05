@@ -1,6 +1,8 @@
 // Every match the world needs, run through the real match engine with both sides on the AI.
 import { applyDatabase, type Database } from '../data/rtr';
 import { runHeadless } from '../engine/sim/runHeadless';
+import { FEATURES } from './tuning';
+import type { BodyPart } from '../data/rtr/types';
 import type { BySide, FinishType, MatchRulesConfig, SideKey, SideStats } from '../engine/types';
 import type { MatchEngine } from '../engine/match';
 
@@ -23,6 +25,8 @@ export interface SimOut {
   stars: number;
   move?: string;
   stats: BySide<StatLine>;
+  /** Match overhaul (with the flag on): each side's body-part health at the end, for the wear it leaves. */
+  hp?: BySide<Partial<Record<BodyPart, number>>>;
   /** Your match only (never through the workers): the report card, for the result letter. */
   report?: { label: string; verdict: string; recap: string; grades: { l: string; v: number; n: string }[] };
 }
@@ -32,6 +36,8 @@ const line = (s: SideStats): StatLine => ({
   reversalTries: s.reversalTries, reversalWins: s.reversalWins, kickouts: s.kickouts, pinTries: s.pinTries,
   highTried: s.highTried, taunts: s.taunts, dirty: s.dirty, rests: s.rests, fk: s.fk, holds: s.holds,
 });
+
+const roundHp = (hp: Record<BodyPart, number>) => Object.fromEntries(Object.entries(hp).map(([k, v]) => [k, Math.round(v)])) as Record<BodyPart, number>;
 
 /** The engine's own summary of a finished match. */
 export function outOf(key: string, e: MatchEngine): SimOut {
@@ -44,6 +50,7 @@ export function outOf(key: string, e: MatchEngine): SimOut {
     stars: S.rating?.stars ?? 2,
     move: R?.move?.name,
     stats: { you: line(S.you.stats), them: line(S.them.stats) },
+    ...(FEATURES.matches ? { hp: { you: roundHp(S.you.hp), them: roundHp(S.them.hp) } } : {}),
     ...(key === 'mine' && S.rating ? { report: { label: S.rating.label, verdict: S.rating.verdict, recap: S.rating.recap, grades: S.rating.parts.map((p) => ({ l: p.l, v: p.v, n: p.n })) } } : {}),
   };
 }

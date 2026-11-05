@@ -29,6 +29,7 @@ import './card';
 import './stories';
 import './belts';
 import './books';
+import './stakes';
 import './signing';
 import './morale';
 import './owners';

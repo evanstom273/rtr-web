@@ -703,6 +703,8 @@ export interface MatchRulesConfig {
   bonds?: Record<SideKey, Record<SideKey, number>>;
   /** The champion in a multi-person title match: everyone's a little keener to go after them. */
   champion?: SideKey;
+  /** Lasting damage (match overhaul): each side's body-part health to start on, from the wear of matches gone by. */
+  wear?: Partial<Record<SideKey, Partial<Record<BodyPart, number>>>>;
   /** Tag rules: one legal man a team, the rest on the apron until tagged in (tag, handicap, elimination tag). */
   tag?: boolean;
   /** Established teams' finishers, by team index. */

@@ -49,7 +49,7 @@ function announceRetirements(c: Career, rnd: Rng): void {
   }
 }
 
-function retire(c: Career, w: Wrestler): void {
+export function retire(c: Career, w: Wrestler): void {
   const p = person(c, w.id);
   // A champion on farewell night keeps going: nobody hands over a title by retiring.
   if (titleHolder(w.id)) {

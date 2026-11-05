@@ -4,7 +4,8 @@
 import { PROMOTIONS, TITLES, WRESTLERS, applyDatabase, databaseChanged, fansFromPopularity, rollCount, rollTraits, shippedDatabase, shippedWrestler, type Database, type Wrestler } from '../data/rtr';
 import { BUDGET, floorFor } from '../career/clauses';
 import { freshContracts } from '../career/deals';
-import { BRAND_POP_BOUNDS } from '../career/tuning';
+import { BRAND_POP_BOUNDS, FEATURES } from '../career/tuning';
+import { ensureMatchWorld } from './matchWorld';
 import { hashSeed, seededRng } from '../engine/rng';
 import { tx } from '../storage/db';
 import type { Career } from '../career/types';
@@ -42,6 +43,11 @@ export interface World {
   sim?: { career: import('../career/types').Career; start: Day; end: Day; years: number; reached: number; totals?: Record<string, number>; prev?: Record<string, number> };
   /** Booker mode (rev 11): every promotion's company (owner, tier, bank, its own schedule). */
   companies?: Record<string, Company>;
+  /** Match overhaul (behind FEATURES.matches): tag teams and trios, Money in the Bank briefcases, title shots won, and whether the world's been set up for it. */
+  teams?: Record<string, import('./matchWorld').Team>;
+  briefcases?: import('./matchWorld').Briefcase[];
+  shots?: { who: string; title: string; from: Day }[];
+  matchWorld?: number;
 }
 
 const KEY = 'current';
@@ -99,6 +105,8 @@ function upgrade(w: World): void {
   // Rev 10 (Lyra's relationships redesign): two dials each way. Older bonds convert, and a world with a career in it
   // is brought to life around what's already there (Lyra's call), the player given their circle.
   if (rev < 10) toTwoWay(w);
+  // The match overhaul's world (teams, tag/trios/hardcore titles, masks, willingness): once, and only with the flag on.
+  if (FEATURES.matches) ensureMatchWorld(w);
 }
 
 /** Rev 10: every bond becomes two-way (like and respect each way, and familiarity); a played world is given its relationships. */
