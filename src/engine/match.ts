@@ -9,6 +9,7 @@ import { aiWantsConvert, executeMove, isLadderDive, limbLock, moveIsValid, tierL
 import { canPin, completeKickout, countPin, pinOdds, pinThree, startPin, useResiliency } from './pin';
 import { isMulti, playerSave, resolveSave, retargetAll, setTarget, targetable } from './multi';
 import { distance } from './zones';
+import { canDoubleTeam, canTag, doubleTeam, goForTag, setupTag, tagRules } from './tag';
 import { mathRng, seededRng, type Rng } from './rng';
 import { aiDefence, type Defence } from './defence';
 import { executeSetup, validSetups } from './setups';
@@ -55,7 +56,7 @@ export class MatchEngine {
     const rnd = cfg.rng ?? (cfg.seed !== undefined ? seededRng(cfg.seed) : mathRng);
     const merged = { ...DEFAULT_RULES, ...cfg.rules };
     // More than two people, one fall: no count-outs or DQs unless the booker says otherwise.
-    if (cfg.extras?.length && !cfg.rules?.elimination) {
+    if (cfg.extras?.length && !cfg.rules?.elimination && !cfg.rules?.tag) {
       if (cfg.rules?.countOuts === undefined) merged.countOuts = false;
       if (cfg.rules?.dq === undefined) merged.dq = false;
     }
@@ -63,6 +64,11 @@ export class MatchEngine {
     const rules = normaliseRules(merged);
     const extras = (cfg.extras ?? []).map((x) => ({ w: getWrestler(x.id), team: x.team }));
     const S = createState(rnd, getWrestler(cfg.you), getWrestler(cfg.them), rules, { extras, player: cfg.player, type: cfg.type });
+    // Tag rules: one legal man a team, the rest on the apron.
+    if (tagRules(S)) {
+      setupTag(S);
+      if (!cfg.type && S.type === 'tornado') S.type = 'tag';
+    }
     this.state = S;
     const ctx: Ctx = { S, rnd, hooks: cfg.hooks ?? {}, ai: undefined as unknown as Ctx['ai'] };
     ctx.ai = Object.fromEntries(S.order.map((k) => [k, new AiBrain(ctx, k)]));
@@ -192,6 +198,16 @@ export class MatchEngine {
     const ctx = this.ctx;
     switch (c.to) {
       case 'bell': {
+        if (tagRules(this.state)) {
+          const S = this.state, legal = S.order.filter((k) => S.sides[k]!.legal);
+          say(ctx, LINES.tagBell, { a: legal[0]!, d: legal[1]! });
+          if (legal.length === 2) {
+            setControl(ctx, ctx.rnd() < 0.5 ? legal[0]! : legal[1]!);
+            return;
+          }
+          setControl(ctx, legal[Math.floor(ctx.rnd() * legal.length)]!);
+          return;
+        }
         if (isMulti(this.state)) {
           const S = this.state, names = S.order.map((k) => S.sides[k]!.w.name);
           say(ctx, S.rules.elimination ? LINES.multiBellElim : LINES.multiBell, { vars: { x: `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`, n: names.length } });
@@ -422,6 +438,29 @@ export class MatchEngine {
   setTarget(k: SideKey): boolean {
     if (!setTarget(this.state, this.pk, k)) return false;
     return this.act(() => render(this.ctx));
+  }
+
+  /** Tag matches: can the player go for the tag (or bring their partner in for a double-team) right now? */
+  canTag(): boolean {
+    return this.playerTurn && canTag(this.state, this.pk);
+  }
+  canDoubleTeam(): boolean {
+    return this.playerTurn && canDoubleTeam(this.state, this.pk);
+  }
+  /** Go for the tag: made in your corner, a crawl against the cut-off from anywhere else in the ring. */
+  tag(): boolean {
+    if (!this.canTag()) return false;
+    return this.act(() => {
+      this.state.pending = { kind: 'idle' };
+      goForTag(this.ctx, this.pk);
+    });
+  }
+  doubleTeam(): boolean {
+    if (!this.canDoubleTeam()) return false;
+    return this.act(() => {
+      this.state.pending = { kind: 'idle' };
+      doubleTeam(this.ctx, this.pk);
+    });
   }
 
   /** Someone else's pin or hold: try to break it up, steal it, or leave it. */

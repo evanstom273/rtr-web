@@ -16,6 +16,7 @@ import { refereeAfterAction } from './referee';
 import { autoRecovery } from './setups';
 import { stipulation } from './stipulations';
 import { autoAim, eliminate, isMulti, pickTurn, sidesOfResult } from './multi';
+import { tagAfterAction } from './tag';
 import type { ActionResult, Cont, Control, FinishType, Move, Side, SideKey, StipulationId } from './types';
 
 const FINISH_FLASH: Partial<Record<FinishType, string>> = {
@@ -43,7 +44,8 @@ export function render(ctx: Ctx): void {
 export function setControl(ctx: Ctx, value: Control): void {
   const S = ctx.S;
   // More than two people: whoever won the exchange is favoured, but anyone on their feet can jump in.
-  if (isMulti(S) && value !== 'neutral' && !S.over) value = pickTurn(ctx, value);
+  // (With only two in the fight, a tag match's legal men or the last two in an elimination, it's singles.)
+  if (isMulti(S) && value !== 'neutral' && !S.over && fighting(S).length > 2) value = pickTurn(ctx, value);
   const previous = S.control;
   if (value !== 'neutral') S.neutralFavoured = null;
   S.control = value;
@@ -84,6 +86,7 @@ export function afterAction(ctx: Ctx): void {
   refereeAfterAction(ctx);
   if (!S.obj.gateOpen && S.order.some((k) => S.sides[k]!.finisherStock > 0)) openGate(ctx);
   settleRefereeCount(ctx);
+  tagAfterAction(ctx);
 }
 
 /** A DQ, objective win or time-out reached during the action: act on it now. */

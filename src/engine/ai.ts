@@ -3,6 +3,7 @@
 // weighted top-five choice used here.
 import type { BodyPart } from '../data/rtr/types';
 import { aiMultiInstinct, aiPickTarget, isMulti } from './multi';
+import { aiTagInstinct, doubleTeam, goForTag, tagRules } from './tag';
 import { attributeDelta, moveAttributeProfile, setupScoringModifier, tauntProfile } from './attributes';
 import { advanceClock, sideIsOutside } from './clock';
 import type { Ctx } from './ctx';
@@ -987,6 +988,10 @@ export function aiTurn(ctx: Ctx, k: SideKey): void {
   const ready = A.signatureReady || A.finisherStock > 0;
   const instinct = isMulti(S) ? aiMultiInstinct(S, k, setups) : null;
   if (instinct && executeSetup(ctx, k, instinct)) return;
+  const tagMove = tagRules(S) ? aiTagInstinct(ctx, k, setups) : null;
+  if (tagMove === 'tag' && goForTag(ctx, k)) return;
+  if (tagMove === 'double' && doubleTeam(ctx, k)) return;
+  if (tagMove && tagMove !== 'tag' && tagMove !== 'double' && executeSetup(ctx, k, tagMove)) return;
   const forced = specialStateRecovery(S, k, moves, setups);
   let specialContinuation = false, offensiveContinuation = false;
   if (forced) {

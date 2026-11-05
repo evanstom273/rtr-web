@@ -216,6 +216,32 @@ export function setupContest(A: Side, D: Side, id: SetupId, S?: MatchState): { a
 }
 
 /** Net edge: +1 advantage, −1 disadvantage, 0 straight roll. A push adds one advantage. */
+/**
+ * Going for the tag (match overhaul, stage 3): the crawl to your corner against the man trying to cut you
+ * off. Speed and desperation on one side; speed, skill and the upper hand on the other.
+ */
+export function tagContest(A: Side, D: Side, peril: number, partnerFresh: boolean): { attack: ContestSide; defend: ContestSide } {
+  const aMods: Mod[] = [], aEdges: ContestSide['edges'] = [];
+  push(aMods, `Speed ${A.w.stats.speed}`, statMod(A.w.stats.speed));
+  push(aMods, 'Booked to win', A.booked);
+  for (const m of anyRollMods(A)) push(aMods, m.label, m.value);
+  momentum(aMods, A);
+  push(aMods, 'The crowd behind them', peril >= 6 ? 3 : peril >= 4 ? 2 : 0);
+  push(aMods, 'Partner reaching out', partnerFresh ? 1 : 0);
+  push(aMods, 'Crawling', A.state.position === 'GROUNDED' ? -2 : 0);
+  exhaustion(aMods, A, false);
+  if (exhaustionBand(A) === 'Spent') aEdges.push({ label: 'Spent', dir: -1 });
+  const dMods: Mod[] = [], dEdges: ContestSide['edges'] = [];
+  const cut = (D.w.stats.speed + D.w.stats.skill) / 2;
+  push(dMods, `Speed/Skill ${Math.round(cut)}`, statMod(cut));
+  momentum(dMods, D);
+  push(dMods, 'Booked to win', D.booked);
+  for (const m of anyRollMods(D)) push(dMods, m.label, m.value);
+  push(dMods, 'Down', D.state.position === 'GROUNDED' ? -4 : D.state.position === 'STANDING' ? 0 : -2);
+  exhaustion(dMods, D, false);
+  return { attack: side(A.key, aMods, aEdges), defend: side(D.key, dMods, dEdges) };
+}
+
 export function edgeOf(s: ContestSide): -1 | 0 | 1 {
   const n = s.edges.reduce((t, e) => t + e.dir, 0) + (s.pushed ? 1 : 0);
   return n > 0 ? 1 : n < 0 ? -1 : 0;

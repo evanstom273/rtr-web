@@ -594,12 +594,13 @@ export const RATING_WEIGHTS = { crowd: 1.2, story: 1.0, drama: 1.1, craft: 0.9, 
  * type is taken down this much after the curve. First fit from the stage 2 probe (40 matches a type);
  * refitted by the MATCHES harness in stage 10.
  */
-export const RATING_TYPE: Record<string, { fall: number; elim: number }> = {
+export const RATING_TYPE: Record<string, { fall: number; elim: number; /** Per person past four. */ extra?: number }> = {
   triple: { fall: -0.25, elim: -0.6 },
   fourway: { fall: -0.75, elim: -1.0 },
   multi: { fall: -0.9, elim: -1.3 },
   handicap: { fall: -0.25, elim: -0.8 },
   tornado: { fall: -0.6, elim: -0.8 },
+  tag: { fall: -0.45, elim: -1.1, extra: -0.3 },
 };
 
 export const RATING_CURVE = {

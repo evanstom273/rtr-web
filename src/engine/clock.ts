@@ -10,7 +10,7 @@ import { staminaPercent } from './exhaustion';
 import { clamp } from './rng';
 import { totalHp } from './side';
 import type { MatchState, SideKey } from './types';
-import { isMulti, multiCountOut } from './multi';
+import { alive, isMulti, multiCountOut } from './multi';
 
 export const COUNT_OUT_INTERVAL_SECONDS = 30;
 
@@ -20,8 +20,9 @@ const outsideSides = (ctx: Ctx): SideKey[] => fighting(ctx.S).filter((k) => side
 /** Advance the clock by one action step. */
 export function advanceClock(ctx: Ctx): void {
   const S = ctx.S;
-  // More than two people: things happen at once, so each action is a shorter slice of the match.
-  const step = isMulti(S) ? Math.max(5, Math.round(S.rules.actionClock * Math.min(1, Math.max(0.5, 2 / fighting(S).length)))) : S.rules.actionClock;
+  // More than two people: things happen at once (and partners come and go), so each action is a shorter
+  // slice of the match: 2/n of the usual step for n people still in it, down to 40%.
+  const step = isMulti(S) ? Math.max(5, Math.round(S.rules.actionClock * Math.min(1, Math.max(0.4, 2 / alive(S).length)))) : S.rules.actionClock;
   S.t += step;
   accumulateRefereeCount(ctx, step);
   bleedTick(S);

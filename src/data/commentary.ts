@@ -149,6 +149,25 @@ export const LINES = {
   multiTooLate: '{a} can’t get there in time.',
   multiElim: '<G>{d} is out!</G> {x} by {a}. {n} left.',
   multiElimNoOne: '<G>{d} is out!</G> {x}. {n} left.',
+
+  // Tag teams (match overhaul).
+  tagBell: '<g>The bell rings.</g> {a} and {d} start things off.',
+  tagReach: '{a} goes for the corner, reaching for {x}… {d} is right behind them!',
+  tagCrawl: '{a} crawls for the corner, {x} at full stretch… can {d} stop it?',
+  tagCutOff: '<g>{a} cuts {d} off!</g> Dragged back to the wrong side of the ring.',
+  tagKnockedOff: '{a} knocks {d} clean off the apron. Nobody to tag now.',
+  tagNotSeen: '{a} makes the tag, but the referee didn’t see it! {d} is sent back to the corner.',
+  tagHot: '<G>HOT TAG!</G> {a} comes in like a house on fire!',
+  tagMade: '{a} tags in {d}.',
+  tagIn: '{a} comes in for their team.',
+  tagBackOnApron: '{a} is back up on the apron.',
+  tagDistract: '{a} has the referee’s attention from the apron.',
+  illegalMan: '{a} sneaks in behind the referee’s back and blasts {d}!',
+  doubleTeam: '{a} and {x} with a <g>{m}</g> on {d} in the corner!',
+  teamFinisher: '<G>{m}!</G> {a} and {x} hit their finish on {d}!',
+  doubleFail: '{a} fights off {d} and {x} together!',
+  fiveCount: 'The referee counts {a} out, and they’re gone by four.',
+  tagSaveBack: 'The referee orders {a} back to the corner.',
 } as const;
 
 export const COUNT_WORDS = ['', 'ONE!', 'TWO!', 'THREE!', 'FOUR!', 'FIVE!', 'SIX!', 'SEVEN!', 'EIGHT!', 'NINE!', 'TEN!'];

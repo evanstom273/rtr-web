@@ -163,6 +163,12 @@ export interface Side {
   elimsBy?: number;
   /** Turns spent outside the ring in a row (the AI takes it back in after a while). */
   outsideTurns?: number;
+  /** Tag matches: turns on the wrong end since they last had control (and the most since their last tag), turns since they came in, and turns knocked off the apron. */
+  peril?: number;
+  peakPeril?: number;
+  wasArea?: Area;
+  legalTurns?: number;
+  away?: number;
   /** Career: the booker's thumb on the scale (0 almost always). */
   booked: number;
   /** Booker mode: booked to win by cheating (leans on dirty tactics). */
@@ -303,7 +309,7 @@ export type RingBeat = 'move_started' | 'move_landed' | 'reversal' | 'crash' | '
 /** A contested roll: a move attempt or a contested setup. See dice.ts. */
 export interface ContestSpec {
   id: number;
-  kind: 'move' | 'setup';
+  kind: 'move' | 'setup' | 'tag';
   attacker: SideKey;
   defender: SideKey;
   /** Move name or setup title. */
@@ -569,6 +575,11 @@ export interface CrowdStats {
   saves?: number;
   steals?: number;
   elims?: number;
+  /** Tag matches: tags, hot tags, crawls cut off, double-teams. */
+  tags?: number;
+  hotTags?: number;
+  cutOffs?: number;
+  doubleTeams?: number;
 }
 
 /* ---------- view ---------- */
@@ -648,6 +659,10 @@ export interface MatchRulesConfig {
   bonds?: Record<SideKey, Record<SideKey, number>>;
   /** The champion in a multi-person title match: everyone's a little keener to go after them. */
   champion?: SideKey;
+  /** Tag rules: one legal man a team, the rest on the apron until tagged in (tag, handicap, elimination tag). */
+  tag?: boolean;
+  /** Established teams' finishers, by team index. */
+  teamFinishers?: Record<number, string>;
 }
 
 export interface MatchState {
@@ -704,6 +719,7 @@ export interface MatchState {
 export type Txn =
   | { kind: 'move'; k: SideKey; move: Move; target: TargetResolution; chance: number }
   | { kind: 'setup'; k: SideKey; action: SetupId; chance: number }
+  | { kind: 'tag'; k: SideKey; to: SideKey; chance: number }
   | { kind: 'sub'; k: SideKey; move: Move; target: TargetResolution; nearTapSaid: boolean; nearEscapeSaid: boolean; lastMarker: number; quit?: boolean; save?: SavePlan; secs?: number; spec?: SubSpec };
 
 export interface PinContext {
