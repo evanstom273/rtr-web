@@ -38,6 +38,19 @@ export function maxOn(s: BuilderState, t: TeamKey): number {
   return k.max;
 }
 
+/**
+ * How many a random team gets: a team at the match's minimum (or what it already has, if more), and a field of a
+ * sensible size (a Rumble 20, a battle royal 12, whatever the multi-man needs).
+ */
+export function randomSize(s: BuilderState, t: TeamKey): number {
+  const k = KINDS[s.matchType];
+  if (k.mode === 'field' && t === 'A') return 1;
+  // A handicap: one (or two) against more; the bigger side's B.
+  if (s.matchType === 'handicap') return Math.min(maxOn(s, t), t === 'A' ? 1 : 2);
+  const want = k.mode === 'field' ? (s.matchType === 'rumble' ? 20 : s.matchType === 'battle_royal' ? 12 : s.matchType === 'gauntlet' ? 4 : k.min) : k.min;
+  return Math.min(maxOn(s, t), Math.max(want, s.teams[t].length));
+}
+
 /** The teams in play for this kind of match. */
 export const teamsInPlay = (s: BuilderState): TeamKey[] => (KINDS[s.matchType].mode === 'field' ? ['A', 'B'] : ALL_TEAMS.slice(0, s.teamCount));
 

@@ -118,7 +118,9 @@ export function Match({ engine, onOver }: { engine: MatchEngine; onOver: () => v
   const meCard = <WrestlerCard w={S.sides[pk]!.w} v={v.sides[pk] ?? v.sides.you} active={v.control === pk} onSpecials={() => setSheet('specials-you')} />;
   const slots: MatchSlots = {
     engine, S, wide, pulse, ring, left: pk, right: opp,
-    you: multi ? <div className="m-mecol"><FieldStrip engine={engine} />{meCard}</div> : meCard,
+    // More than two people: on a phone, everyone else gets a strip of their own above the ring; wider, it sits over your card.
+    you: multi && wide ? <div className="m-mecol"><FieldStrip engine={engine} />{meCard}</div> : meCard,
+    ...(multi && !wide ? { field: <FieldStrip engine={engine} /> } : {}),
     them: <WrestlerCard w={S.sides[opp]!.w} v={v.sides[opp] ?? v.sides.them} active={v.control === opp} focus={engine.me.targetFocus} onPick={(part) => engine.setFocus(part)}
       onSpecials={() => setSheet('specials-them')} />,
     log: <Log entries={S.log} tones={tones} />,
@@ -129,7 +131,7 @@ export function Match({ engine, onOver }: { engine: MatchEngine; onOver: () => v
 
   return (
     <>
-      <section id="match" className={`m-${skin} ${wide ? 'wide' : 'narrow'}${joltCls}`}>
+      <section id="match" className={`m-${skin} ${wide ? 'wide' : 'narrow'}${multi ? ' multi' : ''}${joltCls}`}>
         <Layout {...slots} />
       </section>
       {sheet === 'moves' && p.kind === 'awaitPlayer' && <MoveWheel engine={engine} onClose={close} />}

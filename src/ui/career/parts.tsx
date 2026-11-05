@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode , Fragment} from 'react';
 import { TITLES, databaseChanged, databaseVersion, findWrestler, onDatabaseChange, type Wrestler } from '../../data/rtr';
 import type { Career } from '../../career/types';
 import { activeWorld, saveWorld } from '../../world/world';
@@ -85,3 +85,19 @@ export function useToast(): [ReactNode, (s: string) => void] {
 }
 
 export const stars = (s: number): string => `${Number.isInteger(s) ? s : s.toFixed(2).replace(/0$/, '')}★`;
+
+/** Who holds a title, in words: a tag or trios team by name (both names if they're not a named team), or the champion. */
+export function holderText(t: { holder: string | null; holders?: string[]; team?: string }): string {
+  if (t.holders && t.holders.length > 1) {
+    const team = t.team ? activeWorld().teams?.[t.team] : undefined;
+    return team?.name ?? t.holders.map((id) => findWrestler(id)?.name ?? id).join(' & ');
+  }
+  return t.holder ? findWrestler(t.holder)?.name ?? t.holder : 'Vacant';
+}
+
+/** Who holds a title, as names (both of a tag team's), or Vacant. */
+export function Holders({ t }: { t: { holder: string | null; holders?: string[] } }) {
+  const ids = t.holders && t.holders.length > 1 ? t.holders : t.holder ? [t.holder] : [];
+  if (!ids.length) return <span className="c-nl">Vacant</span>;
+  return <span>{ids.map((id, i) => <Fragment key={id}>{i > 0 && ' & '}<Nm id={id} /></Fragment>)}</span>;
+}

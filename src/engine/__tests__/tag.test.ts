@@ -4,7 +4,7 @@ import { MatchEngine } from '../match';
 import { runHeadless } from '../sim/runHeadless';
 import { seededRng } from '../rng';
 import { fighting } from '../commentary';
-import { canTag, cornerDistance, makeTag, partnerFor } from '../tag';
+import { canTag, cornerDistance, makeTag, partnerFor, tagAfterAction } from '../tag';
 import type { Ctx } from '../ctx';
 
 const pick = (seed: number, n: number) => {
@@ -51,6 +51,56 @@ describe('tag rules', () => {
     expect(S.sides.s2!.controller).toBe('player');
     expect(S.them.target).toBe('s2');
     expect(fighting(S)).toEqual(['them', 's2']);
+  });
+
+  it('no tagging straight back out: the man who just came in has to do something first', () => {
+    const e = tagMatch(2), S = e.state;
+    S.you.state = { position: 'STANDING', orientation: 'FRONT', area: 'CORNER', motion: 'STATIONARY' };
+    S.you.spot = 0;
+    makeTag(ctxOf(e), 'you', 's2');
+    // Partner right there in the corner he just came out of, and it's still no.
+    expect(partnerFor(S, 's2')).toBe('you');
+    expect(canTag(S, 's2')).toBe(false);
+    // One more action happens (anyone's), and the tag's back on, if he's still near his corner.
+    tagAfterAction(ctxOf(e));
+    expect(S.sides.s2!.fresh ?? 0).toBe(0);
+    expect(canTag(S, 's2')).toBe(cornerDistance(S, 's2') <= 1);
+  });
+
+  it('the player can’t loop tags: after tagging in, the Tag button is off until the next action', () => {
+    // Play a tag match as the player, pressing Tag whenever it's offered; never two of our tags in a row.
+    for (const seed of [3, 4, 5, 6]) {
+      const e = tagMatch(seed);
+      // A loop: the man who's just come in tagging straight back out on his first prompt, before doing anything.
+      let tags = 0, loops = 0, justIn = false;
+      for (let step = 0; step < 4000 && e.pending.kind !== 'over'; step++) {
+        const p = e.pending;
+        if (p.kind === 'awaitPlayer') {
+          const fresh = justIn && e.state.sides[e.pk]!.legal && e.state.crowd.tags !== undefined;
+          if (e.canTag()) {
+            if (fresh) loops++;
+            const before = e.state.crowd.tags ?? 0;
+            e.tag();
+            justIn = (e.state.crowd.tags ?? 0) > before;
+            tags++;
+          } else { justIn = false; e.autoPlayer(); }
+        } else if (p.kind === 'continue' || p.kind === 'aiThinking' || p.kind === 'refCount' || p.kind === 'refTen') e.advance();
+        else if (p.kind === 'defend') e.defend(e.autoDefence());
+        else if (p.kind === 'contest') e.rollContest(e.autoPush());
+        else if (p.kind === 'contestRoll') e.applyContest();
+        else if (p.kind === 'kickout') e.resolveKickout(true, 2);
+        else if (p.kind === 'sub') e.advance();
+        else if (p.kind === 'subChoice') e.resolveSubChoice(e.autoSubChoice());
+        else if (p.kind === 'tenCount') e.resolveTenCount(true, 5);
+        else if (p.kind === 'sigConvert') e.resolveSigConvert(e.autoSigConvert());
+        else if (p.kind === 'pinChoice') e.resolvePinChoice(e.autoPinChoice());
+        else if (p.kind === 'resiliency') e.resolveResiliency(true);
+        else if (p.kind === 'save') e.resolveSavePrompt(e.autoSave());
+        else break;
+      }
+      expect(loops, `seed ${seed}`).toBe(0);
+      expect(tags, `seed ${seed}: tagged at all`).toBeGreaterThan(1);
+    }
   });
 
   it('a babyface’s tag doesn’t count while the referee is distracted', () => {

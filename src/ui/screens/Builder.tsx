@@ -6,7 +6,8 @@ import { useBackLayer } from '../backStack';
 import { Profile } from '../builder/Profile';
 import { CLASSES, NO_FILTERS, SORTS, activeFilterCount, countries, promotionList, titleList, filterRoster, sortValue, type Filters, type SortMode, sortText } from '../builder/roster';
 import { IRON_MAN_MINUTES, NEW_STIPS, STIPULATIONS, rulesEditable, stipulation, type StipulationId } from '../../engine';
-import { ALL_TEAMS, builderProblem, KINDS, maxOn, teamsInPlay, type BuilderState, type MatchKind } from '../builder/state';
+import { ALL_TEAMS, builderProblem, KINDS, maxOn, randomSize, teamsInPlay, type BuilderState, type MatchKind } from '../builder/state';
+import { activeWorld } from '../../world/world';
 import { FEATURES } from '../../career/tuning';
 import { useDragSort, type DragItem, type DropTarget, type TeamKey } from '../builder/useDragSort';
 import { Name } from '../common/Name';
@@ -25,7 +26,6 @@ interface Props {
 }
 
 const CLOCKS = [10, 15, 20, 25, 30];
-const OTHER: Record<TeamKey, TeamKey> = { A: 'B', B: 'A', C: 'A', D: 'A' };
 const ROYAL_SECONDS = [60, 90, 120];
 const POLE_OBJECTS: [string, string][] = [['brass_knuckles', 'Brass knuckles'], ['kendo_stick', 'A kendo stick'], ['steel_chair', 'A steel chair'], ['contract', 'A contract (grab it to win)']];
 
@@ -37,8 +37,13 @@ function titleHost(s: BuilderState): string {
   return '';
 }
 
-function holderName(holder: string | null): string {
-  const w = holder ? findWrestler(holder) : undefined;
+function holderName(t: { holder: string | null; holders?: string[]; team?: string }): string {
+  // A tag or trios belt: the team (by name, when they're a real team), not just its first man.
+  if (t.holders && t.holders.length > 1) {
+    const team = t.team ? activeWorld().teams?.[t.team] : undefined;
+    return `held by ${team?.name ?? t.holders.map((id) => findWrestler(id)?.name ?? id).join(' & ')}`;
+  }
+  const w = t.holder ? findWrestler(t.holder) : undefined;
   return w ? `held by ${w.name}` : 'Vacant';
 }
 
@@ -83,14 +88,21 @@ export function Builder({ state: s, hits, onChange, onStart, onMenu }: Props) {
   const pickRandom = (exclude: Set<string>) => {
     const pool = list.filter((w) => !exclude.has(w.id));
     const from = pool.length ? pool : WRESTLERS.filter((w) => !exclude.has(w.id));
-    return from[Math.floor(Math.random() * from.length)]!.id;
+    return from.length ? from[Math.floor(Math.random() * from.length)]!.id : undefined;
   };
+  /** A random team: as many as the match needs (a tag team's two, a Rumble's field), nobody who's on another team. */
   const randomTeam = (t: TeamKey, base = s) => {
-    if (base.locked[t]) return base;
-    const id = pickRandom(new Set(base.teams[OTHER[t]]));
-    return { ...base, teams: { ...base.teams, [t]: [id] } };
+    if (base.locked[t] || !teamsInPlay(base).includes(t)) return base;
+    const taken = new Set(ALL_TEAMS.filter((x) => x !== t).flatMap((x) => base.teams[x]));
+    const ids: string[] = [];
+    for (let n = randomSize(base, t); ids.length < n;) {
+      const id = pickRandom(new Set([...taken, ...ids]));
+      if (!id) break;
+      ids.push(id);
+    }
+    return { ...base, teams: { ...base.teams, [t]: ids } };
   };
-  const randomMatch = () => onChange(randomTeam('B', randomTeam('A')));
+  const randomMatch = () => onChange(teamsInPlay(s).reduce((acc, t) => randomTeam(t, acc), s));
 
   const a = s.teams.A, b = s.teams.B;
   const status = FEATURES.matches ? builderProblem(s) : !a.length ? 'Team A needs one wrestler.' : !b.length ? 'Team B needs one wrestler.'
@@ -128,7 +140,7 @@ export function Builder({ state: s, hits, onChange, onStart, onMenu }: Props) {
           {s.locked[t] ? 'Locked' : 'Lock'}
         </button>
       </div>
-      <ol className="bd-members">
+      <ol className={`bd-members${kind.mode === 'field' && t === 'B' ? ' field' : ''}`}>
         {s.teams[t].map((id, i) => {
           const w = findWrestler(id);
           if (!w) return null;
@@ -152,7 +164,8 @@ export function Builder({ state: s, hits, onChange, onStart, onMenu }: Props) {
   return (
     <section id="setup" className={`builder${drag ? ' is-dragging' : ''}`}>
         <header className="bd-top">
-          <BuilderHead skin={skin} a={a[0]} b={b[0]} />
+          <BuilderHead skin={skin} a={a[0]} b={b[0]}
+            {...(FEATURES.matches && s.matchType !== 'singles' ? { label: kind.mode === 'field' ? `${kind.label} · ${1 + s.teams.B.length}` : kind.label } : {})} />
           <div className="bd-bar">
             <button className="ghost sm bd-menu" onClick={onMenu} aria-label="Back to the main menu">
               ‹
@@ -314,7 +327,7 @@ export function Builder({ state: s, hits, onChange, onStart, onMenu }: Props) {
               <option value="">Non-title match</option>
               {titles.map((t) => (
                 <option key={t.id} value={t.id}>
-                  {t.name} — {holderName(t.holder)}
+                  {t.name} — {holderName(t)}
                 </option>
               ))}
             </select>
@@ -452,7 +465,7 @@ export function Builder({ state: s, hits, onChange, onStart, onMenu }: Props) {
                 Random A
               </button>
               <button className="ghost sm" onClick={() => onChange(randomTeam('B'))} disabled={s.locked.B}>
-                Random B
+                {kind.mode === 'field' ? 'Random field' : 'Random B'}
               </button>
               <button className="primary bd-start" disabled={!ready} onClick={onStart}>
                 Ring the bell

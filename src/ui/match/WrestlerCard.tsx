@@ -21,7 +21,7 @@ export function WrestlerCard({ w, v, active, focus, onPick, onSpecials }: Props)
   const r = Math.round;
   const st = v.state;
   const staPct = v.maxStamina ? (v.stamina / v.maxStamina) * 100 : 0;
-  const hit = useHit(v);
+  const hit = useHit(v, w.id);
   const ghost = useGhost(staPct);
   return (
     <div className={`card ${v.key}${active ? ' active' : ''}${hit ? ` hit${hit.dmg >= 10 ? ' hit-big' : ''} h${hit.n % 2}` : ''}`} id={`card-${v.key}`}>
@@ -92,14 +92,17 @@ export function WrestlerCard({ w, v, active, focus, onPick, onSpecials }: Props)
 }
 
 /** A hit: how much it took off, and where most of it went. Clears itself after a beat. */
-function useHit(v: SideView): { n: number; dmg: number; part: string } | null {
+function useHit(v: SideView, who: string): { n: number; dmg: number; part: string } | null {
   const prev = useRef({ ...v.hp });
+  // Whose body this card is showing: a tag puts someone else in the slot, and their body isn't a hit on the last one's.
+  const prevWho = useRef(who);
   const n = useRef(0);
   const [hit, setHit] = useState<{ n: number; dmg: number; part: string } | null>(null);
   const total = Object.values(v.hp).reduce((a, b) => a + b, 0);
   useEffect(() => {
     const before = prev.current;
     prev.current = { ...v.hp };
+    if (prevWho.current !== who) { prevWho.current = who; setHit(null); return; }
     let dmg = 0, worst: BodyPart | null = null, most = 0;
     for (const p of Object.keys(v.hp) as BodyPart[]) {
       const d = (before[p] ?? 0) - v.hp[p];
@@ -114,7 +117,7 @@ function useHit(v: SideView): { n: number; dmg: number; part: string } | null {
     setHit({ n: n.current, dmg: Math.round(dmg), part: worst ? PART_LABEL[worst] : '' });
     const id = window.setTimeout(() => setHit(null), 1100);
     return () => window.clearTimeout(id);
-  }, [total]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [total, who]); // eslint-disable-line react-hooks/exhaustive-deps
   return hit;
 }
 

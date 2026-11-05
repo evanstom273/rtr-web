@@ -14,7 +14,7 @@ import { Record } from './screens/Record';
 import { Result } from './screens/Result';
 import { Tape } from './screens/Tape';
 import { Settings } from './Settings';
-import { freshBuilder, matchSides, type BuilderState } from './builder/state';
+import { freshBuilder, KINDS, matchSides, teamsInPlay, type BuilderState } from './builder/state';
 import { FEATURES } from '../career/tuning';
 import { CareerApp, type CareerScreen } from './career/CareerApp';
 import { MatchMocks } from './mock/MatchMocks';
@@ -28,7 +28,8 @@ import type { SideKey } from '../engine/types';
 import { activeWorld, resetCareer } from '../world/world';
 
 /** A career match being played: which show and which match on its card. */
-interface CareerBout { showId: string; index: number }
+/** Your career match: the show and the bout, and (a tag match) who starts for your team, picked on the tale of the tape. */
+interface CareerBout { showId: string; index: number; starter?: string }
 
 type Screen =
   | { name: 'menu' }
@@ -98,13 +99,18 @@ export function App() {
     // Match overhaul: a tag match, a multi-man, a Rumble — the first two leads face off, everyone else comes
     // in as extras, and you control your own side (always one of the two leads).
     if (bout.sides && FEATURES.matches) {
-      const e = boutEngine(bout);
-      const player: SideKey = e.you === c.player ? 'you' : 'them';
-      return { c, show, bout, you: e.you, them: e.them, aIsYou: true, rules: { ...boutRules(c, show, bout, e.you, e.them, false), ...e.rules },
+      // Your team's starter (you, unless you picked a partner on the tape) leads your side in the engine only.
+      const mySide = bout.sides.find((x) => x.includes(c.player));
+      const start = cb.starter && mySide?.includes(cb.starter) ? cb.starter : c.player;
+      const shaped = mySide ? { ...bout, sides: bout.sides.map((x) => (x === mySide ? [start, ...x.filter((y) => y !== start)] : x)) } : bout;
+      const e = boutEngine(shaped);
+      const player: SideKey = e.you === start ? 'you' : 'them';
+      return { c, show, bout, you: e.you, them: e.them, aIsYou: true, mine: start, opp: player === 'you' ? e.them : e.you,
+        rules: { ...boutRules(c, show, bout, e.you, e.them, false), ...e.rules },
         shape: { extras: e.extras, ...(e.type ? { type: e.type } : {}), player }, multiRules: e.rules };
     }
     const them = bout.a === c.player ? bout.b : bout.a;
-    return { c, show, bout, you: c.player, them, aIsYou: bout.a === c.player, rules: boutRules(c, show, bout, c.player, them, false), shape: null, multiRules: {} };
+    return { c, show, bout, you: c.player, them, aIsYou: bout.a === c.player, mine: c.player, opp: them, rules: boutRules(c, show, bout, c.player, them, false), shape: null, multiRules: {} };
   }, []);
   const startCareerMatch = useCallback((cb: CareerBout) => {
     const s = careerSetup(cb);
@@ -178,12 +184,18 @@ export function App() {
     body = <CareerApp initial={screen.initial} onMenu={toMenu} onPlay={(showId, index) => setScreen({ name: 'tape', career: { showId, index } })} />;
   } else if (screen.name === 'tape' && screen.career) {
     const s = careerSetup(screen.career);
-    const you = s ? findWrestler(s.you) : undefined, them = s ? findWrestler(s.them) : undefined;
+    const you = s ? findWrestler(s.mine) : undefined, them = s ? findWrestler(s.opp) : undefined;
     if (s && you && them) {
       const cb = screen.career;
       const line = [s.show.name, s.bout.sides ? boutLabel(s.bout, (id) => findWrestler(id)?.name ?? id) : '', s.bout.title ? 'Title match' : '',
         stipulation(s.bout.stip ?? 'standard').name].filter(Boolean).join(' · ');
-      body = <Tape you={you} them={them} rules={line} onBack={() => toCareer('show')} onBell={() => startCareerMatch(cb)} />;
+      // A tag match: your corner (you or a partner can start) and theirs.
+      const mine = s.bout.sides && s.bout.tag ? s.bout.sides.find((x) => x.includes(s.c.player)) : undefined;
+      const nm = (ids: string[]) => ids.map((id) => findWrestler(id)!).filter(Boolean);
+      const team = mine ? nm([s.mine, ...mine.filter((x) => x !== s.mine)]) : undefined;
+      const foes = mine ? s.bout.sides!.filter((x) => x !== mine).map(nm) : undefined;
+      body = <Tape you={you} them={them} rules={line} onBack={() => toCareer('show')} onBell={() => startCareerMatch(cb)}
+        {...(team && team.length > 1 ? { team, foes, onStarter: (id: string) => setScreen({ name: 'tape', career: { ...cb, starter: id } }) } : {})} />;
     }
   } else if (screen.name === 'setup') {
     body = <Builder state={builder} hits={hits} onChange={setBuilder} onStart={() => setScreen({ name: 'tape' })} onMenu={toMenu} />;
@@ -196,7 +208,11 @@ export function App() {
         st.countOuts && builder.countOuts ? `Count-out ${builder.countOutLimit}` : 'No count-outs',
         `${builder.actionClock}s clock`,
       ].join(' · ');
-      body = <Tape you={you} them={them} rules={rules} onBack={toRoster} onBell={startMatch} />;
+      // A team match: your corner (tap who starts: they go first on Team A) and theirs.
+      const sides = FEATURES.matches && KINDS[builder.matchType].mode === 'teams' ? teamsInPlay(builder).map((t) => builder.teams[t].map((id) => findWrestler(id)!).filter(Boolean)) : null;
+      const starter = (id: string) => setBuilder({ ...builder, teams: { ...builder.teams, A: [id, ...builder.teams.A.filter((x) => x !== id)] } });
+      body = <Tape you={you} them={them} rules={rules} onBack={toRoster} onBell={startMatch}
+        {...(sides && sides[0]!.length > 1 ? { team: sides[0], foes: sides.slice(1), onStarter: starter } : {})} />;
     }
   } else if (screen.name === 'match') {
     body = (

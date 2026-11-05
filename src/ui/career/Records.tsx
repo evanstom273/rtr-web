@@ -10,7 +10,7 @@ import { daysBetween, fmtDay } from '../../career/dates';
 import { stipulation } from '../../engine';
 import { activeWorld } from '../../world/world';
 import { archivedLabel, archivedName, archivedWinner, archivedWon, promotionStory, reignsOf, titleLineage, wrestlerHistory, type ArchivedShow, type WorldEvent } from '../../world/history';
-import { Head, money, Nm, Screen, useWords } from './parts';
+import { Head, money, Nm, Screen, useWords, Holders, holderText } from './parts';
 import type { ReqRoute } from './Requests';
 
 interface Props { c: Career; onBack: () => void; onMoveset: () => void; onNewCareer: () => void; onRequest: (r: ReqRoute) => void }
@@ -177,7 +177,7 @@ export function Records({ c, onBack, onMoveset, onNewCareer, onRequest }: Props)
                   return (
                     <button key={t.id} className="c-ans" onClick={() => open({ k: 'title', id: t.id })} style={{ padding: '7px 10px' }}>
                       <span className="c-rowsb"><b className="c-at" style={{ fontSize: 15 }}>{t.name}</b><span className="c-hint">{line.length} {line.length === 1 ? 'reign' : 'reigns'}</span></span>
-                      <span className="c-vs">{t.holder ? <Nm id={t.holder} /> : <span className="c-nl">Vacant</span>}{cur && <span className="c-hint">since {fmtDay(cur.from, 'dm')} · {daysBetween(cur.from, c.today)} {daysBetween(cur.from, c.today) === 1 ? 'day' : 'days'}</span>}</span>
+                      <span className="c-vs"><Holders t={t} />{cur && <span className="c-hint">since {fmtDay(cur.from, 'dm')} · {daysBetween(cur.from, c.today)} {daysBetween(cur.from, c.today) === 1 ? 'day' : 'days'}</span>}</span>
                     </button>
                   );
                 })}
@@ -300,7 +300,7 @@ function Lineage({ id, today, onClose, onWrestler, onAsk }: { id: string; today:
       <div className="c-start" style={{ marginTop: 10 }}>
         <span className="c-lab">{promoLabel(p)}</span>
         <b className="c-sbig">{t.name}</b>
-        <span className="c-val">{line.length} {line.length === 1 ? 'reign' : 'reigns'}{began ? ` since records began (${fmtDay(began, 'long')})` : ''} · champion now: {t.holder ? findWrestler(t.holder)?.name : 'vacant'}</span>
+        <span className="c-val">{line.length} {line.length === 1 ? 'reign' : 'reigns'}{began ? ` since records began (${fmtDay(began, 'long')})` : ''} · champion now: {t.holder ? holderText(t) : 'vacant'}</span>
       </div>
       <div className="c-body">
         {line.map((r, i) => {

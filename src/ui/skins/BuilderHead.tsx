@@ -3,7 +3,8 @@ import { surname } from '../model';
 import type { Skin } from '../skin';
 
 /** The top of the match builder, in each skin's dress. */
-export function BuilderHead({ skin, a, b }: { skin: Skin; a?: string; b?: string }) {
+/** `label`: a match with more than two people ("Rumble · 21", "Tag team"), shown in place of "A vs B". */
+export function BuilderHead({ skin, a, b, label }: { skin: Skin; a?: string; b?: string; label?: string }) {
   const wa = a ? findWrestler(a) : undefined, wb = b ? findWrestler(b) : undefined;
   if (skin === 'paper') {
     return (
@@ -31,7 +32,7 @@ export function BuilderHead({ skin, a, b }: { skin: Skin; a?: string; b?: string
     <div className="bh-building">
       <span className="bh-tonight">Tonight</span>
       <h1 className="bh-matchup">
-        {wa ? surname(wa) : '???'} <span>vs</span> {wb ? surname(wb) : '???'}
+        {label ?? <>{wa ? surname(wa) : '???'} <span>vs</span> {wb ? surname(wb) : '???'}</>}
       </h1>
     </div>
   );

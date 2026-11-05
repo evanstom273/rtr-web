@@ -6,7 +6,7 @@ import { begin } from '../career/testkit';
 import { applyStakes } from '../career/stakes';
 import type { Person } from '../career/types';
 import {
-  activeTeams, addWear, briefcaseOf, ensureMatchWorld, fadeWear, monthlyTeams, teamOf, teamsIn, unmask, wearInjury, wearStart, willing,
+  activeTeams, addWear, briefcaseOf, ensureMatchWorld, fadeWear, monthlyTeams, TAG_TITLE_NAME, teamOf, teamsIn, unmask, wearInjury, wearStart, willing,
 } from './matchWorld';
 import { activeWorld, freshWorld, setWorld } from './world';
 
@@ -16,15 +16,16 @@ beforeEach(() => { was = flag.matches; flag.matches = true; });
 afterEach(() => { flag.matches = was; });
 
 describe('the match overhaul’s world (stage 8)', () => {
-  it('every major gets tag teams and a tag title held by one of them; SLN trios; hardcore titles for END and IVW', () => {
+  it('every major gets tag teams and a tag title held by one of them, named in its style; SLN trios; no other new belts', () => {
     const w = setWorld(freshWorld(3));
-    expect(w.matchWorld).toBe(1);
+    expect(w.matchWorld).toBe(2);
     for (const p of w.db.promotions.filter((x) => !x.indie)) {
       const men = teamsIn(w, p.initials).filter((t) => !t.trios && findWrestler(t.members[0]!)!.gender === 'MALE');
       expect(men.length, p.initials).toBeGreaterThanOrEqual(3);
       for (const t of teamsIn(w, p.initials)) for (const id of t.members) expect(findWrestler(id)!.promotion).toBe(p.initials);
       const tag = w.db.titles.find((t) => t.id === `${p.initials}_TAG_TEAM_CHAMPIONSHIP`)!;
       expect(tag.kind).toBe('tag');
+      expect(tag.name).toBe(TAG_TITLE_NAME[p.initials]);
       expect(tag.holders).toHaveLength(2);
       expect(w.teams![tag.team!]!.members).toEqual(tag.holders);
       expect(p.titles).toContain(tag.id);
@@ -32,15 +33,32 @@ describe('the match overhaul’s world (stage 8)', () => {
     }
     const trios = w.db.titles.find((t) => t.id === 'SLN_TRIOS_CHAMPIONSHIP')!;
     expect(trios.holders).toHaveLength(3);
-    for (const p of ['END', 'IVW']) {
-      const hc = w.db.titles.find((t) => t.id === `${p}_HARDCORE_CHAMPIONSHIP`)!;
-      expect(hc.kind).toBe('hardcore');
-      expect(willing(findWrestler(hc.holder!)!)).toBeGreaterThanOrEqual(0);
-    }
+    // Tag belts only (Lyra's call): no hardcore belts.
+    expect(w.db.titles.some((t) => t.kind === 'hardcore')).toBe(false);
+    expect(w.db.titles.find((t) => t.id === 'TCG_TAG_TEAM_CHAMPIONSHIP')!.name).toBe('TCG Tag Team Title');
+    expect(w.db.titles.find((t) => t.id === 'SLN_TAG_TEAM_CHAMPIONSHIP')!.name).toBe('SLN Campeonato de Parejas');
     // Once only.
     const n = w.db.titles.length;
     ensureMatchWorld(w);
     expect(w.db.titles.length).toBe(n);
+  });
+
+  it('a save from before: its hardcore belts go (reigns, news and all) and the tag belts are renamed', () => {
+    const w = setWorld(freshWorld(8));
+    // As the first revision left it: a hardcore belt with a reign, and the old tag name.
+    const p = w.db.promotions.find((x) => x.initials === 'END')!;
+    const champ = w.db.wrestlers.find((x) => x.promotion === 'END')!.id;
+    w.db.titles.push({ id: 'END_HARDCORE_CHAMPIONSHIP', name: 'END Hardcore Championship', promotionId: p.id, gender: 'MALE', holder: champ, weeksHeld: 0, kind: 'hardcore' });
+    p.titles.push('END_HARDCORE_CHAMPIONSHIP');
+    w.history.reigns.END_HARDCORE_CHAMPIONSHIP = [{ holder: champ, name: 'x', from: '2026-01-01', to: null, defences: 0 }];
+    w.db.titles.find((t) => t.id === 'TCG_TAG_TEAM_CHAMPIONSHIP')!.name = 'TCG Tag Team Championship';
+    w.matchWorld = 1;
+    ensureMatchWorld(w);
+    expect(w.matchWorld).toBe(2);
+    expect(w.db.titles.some((t) => t.id === 'END_HARDCORE_CHAMPIONSHIP')).toBe(false);
+    expect(p.titles).not.toContain('END_HARDCORE_CHAMPIONSHIP');
+    expect(w.history.reigns.END_HARDCORE_CHAMPIONSHIP).toBeUndefined();
+    expect(w.db.titles.find((t) => t.id === 'TCG_TAG_TEAM_CHAMPIONSHIP')!.name).toBe('TCG Tag Team Title');
   });
 
   it('with the flag off, the world is left alone', () => {

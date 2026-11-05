@@ -238,11 +238,20 @@
 .bd-badge{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;color:#fff;background:var(--you)}
 .bd-badge.tB{background:var(--them);color:#fff}
 .bd-foot{flex:none;padding:0 0 calc(8px + env(safe-area-inset-bottom,0px))}
+/* The teams can't push the bell off the screen (a Rumble's 29): the card keeps to its share and scrolls. */
+.bd-card{max-height:34dvh;overflow-y:auto;overscroll-behavior:contain;align-content:start;flex:0 1 auto!important;min-height:64px}
+@media (max-width:699px){.bd-rules{max-height:42dvh;overflow-y:auto;overscroll-behavior:contain}}
+/* The rules wrap inside their panel (they spilled off the right in the building skin), and a squeezed roster
+   clips its own search and filters rather than drawing them over the buttons below. */
+.bd-rules{grid-template-columns:minmax(0,1fr)}
+.bd-rules>*,.bd-row{min-width:0}
+.bd-roster{overflow:hidden;min-height:118px}
+.bd-members.field{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
 @media (min-width:700px){
-  .bd-main{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);grid-template-areas:"roster card" "roster foot";padding-bottom:12px;gap:12px}
+  .bd-main{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto;grid-template-areas:"roster card" "roster foot";padding-bottom:12px;gap:12px}
   .bd-roster{grid-area:roster}
-  .bd-card{grid-area:card;grid-template-columns:1fr}
-  .bd-foot{grid-area:foot;align-self:start;padding:0}
+  .bd-card{grid-area:card;grid-template-columns:1fr;max-height:none;min-height:0}
+  .bd-foot{grid-area:foot;align-self:end;padding:0}
   .bd-team{min-height:120px;padding:10px 12px}
 }
 
@@ -331,6 +340,19 @@
 .tape-in{max-width:600px;margin:0 auto;padding-block:16px 0;min-height:100%;display:flex;flex-direction:column}
 .tape-actions{position:sticky;bottom:0;margin-top:auto;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:8px;padding:14px 0 calc(14px + env(safe-area-inset-bottom,0px));background:linear-gradient(to bottom,transparent,var(--ink) 30%)}
 .tape-actions button{min-height:58px}
+/* A team match's corners: tap who starts (yours); theirs shows who's starting for them. */
+.tp-corners{display:grid;gap:8px;margin-bottom:12px}
+.tp-corner{display:grid;gap:5px}
+.tp-corner-h{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+.tp-corner-row{display:flex;flex-wrap:wrap;gap:6px}
+.tp-pick{display:inline-flex;align-items:baseline;gap:6px;min-height:40px;padding:8px 12px;border:1px solid var(--line);background:var(--panel);color:var(--fg);font:inherit;font-weight:700;border-radius:8px}
+.tp-pick small{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;font-weight:400}
+.tp-corner.you .tp-pick.on{border-color:var(--you);box-shadow:inset 0 0 0 1px var(--you);color:var(--you)}
+.tp-corner.them .tp-pick.on{border-color:var(--them);color:var(--them)}
+.tp-pick.static{opacity:.85}
+[data-skin=broadcast] .tp-pick{border-radius:0}
+[data-skin=paper] .tp-pick{background:transparent;border-radius:0;border:1px solid var(--fg);font-family:var(--display)}
+[data-skin=building] .tp-pick{background:var(--panel-2);border-radius:4px}
 .tape-go{font-family:var(--display);font-weight:900;font-size:1.5rem;text-transform:uppercase;letter-spacing:.06em}
 .tp-lab{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;text-align:center;color:var(--mute)}
 .tp-vitals{display:grid;gap:2px}
