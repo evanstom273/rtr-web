@@ -59,7 +59,9 @@ export type StipulationId =
   | 'two_out_of_three' | 'last_man_standing' | 'i_quit'
   // Match overhaul, stage 5.
   | 'street_fight' | 'no_holds_barred' | 'texas_death' | 'first_blood' | 'deathmatch'
-  | 'casket' | 'ambulance' | 'stretcher' | 'strap' | 'dog_collar' | 'bull_rope' | 'lumberjack' | 'pole';
+  | 'casket' | 'ambulance' | 'stretcher' | 'strap' | 'dog_collar' | 'bull_rope' | 'lumberjack' | 'pole'
+  // Stage 6: structures.
+  | 'hell_in_a_cell' | 'elimination_chamber' | 'wargames' | 'scaffold' | 'ultimate_x' | 'tlc' | 'money_in_the_bank';
 
 /** Where an object is and what it's doing. */
 export type ObjectState = 'held' | 'dropped' | 'flat' | 'corner' | 'stacked' | 'spread' | 'ladder' | 'broken' | 'consumed';
@@ -107,6 +109,8 @@ export interface Objective {
   container?: { victim: SideKey; by: SideKey; stage: number } | null;
   corners?: Record<SideKey, number>;
   pole?: { weaponId: string; taken: boolean };
+  /** Ultimate X: how far along the cables each one is (1 on, 2 halfway, 3 at the X). */
+  cables?: Record<SideKey, number>;
 }
 
 export interface Decision {
@@ -141,6 +145,8 @@ export type FinishType =
   | 'OVER_THE_TOP'
   /** Match overhaul, stage 5: first to bleed, in the casket / ambulance / past the line, all four corners, off the pole. */
   | 'FIRST_BLOOD' | 'CASKET' | 'AMBULANCE' | 'STRETCHER' | 'CORNERS' | 'POLE'
+  /** Stage 6: knocked off the scaffold; the X pulled down. */
+  | 'SCAFFOLD' | 'ULTIMATE_X'
   /** Booker mode: a run-in ends it, nobody wins. */
   | 'NO_CONTEST';
 
@@ -177,6 +183,10 @@ export interface Side {
   elimsBy?: number;
   /** Turns spent outside the ring in a row (the AI takes it back in after a while). */
   outsideTurns?: number;
+  /** Up on a structure (stage 6): the cell roof, the scaffold, the Ultimate X cables. */
+  perch?: 'roof' | 'scaffold' | 'cables';
+  /** Turns spent up there waiting for the other one to follow. */
+  perchTurns?: number;
   /** Tag matches: turns on the wrong end since they last had control (and the most since their last tag), turns since they came in, and turns knocked off the apron. */
   peril?: number;
   peakPeril?: number;
@@ -393,7 +403,10 @@ export interface SaveSpec {
 /** Stage 5 stipulation actions. */
 export type GimmickId =
   | 'load_casket' | 'close_casket' | 'load_ambulance' | 'shut_ambulance' | 'load_stretcher' | 'wheel_stretcher'
-  | 'climb_out' | 'touch_corner' | 'climb_pole';
+  | 'climb_out' | 'touch_corner' | 'climb_pole'
+  // Stage 6: structures.
+  | 'climb_cell' | 'climb_down_cell' | 'throw_off_cell' | 'ram_into_cell' | 'ram_into_chamber' | 'pod_dive'
+  | 'knock_off_scaffold' | 'climb_to_cables' | 'crawl_cables' | 'grab_x' | 'pull_off_cables';
 
 /** A Rumble (or battle royal, or gauntlet) entrant: their number, when they came in and went out, and who they put out. */
 export interface Entry { n: number; inAt: number | null; outAt: number | null; elims: number }

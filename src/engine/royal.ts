@@ -19,7 +19,13 @@ import type { Area, MatchState, SetupId, SideKey } from './types';
 
 export const isRoyal = (S: MatchState): boolean => S.type === 'battle_royal' || S.type === 'rumble';
 /** Matches where people come in one at a time (on a clock, or when someone goes out). */
-export const hasEntrants = (S: MatchState): boolean => S.type === 'rumble' || S.type === 'gauntlet';
+export const hasEntrants = (S: MatchState): boolean =>
+  S.type === 'rumble' || S.type === 'gauntlet' || S.rules.stipulation === 'elimination_chamber' || S.rules.stipulation === 'wargames';
+/** Entrants on a clock: the Rumble, the Chamber's pods, WarGames. */
+export const timedEntries = (S: MatchState): boolean => S.type === 'rumble' || S.rules.stipulation === 'elimination_chamber' || S.rules.stipulation === 'wargames';
+/** Seconds between entrants: the Rumble's 90, the Chamber's pods every four minutes, WarGames every two. */
+export const entryInterval = (S: MatchState): number =>
+  S.rules.entryEvery ?? (S.rules.stipulation === 'elimination_chamber' ? 240 : S.rules.stipulation === 'wargames' ? 120 : RUMBLE_INTERVAL);
 /** Lyra's call: a new Rumble entrant every 90 seconds of match time. */
 export const RUMBLE_INTERVAL = 90;
 
@@ -36,7 +42,18 @@ export function setupRoyal(S: MatchState, rnd: Rng): void {
   let draw = [...S.order];
   const booked = S.rules.draw;
   if (booked && booked.length === S.order.length && S.order.every((k) => booked.includes(k))) draw = [...booked];
-  else if (S.type === 'rumble') {
+  else if (S.rules.stipulation === 'wargames') {
+    // One from each team starts; then they alternate, the team that won the advantage first.
+    const teams = [...new Set(S.order.map((k) => S.sides[k]!.team))];
+    const by = teams.map((t) => S.order.filter((k) => S.sides[k]!.team === t));
+    const adv = rnd() < 0.5 ? 0 : 1, other = 1 - adv;
+    draw = [by[0]![0]!, by[1]![0]!];
+    for (let i = 1; i < Math.max(by[0]!.length, by[1]!.length); i++) {
+      if (by[adv]![i]) draw.push(by[adv]![i]!);
+      if (by[other]![i]) draw.push(by[other]![i]!);
+    }
+    for (const k of S.order) if (!draw.includes(k)) draw.push(k);
+  } else if (S.type === 'rumble' || S.rules.stipulation === 'elimination_chamber') {
     for (let i = draw.length - 1; i > 0; i--) {
       const j = Math.floor(rnd() * (i + 1));
       [draw[i], draw[j]] = [draw[j]!, draw[i]!];
@@ -50,11 +67,11 @@ export function setupRoyal(S: MatchState, rnd: Rng): void {
     S.entries![k] = { n: i + 1, inAt: starts ? 0 : null, outAt: null, elims: 0 };
     s.spot = i % 4;
     if (!starts) {
-      s.out = 'waiting';
+      s.out = S.rules.stipulation === 'elimination_chamber' ? 'pod' : 'waiting';
       s.state = { position: 'STANDING', orientation: 'FRONT', area: 'BACKSTAGE', motion: 'STATIONARY' };
     }
   });
-  if (S.type === 'rumble') S.nextEntry = S.rules.entryEvery ?? RUMBLE_INTERVAL;
+  if (timedEntries(S)) S.nextEntry = entryInterval(S);
   retargetAll(S);
   if (hasEntrants(S)) {
     const [a, b] = draw;
@@ -64,7 +81,7 @@ export function setupRoyal(S: MatchState, rnd: Rng): void {
 }
 
 /** Who's next in the draw, if anyone. */
-export const nextEntrant = (S: MatchState): SideKey | null => S.draw?.find((k) => S.sides[k]!.out === 'waiting') ?? null;
+export const nextEntrant = (S: MatchState): SideKey | null => S.draw?.find((k) => S.sides[k]!.out === 'waiting' || S.sides[k]!.out === 'pod') ?? null;
 
 /** The next one through the curtain. */
 export function enterNext(ctx: Ctx): SideKey | null {
@@ -80,12 +97,20 @@ export function enterNext(ctx: Ctx): SideKey | null {
   const surprise = !!S.rules.surprises?.includes(k);
   if (surprise) S.crowd.surprises = (S.crowd.surprises ?? 0) + 1;
   heat(ctx, surprise ? 12 : 4);
-  const line = S.type === 'gauntlet' ? LINES.gauntletNext : surprise ? LINES.rumbleSurprise : LINES.rumbleEntry;
+  const st = S.rules.stipulation;
+  const line = S.type === 'gauntlet' ? LINES.gauntletNext : st === 'elimination_chamber' ? LINES.chamberPod : st === 'wargames' ? LINES.wargamesEntry
+    : surprise ? LINES.rumbleSurprise : LINES.rumbleEntry;
   say(ctx, line, { a: k, vars: { n: e.n } }, 'hl');
   ring(ctx, 'control', k);
   S.clusterLeft = 0;
   retargetAll(S);
-  if (S.type === 'rumble') S.nextEntry = nextEntrant(S) ? (S.nextEntry ?? S.t) + (S.rules.entryEvery ?? RUMBLE_INTERVAL) : undefined;
+  if (timedEntries(S)) S.nextEntry = nextEntrant(S) ? (S.nextEntry ?? S.t) + entryInterval(S) : undefined;
+  // WarGames: everyone's in, and the match beyond begins.
+  if (st === 'wargames' && !nextEntrant(S)) {
+    S.rules = { ...S.rules, pins: true, subs: true };
+    heat(ctx, 12);
+    say(ctx, LINES.wargamesBeyond, {}, 'hl');
+  }
   render(ctx);
   return k;
 }
@@ -93,7 +118,7 @@ export function enterNext(ctx: Ctx): SideKey | null {
 /** The Rumble clock: whoever's number has come up comes in. */
 export function rumbleClock(ctx: Ctx): void {
   const S = ctx.S;
-  while (S.type === 'rumble' && !S.over && S.nextEntry !== undefined && S.t >= S.nextEntry) {
+  while (timedEntries(S) && !S.over && S.nextEntry !== undefined && S.t >= S.nextEntry) {
     if (!enterNext(ctx)) break;
   }
 }

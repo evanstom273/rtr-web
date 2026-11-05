@@ -8,7 +8,7 @@ export type Compass = 'n' | 'e' | 's' | 'w';
 export type CornerId = 'ne' | 'se' | 'sw' | 'nw';
 export type ZoneId =
   | 'ring' | `corner_${CornerId}` | `apron_${Compass}` | `floor_${Compass}`
-  | 'ramp' | 'crowd' | 'backstage';
+  | 'ramp' | 'crowd' | 'backstage' | 'roof' | 'scaffold' | 'cables';
 
 export const COMPASS: readonly Compass[] = ['n', 'e', 's', 'w'];
 export const CORNERS: readonly CornerId[] = ['ne', 'se', 'sw', 'nw'];
@@ -29,6 +29,11 @@ COMPASS.forEach((s, i) => {
   EDGES.push([`floor_${s}`, `floor_${COMPASS[(i + 1) % 4]!}`]);
 });
 EDGES.push([`floor_${RAMP_SIDE}`, 'ramp'], ['ramp', 'backstage'], ['ramp', 'crowd']);
+// Structures (stage 6): the cell roof is climbed to from the floor, the cables from a corner; the scaffold
+// is its own world above the ring.
+for (const s of COMPASS) EDGES.push([`floor_${s}`, 'roof']);
+for (const c of CORNERS) EDGES.push([`corner_${c}`, 'cables']);
+EDGES.push(['scaffold', 'scaffold']);
 
 const ADJ = new Map<ZoneId, Set<ZoneId>>();
 for (const [a, b] of EDGES) {
@@ -60,6 +65,7 @@ const cornerOf = (s: Side): CornerId => CORNERS[(s.spot ?? 0) % 4]!;
 
 /** The zone a wrestler is in, from where they are (their area) and which way (their spot). */
 export function zoneOf(s: Side): ZoneId {
+  if (s.perch) return s.perch;
   return zoneOfArea(s.state.area, s);
 }
 

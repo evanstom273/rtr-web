@@ -609,6 +609,7 @@ export const RATING_TYPE: Record<string, { fall: number; elim: number; /** Per p
 /** Match overhaul: the new stipulations, each on singles' spread (first fit at stage 5; refitted in stage 10). */
 export const RATING_STIP: Record<string, number> = {
   first_blood: 0.75, texas_death: -0.4, dog_collar: -0.35, bull_rope: -0.35, deathmatch: -0.15, street_fight: -0.15, no_holds_barred: -0.1, lumberjack: -0.1,
+  wargames: -0.75, money_in_the_bank: 0.25, ultimate_x: 0.85,
 };
 
 export const RATING_CURVE = {

@@ -11,7 +11,7 @@ import { clamp } from './rng';
 import { totalHp } from './side';
 import type { MatchState, SideKey } from './types';
 import { alive, isMulti, multiCountOut } from './multi';
-import { rumbleClock } from './royal';
+import { rumbleClock, timedEntries } from './royal';
 
 export const COUNT_OUT_INTERVAL_SECONDS = 30;
 
@@ -23,12 +23,12 @@ export function advanceClock(ctx: Ctx): void {
   const S = ctx.S;
   // More than two people: things happen at once (and partners come and go), so each action is a shorter
   // slice of the match: 2/n of the usual step for n people still in it, down to 40%.
-  const inIt = alive(S).filter((k) => S.sides[k]!.out !== 'waiting').length;
+  const inIt = alive(S).filter((k) => S.sides[k]!.out !== 'waiting' && S.sides[k]!.out !== 'pod').length;
   // A gauntlet's fights are short and sharp: each is a sprint, not a full match.
   const pace = S.type === 'gauntlet' ? 0.55 : Math.min(1, Math.max(0.4, 2 / Math.max(1, inIt)));
   const step = isMulti(S) ? Math.max(5, Math.round(S.rules.actionClock * pace)) : S.rules.actionClock;
   S.t += step;
-  if (S.type === 'rumble') rumbleClock(ctx);
+  if (timedEntries(S)) rumbleClock(ctx);
   accumulateRefereeCount(ctx, step);
   bleedTick(S);
   ironManClock(ctx);

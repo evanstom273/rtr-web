@@ -29,7 +29,9 @@ export function canRetrieve(S: MatchState, w: Weapon): boolean {
   if (!w.retrievable && !(st === 'deathmatch' && (w.id === 'glass_pane' || w.id === 'barbed_board' || w.id === 'light_tube_bundle'))) return false;
   const live = liveObjects(S);
   if (live.length >= MAX_LIVE_OBJECTS) return false;
-  return live.filter((o) => o.weaponId === w.id).length < w.maxLive;
+  // TLC and Money in the Bank: ladders everywhere.
+  const max = (st === 'tlc' || st === 'money_in_the_bank') && w.kind === 'LADDER' ? 3 : w.maxLive;
+  return live.filter((o) => o.weaponId === w.id).length < max;
 }
 
 export const retrievableWeapons = (S: MatchState): Weapon[] => WEAPONS.filter((w) => canRetrieve(S, w));

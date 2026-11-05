@@ -222,6 +222,30 @@ export const LINES = {
   gimLumberjacks: 'The lumberjacks throw {a} back in, getting their shots in on the way.',
   gimLumberjackBrawl: '<g>The lumberjacks are brawling with each other!</g> Bodies everywhere at ringside.',
   gimTexasCount: '{a} has the fall, but this is Texas death: {d} has to answer the ten count.',
+
+  // Structures (match overhaul).
+  chamberBell: '<g>The bell rings.</g> {a} and {d} start inside the Chamber. Every {m} minutes, another pod opens.',
+  chamberPod: '<g>The pod opens!</g> {a} is let loose.',
+  wargamesBell: '<g>WarGames begins.</g> {a} and {d} start. Every {m} minutes, someone else comes in.',
+  wargamesEntry: '<g>{a} is in!</g>',
+  wargamesBeyond: '<G>Everyone’s in!</G> The match beyond begins: the first fall wins it.',
+  strFoughtOff: '{a} stops {d} before they can {x}.',
+  strCellClimb: '{a} starts climbing the side of the cell!',
+  strCellFollow: '{a} climbs up after {d}. They’re both on top of the cell!',
+  strCellDown: '{a} climbs back down off the cell.',
+  strOffTheCell: '<G>{a} throws {d} off the top of the cell!</G> Somebody stop the match!',
+  strThroughRoof: '<G>The roof gives way!</G> {d} goes straight through it and into the ring!',
+  strRamCell: '{a} rams {d} face-first into the steel of the cell!',
+  strRamChamber: '{a} drives {d} into the chain wall of the Chamber!',
+  strPodDive: '<G>{a} dives off the top of a pod onto {d}!</G>',
+  strPodMiss: '{a} dives off the pod… and {d} moves! {a} crashes onto the steel floor.',
+  strOffScaffold: '<G>{a} knocks {d} off the scaffold!</G> All the way down to the ring.',
+  strCableUp: '{a} climbs the turnbuckle and grabs hold of the cables!',
+  strCableCrawl: '{a} goes hand over hand along the cable…',
+  strCableX: '<g>{a} is right under the X!</g>',
+  strCableSlip: '{a} loses their grip and drops to the mat!',
+  strGrabX: '<G>{a} pulls down the X!</G>',
+  strPullOff: '{a} yanks {d} down off the cables!',
 } as const;
 
 export const COUNT_WORDS = ['', 'ONE!', 'TWO!', 'THREE!', 'FOUR!', 'FIVE!', 'SIX!', 'SEVEN!', 'EIGHT!', 'NINE!', 'TEN!'];
@@ -498,6 +522,8 @@ export const RATING = {
       STRETCHER: 'Wheeled out past the line on a stretcher.',
       CORNERS: 'Four corners in a row, dragging the other one round.',
       POLE: 'Up the pole, and it was over.',
+      SCAFFOLD: 'Knocked off the scaffold. A long way down.',
+      ULTIMATE_X: 'Out along the cables and the X pulled down.',
     },
   },
   labels: {
@@ -545,6 +571,8 @@ export const RATING = {
       STRETCHER: ' by wheeling them out on a stretcher',
       CORNERS: ' by touching all four corners',
       POLE: ' by getting it off the pole',
+      SCAFFOLD: ' by knocking them off the scaffold',
+      ULTIMATE_X: ' by pulling down the X',
     },
     falls: 'The falls finished {s}.',
   },

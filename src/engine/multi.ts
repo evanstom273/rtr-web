@@ -96,6 +96,8 @@ export function aiPickTarget(ctx: Ctx, k: SideKey): SideKey {
     // Battle royals: your own brawl, and anyone hanging on by their fingertips.
     if (clusterOf(S, k).includes(o)) v += 45;
     if (isRoyal(S) && O.state.area === 'APRON') v += 25;
+    // Ladders and cables: stop whoever's climbing.
+    if (O.state.area === 'LADDER' || O.perch === 'cables') v += 40;
     v += ctx.rnd() * 20;
     if (v > bestScore) { bestScore = v; best = o; }
   }
@@ -139,7 +141,8 @@ export function pickTurn(ctx: Ctx, favoured: Control | null): Control {
   for (const k of cands) {
     const s = S.sides[k]!;
     let v = s.momentum * 0.25 + staminaPercent(s) * 0.15 + s.w.stats.speed * 0.2 + ctx.rnd() * 35 - 8 * Math.max(0, nearest(S, k) - 1);
-    if (k === favoured) v += 35;
+    // Whoever's hanging off the cables doesn't get to keep the turn.
+    if (k === favoured && s.perch !== 'cables') v += 35;
     if (S.turn.k === k) v -= 12 * S.turn.n;
     if (v > bestScore) { bestScore = v; best = k; }
   }
@@ -193,11 +196,11 @@ const BACK_IN: readonly SetupId[] = ['bring_match_back_to_ring', 'bring_opponent
  */
 export function aiMultiInstinct(S: MatchState, k: SideKey, setups: readonly SetupId[]): SetupId | null {
   const s = S.sides[k]!;
-  if (IN_RING.has(s.state.area)) { s.outsideTurns = 0; return null; }
+  if (IN_RING.has(s.state.area) || s.perch) { s.outsideTurns = 0; return null; }
   s.outsideTurns = (s.outsideTurns ?? 0) + 1;
   if (s.outsideTurns < 3 || S.rules.stipulation === 'falls_count_anywhere') return null;
-  // A street fight counts at ringside too; it's only the crowd and the back that need bringing back.
-  if (S.rules.stipulation === 'street_fight' && s.state.area === 'OUTSIDE') return null;
+  // A street fight counts at ringside too (and inside the cell, the floor's in it); it's only the crowd and the back that need bringing back.
+  if ((S.rules.stipulation === 'street_fight' || S.rules.stipulation === 'hell_in_a_cell') && s.state.area === 'OUTSIDE') return null;
   // The casket's at ringside and the ambulance is up the ramp: that's where they want to be.
   if ((S.rules.stipulation === 'casket' && s.state.area === 'OUTSIDE') || (S.rules.stipulation === 'ambulance' && s.state.area === 'RAMP')) return null;
   return BACK_IN.find((id) => setups.includes(id)) ?? null;

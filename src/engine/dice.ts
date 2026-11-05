@@ -274,7 +274,7 @@ export function ottContest(A: Side, D: Side, hanging: boolean): { attack: Contes
  */
 export function gimmickContest(A: Side, D: Side, id: string, offSpot: number): { attack: ContestSide; defend: ContestSide } {
   const aMods: Mod[] = [], aEdges: ContestSide['edges'] = [];
-  const stat = id === 'climb_pole' ? 'speed' : 'strength';
+  const stat = id === 'climb_pole' || id === 'climb_cell' || id === 'climb_to_cables' ? 'speed' : 'strength';
   push(aMods, `${STAT_LABEL[stat]} ${A.w.stats[stat]}`, statMod(A.w.stats[stat]));
   push(aMods, 'Booked to win', A.booked);
   for (const m of anyRollMods(A)) push(aMods, m.label, m.value);

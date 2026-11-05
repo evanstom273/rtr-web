@@ -19,7 +19,8 @@ import { DIRTY, DISTRACTION_ACTIONS, refSees, SPOT_DETECTION, disqualify, warn }
 import { clamp, randInt } from './rng';
 import { motionMatches } from './setupRules';
 import { addFatigue, damagePart, spendStamina, totalHp } from './side';
-import { stipulation } from './stipulations';
+import { stipulation, isLadderStip } from './stipulations';
+import { cellPinLegal } from './structures';
 import type {
   ActionResult, Area, BodyPart, EnvObject, MatchState, Move, Position, SetupId, Side, SideKey, Snapshot,
 } from './types';
@@ -66,6 +67,8 @@ export const isExtraContested = (id: SetupId): boolean => CONTESTED_EXTRA.has(id
 /** Objective steps the finisher gate holds back. */
 const GATED: Partial<Record<string, readonly SetupId[]>> = {
   ladder: ['climb_ladder', 'climb_ladder_top', 'reach_for_prize'],
+  tlc: ['climb_ladder', 'climb_ladder_top', 'reach_for_prize'],
+  money_in_the_bank: ['climb_ladder', 'climb_ladder_top', 'reach_for_prize'],
   steel_cage: ['climb_cage', 'reach_cage_top', 'escape_over_cage'],
   tables: ['position_at_table', 'lay_on_table', 'position_at_corner_table'],
 };
@@ -133,12 +136,12 @@ export function extraSetups(S: MatchState, k: SideKey): SetupId[] {
   }
   // Ladders (they can be in play in any match with weapons).
   const ladderHere = ladderIn(S, a.area);
-  if (ladderHere && !ladderHere.climber && still && !held && (stip === 'ladder' || A.all.some((m) => m.type === 'AERIAL'))) add('climb_ladder');
+  if (ladderHere && !ladderHere.climber && still && !held && (isLadderStip(stip) || A.all.some((m) => m.type === 'AERIAL'))) add('climb_ladder');
   if (a.area === 'LADDER') {
     if (a.position === 'CLIMBING') add('climb_ladder_top');
     add('climb_down_ladder');
     const l = ladderUnder(S, k);
-    if (stip === 'ladder' && a.position === 'PERCHED' && l && l.area === 'IN_RING' && l.climbStage >= 2) add('reach_for_prize');
+    if (isLadderStip(stip) && a.position === 'PERCHED' && l && l.area === 'IN_RING' && l.climbStage >= 2) add('reach_for_prize');
   }
   if (d.area === 'LADDER' && still) {
     const l = ladderUnder(S, dk);
@@ -402,7 +405,8 @@ export function finishExtraContest(ctx: Ctx, k: SideKey, id: SetupId, reversed: 
       const prize = S.rules.ladderPrize === 'Championship' ? (S.titleName || 'championship') : 'briefcase';
       if (S.obj.ladderPulls >= LADDER_PULLS) {
         say(ctx, LINES.prizeWon, { a: k, vars: { w: prize } }, 'hl');
-        S.obj.decision = { winner: k, finish: 'LADDER', move: null };
+        // More than two going for it (Money in the Bank): nobody in particular lost.
+        S.obj.decision = { winner: k, finish: 'LADDER', move: null, ...(S.order.length > 2 ? { loser: null } : {}) };
       } else {
         say(ctx, LINES.prizePull, { a: k, vars: { w: prize, n: S.obj.ladderPulls, max: LADDER_PULLS } }, 'warn');
         crowdObserve(ctx, { type: 'spot', amount: 10 });
@@ -646,6 +650,7 @@ export function pinAreaLegal(S: MatchState, k: SideKey): boolean {
   const a = S.sides[k]!.state.area, d = S.sides[foe(S, k)]!.state.area;
   if (S.rules.stipulation === 'falls_count_anywhere') return a === d && isSharedFlatArea(a);
   if (S.rules.stipulation === 'street_fight') return a === d && (a === 'IN_RING' || a === 'OUTSIDE');
+  if (S.rules.stipulation === 'hell_in_a_cell') return cellPinLegal(S, k);
   return a === 'IN_RING' && d === 'IN_RING';
 }
 
@@ -664,7 +669,7 @@ export const CAGE_BLOCKED: ReadonlySet<SetupId> = new Set<SetupId>(['send_oppone
 /** What to pick up off the floor: the match's object first, then the hardest-hitting. */
 export function bestPickUp(S: MatchState, list: EnvObject[]): EnvObject | undefined {
   const stip = S.rules.stipulation;
-  const want = stip === 'ladder' ? 'LADDER' : stip === 'tables' ? 'TABLE' : null;
+  const want = isLadderStip(stip) ? 'LADDER' : stip === 'tables' ? 'TABLE' : null;
   return [...list].sort((a, b) => {
     const wa = weaponOf(a), wb = weaponOf(b);
     return (wb.kind === want ? 100 : 0) + wb.impact - ((wa.kind === want ? 100 : 0) + wa.impact);
@@ -677,7 +682,8 @@ export function chooseAiWeapon(S: MatchState, k: SideKey): Weapon | null {
   let best: Weapon | null = null, bestScore = -Infinity;
   for (const w of retrievableWeapons(S)) {
     let s = w.aiWeight * 10 + w.impact * 2 + w.bleed * 0.08;
-    if (stip === 'ladder') s += w.kind === 'LADDER' ? 140 : -80;
+    // TLC: the ladder first, but the tables and chairs are part of it too.
+    if (isLadderStip(stip)) s += w.kind === 'LADDER' ? 140 : stip === 'tlc' ? 20 : -80;
     if (stip === 'tables') s += w.kind === 'TABLE' ? 120 : -55;
     if (A.w.classes.includes('HARDCORE')) s += 12;
     if (w.kind === 'LADDER' && A.all.some((m) => m.type === 'AERIAL')) s += 8;

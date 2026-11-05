@@ -118,6 +118,8 @@ function openGate(ctx: Ctx): void {
 
 const GATE_LINES: Partial<Record<StipulationId, string>> = {
   ladder: LINES.gateLadder,
+  tlc: LINES.gateLadder,
+  money_in_the_bank: LINES.gateLadder,
   tables: LINES.gateTables,
   steel_cage: LINES.gateCage,
 };
