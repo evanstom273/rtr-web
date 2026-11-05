@@ -3,7 +3,7 @@ import { applyDatabase, type Database } from '../data/rtr';
 import { runHeadless } from '../engine/sim/runHeadless';
 import { FEATURES } from './tuning';
 import type { BodyPart } from '../data/rtr/types';
-import type { BySide, FinishType, MatchRulesConfig, SideKey, SideStats } from '../engine/types';
+import type { BySide, FinishType, MatchRulesConfig, MatchType, SideKey, SideStats } from '../engine/types';
 import type { MatchEngine } from '../engine/match';
 
 export interface SimJob {
@@ -12,6 +12,9 @@ export interface SimJob {
   you: string;
   them: string;
   rules: Partial<MatchRulesConfig>;
+  /** Match overhaul: everyone past the first two, and the kind of match. */
+  extras?: { id: string; team: number }[];
+  type?: MatchType;
 }
 
 export type StatLine = Pick<SideStats, 'movesTried' | 'movesLanded' | 'finTried' | 'finHit' | 'sigTried' | 'sigHit' | 'reversalTries' | 'reversalWins' | 'kickouts' | 'pinTries'>
@@ -27,6 +30,8 @@ export interface SimOut {
   stats: BySide<StatLine>;
   /** Match overhaul (with the flag on): each side's body-part health at the end, for the wear it leaves. */
   hp?: BySide<Partial<Record<BodyPart, number>>>;
+  /** More than two people: winners and losers by wrestler, who went out how, and everyone's body-part health. */
+  multi?: { winners: string[]; losers: string[]; elims: { id: string; by: string | null; finish: FinishType; t: number }[]; hp: Record<string, Partial<Record<BodyPart, number>>> };
   /** Your match only (never through the workers): the report card, for the result letter. */
   report?: { label: string; verdict: string; recap: string; grades: { l: string; v: number; n: string }[] };
 }
@@ -51,6 +56,14 @@ export function outOf(key: string, e: MatchEngine): SimOut {
     move: R?.move?.name,
     stats: { you: line(S.you.stats), them: line(S.them.stats) },
     ...(FEATURES.matches ? { hp: { you: roundHp(S.you.hp), them: roundHp(S.them.hp) } } : {}),
+    ...(S.order.length > 2 ? {
+      multi: {
+        winners: (R?.winners ?? []).map((k) => S.sides[k]!.w.id),
+        losers: (R?.losers ?? []).map((k) => S.sides[k]!.w.id),
+        elims: S.elims.map((e) => ({ id: S.sides[e.k]!.w.id, by: e.by ? S.sides[e.by]!.w.id : null, finish: e.finish, t: e.t })),
+        hp: Object.fromEntries(S.order.map((k) => [S.sides[k]!.w.id, roundHp(S.sides[k]!.hp)])),
+      },
+    } : {}),
     ...(key === 'mine' && S.rating ? { report: { label: S.rating.label, verdict: S.rating.verdict, recap: S.rating.recap, grades: S.rating.parts.map((p) => ({ l: p.l, v: p.v, n: p.n })) } } : {}),
   };
 }
@@ -59,7 +72,7 @@ export function outOf(key: string, e: MatchEngine): SimOut {
 const MODEL = { kind: 'skill', sigmaSeconds: 0.1 } as const;
 
 export function simOne(job: SimJob): { out: SimOut; engine: MatchEngine } {
-  const r = runHeadless({ seed: job.seed, you: job.you, them: job.them, model: MODEL, rules: job.rules as MatchRulesConfig });
+  const r = runHeadless({ seed: job.seed, you: job.you, them: job.them, model: MODEL, rules: job.rules as MatchRulesConfig, ...(job.extras ? { extras: job.extras } : {}), ...(job.type ? { type: job.type } : {}) });
   return { out: outOf(job.key, r.engine), engine: r.engine };
 }
 

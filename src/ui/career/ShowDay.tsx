@@ -6,6 +6,9 @@ import { runJobs } from '../../career/runner';
 import { FATIGUE_PER_MATCH, OFF_SCRIPT_TITLE_BAN_DAYS, REP_OFF_SCRIPT } from '../../career/tuning';
 import { stipulation } from '../../engine';
 import { simMyMatch } from './simMine';
+import { boutKind, boutLabel, boutPeople, boutWinners } from '../../career/bouts';
+import { STAKE_LABEL } from '../../career/stakes';
+import { Fragment } from 'react';
 import { commit, Head, money, Nm, Screen, stars, useToast, useWords } from './parts';
 
 interface Props {
@@ -30,6 +33,9 @@ export function ShowDay({ c, onBack, onPlay }: Props) {
   const me = person(c, c.player);
   const bout = mine?.bout;
   const opp = bout ? findWrestler(bout.a === c.player ? bout.b : bout.a) : undefined;
+  const nameOf = (id: string) => findWrestler(id)?.name ?? id;
+  const vsx = skin === 'paper' ? 'v.' : 'VS';
+  const yourMatch = bout?.sides ? ` · ${boutKind(bout) ?? ''}: ${boutLabel(bout, nameOf)}` : opp ? ` · vs ${opp.name}` : '';
 
   const sim = async () => {
     if (!mine || working) return;
@@ -79,18 +85,26 @@ export function ShowDay({ c, onBack, onPlay }: Props) {
           const minehere = b.a === c.player || b.b === c.player;
           const tags = [
             b.title ? { t: TITLES.find((t) => t.id === b.title)?.name ?? '', c: 'c-eff gold' } : null,
+            boutKind(b) ? { t: boutKind(b)!, c: 'c-eff' } : null,
             b.stip ? { t: stipulation(b.stip).name, c: 'c-eff' } : null,
+            b.stakes ? { t: STAKE_LABEL[b.stakes.kind], c: 'c-eff gold' } : null,
+            b.cashIn ? { t: 'Cash-in', c: 'c-eff gold' } : null,
             b.feud ? { t: 'Feud', c: 'c-eff' } : null,
             b.tryout ? { t: 'Tryout', c: 'c-eff gold' } : null,
             b.tourney ? { t: `Cup ${roundName(b.tourney.round).toLowerCase()}`, c: 'c-eff gold' } : null,
             b.farewell ? { t: 'Farewell match', c: 'c-eff gold' } : null,
             minehere ? { t: 'You', c: 'c-eff up' } : null,
           ].filter((x): x is { t: string; c: string } => !!x);
-          const res = b.result ? `${b.result.winner ? `${findWrestler(b.result.winner)?.name} wins` : 'Draw'} · ${b.result.finish.toLowerCase().replace(/_/g, ' ')} · ${Math.floor(b.result.t / 60)}:${String(b.result.t % 60).padStart(2, '0')} · ${stars(b.result.stars)}` : null;
+          const won = boutWinners(b, nameOf);
+          const res = b.result ? `${won ? `${won} ${b.result.winners && b.result.winners.length > 1 ? 'win' : 'wins'}` : 'Draw'} · ${b.result.finish.toLowerCase().replace(/_/g, ' ')} · ${Math.floor(b.result.t / 60)}:${String(b.result.t % 60).padStart(2, '0')} · ${stars(b.result.stars)}` : null;
           return (
             <div key={i} className={minehere ? 'c-ans on' : 'c-ans'}>
               <div className="c-rowsb"><span className="c-lab">{w(i === card.length - 1 ? 'Main event' : i === 0 ? 'Opener' : `Match ${i + 1}`)}</span><span className="c-effs">{tags.map((t, k) => <span key={k} className={t.c}>{w(t.t)}</span>)}</span></div>
-              <span className="c-vs"><Nm id={b.a} /><span className="c-vsx">{skin === 'paper' ? 'v.' : 'VS'}</span><Nm id={b.b} /></span>
+              {!b.sides ? <span className="c-vs"><Nm id={b.a} /><span className="c-vsx">{vsx}</span><Nm id={b.b} /></span>
+                : boutPeople(b).length > 8 ? <span className="c-vs">{boutLabel(b, nameOf)}</span>
+                  : <span className="c-vs">{b.sides.map((side, j) => (
+                    <Fragment key={j}>{j > 0 && <span className="c-vsx">{vsx}</span>}{side.map((id, n) => <Fragment key={id}>{n > 0 && ' & '}<Nm id={id} /></Fragment>)}</Fragment>
+                  ))}</span>}
               {res && <span className="c-ad">{res}</span>}
             </div>
           );
@@ -104,7 +118,7 @@ export function ShowDay({ c, onBack, onPlay }: Props) {
             </div>
           )}
           <div className="c-live">
-            <span className="c-lab">{w('Your match')}{opp ? ` · vs ${opp.name}` : ''}</span>
+            <span className="c-lab">{w('Your match')}{yourMatch}</span>
             <div className="c-facts">{facts.map((f) => <span key={f.l} className="c-fact"><span className="c-lab">{f.l}</span><b>{f.v}</b></span>)}</div>
           </div>
           <div className="c-effs" style={{ marginTop: 6 }}>

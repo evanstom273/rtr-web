@@ -127,6 +127,9 @@ export function createState(rnd: Rng, you: Wrestler, them: Wrestler, rules: Matc
     sides[key] = careerSide(createSide(x.w, key, x.team, 'you', player === key ? 'player' : 'ai'), rules, rnd);
     order.push(key);
   });
+  // A booked winner's whole team gets the booker's nudge (a tag match: either partner can take the fall).
+  const bk = rules.booked && sides[rules.booked.side];
+  if (bk && order.length > 2) for (const k of order) if (k !== bk.key && sides[k]!.team === bk.team) { sides[k]!.booked = bk.booked; if (bk.cheat) sides[k]!.cheat = true; }
   // Everyone starts going after the nearest side on another team, from their own corner.
   for (const k of order) {
     const me = sides[k]!;

@@ -5,6 +5,8 @@ import { databaseChanged, fansIn, findWrestler, PROMOTIONS, TITLES, WRESTLERS, t
 import { activeWorld } from '../world/world';
 import { addEvent } from '../world/history';
 import { available } from './booker';
+import { boutPeople, multiBout } from './bouts';
+import { activeTeams, teamOf } from '../world/matchWorld';
 import { letter, setCareerHooks } from './career';
 import { companyOf, isMajorTier, playerRuns, roleIn, tierOf } from './company';
 import { daysBetween, type Day } from './dates';
@@ -30,6 +32,14 @@ export interface Cup {
   prize?: string;
   winner?: string;
   settled?: number;
+  /** Match overhaul: a tag-team cup (entrants are each team's lead; the matches are tag matches). */
+  teams?: boolean;
+}
+
+/** A tag cup's side for an entrant: their team, lead first (just them, if the team's gone). */
+function cupSide(cup: Cup, id: string): string[] {
+  const t = cup.teams ? teamOf(activeWorld(), id) : undefined;
+  return t ? [id, ...t.members.filter((x) => x !== id)] : [id];
 }
 
 const W = (id: string): Wrestler | undefined => findWrestler(id);
@@ -56,7 +66,7 @@ function endReign(t: Title, day: Day): void {
 }
 
 /** Make a new title for a promotion you run. */
-export function createTitle(c: Career, promo: string, o: { name: string; gender: 'MALE' | 'FEMALE'; division: Division }): string {
+export function createTitle(c: Career, promo: string, o: { name: string; gender: 'MALE' | 'FEMALE'; division: Division; kind?: 'singles' | 'tag' | 'trios' | 'hardcore' }): string {
   if (!FEATURES.booker || !roleIn(c, promo)) return 'You don’t book it.';
   const p = promotion(promo)!;
   const name = o.name.trim();
@@ -66,7 +76,9 @@ export function createTitle(c: Career, promo: string, o: { name: string; gender:
   const base = `${promo}_${name.toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_|_$/g, '')}`.slice(0, 48);
   let id = base, n = 2;
   while (TITLES.some((t) => t.id === id)) id = `${base}_${n++}`;
-  const t: Title = { id, name, promotionId: p.id, gender: o.division === 'women' ? 'FEMALE' : o.gender, holder: null, weeksHeld: 0, division: o.division, createdBy: c.player };
+  const t: Title = { id, name, promotionId: p.id, gender: o.division === 'women' ? 'FEMALE' : o.gender, holder: null, weeksHeld: 0, division: o.division, createdBy: c.player,
+    // Match overhaul: a tag, trios or hardcore title (they start vacant, like any other).
+    ...(FEATURES.matches && o.kind && o.kind !== 'singles' ? { kind: o.kind } : {}) };
   TITLES.push(t);
   p.titles.push(id);
   c.titles[id] = { since: c.today, defences: 0, last: null };
@@ -158,7 +170,7 @@ function entrantPool(c: Career, promo: string, gender: 'MALE' | 'FEMALE', day: D
 }
 
 /** Run a tournament: four or eight in, a round on each of your next shows, for a vacant title or a shot at one. */
-export function startCup(c: Career, promo: string, o: { name: string; size: 4 | 8; gender: 'MALE' | 'FEMALE'; prize?: string; entrants?: string[] }): string {
+export function startCup(c: Career, promo: string, o: { name: string; size: 4 | 8; gender: 'MALE' | 'FEMALE'; prize?: string; entrants?: string[]; teams?: boolean }): string {
   if (!FEATURES.booker || !roleIn(c, promo)) return 'You don’t book it.';
   const name = o.name.trim();
   if (!name) return 'Give it a name.';
@@ -170,9 +182,17 @@ export function startCup(c: Career, promo: string, o: { name: string; size: 4 | 
     const t = TITLES.find((x) => x.id === o.prize);
     if (!mine(c, t) || (t!.gender === 'FEMALE') !== (o.gender === 'FEMALE')) return 'That prize isn’t one of your titles for this division.';
   }
-  const pool = (o.entrants ?? entrantPool(c, promo, o.gender, shows[0]!.date).map((w) => w.id)).slice(0, o.size);
-  if (pool.length < o.size) return `Not enough ${o.gender === 'FEMALE' ? 'women' : 'men'} to fill it.`;
-  const cup: Cup = { id: `cup${++c.seq}`, promo, name, size: o.size, gender: o.gender, entrants: SEEDS[o.size].map((i) => pool[i]!), won: [], shows: shows.map((s) => s.id), ...(o.prize ? { prize: o.prize } : {}) };
+  const teams = FEATURES.matches && !!o.teams;
+  if (teams && o.prize && !['tag', 'trios'].includes(TITLES.find((x) => x.id === o.prize)?.kind ?? '')) return 'A tag cup’s prize has to be a tag title.';
+  if (!teams && o.prize && ['tag', 'trios'].includes(TITLES.find((x) => x.id === o.prize)?.kind ?? '')) return 'A tag title needs a tag cup.';
+  // A tag cup: the division's teams (their leads stand in the bracket), the best first.
+  const teamPool = () => {
+    const ok = new Set(entrantPool(c, promo, o.gender, shows[0]!.date).map((w) => w.id));
+    return activeTeams(activeWorld()).filter((t) => !t.trios && t.members.every((id) => ok.has(id))).sort((a, b) => b.chemistry - a.chemistry).map((t) => t.members[0]!);
+  };
+  const pool = (o.entrants ?? (teams ? teamPool() : entrantPool(c, promo, o.gender, shows[0]!.date).map((w) => w.id))).slice(0, o.size);
+  if (pool.length < o.size) return `Not enough ${teams ? 'teams' : o.gender === 'FEMALE' ? 'women' : 'men'} to fill it.`;
+  const cup: Cup = { id: `cup${++c.seq}`, promo, name, size: o.size, gender: o.gender, entrants: SEEDS[o.size].map((i) => pool[i]!), won: [], shows: shows.map((s) => s.id), ...(o.prize ? { prize: o.prize } : {}), ...(teams ? { teams: true } : {}) };
   allCups(c).push(cup);
   return `${name}: ${o.size} in, ${rounds} rounds, starting ${shows[0]!.name}.`;
 }
@@ -187,7 +207,9 @@ export function roundBouts(c: Career, show: Show): Bout[] {
     const t = cup.prize ? TITLES.find((x) => x.id === cup.prize) : undefined;
     cupPairs(cup, r).forEach(([a, b], slot) => {
       if (!a || !b) return;
-      out.push({ a, b, tourney: { id: cup.id, round: r, slot }, ...(last && t && !t.holder ? { title: t.id } : {}) });
+      const extra = { tourney: { id: cup.id, round: r, slot }, ...(last && t && !t.holder ? { title: t.id } : {}) };
+      const sa = cupSide(cup, a), sb = cupSide(cup, b);
+      out.push(cup.teams && sa.length > 1 && sb.length > 1 ? multiBout([sa, sb], { ...extra, tag: true, type: 'tag' }) : { a, b, ...extra });
     });
   }
   return out;
@@ -197,8 +219,8 @@ export function roundBouts(c: Career, show: Show): Bout[] {
 export function mergeRound(c: Career, show: Show): void {
   const due = roundBouts(c, show).filter((b) => !show.card?.some((x) => x.tourney?.id === b.tourney!.id && x.tourney.slot === b.tourney!.slot));
   if (!due.length) return;
-  const busy = new Set(due.flatMap((b) => [b.a, b.b]));
-  show.card = [...due, ...(show.card ?? []).filter((b) => !busy.has(b.a) && !busy.has(b.b))];
+  const busy = new Set(due.flatMap(boutPeople));
+  show.card = [...due, ...(show.card ?? []).filter((b) => !boutPeople(b).some((id) => busy.has(id)))];
 }
 
 function settleCups(c: Career, show: Show): void {
@@ -217,9 +239,10 @@ function settleCups(c: Career, show: Show): void {
     if (r === cupRounds(cup) - 1) {
       cup.winner = won[0] ?? undefined;
       if (!cup.winner) continue;
-      addEvent(history(), { day: show.date, kind: 'tournament', who: cup.winner, name: nameOf(cup.winner), promo: cup.promo, what: cup.name });
+      const champ = cup.teams ? teamOf(activeWorld(), cup.winner)?.name ?? nameOf(cup.winner) : nameOf(cup.winner);
+      addEvent(history(), { day: show.date, kind: 'tournament', who: cup.winner, name: champ, promo: cup.promo, what: cup.name });
       const t = cup.prize ? TITLES.find((x) => x.id === cup.prize) : undefined;
-      letter(c, { kind: 'news', from: `${cup.promo} · the office`, subject: `${nameOf(cup.winner)} wins the ${cup.name}`,
+      letter(c, { kind: 'news', from: `${cup.promo} · the office`, subject: `${champ} win${cup.teams ? '' : 's'} the ${cup.name}`,
         body: [t ? (t.holder === cup.winner ? `And with it the ${t.name}.` : `That’s a shot at the ${t.name}${t.holder ? ` and ${nameOf(t.holder)}` : ''}. Book it.`) : 'Bragging rights, and a crowd that knows their name.'] });
     }
   }

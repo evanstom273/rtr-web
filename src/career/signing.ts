@@ -4,6 +4,7 @@
 // you are against where they are now, their traits, and how they feel about you. Releases cost what's left of the deal.
 // Contracts ending on your roster: you're asked whether to renew; someone who can't stand you won't.
 import { databaseChanged, fansIn, findWrestler, globalScore, rosterOf, TITLES, WRESTLERS, type Wrestler } from '../data/rtr';
+import { inBout } from './bouts';
 import { hashSeed, seededRng } from '../engine/rng';
 import { activeWorld } from '../world/world';
 import { addEvent } from '../world/history';
@@ -164,7 +165,7 @@ function signWith(c: Career, a: Approach, d: Deal): void {
   p.moves = [...(p.moves ?? []), c.today].slice(-4);
   p.renewals = 0;
   // Off any other promotion's cards from tonight.
-  for (const s of Object.values(c.shows)) if (!s.done && s.promo !== a.promo && s.card) s.card = s.card.filter((b) => b.result || (b.a !== w.id && b.b !== w.id));
+  for (const s of Object.values(c.shows)) if (!s.done && s.promo !== a.promo && s.card) s.card = s.card.filter((b) => b.result || !inBout(b, w.id));
   feelPair(P(), w.id, c.player, [SIGN.signedLike, SIGN.signedLike], [0, 0], `Signed for ${a.promo}`, c.today, { keep: BOND_LOG.mine });
   a.status = 'signed';
   a.said = 'Pleasure doing business.';

@@ -1,7 +1,7 @@
 // Shared helpers for the career's tests and long-run harnesses (not used by the game itself).
 import { findWrestler, globalScore, TITLES, WRESTLERS } from '../data/rtr';
 import { freshWorld, setWorld } from '../world/world';
-import { applyBout, finishDay, myBoutToday, startCareer } from './index';
+import { applyBout, boutJob, finishDay, myBoutToday, startCareer } from './index';
 import type { SimJob, SimOut } from './sim';
 import type { Career } from './types';
 
@@ -14,7 +14,15 @@ export const quick: Runner = async (jobs) => jobs.map((j) => {
   const a = findWrestler(j.you)!, b = findWrestler(j.them)!;
   const h = (j.seed % 1000) / 1000;
   const pa = globalScore(a) / (globalScore(a) + globalScore(b));
-  return { key: j.key, winner: h < pa ? 'you' : 'them', finish: 'PINFALL', t: 600 + (j.seed % 600), stars: 2 + (j.seed % 30) / 10, stats: { you: statLine, them: statLine } };
+  const winner = h < pa ? 'you' : 'them';
+  const out: SimOut = { key: j.key, winner, finish: 'PINFALL', t: 600 + (j.seed % 600), stars: 2 + (j.seed % 30) / 10, stats: { you: statLine, them: statLine } };
+  // More than two people: the winning lead's whole team wins (in a free-for-all, just them).
+  if (j.extras?.length) {
+    const all = [{ id: j.you, team: 0 }, { id: j.them, team: 1 }, ...j.extras];
+    const team = winner === 'you' ? 0 : 1;
+    out.multi = { winners: all.filter((x) => x.team === team).map((x) => x.id), losers: all.filter((x) => x.team !== team).map((x) => x.id), elims: [], hp: {} };
+  }
+  return out;
 });
 
 /**
@@ -44,7 +52,8 @@ export function begin(player: string, seed = 7, today = '2026-11-03'): Career {
 export async function day(c: Career, run: Runner = quick, how: 'played' | 'simmed' = 'played'): Promise<void> {
   const mine = myBoutToday(c);
   if (mine) {
-    const [out] = await run([{ key: 'mine', seed: 1, you: mine.bout.a, them: mine.bout.b, rules: {} }]);
+    const job = mine.bout.sides ? { ...boutJob(c, mine.show, mine.bout, mine.index), key: 'mine', seed: 1 } : { key: 'mine', seed: 1, you: mine.bout.a, them: mine.bout.b, rules: {} };
+    const [out] = await run([job]);
     applyBout(c, mine.show, mine.index, out!, true, how);
   }
   await finishDay(c, run);

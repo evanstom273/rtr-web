@@ -6,7 +6,7 @@ import type { Voice } from './voice';
 
 export type Tone = 'warm' | 'plain' | 'cocky' | 'blunt';
 export type Topic = 'catchup' | 'congrats' | 'console' | 'advice' | 'gossip' | 'word' | 'sorry' | 'goat'
-  | 'invite' | 'share' | 'gift' | 'borrow' | 'payback' | 'flirt' | 'date' | 'commit' | 'movein' | 'propose' | 'split' | 'rumour';
+  | 'invite' | 'share' | 'gift' | 'borrow' | 'payback' | 'flirt' | 'date' | 'commit' | 'movein' | 'propose' | 'split' | 'rumour' | 'teamup' | 'teamsplit';
 /** The topics a stage 1–2 conversation has its own words for (the rest bring their own). */
 export type BaseTopic = 'catchup' | 'congrats' | 'console' | 'advice' | 'gossip' | 'word' | 'sorry' | 'goat';
 export type Reaction = 'good' | 'meh' | 'bad';
@@ -20,6 +20,7 @@ export const TOPIC_LABEL: Record<Topic, string> = {
   word: 'Ask them to put a word in', sorry: 'Apologise', goat: 'Have a go at them',
   invite: 'Make plans', share: 'Share the drive', gift: 'Send them something', borrow: 'Ask to borrow money', payback: 'Ask for your money back',
   flirt: 'Flirt', date: 'Ask them out', commit: 'Make it official', movein: 'Ask them to move in', propose: 'Propose', split: 'End it', rumour: 'Spread a rumour',
+  teamup: 'Ask them to team up', teamsplit: 'Split the team',
 };
 
 /** What you say. */
