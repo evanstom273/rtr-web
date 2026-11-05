@@ -50,9 +50,19 @@ export const STIPULATIONS: Stipulation[] = [
   S('bull_rope', 'Bull Rope Match', 'Tied together by a bull rope, cowbell and all. Pinfall or submission.', [true, true, false, false, true]),
   S('lumberjack', 'Lumberjack Match', 'Surrounded by lumberjacks: leave the ring and they throw you back in.', [true, true, false, true, false]),
   S('pole', 'Object on a Pole', 'Something hangs on a pole in the corner. Climb up and get it, and it’s legal.', [true, true, false, true, false]),
+  // Stage 6: structures.
+  S('hell_in_a_cell', 'Hell in a Cell', 'A roofed steel cell around the ring. Falls count anywhere inside it; no DQ. Someone always ends up on top of it.', [true, true, false, false, true]),
+  S('elimination_chamber', 'Elimination Chamber', 'Two start; the rest are locked in pods and let out one at a time. Pinfall or submission puts you out.', [true, true, false, false, false]),
+  S('wargames', 'WarGames', 'Two teams, two rings, one cage. They come in one at a time; once everyone’s in, the first fall wins.', [true, true, false, false, true]),
+  S('scaffold', 'Scaffold Match', 'Fought on a scaffold high above the ring. Knock them off to win.', [false, false, false, false, false], { objective: true }),
+  S('ultimate_x', 'Ultimate X', 'Climb up to the cables strung over the ring and crawl out to pull down the X.', [false, false, false, false, false], { objective: true }),
+  S('tlc', 'Tables, Ladders and Chairs', 'Climb the ladder and pull down the prize. Tables, ladders and chairs are all fair game.', [false, false, false, false, true], { objective: true }),
+  S('money_in_the_bank', 'Money in the Bank', 'A ladder match for the briefcase: a title shot whenever you like, for a year.', [false, false, false, false, true], { objective: true }),
 ];
 
 const byId = new Map(STIPULATIONS.map((s) => [s.id, s]));
+/** Ladder matches: the original, TLC and Money in the Bank (all won by pulling down what's hanging). */
+export const isLadderStip = (id: StipulationId): boolean => id === 'ladder' || id === 'tlc' || id === 'money_in_the_bank';
 export const stipulation = (id: StipulationId): Stipulation => byId.get(id) ?? STIPULATIONS[0]!;
 
 export const IRON_MAN_MINUTES = [10, 15, 20, 30, 60];

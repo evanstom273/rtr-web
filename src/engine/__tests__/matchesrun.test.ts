@@ -2,6 +2,7 @@ import { it } from 'vitest';
 import { WRESTLERS } from '../../data/rtr';
 import { runHeadless } from '../sim/runHeadless';
 import { seededRng } from '../rng';
+import type { StipulationId } from '../types';
 
 const pick = (rnd: () => number, n: number) => {
   const out: string[] = [];
@@ -31,6 +32,13 @@ it.skipIf(!process.env.MATCHES)('match types: length, stars, saves, eliminations
     { name: 'gauntlet 5', teams: [0, 1, 2, 3, 4], elim: true, type: 'gauntlet' },
     ...(['street_fight', 'no_holds_barred', 'texas_death', 'first_blood', 'deathmatch', 'casket', 'ambulance', 'stretcher', 'strap', 'dog_collar', 'bull_rope', 'lumberjack', 'pole'] as const)
       .map((stip) => ({ name: stip, teams: [0, 1], elim: false, stip })),
+    { name: 'hell_in_a_cell', teams: [0, 1], elim: false, stip: 'hell_in_a_cell' },
+    { name: 'chamber 6', teams: [0, 1, 2, 3, 4, 5], elim: true, stip: 'elimination_chamber' },
+    { name: 'wargames 4v4', teams: [0, 1, 0, 1, 0, 1, 0, 1], elim: false, stip: 'wargames' },
+    { name: 'scaffold', teams: [0, 1], elim: false, stip: 'scaffold' },
+    { name: 'ultimate_x 4', teams: [0, 1, 2, 3], elim: false, stip: 'ultimate_x' },
+    { name: 'tlc', teams: [0, 1], elim: false, stip: 'tlc' },
+    { name: 'mitb 6', teams: [0, 1, 2, 3, 4, 5], elim: false, stip: 'money_in_the_bank' },
   ];
   for (const k of kinds.filter((x) => !only || only.split(',').includes(x.name))) {
     const mins: number[] = [];
@@ -39,7 +47,7 @@ it.skipIf(!process.env.MATCHES)('match types: length, stars, saves, eliminations
       const rnd = seededRng(900 + i);
       const ids = pick(rnd, k.teams.length);
       const t0 = performance.now();
-      const r = runHeadless({ seed: 5000 + i, you: ids[0]!, them: ids[1]!, extras: ids.slice(2).map((id, j) => ({ id, team: k.teams[j + 2]! })), model: { kind: 'skill', sigmaSeconds: 0.09 }, rules: { elimination: k.elim, ...('tag' in k ? { tag: true } : {}), ...('stip' in k ? { stipulation: k.stip } : {}) }, ...('type' in k ? { type: k.type as 'rumble' } : {}) });
+      const r = runHeadless({ seed: 5000 + i, you: ids[0]!, them: ids[1]!, extras: ids.slice(2).map((id, j) => ({ id, team: k.teams[j + 2]! })), model: { kind: 'skill', sigmaSeconds: 0.09 }, rules: { elimination: k.elim, ...('tag' in k ? { tag: true } : {}), ...('stip' in k ? { stipulation: k.stip as StipulationId } : {}) }, ...('type' in k ? { type: k.type as 'rumble' } : {}) });
       stats.ms += performance.now() - t0;
       stats.n++;
       if (r.stuck) { stats.stuck++; console.log(k.name, 'STUCK', r.stuck); continue; }

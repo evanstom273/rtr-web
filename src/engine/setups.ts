@@ -3,6 +3,8 @@
 import { LINES, SETUP_TEXT, setupLogLine, tauntTitle } from '../data/commentary';
 import { isRoyal, ROYAL_BLOCKED } from './royal';
 import { TETHER, TETHER_BLOCKED } from './gimmicks';
+import { isLadderStip } from './stipulations';
+import { SCAFFOLD_BLOCKED } from './structures';
 import { tauntProfile } from './attributes';
 import { advanceClock, sideIsOutside } from './clock';
 import type { Ctx } from './ctx';
@@ -40,11 +42,15 @@ export function validSetups(S: MatchState, k: SideKey): SetupId[] {
     if (path.actions.length && canUseMove(A, path.move)) firstSteps.add(path.actions[0]!);
   }
   const out: SetupId[] = [];
-  const cage = S.rules.stipulation === 'steel_cage', royal = isRoyal(S), tethered = !!TETHER[S.rules.stipulation], lumber = S.rules.stipulation === 'lumberjack';
+  const cage = S.rules.stipulation === 'steel_cage', royal = isRoyal(S), tethered = !!TETHER[S.rules.stipulation];
+  // Lumberjacks, the cell and the Chamber: the outside is where the trouble is.
+  const lumber = S.rules.stipulation === 'lumberjack' || S.rules.stipulation === 'hell_in_a_cell' || S.rules.stipulation === 'elimination_chamber';
+  const scaffold = S.rules.stipulation === 'scaffold';
   for (const id of actions) {
     if (cage && CAGE_BLOCKED.has(id)) continue;
     if (royal && ROYAL_BLOCKED.has(id)) continue;
     if (tethered && TETHER_BLOCKED.has(id)) continue;
+    if (scaffold && SCAFFOLD_BLOCKED.has(id)) continue;
     // A lumberjack match: throwing them out to the lumberjacks is half the point.
     if (lumber && id === 'send_opponent_outside') {
       out.push(id);
@@ -59,7 +65,7 @@ export function validSetups(S: MatchState, k: SideKey): SetupId[] {
   if (S.rules.countOuts && !sideIsOutside(S, k) && sideIsOutside(S, foe(S, k)) && !out.includes('wait_for_count')) {
     out.push('wait_for_count');
   }
-  for (const id of extraSetups(S, k)) if (!out.includes(id) && !(tethered && TETHER_BLOCKED.has(id)) && !(royal && ROYAL_BLOCKED.has(id))) out.push(id);
+  for (const id of extraSetups(S, k)) if (!out.includes(id) && !(tethered && TETHER_BLOCKED.has(id)) && !(royal && ROYAL_BLOCKED.has(id)) && !(scaffold && SCAFFOLD_BLOCKED.has(id))) out.push(id);
   // The safety net: nothing to hit and nothing that changes where anyone stands (only showboating,
   // cheating, or catching a breath) is a dead end, however many of those there are. Without this a
   // wrestler with no moves could cheat and taunt forever and the fallback never came up.
@@ -82,7 +88,7 @@ export function autoRecovery(S: MatchState, k: SideKey): SetupId | null {
 
 /** Stipulations where weapons are part of the plan. */
 export const aiWantsWeaponsHere = (S: MatchState): boolean =>
-  S.rules.weapons && (!S.rules.dq || ['ladder', 'tables'].includes(S.rules.stipulation));
+  S.rules.weapons && (!S.rules.dq || ['ladder', 'tables', 'tlc', 'money_in_the_bank'].includes(S.rules.stipulation));
 
 /** _ai_weapon_plan: with weapons around and no DQs, the AI may go under the ring (twice at most). */
 export function aiWantsWeaponTrip(S: MatchState, k: SideKey): boolean {
@@ -90,7 +96,7 @@ export function aiWantsWeaponTrip(S: MatchState, k: SideKey): boolean {
   if (S.sides[k]!.state.area !== 'IN_RING') return false;
   const id = S.rules.stipulation;
   // Ladder and Tables: go and get the thing the match is about, if it isn't already standing in the ring.
-  if (id === 'ladder') return !objectiveReady(S, 'LADDER');
+  if (isLadderStip(id)) return !objectiveReady(S, 'LADDER');
   if (id === 'tables') return !objectiveReady(S, 'TABLE');
   return S.sides[k]!.weaponTrips < 2 && S.t >= S.sides[k]!.nextWeaponTripAt;
 }

@@ -10,7 +10,8 @@ import { canPin, completeKickout, countPin, pinOdds, pinThree, startPin, useResi
 import { isMulti, playerSave, resolveSave, retargetAll, setTarget, targetable } from './multi';
 import { distance } from './zones';
 import { canDoubleTeam, canTag, doubleTeam, goForTag, setupTag, tagRules } from './tag';
-import { canOverTop, hanging, hasEntrants, isRoyal, overTheTop, RUMBLE_INTERVAL, setupRoyal, skinTheCat } from './royal';
+import { canOverTop, entryInterval, hanging, hasEntrants, isRoyal, nextEntrant, overTheTop, setupRoyal, skinTheCat } from './royal';
+import { setupStructures } from './structures';
 import { doGimmick, GIMMICK_TITLE, gimmickActions, setupGimmicks } from './gimmicks';
 import { mathRng, seededRng, type Rng } from './rng';
 import { aiDefence, type Defence } from './defence';
@@ -69,7 +70,13 @@ export class MatchEngine {
     // Battle royals and Rumbles: over the top is the only way out. Gauntlets: elimination, one after another.
     if (isRoyal(S)) S.rules = { ...S.rules, pins: false, subs: false, countOuts: false, dq: false, elimination: true, tag: false };
     if (S.type === 'gauntlet') S.rules = { ...S.rules, elimination: true, tag: false };
+    // The Chamber: elimination, nothing illegal. WarGames: no falls until everyone's in.
+    if (S.rules.stipulation === 'elimination_chamber') S.rules = { ...S.rules, elimination: true, dq: false, countOuts: false, tag: false };
+    if (S.rules.stipulation === 'wargames') S.rules = { ...S.rules, pins: false, subs: false, dq: false, countOuts: false, tag: false, elimination: false };
+    setupStructures(S);
     if (isRoyal(S) || hasEntrants(S)) setupRoyal(S, rnd);
+    // WarGames with nobody waiting to come in (one on one): the match beyond starts at the bell.
+    if (S.rules.stipulation === 'wargames' && !nextEntrant(S)) S.rules = { ...S.rules, pins: true, subs: true };
     // Tag rules: one legal man a team, the rest on the apron.
     if (tagRules(S)) {
       setupTag(S);
@@ -208,7 +215,9 @@ export class MatchEngine {
       case 'bell': {
         if (hasEntrants(this.state)) {
           const S = this.state, [a, b] = S.draw!;
-          say(ctx, S.type === 'rumble' ? LINES.rumbleBell : LINES.gauntletBell, { a: a!, d: b!, vars: { s: S.rules.entryEvery ?? RUMBLE_INTERVAL } });
+          const st = S.rules.stipulation;
+          const bell = st === 'elimination_chamber' ? LINES.chamberBell : st === 'wargames' ? LINES.wargamesBell : S.type === 'rumble' ? LINES.rumbleBell : LINES.gauntletBell;
+          say(ctx, bell, { a: a!, d: b!, vars: { s: entryInterval(S), m: Math.round(entryInterval(S) / 60) } });
           setControl(ctx, ctx.rnd() < 0.5 ? a! : b!);
           return;
         }

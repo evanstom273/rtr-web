@@ -6,6 +6,7 @@ import { aiMultiInstinct, aiPickTarget, isMulti } from './multi';
 import { aiTagInstinct, doubleTeam, goForTag, tagRules } from './tag';
 import { aiRoyalInstinct, isRoyal, overTheTop, skinTheCat } from './royal';
 import { aiGimmickInstinct, doGimmick, NEW_STIPS } from './gimmicks';
+import { isLadderStip } from './stipulations';
 import { attributeDelta, moveAttributeProfile, setupScoringModifier, tauntProfile } from './attributes';
 import { advanceClock, sideIsOutside } from './clock';
 import type { Ctx } from './ctx';
@@ -440,10 +441,10 @@ export class AiBrain {
     const pickSetup = (id: SetupId): Candidate => ({ kind: 'setup', action: id, score: 999 });
     const down = ['GROUNDED', 'SEATED', 'KNEELING'].includes(target.state.position);
     for (const id of ['reach_for_prize', 'escape_over_cage', 'tip_ladder', 'begin_standing_count', 'climb_ladder_top', 'clear_table', 'clear_thumbtacks'] as SetupId[]) {
-      if (has(id) && (id !== 'climb_ladder_top' || stip === 'ladder')) return pickSetup(id);
+      if (has(id) && (id !== 'climb_ladder_top' || isLadderStip(stip))) return pickSetup(id);
     }
     if (has('reach_cage_top') && this.ctx.rnd() < 0.6) return pickSetup('reach_cage_top');
-    const want = stip === 'ladder' ? 'LADDER' : stip === 'tables' ? 'TABLE' : null;
+    const want = isLadderStip(stip) ? 'LADDER' : stip === 'tables' ? 'TABLE' : null;
     const held = heldBy(S, this.k);
     if (!held && want && has('pick_up_weapon') && objectsIn(S, ai.state.area, ['dropped']).some((o) => weaponOf(o).kind === want)) return pickSetup('pick_up_weapon');
     if (has('retrieve_weapon') && ai.state.area === 'OUTSIDE') {
@@ -461,7 +462,7 @@ export class AiBrain {
       }
       if (kind === 'THUMBTACKS' && has('spread_thumbtacks') && ai.state.area === 'IN_RING') return pickSetup('spread_thumbtacks');
     }
-    if (stip === 'ladder' && has('climb_ladder') && (down || this.ctx.rnd() < 0.5)) return pickSetup('climb_ladder');
+    if (isLadderStip(stip) && has('climb_ladder') && (down || this.ctx.rnd() < 0.5)) return pickSetup('climb_ladder');
     if (stip === 'tables') {
       for (const id of ['lay_on_table', 'position_at_table', 'position_at_corner_table'] as SetupId[]) if (has(id) && this.ctx.rnd() < 0.8) return pickSetup(id);
     }
@@ -685,13 +686,13 @@ export class AiBrain {
    */
   scoreExtra(ai: Side, target: Side, id: SetupId, moves: Move[]): number {
     const S = this.S, stip = S.rules.stipulation, heel = ai.w.disposition === 'HEEL', hardcore = ai.w.classes.includes('HARDCORE');
-    const weaponMatch = ['ladder', 'tables', 'no_dq', 'falls_count_anywhere', 'last_man_standing', 'i_quit'].includes(stip);
+    const weaponMatch = ['ladder', 'tables', 'no_dq', 'falls_count_anywhere', 'last_man_standing', 'i_quit', 'tlc', 'money_in_the_bank', 'street_fight', 'no_holds_barred', 'deathmatch', 'hell_in_a_cell'].includes(stip);
     const down = ['GROUNDED', 'SEATED', 'KNEELING'].includes(target.state.position);
     const held = heldBy(S, this.k);
     let score = 40;
     switch (id) {
       case 'retrieve_weapon':
-        score += stip === 'ladder' ? 72 : stip === 'tables' ? 64 : stip === 'no_dq' ? 78 : weaponMatch ? 48 : 10;
+        score += isLadderStip(stip) ? 72 : stip === 'tables' ? 64 : stip === 'no_dq' ? 78 : weaponMatch ? 48 : 10;
         break;
       case 'pick_up_weapon': score += weaponMatch ? 62 : S.rules.dq ? -20 : 30; break;
       case 'drop_weapon': {
@@ -702,18 +703,18 @@ export class AiBrain {
       }
       case 'set_table_flat': case 'set_table_corner': score += stip === 'tables' ? (ai.state.area === 'IN_RING' ? 70 : -40) : 45; break;
       case 'stack_table': score += stip === 'tables' ? 60 : 50; break;
-      case 'set_up_ladder': score += stip === 'ladder' ? (ai.state.area === 'IN_RING' ? 90 : -60) : 40; break;
+      case 'set_up_ladder': score += isLadderStip(stip) ? (ai.state.area === 'IN_RING' ? 90 : -60) : 40; break;
       case 'spread_thumbtacks': score += 45; break;
       case 'position_at_table': case 'lay_on_table': case 'position_at_corner_table': case 'position_over_thumbtacks':
         score += stip === 'tables' ? 75 : 50;
         if (ai.finisherStock > 0) score += 15;
         break;
       case 'clear_table': case 'clear_thumbtacks': score += 75; break;
-      case 'climb_ladder': score += stip === 'ladder' ? 70 + (down ? 25 : 0) : 25; break;
-      case 'climb_ladder_top': score += stip === 'ladder' ? 85 + (down ? 20 : 0) : 40; break;
+      case 'climb_ladder': score += isLadderStip(stip) ? 70 + (down ? 25 : 0) : 25; break;
+      case 'climb_ladder_top': score += isLadderStip(stip) ? 85 + (down ? 20 : 0) : 40; break;
       case 'reach_for_prize': score += 130; break;
       case 'climb_down_ladder':
-        score += stip === 'ladder' ? -30 : moves.length ? -40 : 30;
+        score += isLadderStip(stip) ? -30 : moves.length ? -40 : 30;
         break;
       case 'tip_ladder': score += 95; break;
       case 'climb_cage': score += 10 + (down ? 20 : 0); break;
@@ -746,7 +747,7 @@ export class AiBrain {
     if (id === 'exit_ring' && aiWantsWeaponTrip(this.S, this.k)) {
       // Under the ring for a weapon (Godot's EXIT_RING scores).
       const stip = this.S.rules.stipulation;
-      return 40 + (stip === 'ladder' ? 82 : stip === 'tables' ? 74 : 52) + (target.state.position === 'GROUNDED' ? 16 : 0)
+      return 40 + (isLadderStip(stip) ? 82 : stip === 'tables' ? 74 : 52) + (target.state.position === 'GROUNDED' ? 16 : 0)
         + (ai.w.classes.includes('HARDCORE') ? 14 : 0);
     }
     let score = 40;
@@ -995,6 +996,9 @@ export function aiTurn(ctx: Ctx, k: SideKey): void {
   if (gimmick && doGimmick(ctx, k, gimmick)) return;
   // Lumberjacks: send them out to get a beating.
   if (S.rules.stipulation === 'lumberjack' && setups.includes('send_opponent_outside') && ctx.rnd() < 0.2 && executeSetup(ctx, k, 'send_opponent_outside')) return;
+  // The cell and the Chamber: out to the steel once they're worn.
+  if ((S.rules.stipulation === 'hell_in_a_cell' || S.rules.stipulation === 'elimination_chamber') && setups.includes('send_opponent_outside')
+    && pinCondition(D) < 75 && ctx.rnd() < 0.15 && executeSetup(ctx, k, 'send_opponent_outside')) return;
   const royal = isRoyal(S) ? aiRoyalInstinct(ctx, k) : null;
   if (royal === 'skin' && skinTheCat(ctx, k)) return;
   if (royal === 'ott' && overTheTop(ctx, k)) return;

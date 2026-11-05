@@ -210,6 +210,34 @@ never touch any of it — the golden fixture is pinned to them.
   pole), and with no count-outs takes a fight that's wandered off back to where it can be won.
 - **Stars**: stipulation spots count as drama, and `RATING_STIP` puts each new one on singles' spread.
 
+## Stage 6: stipulations, part two — the structures (`structures.ts`)
+
+Structure actions go through the same stipulation-action surface as stage 5 (`engine.gimmicks()`), and
+the zone map gains the cell roof (reached from the floor), the cables (from a corner) and the scaffold.
+A wrestler up on a structure has a `perch`.
+
+- **Hell in a Cell**: no DQ, no count-outs, weapons; falls count anywhere inside the cell — the ring and
+  the floor — but not on the roof. Ram them into the steel (it can cut). Climb the cell (contested if
+  they're there to pull you down); the other follows (the AI does, and climbs back down if nobody comes
+  up). On the roof: throw them off — all the way to the floor, or (three times in ten) through the roof
+  into the ring — for a huge spot and huge damage. The AI sends the fight out to the steel once the
+  other's worn, and takes them up top once they're properly hurt.
+- **Elimination Chamber**: elimination; two start, the rest locked in pods and let out one every four
+  minutes (`rules.entryEvery`). The chain walls; diving off the pods onto someone on the steel floor
+  (or missing and crashing).
+- **WarGames**: two teams; one from each starts, then they come in alternately every two minutes, the
+  team that won the advantage first. No falls until everyone's in; then "the match beyond": the first fall
+  wins it for the team.
+- **Scaffold**: both start up on it, and nobody goes anywhere else. Knock them off (once they're properly
+  worn) to win. Long way down.
+- **Ultimate X**: up to the cables once the fight's gone a while (or everyone else is down), then hand
+  over hand (three pulls, and a tired grip can slip), and pull down the X. Anyone on the cables is the one
+  to stop (+40 in targeting), loses the favoured turn, and can be yanked down.
+- **TLC** and **Money in the Bank**: the ladder match's rules (`isLadderStip`) with up to three ladders;
+  TLC wants tables and chairs too; Money in the Bank is a multi-man ladder match for the briefcase (nobody
+  in particular loses). Climbers get targeted. The cash-in contract is the career's (stages 8 and 9).
+- **Stars**: `RATING_STIP` again (WarGames, Money in the Bank, Ultimate X).
+
 ### Harness
 
 `MATCHES=1 npx vitest run src/engine/__tests__/matchesrun.test.ts` runs 40 of each type and reports:
@@ -252,3 +280,6 @@ At stage 4:
 At stage 5 (singles; median stars): street fight 23 min / 3, no holds barred 18 / 3, Texas death 27 / 3.25,
 first blood 13 / 3, deathmatch 20 / 3, casket 21 / 3.25, ambulance 21 / 3.25, stretcher 23 / 3.25,
 strap 18 / 3, dog collar 18 / 3.25, bull rope 17 / 3.25, lumberjack 18 / 3, pole 18 / 3.
+
+At stage 6: Hell in a Cell 21 min / 3.25, Elimination Chamber (6) 39 / 3, WarGames (4 on 4) 32 / 3.25,
+scaffold 24 / 3.25, Ultimate X (4) 13 / 3.25, TLC 20 / 3, Money in the Bank (6) 25 / 3.

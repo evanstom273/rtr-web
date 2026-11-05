@@ -17,6 +17,7 @@ import { pinCondition } from './pin';
 import { clamp } from './rng';
 import { damagePart } from './side';
 import { startTenCount } from './stip';
+import { aiStructureInstinct, finishStructure, STRUCTURE_ACTIONS, STRUCTURE_TITLE, structureActions, structureContested, STRUCTURES } from './structures';
 import type { ActionResult, Area, FinishType, GimmickId, MatchState, Move, SetupId, SideKey, StipulationId } from './types';
 
 const RING: ReadonlySet<Area> = new Set<Area>(['IN_RING', 'ROPES', 'CORNER']);
@@ -28,6 +29,7 @@ const line = (key: string): string => (LINES as unknown as Record<string, string
 /** The stipulations added by the overhaul (the original eleven never see any of this). */
 export const NEW_STIPS: ReadonlySet<StipulationId> = new Set<StipulationId>([
   'street_fight', 'no_holds_barred', 'texas_death', 'first_blood', 'deathmatch', 'casket', 'ambulance', 'stretcher', 'strap', 'dog_collar', 'bull_rope', 'lumberjack', 'pole',
+  'hell_in_a_cell', 'elimination_chamber', 'wargames', 'scaffold', 'ultimate_x', 'tlc', 'money_in_the_bank',
 ]);
 
 /** Tied together: what ties them, and the weapon it makes. */
@@ -46,6 +48,7 @@ const usesCorners = (S: MatchState): boolean => stip(S) === 'strap' || (stip(S) 
 const hardcore = (S: MatchState): boolean => ['street_fight', 'no_holds_barred', 'texas_death', 'first_blood', 'deathmatch'].includes(stip(S));
 
 export const GIMMICK_TITLE: Record<GimmickId, string> = {
+  ...(STRUCTURE_TITLE as Record<GimmickId, string>),
   load_casket: 'Roll them into the casket', close_casket: 'Shut the lid', load_ambulance: 'Throw them in the ambulance',
   shut_ambulance: 'Shut the doors', load_stretcher: 'Strap them to the stretcher', wheel_stretcher: 'Wheel the stretcher',
   climb_out: 'Fight your way out', touch_corner: 'Touch the next corner', climb_pole: 'Climb for it',
@@ -100,6 +103,7 @@ export function gimmickActions(S: MatchState, k: SideKey): GimmickId[] {
   if (usesCorners(S) && up && RING.has(A.state.area) && RING.has(D.state.area) && (DOWN(S, d) || pinCondition(D) < 55)) out.push('touch_corner');
   const pole = S.obj.pole;
   if (pole && !pole.taken && up && A.state.area === 'IN_RING' && A.state.motion === 'STATIONARY') out.push('climb_pole');
+  if (STRUCTURES.has(stip(S))) out.push(...structureActions(S, k));
   return out;
 }
 
@@ -120,8 +124,9 @@ export function doGimmick(ctx: Ctx, k: SideKey, id: GimmickId): boolean {
   if (S.over) return true;
   const d = foe(S, k);
   if (id === 'climb_out') return climbOut(ctx, k), true;
-  say(ctx, line(`gim_${id}`), { a: k, d, vars: { x: poleName(S), n: (S.obj.corners?.[k] ?? 0) + 1 } }, 'warn');
-  if (!contested(S, k, id)) return finishGimmick(ctx, k, d, id, false), true;
+  const structure = STRUCTURE_ACTIONS.has(id);
+  if (!structure) say(ctx, line(`gim_${id}`), { a: k, d, vars: { x: poleName(S), n: (S.obj.corners?.[k] ?? 0) + 1 } }, 'warn');
+  if (!(structure ? structureContested(S, k, id) : contested(S, k, id))) return finishGimmick(ctx, k, d, id, false), true;
   const { attack, defend } = gimmickContest(S.sides[k]!, S.sides[d]!, id, offSpot(S, k, id));
   S.txn = { kind: 'gimmick', k, d, id, chance: 0 };
   startContest(ctx, { kind: 'gimmick', attacker: k, defender: d, title: GIMMICK_TITLE[id], major: null, attack, defend });
@@ -140,6 +145,7 @@ function offSpot(S: MatchState, k: SideKey, id: GimmickId): number {
 
 /** The roll's in (or there wasn't one). */
 export function finishGimmick(ctx: Ctx, k: SideKey, d: SideKey, id: GimmickId, failed: boolean): void {
+  if (STRUCTURE_ACTIONS.has(id)) return finishStructure(ctx, k, d, id, failed);
   const S = ctx.S, A = S.sides[k]!, D = S.sides[d]!, c = S.crowd;
   const box = CONTAINER[stip(S)];
   if (box && id === box.load) {
@@ -253,6 +259,7 @@ function climbOut(ctx: Ctx, k: SideKey): void {
 export function aiGimmickInstinct(ctx: Ctx, k: SideKey): GimmickId | null {
   const S = ctx.S, list = gimmickActions(S, k);
   if (!list.length) return null;
+  if (STRUCTURES.has(stip(S))) return aiStructureInstinct(ctx, k, list);
   const D = S.sides[foe(S, k)]!, r = ctx.rnd();
   if (list.includes('climb_out')) return 'climb_out';
   const box = CONTAINER[stip(S)];
@@ -321,6 +328,15 @@ export function gimmickAfterAction(ctx: Ctx): void {
         S.crowd.spots++;
         say(ctx, LINES.gimLumberjackBrawl, {}, 'hl');
       }
+    }
+  }
+  // Came down off the cell roof (or the cables) some other way: they're not up there any more.
+  for (const k of S.order) {
+    const s = S.sides[k]!;
+    if (s.perch === 'roof' && s.state.area !== 'OUTSIDE') s.perch = undefined;
+    if (s.perch === 'cables' && s.state.area !== 'TOP_ROPE') {
+      s.perch = undefined;
+      if (S.obj.cables) S.obj.cables[k] = 0;
     }
   }
   const corners = S.obj.corners;
