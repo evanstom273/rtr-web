@@ -13,7 +13,7 @@ import { patienceOf } from './patience';
 import { record } from './requests';
 import { BOOK_AHEAD_DAYS, CREATIVE, FEUD_WEEKS } from './tuning';
 import type { Ask, Bout, Career, Show } from './types';
-import { boutPeople } from './bouts';
+import { boutPeople, sideOf } from './bouts';
 
 export type CreativeKind = 'win' | 'lose' | 'opponent' | 'position' | 'feud' | 'endFeud' | 'turn';
 export interface CreativeReq { kind: CreativeKind; promo: string; show?: string; opp?: string }
@@ -181,10 +181,11 @@ export function protectStars(c: Career, show: Show, card: Bout[]): void {
   const say = (id: string): number => (id === c.player ? 0 : Math.max(0, ...promos.map((p) => tierOf(dealWith(c.people[id], p), 'creative'))));
   for (const b of card) {
     if (b.title || b.planned || b.tourney || b.farewell || b.tryout) continue;
-    const wa = findWrestler(b.a), wb = findWrestler(b.b);
-    if (!wa || !wb) continue;
-    const top = globalScore(wa) >= globalScore(wb) ? wa : wb;
-    if (say(top.id) >= 1) b.planned = top.id;
+    // Everyone in it (a tag match, a multi-man): the biggest star, and if they've the say, their side wins.
+    const ws = boutPeople(b).map((id) => findWrestler(id)).filter((w): w is NonNullable<typeof w> => !!w);
+    if (ws.length < 2) continue;
+    const top = ws.reduce((x, y) => (globalScore(y) > globalScore(x) ? y : x));
+    if (say(top.id) >= 1) b.planned = b.sides ? sideOf(b, top.id)?.[0] ?? top.id : top.id;
   }
 }
 

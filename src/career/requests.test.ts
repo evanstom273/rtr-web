@@ -252,7 +252,8 @@ describe('requests', () => {
       for (const b of shows.flatMap((s) => s.card ?? [])) {
         if (!b.title || !b.result) continue;
         const h = holder.get(b.title);
-        if (h !== b.a && h !== b.b) bad.push(`${b.title}: ${b.a} v ${b.b}, champion ${h}`);
+        // A vacant title (a tag team that split) goes to whoever wins it.
+        if (h && h !== b.a && h !== b.b) bad.push(`${b.title}: ${b.a} v ${b.b}, champion ${h}`);
         if (b.result.newChamp) holder.set(b.title, b.result.winner);
       }
     }

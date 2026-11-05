@@ -306,7 +306,11 @@ export function applyBout(c: Career, show: Show, index: number, out: SimOut, aIs
       const mine = findWrestler(c.player);
       const cares = !region || (mine && REGION_KEY[mine.region] === region) || regionalDates(c, c.player, region, show.date) > 0 || knows(winner) || knows(loser.id);
       if ((show.promo === mine?.promotion && cares) || show.kind === 'flagship' || PROMOTIONS.find((p) => p.titles[0] === t.id)) {
-        letter(c, { kind: 'news', from: 'The news desk', subject: `New ${t.name} champion`, body: [`${w.name} beat ${loser.name} at ${show.name} to win the ${t.name}.`] });
+        // A team title: the teams, by name (or both names), on both sides.
+        const lost = side ? bout.sides?.find((x) => x !== side && !x.includes(winner)) : undefined;
+        const teamName = (ids: string[]) => teamOf(activeWorld(), ids[0]!)?.members.every((id) => ids.includes(id)) ? teamOf(activeWorld(), ids[0]!)!.name : ids.map((id) => findWrestler(id)?.name ?? id).join(' & ');
+        const champs = side ? reignName : w.name, beaten = lost ? teamName(lost) : loser.name;
+        letter(c, { kind: 'news', from: 'The news desk', subject: `New ${t.name} champion${side ? 's' : ''}`, body: [`${champs} beat ${beaten} at ${show.name} to win the ${t.name}.`] });
       }
     } else {
       ts.defences++;
