@@ -29,6 +29,8 @@ it.skipIf(!process.env.MATCHES)('match types: length, stars, saves, eliminations
     { name: 'battle royal 20', teams: Array.from({ length: 20 }, (_, i) => i), elim: true, type: 'battle_royal' },
     { name: 'rumble 30', teams: Array.from({ length: 30 }, (_, i) => i), elim: true, type: 'rumble' },
     { name: 'gauntlet 5', teams: [0, 1, 2, 3, 4], elim: true, type: 'gauntlet' },
+    ...(['street_fight', 'no_holds_barred', 'texas_death', 'first_blood', 'deathmatch', 'casket', 'ambulance', 'stretcher', 'strap', 'dog_collar', 'bull_rope', 'lumberjack', 'pole'] as const)
+      .map((stip) => ({ name: stip, teams: [0, 1], elim: false, stip })),
   ];
   for (const k of kinds.filter((x) => !only || only.split(',').includes(x.name))) {
     const mins: number[] = [];
@@ -37,7 +39,7 @@ it.skipIf(!process.env.MATCHES)('match types: length, stars, saves, eliminations
       const rnd = seededRng(900 + i);
       const ids = pick(rnd, k.teams.length);
       const t0 = performance.now();
-      const r = runHeadless({ seed: 5000 + i, you: ids[0]!, them: ids[1]!, extras: ids.slice(2).map((id, j) => ({ id, team: k.teams[j + 2]! })), model: { kind: 'skill', sigmaSeconds: 0.09 }, rules: { elimination: k.elim, ...('tag' in k ? { tag: true } : {}) }, ...('type' in k ? { type: k.type as 'rumble' } : {}) });
+      const r = runHeadless({ seed: 5000 + i, you: ids[0]!, them: ids[1]!, extras: ids.slice(2).map((id, j) => ({ id, team: k.teams[j + 2]! })), model: { kind: 'skill', sigmaSeconds: 0.09 }, rules: { elimination: k.elim, ...('tag' in k ? { tag: true } : {}), ...('stip' in k ? { stipulation: k.stip } : {}) }, ...('type' in k ? { type: k.type as 'rumble' } : {}) });
       stats.ms += performance.now() - t0;
       stats.n++;
       if (r.stuck) { stats.stuck++; console.log(k.name, 'STUCK', r.stuck); continue; }

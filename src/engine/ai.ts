@@ -5,6 +5,7 @@ import type { BodyPart } from '../data/rtr/types';
 import { aiMultiInstinct, aiPickTarget, isMulti } from './multi';
 import { aiTagInstinct, doubleTeam, goForTag, tagRules } from './tag';
 import { aiRoyalInstinct, isRoyal, overTheTop, skinTheCat } from './royal';
+import { aiGimmickInstinct, doGimmick, NEW_STIPS } from './gimmicks';
 import { attributeDelta, moveAttributeProfile, setupScoringModifier, tauntProfile } from './attributes';
 import { advanceClock, sideIsOutside } from './clock';
 import type { Ctx } from './ctx';
@@ -987,8 +988,13 @@ export function aiTurn(ctx: Ctx, k: SideKey): void {
   const moves = validMoves(S, k);
   const setups = validSetups(S, k);
   const ready = A.signatureReady || A.finisherStock > 0;
-  const instinct = isMulti(S) ? aiMultiInstinct(S, k, setups) : null;
+  // More than two people, or one of the new no-count-out stipulations: you can only win in the ring.
+  const instinct = isMulti(S) || (NEW_STIPS.has(S.rules.stipulation) && !S.rules.countOuts) ? aiMultiInstinct(S, k, setups) : null;
   if (instinct && executeSetup(ctx, k, instinct)) return;
+  const gimmick = aiGimmickInstinct(ctx, k);
+  if (gimmick && doGimmick(ctx, k, gimmick)) return;
+  // Lumberjacks: send them out to get a beating.
+  if (S.rules.stipulation === 'lumberjack' && setups.includes('send_opponent_outside') && ctx.rnd() < 0.2 && executeSetup(ctx, k, 'send_opponent_outside')) return;
   const royal = isRoyal(S) ? aiRoyalInstinct(ctx, k) : null;
   if (royal === 'skin' && skinTheCat(ctx, k)) return;
   if (royal === 'ott' && overTheTop(ctx, k)) return;

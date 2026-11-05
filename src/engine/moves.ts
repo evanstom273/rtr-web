@@ -2,6 +2,7 @@
 // apply_damage, apply_stamina_fatigue_momentum, apply_positions and the body-story commentary.
 import { LINES, PART_LABEL } from '../data/commentary';
 import { noteExchange } from './multi';
+import { gimmickAfterMove } from './gimmicks';
 import type { BodyPart } from '../data/rtr/types';
 import { moveAttributeProfile } from './attributes';
 import { advanceClock, observePhase, settleRefereeCount } from './clock';
@@ -167,6 +168,7 @@ export function finishMove(ctx: Ctx, k: SideKey, move: Move, reversed: boolean, 
   }
   if (move.type === 'WEAPON') weaponAfterSwing(ctx, k, move, result, target);
   environmentAfterMove(ctx, k, move, result);
+  gimmickAfterMove(ctx, k, move, result);
   lmsAfterMove(S, k, move, result);
   if (result === 'CLEAN_SUCCESS' && isFinisherMove(A, move)) S.obj.finisherLanded[k] = true;
   const embedded = shouldStartEmbeddedPin(S, k, dk, move, result);
@@ -349,10 +351,10 @@ function weaponAfterSwing(ctx: Ctx, k: SideKey, move: Move, result: ActionResult
     S.crowd.weaponHits++;
     crowdObserve(ctx, { type: 'spot', amount: 10 });
     maybeBleed(ctx, dk, w, move.impact, target.storyPart);
-    if (S.rules.dq && w.illegal && refSees(ctx, WEAPON_DETECTION, A.state.area, k)) {
+    if (S.rules.dq && w.illegal && !held.legal && refSees(ctx, WEAPON_DETECTION, A.state.area, k)) {
       disqualify(ctx, k, format(LINES.whatWeapon, { w: w.name.toLowerCase() }));
     }
-  } else if (held.durability > 0) {
+  } else if (held.durability > 0 && !held.fixed) {
     dropObject(held, A.state.area);
     say(ctx, LINES.weaponDropped, { a: k, vars: { w: w.name.toLowerCase() } }, 'dim');
   }

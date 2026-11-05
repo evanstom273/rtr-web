@@ -196,6 +196,10 @@ export function aiMultiInstinct(S: MatchState, k: SideKey, setups: readonly Setu
   if (IN_RING.has(s.state.area)) { s.outsideTurns = 0; return null; }
   s.outsideTurns = (s.outsideTurns ?? 0) + 1;
   if (s.outsideTurns < 3 || S.rules.stipulation === 'falls_count_anywhere') return null;
+  // A street fight counts at ringside too; it's only the crowd and the back that need bringing back.
+  if (S.rules.stipulation === 'street_fight' && s.state.area === 'OUTSIDE') return null;
+  // The casket's at ringside and the ambulance is up the ramp: that's where they want to be.
+  if ((S.rules.stipulation === 'casket' && s.state.area === 'OUTSIDE') || (S.rules.stipulation === 'ambulance' && s.state.area === 'RAMP')) return null;
   return BACK_IN.find((id) => setups.includes(id)) ?? null;
 }
 

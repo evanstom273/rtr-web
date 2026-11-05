@@ -267,6 +267,26 @@ export function ottContest(A: Side, D: Side, hanging: boolean): { attack: Contes
   return { attack: side(A.key, aMods, aEdges), defend: side(D.key, dMods, dEdges) };
 }
 
+/**
+ * The stipulation actions (match overhaul, stage 5): rolling someone into the casket, shutting the doors,
+ * dragging them to the corner, climbing for the pole. Strength (speed for the pole) against whatever fight
+ * they've got left; dragging them a long way to it is harder.
+ */
+export function gimmickContest(A: Side, D: Side, id: string, offSpot: number): { attack: ContestSide; defend: ContestSide } {
+  const aMods: Mod[] = [], aEdges: ContestSide['edges'] = [];
+  const stat = id === 'climb_pole' ? 'speed' : 'strength';
+  push(aMods, `${STAT_LABEL[stat]} ${A.w.stats[stat]}`, statMod(A.w.stats[stat]));
+  push(aMods, 'Booked to win', A.booked);
+  for (const m of anyRollMods(A)) push(aMods, m.label, m.value);
+  momentum(aMods, A);
+  push(aMods, 'Dragging them there', -offSpot);
+  exhaustion(aMods, A, false);
+  if (exhaustionBand(A) === 'Spent') aEdges.push({ label: 'Spent', dir: -1 });
+  const { mods: dMods, own: dEdges } = counterSide(D);
+  push(dMods, 'Down and hurt', D.state.position === 'GROUNDED' ? -2 : 0);
+  return { attack: side(A.key, aMods, aEdges), defend: side(D.key, dMods, dEdges) };
+}
+
 export function edgeOf(s: ContestSide): -1 | 0 | 1 {
   const n = s.edges.reduce((t, e) => t + e.dir, 0) + (s.pushed ? 1 : 0);
   return n > 0 ? 1 : n < 0 ? -1 : 0;

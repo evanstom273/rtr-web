@@ -10,6 +10,7 @@ import { pinCondition } from './pin';
 import { finishContestedSetup } from './setups';
 import { finishTagReach } from './tag';
 import { finishOverTop } from './royal';
+import { finishGimmick } from './gimmicks';
 import { aiDefence, telegraphed, TELEGRAPH_BONUS, type Defence } from './defence';
 import type { ContestSpec, DefendSpec, MatchState, Move, SideKey } from './types';
 
@@ -124,6 +125,7 @@ export function applyPending(ctx: Ctx): boolean {
   if (roll.crit === 'attacker1' && txn.kind !== 'sub') say(ctx, LINES.botch, { a: txn.k }, 'bad');
   if (txn.kind === 'tag') finishTagReach(ctx, txn.k, txn.to, !roll.landed);
   else if (txn.kind === 'ott') finishOverTop(ctx, txn.k, txn.d, txn.hanging, roll);
+  else if (txn.kind === 'gimmick') finishGimmick(ctx, txn.k, txn.d, txn.id, !roll.landed);
   else if (txn.kind === 'move') finishMove(ctx, txn.k, txn.move, !roll.landed, txn.target, roll.crit === 'attackerTop', p.spec.defence);
   else if (txn.kind === 'setup') finishContestedSetup(ctx, txn.k, txn.action, !roll.landed);
   return true;
