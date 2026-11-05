@@ -16,7 +16,7 @@ async function step(c: Career) {
   await advancePhase(c, quick);
 }
 const days = async (c: Career, n: number) => { const until = addDays(c.today, n); while (c.today < until) await step(c); };
-const earned = (c: Career, re: RegExp) => c.ledger.filter((e) => re.test(e.text) && e.amount > 0).reduce((t, e) => t + e.amount, 0);
+const earned = (c: Career, re: RegExp) => c.ledger.filter((e) => re.test(e.text) && e.amount > 0).reduce((t, e) => t + (e.gross ?? e.amount), 0);
 const setFans = (c: Career, home: number) => { const w = findWrestler(c.player)!; for (const r of FAN_REGIONS) w.fans[r] = r === 'europe' ? home : Math.round(home * 0.05); w.country = 'UK'; c.base = 'UK'; };
 
 describe('side earners (Lyra’s calls)', () => {

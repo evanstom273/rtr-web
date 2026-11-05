@@ -26,7 +26,7 @@ onSigned((c, k) => {
   const n = SIGNING_BONUS_FEES[tierOf(k, 'signing')] ?? 0;
   if (!n || c.spectator) return;
   const amount = round5(k.fee * n);
-  spend(c, amount, `Signing bonus · ${k.promo}`, 'bonus');
+  spend(c, amount, `Signing bonus · ${k.promo}`, 'bonus', { contract: true });
 });
 
 /** What you could borrow against your fees right now (0 if you can't). */
@@ -47,7 +47,7 @@ export function takeAdvance(c: Career, promo?: string): string {
   const a = advanceAvailable(c, promo);
   if (!a.amount || !a.k) return a.why ?? 'Not possible.';
   a.k.advance = a.owed;
-  spend(c, a.amount, `Advance from ${a.k.promo}`, 'bonus');
+  spend(c, a.amount, `Advance from ${a.k.promo}`, 'bonus', { untaxed: true });
   return `${a.k.promo} advanced you ${money(a.amount)}. You’ll pay back ${money(a.owed)} out of your fees.`;
 }
 
@@ -81,7 +81,7 @@ function afterMatch(c: Career, show: Show, bout: Bout, m: PlayerMatch): void {
     const ok = t === 'streak' ? k.streak > 0 && k.streak % 5 === 0 : hit(t);
     if (!ok) continue;
     const amount = round5(k.fee * BONUS_FEES[t]);
-    spend(c, amount, `Bonus · ${BONUS_TRIGGERS.find((x) => x.id === t)!.name} · ${k.promo}`, 'bonus');
+    spend(c, amount, `Bonus · ${BONUS_TRIGGERS.find((x) => x.id === t)!.name} · ${k.promo}`, 'bonus', { contract: true });
   }
   // Wage Matching Tier 2+: a raise for winning one of their titles.
   if (m.wonTitle && tierOf(k, 'wage') >= 2) {
@@ -99,7 +99,7 @@ export function takings(show: Pick<Show, 'kind' | 'promo'>): number {
 }
 function profitCut(c: Career, k: Contract, show: Show): void {
   const amount = round5(takings(show) * PROFIT_SHARE[tierOf(k, 'profit')]!);
-  if (amount > 0) spend(c, amount, `Profit share · ${show.name}`, 'bonus');
+  if (amount > 0) spend(c, amount, `Profit share · ${show.name}`, 'bonus', { contract: true });
 }
 
 // ------------------------------------------------------------------ the daily round
@@ -121,7 +121,7 @@ function daily(c: Career): void {
       if (c.drawnMe?.[show.id] && !show.card?.some((b) => b.a === c.player || b.b === c.player)) {
         const share = PULLED_PAY[tierOf(k, 'guaranteed')] ?? 0;
         const mine = p!.injury && p!.injury.until > yesterday || p!.daysOff?.includes(yesterday) || (p!.suspendedUntil && p!.suspendedUntil > yesterday) || p!.noShows?.includes(yesterday);
-        if (share && !mine) spend(c, round5(k.fee * share), `Pulled from ${show.name} (Guaranteed Pay)`, 'fee');
+        if (share && !mine) spend(c, round5(k.fee * share), `Pulled from ${show.name} (Guaranteed Pay)`, 'fee', { contract: true });
       }
     }
   }
@@ -150,7 +150,7 @@ function anniversaries(c: Career, k: Contract): void {
     const t = tierOf(k, 'loyalty');
     if (t) {
       const amount = round5(k.fee * LOYALTY_FEES[t]! * Math.min(5, served));
-      spend(c, amount, `Loyalty bonus · ${served} year${served === 1 ? '' : 's'} with ${k.promo}`, 'bonus');
+      spend(c, amount, `Loyalty bonus · ${served} year${served === 1 ? '' : 's'} with ${k.promo}`, 'bonus', { contract: true });
       const p = person(c, c.player);
       if (t >= 3 && served >= LEGEND_YEARS && p.legend !== k.promo) {
         p.legend = k.promo;
@@ -172,7 +172,7 @@ function monthly(c: Career, _rnd: Rng): void {
     const min = round5(k.fee * (MONTHLY_MIN_FEES[tierOf(k, 'guaranteed')] ?? 0));
     if (min && k.start.slice(0, 7) < last) {
       const got = c.history.filter((m) => m.promo === k.promo && m.day.startsWith(last)).reduce((t, m) => t + m.fee, 0);
-      if (got < min) spend(c, min - got, `Monthly minimum · ${k.promo} (Guaranteed Pay)`, 'fee');
+      if (got < min) spend(c, min - got, `Monthly minimum · ${k.promo} (Guaranteed Pay)`, 'fee', { contract: true });
     }
     // Merchandise Rights: a cut of their online store's sales of your gear.
     const cut = STORE_CUT[tierOf(k, 'merch')] ?? 0;

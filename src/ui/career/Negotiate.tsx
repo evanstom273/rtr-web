@@ -4,6 +4,8 @@ import {
   signOffer, triggerSlots, underLine, walkAway, type BonusTrigger, type Career, type PackageId, type Proposal,
 } from '../../career';
 import { CLAUSES } from '../../career/clauses';
+import { agentCeiling } from '../../career/life/money';
+import { on } from '../../career/life/state';
 import { fmtDay } from '../../career/dates';
 import { CONTRACT_MONTHS, SPLIT_DATES_TOTAL } from '../../career/tuning';
 import { ClauseGroups, Pips } from './Clauses';
@@ -75,6 +77,7 @@ export function Negotiate({ c, offerId, onBack, onDone }: Props) {
       </div>
       <div className="c-body">
         {ch && <span className="c-note"><b>{promoName(o.promo)}: {ch.style}.</b> {ch.blurb}</span>}
+        {open && on('money') && c.life?.agent && <span className="c-note"><b>{c.life.agent.name} (your agent):</b> they’d realistically go to about {money(agentCeiling(c, o))} a match on these terms. Ask for more and expect a counter.</span>}
         {o.second && <span className="c-note">A second deal, alongside {others.map((k) => k.promo).join(' and ')}: it can’t be exclusive, and the month splits between you ({SPLIT_DATES_TOTAL} dates in all).</span>}
         <span className="c-lab">{w('Start from')}</span>
         <div className="c-chips">

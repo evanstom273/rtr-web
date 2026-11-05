@@ -48,6 +48,8 @@ export interface World {
   briefcases?: import('./matchWorld').Briefcase[];
   shots?: { who: string; title: string; from: Day }[];
   matchWorld?: number;
+  /** Life: each city's property market, the funds, schools, businesses and everyone's money (world/lifeWorld.ts). */
+  life?: import('./lifeWorld').LifeWorld;
 }
 
 const KEY = 'current';

@@ -141,6 +141,8 @@ export interface Contract {
   promo: string;
   start: Day;
   end: Day;
+  /** Life: signed through your agent (they take their cut of it). */
+  agent?: boolean;
   /** Weekly-show fee; specials and flagships multiply it. */
   fee: number;
   /** Tier 0–3 for each of the 25 clauses, in CLAUSES order (clauses.ts). */
@@ -338,11 +340,19 @@ export interface Offer {
   second?: boolean;
   /** Your current promotion's counter before you sign elsewhere (Lyra's call: always a courtesy call). */
   courtesy?: string;
+  /** Life: your agent has handled this one. */
+  agent?: boolean;
   /** Walk-away lines: the lowest tier you'll accept on each clause. */
   lines?: number[];
 }
 
-export interface Entry { day: Day; text: string; amount: number; kind: 'fee' | 'travel' | 'training' | 'medical' | 'merch' | 'bonus' | 'buyout' | 'start' | 'living' | 'wage' | 'relocation' | 'event' | 'company' }
+export interface Entry {
+  day: Day; text: string; amount: number;
+  kind: 'fee' | 'travel' | 'training' | 'medical' | 'merch' | 'bonus' | 'buyout' | 'start' | 'living' | 'wage' | 'relocation' | 'event' | 'company'
+    | 'rent' | 'home' | 'loan' | 'transport' | 'tax' | 'agent' | 'staff' | 'school' | 'business' | 'invest' | 'luxury' | 'insurance' | 'family';
+  /** Life: before tax and the agent's cut (amount is what reached the bank), and what they took. */
+  gross?: number; tax?: number; agent?: number;
+}
 
 export interface PlayerMatch {
   day: Day;
@@ -448,12 +458,14 @@ export interface Career {
   /** Your day job. */
   job?: DayJob | null;
   /** A move in progress. */
-  moving?: { to: string; until: Day };
+  moving?: { to: string; until: Day; city?: string; tier?: import('./life/state').RentTier; home?: string };
   /** Money owed to a friend, repaid from fees. */
   loan?: { from: string; left: number };
   moneyTroubleAt?: Day;
   /** The country you live in (your home country until you move). */
   base?: string;
+  /** Life: where you live, what you own and owe, tax, your agent (career/life/state.ts). */
+  life?: import('./life/state').LifeState;
   /** Living costs (Lyra's call): the first Monday they're due, and the last Monday paid. */
   livingFrom?: Day;
   livingPaidThrough?: Day;

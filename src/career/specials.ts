@@ -11,7 +11,7 @@ import { hashSeed } from './booker';
 import { letter, person, setCareerHooks, spend } from './career';
 import { approves, sideWork } from './deals';
 import { addDays, daysBetween, fmtDay, weekStart, type Day } from './dates';
-import { indieFee, travelCost } from './economy';
+import { indieFee } from './economy';
 import { type EvCtx, type EvData, type EventDef, type FollowDef, ctxFor, fire, fx, homeRegion, join, money, registerEvents, round5 } from './events';
 import { indieAllowed, joinIndie } from './offers';
 import { CITIES, PROMO_COUNTRIES, REGION_KEY, REGION_LABEL, REGION_OF } from './places';
@@ -23,6 +23,7 @@ import {
   INDIE_SHOWS_MAX_WEEK, SPECIAL_DAILY, SPECIAL_GAP, SPECIAL_LEAD, SPECIAL_MIN_GAP, TRIBUTE_MIN_POP,
 } from './tuning';
 import type { Career, PopRegion, Show, SpecialKind, Tourney } from './types';
+import { tripCost } from './life/travel';
 
 const world = (c: Career) => (c.world ??= { last: {}, seen: {} });
 const pickOf = <T>(rnd: Rng, xs: readonly T[]): T | undefined => (xs.length ? xs[Math.floor(rnd() * xs.length)] : undefined);
@@ -208,7 +209,7 @@ function charity(c: Career, rnd: Rng): boolean {
   const s = addShow(c, { promo: 'TIS', name, kind: 'indie', date, ...v, special: { kind: 'charity', tag: `Charity: ${short}` } });
   const me = findWrestler(c.player)!;
   if (!indieShut(c) && (near(c, v.region) || globalScore(me) >= 45) && rnd() < 0.7) {
-    invite(c, 'invite_charity', { show: s.id, name, cause, city: s.city, date: s.date, fee: indieFee(me, s), travel: travelCost(me.country, s.country) });
+    invite(c, 'invite_charity', { show: s.id, name, cause, city: s.city, date: s.date, fee: indieFee(me, s), travel: tripCost(c, s) });
   }
   return true;
 }
@@ -228,7 +229,7 @@ function benefit(c: Career, rnd: Rng): boolean {
   const s = addShow(c, { promo: 'TIS', name, kind: 'indie', date, ...v, special: { kind: 'benefit', tag: `Benefit: ${who.name}`, for: who.id } });
   const me = findWrestler(c.player)!;
   if (relOf(c, who.id) >= 10 || (near(c, v.region) && rnd() < 0.6)) {
-    invite(c, 'invite_benefit', { show: s.id, name, who: who.id, whoName: who.name, what: c.people[who.id]!.injury!.what, city: s.city, date: s.date, travel: travelCost(me.country, s.country), amount: round5(indieFee(me, s.region) * 0.5) });
+    invite(c, 'invite_benefit', { show: s.id, name, who: who.id, whoName: who.name, what: c.people[who.id]!.injury!.what, city: s.city, date: s.date, travel: tripCost(c, s), amount: round5(indieFee(me, s.region) * 0.5) });
   }
   return true;
 }
@@ -249,7 +250,7 @@ function tribute(c: Career, rnd: Rng): boolean {
   const s = addShow(c, { promo: 'TIS', name, kind: 'indie', date, ...v, special: { kind: 'tribute', tag: `Tribute: ${who.name}`, for: who.id } });
   const me = findWrestler(c.player)!;
   if (relOf(c, who.id) >= 10 || (near(c, v.region) && rnd() < 0.5)) {
-    invite(c, 'invite_tribute', { show: s.id, name, who: who.id, whoName: who.name, city: s.city, date: s.date, fee: indieFee(me, s), travel: travelCost(me.country, s.country) });
+    invite(c, 'invite_tribute', { show: s.id, name, who: who.id, whoName: who.name, city: s.city, date: s.date, fee: indieFee(me, s), travel: tripCost(c, s) });
   }
   return true;
 }
@@ -300,7 +301,7 @@ function tournament(c: Career, rnd: Rng): boolean {
   const me = findWrestler(c.player)!;
   t.prize = round5(indieFee(me, c.shows[t.shows[0]!]!) * CUP_PRIZE_MULT);
   if (!indieShut(c) && gender === me.gender && (near(c, v.region) || globalScore(me) >= 45)) {
-    invite(c, 'invite_cup', { tourney: t.id, show: t.shows[0]!, name, city: v.city, date: d1, d2: addDays(d1, CUP_ROUND_GAP), d3: addDays(d1, 2 * CUP_ROUND_GAP), fee: indieFee(me, v.region), travel: travelCost(me.country, v.country), prize: t.prize });
+    invite(c, 'invite_cup', { tourney: t.id, show: t.shows[0]!, name, city: v.city, date: d1, d2: addDays(d1, CUP_ROUND_GAP), d3: addDays(d1, 2 * CUP_ROUND_GAP), fee: indieFee(me, v.region), travel: tripCost(c, v), prize: t.prize });
   }
   return true;
 }
@@ -325,7 +326,7 @@ export function arrangeFarewell(c: Career, w: Wrestler, rnd: Rng): Day {
   const me = findWrestler(c.player)!;
   const onRoster = s.promo === 'TIS' || me.promotion === s.promo;
   if (relOf(c, w.id) >= 15 && onRoster) {
-    invite(c, 'invite_farewell', { show: s.id, name: s.name, who: w.id, whoName: w.name, date: s.date, fee: s.promo === 'TIS' ? indieFee(me, s) : 0, travel: s.promo === 'TIS' ? travelCost(me.country, s.country) : 0 });
+    invite(c, 'invite_farewell', { show: s.id, name: s.name, who: w.id, whoName: w.name, date: s.date, fee: s.promo === 'TIS' ? indieFee(me, s) : 0, travel: s.promo === 'TIS' ? tripCost(c, s) : 0 });
   }
   return s.date;
 }
@@ -371,7 +372,7 @@ function cupLetters(c: Career, t: Tourney, r: number): void {
   if (r === 2) return;
   const next = c.shows[t.shows[r + 1]!];
   const ok = next ? indieAllowed(c, next) : { ok: false, why: 'the show’s gone' };
-  if (next && ok.ok) joinIndie(c, next, t.fee, travelCost(findWrestler(me)!.country, next.country));
+  if (next && ok.ok) joinIndie(c, next, t.fee, tripCost(c, next));
   letter(c, {
     kind: 'news', from: t.name, subject: ok.ok ? `Through to the ${roundName(r + 1).toLowerCase()}` : 'You’ll have to forfeit',
     body: [ok.ok ? `You’re through. ${roundName(r + 1)} on ${fmtDay(next!.date, 'long')}.` : `You won, but you can’t make the ${roundName(r + 1).toLowerCase()}: ${ok.why ?? 'the date doesn’t work'}. Your opponent goes through.`],
@@ -396,7 +397,7 @@ function crown(c: Career, t: Tourney, id: string, final: Show): void {
   if (title && id === c.player) {
     const s = indieTitleShow(c, title, addDays(c.today, 1), final);
     if (s) {
-      joinIndie(c, s, indieFee(w, s), travelCost(w.country, s.country));
+      joinIndie(c, s, indieFee(w, s), tripCost(c, s));
       (c.pledges ??= []).push({ id: `p${++c.seq}`, promo: 'TIS', kind: 'title', title: title.id, show: s.id });
       shotLine = ` And your shot at the ${title.name}: ${s.name}, ${fmtDay(s.date, 'long')}.`;
     } else {

@@ -7,7 +7,8 @@ import { begin, day } from './testkit';
 import type { Career } from './types';
 
 const k = (c: Career) => c.people[c.player]!.contract!;
-const got = (c: Career, re: RegExp) => c.ledger.filter((e) => re.test(e.text)).reduce((t, e) => t + e.amount, 0);
+// Before tax and the agent (Life): what was paid, not what reached the bank.
+const got = (c: Career, re: RegExp) => c.ledger.filter((e) => re.test(e.text)).reduce((t, e) => t + (e.gross ?? e.amount), 0);
 const days = async (c: Career, n: number) => { for (let i = 0; i < n; i++) await day(c); };
 
 describe('the money clauses (Lyra’s design)', () => {
@@ -19,7 +20,8 @@ describe('the money clauses (Lyra’s design)', () => {
     const before = c.money;
     signOffer(c, o);
     expect(got(c, /^Signing bonus/)).toBe(o.fee * 5);
-    expect(c.money).toBeGreaterThanOrEqual(before + o.fee * 5);
+    const line = c.ledger.find((e) => /^Signing bonus/.test(e.text))!;
+    expect(c.money).toBeGreaterThanOrEqual(before + o.fee * 5 - (line.tax ?? 0) - (line.agent ?? 0));
   });
 
   it('Advances: only when you’re skint, paid back out of your fees with interest', async () => {

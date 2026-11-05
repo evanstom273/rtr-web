@@ -9,13 +9,14 @@ import { letter, person, setCareerHooks, spend } from './career';
 import { tierOf } from './clauses';
 import { dealsOf, dealWith, sideWork } from './deals';
 import { addDays, daysBetween, fmtDay, weekday, type Day } from './dates';
-import { attributeTotal, indieFee, livingCost, baseRegion, travelCost } from './economy';
+import { attributeTotal, indieFee, livingCost, baseRegion } from './economy';
 import { ctxFor, fire, registerEvents, type EventDef } from './events';
 import { patienceOf } from './patience';
 import { CITIES, REGION_LABEL, REGION_OF, regionOfCountry } from './places';
 import { CONTENT, CONVENTION, COACHING, FEATURES, FUND, MEDICAL_PER_DAY, MERCH_ONLINE, MERCH_TABLE, OWN_SHOW, SHOW_WORK, SPONSOR } from './tuning';
 import type { Bout, Career, PhaseName, PlayerMatch, PopRegion, Show } from './types';
 import { boutPeople } from './bouts';
+import { tripCost } from './life/travel';
 
 export type GigKind = 'convention' | 'ref' | 'crew' | 'commentary';
 export interface Gig { id: string; kind: GigKind; day: Day; phases: PhaseName[]; country: string; city: string; name: string; show?: string; travel: number }
@@ -124,7 +125,7 @@ export function conventionTake(c: Career, con: Pick<Convention, 'region' | 'coun
   const price = Math.max(CONVENTION.photo, Math.round(CONVENTION.photo + CONVENTION.photoPerDecade * Math.log10(Math.max(1, fansTotal(w) / 1000))));
   const guarantee = fansTotal(w) >= CONVENTION.guaranteeFans ? r5(Math.min(CONVENTION.guaranteeMax, CONVENTION.guaranteeK * (fansTotal(w) / 1000) ** CONVENTION.guaranteeExp)) : 0;
   const table = guarantee ? 0 : CONVENTION.table;
-  const travel = travelCost(c.base ?? w.country, con.country);
+  const travel = tripCost(c, con);
   return { photos, price, pay: photos * price + guarantee, table, guarantee, travel };
 }
 
@@ -156,7 +157,7 @@ export function workShow(c: Career, show: Show, role: 'ref' | 'crew' | 'commenta
   if (show.promo !== 'TIS') return 'Only indie shows take outside help.';
   const id = `work|${show.id}`;
   if (hustleOf(c).gigs[id]) return 'You’re already working that show.';
-  const g: Gig = { id, kind: role, day: show.date, phases: [show.phase ?? 'pm'], country: show.country, city: show.city, name: show.name, show: show.id, travel: travelCost(c.base ?? me(c).country, show.country) };
+  const g: Gig = { id, kind: role, day: show.date, phases: [show.phase ?? 'pm'], country: show.country, city: show.city, name: show.name, show: show.id, travel: tripCost(c, show) };
   const why = fitsHook?.(c, g);
   if (why) return why;
   hustleOf(c).gigs[id] = g;
@@ -343,7 +344,7 @@ export function ownBudget(c: Career, plan: OwnPlan): { draw: number; cap: number
   const draw = ownDraw(c, plan);
   const sold = Math.min(v.cap, draw);
   const tickets = sold * (plan.price ?? OWN_SHOW.ticket) + Math.round(sold * OWN_SHOW.merchPerHead);
-  const travel = travelCost(c.base ?? me(c).country, plan.country);
+  const travel = tripCost(c, plan);
   const costs = v.cost + OWN_SHOW.production + fees + travel;
   return { draw, cap: v.cap, tickets, costs, fees, venue: v.cost, travel, profit: tickets - costs };
 }

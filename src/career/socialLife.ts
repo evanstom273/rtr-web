@@ -228,7 +228,12 @@ export const MOOD_WHY: Record<string, string> = {
   goal_met: 'Got what they were after', goal_stuck: 'Getting nowhere', injured: 'Injured', idle: 'Not getting booked', tired: 'Worn out', broke: 'Money worries',
   dating: 'Seeing someone', partner: 'In love', apart: 'Apart from their partner a lot', grief: 'Grieving', death: 'A death in the family', ill: 'Someone they love is ill',
   baby: 'A new baby', heartbreak: 'Heartbroken', wedding: 'Just married (or about to be)', room_up: 'Respected in the locker room', room_down: 'Frozen out in the locker room',
+  home_good: 'A home they love', home_poor: 'Still in a shared room', debt: 'Struggling with repayments', downsized: 'Had to downsize',
 };
+
+/** Life: how where you live (and what you owe) sits with you, added to your own wellbeing. */
+let lifeMood: ((c: Career) => [string, number][]) | null = null;
+export const setLifeMood = (f: (c: Career) => [string, number][]): void => { lifeMood = f; };
 const LOVE_RANK = ['crush', 'dating', 'partner', 'living', 'engaged', 'married'];
 
 /** Where someone's wellbeing is heading, and the biggest reasons. */
@@ -252,7 +257,10 @@ export function moodTarget(c: Career, id: string): { v: number; why: string[] } 
     const st = lover.bond.love!.st as keyof typeof ROMANCE.mood;
     parts.push([st === 'dating' ? 'dating' : 'partner', ROMANCE.mood[st] ?? 0]);
     const them = findWrestler(lover.other), me = findWrestler(id);
-    if (them && me && (them.country !== me.country || (them.promotion !== me.promotion && them.promotion !== 'TIS' && me.promotion !== 'TIS'))) parts.push(['apart', ROMANCE.mood.apart]);
+    // Where you live now, not where you were born (you can move to be with them); living together isn't apart.
+    const mine = id === c.player ? c.base ?? me?.country : me?.country, theirs = lover.other === c.player ? c.base ?? them?.country : them?.country;
+    const together = id === c.player ? c.home?.with === lover.other : lover.other === c.player && c.home?.with === id;
+    if (them && me && !together && (theirs !== mine || (them.promotion !== me.promotion && them.promotion !== 'TIS' && me.promotion !== 'TIS'))) parts.push(['apart', ROMANCE.mood.apart]);
   }
   // What's happened lately: a death, a wedding, a baby, a break-up.
   for (const s of P.lives?.[id]?.shocks ?? []) if (s.until > c.today) parts.push([s.k, s.d]);
@@ -284,6 +292,7 @@ export function moodTarget(c: Career, id: string): { v: number; why: string[] } 
     if (room !== undefined && room <= ROOM.low) parts.push(['room_down', ROOM.moodLow]);
     if ((p?.fatigue ?? 0) >= M.tiredAt) parts.push(['tired', M.tired]);
     if (c.money < 0) parts.push(['broke', M.broke]);
+    for (const x of lifeMood?.(c) ?? []) parts.push(x);
   }
   const v = Math.max(0, Math.min(100, M.base + parts.reduce((t, [, d]) => t + d, 0)));
   return { v, why: parts.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 3).map(([k, d]) => `${d >= 0 ? '+' : '-'}${k}`) };

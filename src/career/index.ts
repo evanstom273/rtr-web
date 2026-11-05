@@ -36,6 +36,7 @@ import './signing';
 import './morale';
 import './owners';
 import './war';
+import './life';
 
 export * from './career';
 export * from './contracts';

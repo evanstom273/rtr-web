@@ -730,7 +730,9 @@ export const BACKDATE = { debut: [19, 22] as [number, number], potentialSpread: 
 /** Shipped wrestlers retire as if this many years younger (Lyra's call: the names you know stay a bit longer). */
 export const SHIPPED_RETIRE_YOUNGER = 3;
 /** Match overhaul (tag teams, multi-mans, battle royals, Rumbles, the new stipulations): off until Lyra approves. */
-export const FEATURES = { livingCosts: true, social: true, days: true, jobs: true, skip: true, mail: true, hustles: true, history: true, phone: true, booker: true, matches: true };
+export const FEATURES = { livingCosts: true, social: true, days: true, jobs: true, skip: true, mail: true, hustles: true, history: true, phone: true, booker: true, matches: true, life: true };
+/** Life (things to buy, own, run and lose): each part switches on as it's built. `on(part)` in career/life/state.ts. */
+export const LIFE_PARTS = { homes: true, money: true, staff: false, invest: false, ai: false, school: false, status: false, family: false, risk: false, after: false };
 
 /**
  * Pay (Lyra's call: how many dates you get decides your income). A major promotion's weekly-show fee:
@@ -1341,4 +1343,102 @@ export const OWNER = {
 export const WAR = {
   poach: 0.02, unhappy: 3, bigger: 1.5, match: 1.25, counter: 0.12, tvOutbid: 0.3,
   startup: 0.015, startupPop: 22, startupRep: 40, startupBank: 20000, mergeRed: 2, merge: 0.3,
+};
+
+/**
+ * Life: the price book (Lyra approved the plan; numbers from the published price book). Prices are pounds at European
+ * prices in an average city; homes, rent and wages scale with the region's cost index and the city's price.
+ */
+export const PRICE_BOOK = {
+  /** Renting, a week: rent + bills and food. A shared room is today's living cost. Rest is the sleep recovery bonus; mood is wellbeing. */
+  rent: {
+    room: { name: 'Shared room', rent: 130, bills: 90, rest: 0, mood: 0 },
+    flat: { name: 'Flat', rent: 280, bills: 110, rest: 0.05, mood: 0 },
+    house: { name: 'House', rent: 600, bills: 150, rest: 0.1, mood: 3 },
+    penthouse: { name: 'Penthouse', rent: 1900, bills: 300, rest: 0.15, mood: 5 },
+  },
+  /** Buying: price, upkeep a year (share of value), rent it lets for a week, and what living there does. */
+  buy: {
+    flat: { name: 'Flat', price: 220_000, upkeep: 0.01, lets: 280, bills: 110, rest: 0.05, mood: 1 },
+    house: { name: 'House', price: 520_000, upkeep: 0.01, lets: 600, bills: 150, rest: 0.1, mood: 4 },
+    penthouse: { name: 'Penthouse', price: 2_600_000, upkeep: 0.01, lets: 1900, bills: 300, rest: 0.15, mood: 6 },
+    mansion: { name: 'Mansion', price: 7_500_000, upkeep: 0.02, lets: 0, bills: 600, rest: 0.2, mood: 7 },
+  },
+  /** Signed and still in a shared room: you can afford better (wellbeing). */
+  roomSigned: -2,
+  homeGym: { price: 12_000, trainPrice: 0.8 },
+  ring: { price: 40_000, trainPrice: 0.7 },
+  /** Buying costs this share in fees; selling this; a sale takes this many days. */
+  buyFees: 0.05, sellFees: 0.03, sellDays: [30, 90] as [number, number],
+  /** Letting: the agent's share, the chance a month sits empty, repairs as a share of rent. */
+  letAgent: 0.12, voidMonth: 1 / 12, repairs: 0.03,
+  /** City markets: a year's trend and wobble, and a slump about once a decade. */
+  market: { trend: 0.03, wobble: 0.06, slumpYear: 0.1, slump: [0.15, 0.25] as [number, number] },
+  /** Getting about. road: what a short and a long trip cost on the road; fatigue is added to the bus-and-train number. */
+  vehicles: {
+    used_car: { name: 'Used car', price: 1_500, monthly: 80, seats: 4, road: true, fatigue: 1, crash: 1 },
+    car: { name: 'Decent car', price: 18_000, monthly: 180, seats: 4, road: true, fatigue: 0, crash: 0.7 },
+    luxury_car: { name: 'Luxury car', price: 90_000, monthly: 700, seats: 4, road: true, fatigue: -1, crash: 0.6 },
+    van: { name: 'Van', price: 35_000, monthly: 350, seats: 6, road: true, fatigue: 0, crash: 0.8 },
+    tour_bus: { name: 'Tour bus', price: 420_000, monthly: 6_100, seats: 8, road: true, fatigue: -99, crash: 0.3 },
+    jet_share: { name: 'Jet share (1/16)', price: 550_000, monthly: 14_000, seats: 8, road: false, fatigue: 0, crash: 0 },
+    jet: { name: 'Your own jet', price: 18_000_000, monthly: 95_000, seats: 12, road: false, fatigue: 0, crash: 0 },
+  },
+  /** A trip by distance (km): cost and fatigue by bus and train (the 'long' and 'abroad' rows are today's region and abroad). */
+  trip: {
+    local: { km: 100, cost: 0, fatigue: 0 },
+    short: { km: 500, cost: 20, fatigue: 2, road: 12 },
+    long: { km: Infinity, cost: 60, fatigue: 4, road: 40 },
+    abroad: { cost: 250, fatigue: 10 },
+  },
+  /** Mates in the van or on the bus chip in this much a trip each. */
+  chipIn: 15,
+  /** Flying abroad, per trip: cost and fatigue; the charter (and your own jet) gets there in half a day each way. */
+  fly: {
+    economy: { name: 'Economy', cost: 250, fatigue: 10, fast: false },
+    premium: { name: 'Premium economy', cost: 400, fatigue: 8, fast: false },
+    business: { name: 'Business', cost: 1_000, fatigue: 5, fast: false },
+    first: { name: 'First', cost: 1_750, fatigue: 3, fast: false },
+    charter: { name: 'Chartered jet', cost: 25_000, fatigue: 2, fast: true },
+  },
+  jetFatigue: { jet_share: 2, jet: 1 },
+  /** Tax: marginal bands on what you've earned this year (thresholds × the region's cost index), × the region's rate. */
+  taxBands: [[15_000, 0], [60_000, 0.2], [200_000, 0.32], [Infinity, 0.4]] as [number, number][],
+  taxRegion: { northAmerica: 0.95, europe: 1, oceania: 0.95, asia: 0.85, southAmerica: 0.8, africa: 0.7 },
+  /** Agents: cut of contract money, how much better the deals, the fans they want before they'll take you. */
+  agents: {
+    local: { name: 'Local agent', cut: 0.1, deals: 0.15, fans: 0, extra: 0.6 },
+    established: { name: 'Established agent', cut: 0.12, deals: 0.25, fans: 10_000, extra: 0.8 },
+    super: { name: 'Super agent', cut: 0.15, deals: 0.35, fans: 100_000, extra: 1 },
+  },
+  /** Borrowing: rate a year, years, deposit by credit (good 70+, middling 40+, poor). */
+  loans: {
+    mortgage: { rate: 0.055, years: 25, deposit: [0.1, 0.15, 0.25] as [number, number, number] },
+    car: { rate: 0.09, years: 5, deposit: [0.1, 0.1, 0.1] as [number, number, number] },
+    jet: { rate: 0.07, years: 10, deposit: [0.2, 0.2, 0.2] as [number, number, number] },
+    business: { rate: 0.08, years: 10, deposit: [0.25, 0.25, 0.25] as [number, number, number] },
+  },
+  /** You can borrow up to this × the last twelve months' taxable earnings (or a year of your contract). */
+  borrowMult: 4.5,
+  /** Credit (0–100): starts here; good credit takes a point off the rate, poor adds two. */
+  credit: { start: 60, onTime: 1, missed: 5, repossessed: 30, good: 70, poor: 40 },
+  /** Three missed payments in a row and it's taken, sold at this share of what it's worth. */
+  repossess: { missed: 3, at: 0.8 },
+} as const;
+
+/** Each city's price, on top of its region's cost index (Life: homes, rent, wages). Anywhere unlisted is 1. */
+export const CITY_PRICE: Record<string, number> = {
+  London: 1.7, Manchester: 0.85, Leeds: 0.8, Glasgow: 0.75, Cardiff: 0.75, Belfast: 0.7,
+  Brooklyn: 1.6, Chicago: 1.1, Philadelphia: 0.95, Atlanta: 0.9, 'Las Vegas': 1.0, Houston: 0.9,
+  Toronto: 1.3, Vancouver: 1.4, Montreal: 1.0, Calgary: 0.9, Winnipeg: 0.75,
+  'Mexico City': 0.5, Monterrey: 0.45, Guadalajara: 0.42, Tijuana: 0.4, Puebla: 0.35,
+  Tokyo: 1.5, Osaka: 1.0, Nagoya: 0.9, Sapporo: 0.75, Fukuoka: 0.8,
+  Paris: 1.4, Lyon: 0.9, Marseille: 0.85, Lille: 0.8, Madrid: 1.0, Barcelona: 1.1, Valencia: 0.75, Seville: 0.7,
+  Berlin: 1.0, Hamburg: 1.05, Cologne: 0.9, Munich: 1.3, Rome: 1.0, Milan: 1.2, Naples: 0.7, Turin: 0.8,
+  Shanghai: 1.3, Beijing: 1.3, Guangzhou: 1.0, Chengdu: 0.75, Shenzhen: 1.2, Seoul: 1.3, Busan: 0.85, Incheon: 0.9,
+  Mumbai: 1.3, Delhi: 1.1, Bengaluru: 1.0, Kolkata: 0.7, 'São Paulo': 1.1, 'Rio de Janeiro': 1.0, 'Belo Horizonte': 0.75, Recife: 0.65,
+  'Buenos Aires': 1.0, Córdoba: 0.7, Rosario: 0.65, Mendoza: 0.6, Santiago: 1.0, Valparaíso: 0.75, Concepción: 0.65,
+  Lagos: 1.2, Abuja: 1.0, Ibadan: 0.6, Cairo: 1.0, Alexandria: 0.8, Giza: 0.8, Luxor: 0.5, Accra: 1.0, Kumasi: 0.6,
+  Johannesburg: 1.0, 'Cape Town': 1.15, Durban: 0.8, Sydney: 1.5, Melbourne: 1.3, Brisbane: 1.0, Perth: 1.0,
+  Auckland: 1.3, Wellington: 1.1, Christchurch: 0.9, Apia: 0.5,
 };

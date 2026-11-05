@@ -77,7 +77,7 @@ export const attributeTotal = (w: Wrestler): number =>
   w.stats.strength + w.stats.speed + w.stats.stamina + w.stats.skill + w.stats.striking + w.stats.charisma;
 
 /** The region you live in, which sets your living costs (your home country until you move). */
-export const baseRegion = (c: Career): PopRegion => regionOfCountry(c.base ?? findWrestler(c.player)?.country ?? 'England');
+export const baseRegion = (c: Career): PopRegion => regionOfCountry(c.base ?? findWrestler(c.player)?.country ?? 'UK');
 
 /** A week's living costs where you live (Lyra's call): Europe £220, by each region's cost index. */
 export const livingCost = (region: PopRegion): number => round5(LIVING_COST_EUROPE * COST_INDEX[region]);

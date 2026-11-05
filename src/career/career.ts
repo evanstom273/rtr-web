@@ -151,7 +151,20 @@ export function letter(c: Career, l: Omit<Letter, 'id' | 'day' | 'read'> & { day
   return full;
 }
 
-export function spend(c: Career, amount: number, text: string, kind: Career['ledger'][number]['kind']): void {
+/**
+ * Life: what comes off a payment before it reaches the bank (tax; the agent's cut of contract money). Plugged in by
+ * career/life; with Life off, nothing comes off.
+ */
+type IncomeHook = (c: Career, amount: number, kind: Career['ledger'][number]['kind'], contract: boolean) => { tax: number; agent: number };
+/** contract: promotion money (the agent takes a cut); untaxed: not income at all (an advance is a loan). */
+export interface SpendOpts { contract?: boolean; untaxed?: boolean }
+let incomeHook: IncomeHook | null = null;
+export const setIncomeHook = (f: IncomeHook): void => { incomeHook = f; };
+/** Life: rent on your home takes over from the flat living cost (returns true when it has). */
+let livingHook: ((c: Career, day: Day) => boolean) | null = null;
+export const setLivingHook = (f: (c: Career, day: Day) => boolean): void => { livingHook = f; };
+
+export function spend(c: Career, amount: number, text: string, kind: Career['ledger'][number]['kind'], opts?: SpendOpts): void {
   // Lifetime totals by kind (the ledger itself keeps the last 400 entries). Seeded from it the first time.
   if (!c.totals) {
     c.totals = {};
@@ -160,10 +173,15 @@ export function spend(c: Career, amount: number, text: string, kind: Career['led
   const t = (c.totals[kind] ??= { amount: 0, n: 0 });
   t.amount += amount;
   t.n++;
-  c.money += amount;
-  c.ledger.unshift({ day: c.today, text, amount, kind });
+  // Tax and the agent's cut ride on the payment's own line (the ledger keeps 400 lines; it isn't flooded).
+  const off = amount > 0 && incomeHook && !opts?.untaxed ? incomeHook(c, amount, kind, !!opts?.contract) : null;
+  const cut = off ? off.tax + off.agent : 0;
+  if (off?.tax) { const x = (c.totals.tax ??= { amount: 0, n: 0 }); x.amount -= off.tax; x.n++; }
+  if (off?.agent) { const x = (c.totals.agent ??= { amount: 0, n: 0 }); x.amount -= off.agent; x.n++; }
+  c.money += amount - cut;
+  c.ledger.unshift({ day: c.today, text, amount: amount - cut, kind, ...(cut ? { gross: amount, tax: off!.tax, agent: off!.agent } : {}) });
   if (c.loan && kind === 'fee' && amount > 0) {
-    const back = Math.min(c.loan.left, Math.round(amount * FRIEND_LOAN_REPAY));
+    const back = Math.min(c.loan.left, Math.round((amount - cut) * FRIEND_LOAN_REPAY));
     c.loan.left -= back;
     if (c.loan.left <= 0) delete c.loan;
     spend(c, -back, 'Paying back a friend', 'event');
@@ -475,8 +493,8 @@ function settleMine(c: Career, show: Show, bout: Bout, out: SimOut, aIsYou: bool
     me.rep = r1(clamp(me.rep + REP_OFF_SCRIPT, 0, 100));
     me.titleBanUntil = addDays(show.date, OFF_SCRIPT_TITLE_BAN_DAYS);
   }
-  if (fee) spend(c, fee, `${show.name} · ${result === 'win' ? 'beat' : result === 'loss' ? 'lost to' : 'drew with'} ${opp.name}`, 'fee');
-  if (bonus) spend(c, bonus, `${show.name} · appearance bonus`, 'bonus');
+  if (fee) spend(c, fee, `${show.name} · ${result === 'win' ? 'beat' : result === 'loss' ? 'lost to' : 'drew with'} ${opp.name}`, 'fee', { contract: !!deal });
+  if (bonus) spend(c, bonus, `${show.name} · appearance bonus`, 'bonus', { contract: !!deal });
   const stats = aIsYou === (bout.a === c.player) ? out.stats.you : out.stats.them;
   c.history.unshift({
     day: show.date, show: show.id, showName: show.name, promo: show.promo, kind: show.kind, opp: oppId, oppName: opp.name, result,
@@ -769,6 +787,7 @@ function sign(c: Career, w: Wrestler, promo: string, day: Day, rnd: Rng): void {
  * the Monday, so a replayed night can never charge twice.
  */
 export function livingCosts(c: Career, day: Day): void {
+  if (livingHook?.(c, day)) return;
   if (weekday(day) !== 1 || c.people[c.player]?.retired) return;
   if (!c.livingFrom) {
     c.livingFrom = addDays(day, LIVING_GRACE_DAYS);

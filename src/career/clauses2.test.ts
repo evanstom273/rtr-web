@@ -8,7 +8,8 @@ import { begin, day } from './testkit';
 import type { Career } from './types';
 
 const k = (c: Career) => c.people[c.player]!.contract!;
-const got = (c: Career, re: RegExp) => c.ledger.filter((e) => re.test(e.text)).reduce((t, e) => t + e.amount, 0);
+// Before tax and the agent (Life): what was paid, not what reached the bank.
+const got = (c: Career, re: RegExp) => c.ledger.filter((e) => re.test(e.text)).reduce((t, e) => t + (e.gross ?? e.amount), 0);
 const days = async (c: Career, n: number) => { for (let i = 0; i < n; i++) await day(c); };
 const myBouts = (c: Career) => Object.values(c.shows).flatMap((s) => (s.card ?? []).filter((b) => b.a === c.player || b.b === c.player).map((b) => ({ s, b })));
 

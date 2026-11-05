@@ -2,17 +2,16 @@
 // Training & Development (cheaper, then free with coaching, then a performance centre), Match Conditions (no
 // hardcore, approve stipulations, safer matches), Schedule Flexibility (holiday weeks, part-time), Travel &
 // Accommodation (who pays, per diems, and long trips that tire you) and International Touring (opt out, pick, headline).
-import { findWrestler } from '../data/rtr';
 import { HARDCORE_STIPS, setBookableHook, setCardHook } from './booker';
 import { letter, mod, person, promoName, setCareerHooks, setMod, spend } from './career';
 import { tierOf, type ClauseId } from './clauses';
 import { addDays, addMonths, daysBetween, fmtDay, weekday, type Day } from './dates';
 import { dealsOf, dealWith } from './deals';
-import { round5, travelCost } from './economy';
-import { regionOfCountry } from './places';
+import { round5 } from './economy';
+import { homeCountry, tripCost, tripFatigue, upgradeCost } from './life/travel';
 import {
   CENTRE_RECOVERY, CENTRE_REHAB, CONDITIONS_T3, HOLIDAY_WEEKS, LONG_INJURY_DAYS, LONG_INJURY_FEES, MENTOR_TRAIN_BONUS, PARTTIME_DATES, PER_DIEM,
-  TOUR_HEADLINE_FANS, TRAIN_GAIN_BONUS, TRAIN_PRICE_MULT, TRAVEL_FATIGUE, TRAVEL_FATIGUE_CUT,
+  TOUR_HEADLINE_FANS, TRAIN_GAIN_BONUS, TRAIN_PRICE_MULT, TRAVEL_FATIGUE_CUT,
 } from './tuning';
 import type { Bout, Career, Contract, PlayerMatch, Show } from './types';
 
@@ -71,21 +70,23 @@ export function refuseStip(c: Career, showId: string): string {
  * comfort. Indie trips are always your own.
  */
 function afterMatch(c: Career, show: Show, _bout: Bout, _m: PlayerMatch): void {
-  const me = findWrestler(c.player)!;
-  const home = c.base ?? me.country;
+  const home = homeCountry(c);
   const p = person(c, c.player);
   const indie = show.promo === 'TIS';
   const t = indie ? 0 : atShow(c, c.player, show, 'travel');
   if (!indie) {
     if (t === 0) {
-      const cost = travelCost(home, show.country);
+      const cost = tripCost(c, show);
       if (cost) spend(c, -cost, `Travel · ${show.city} (your own way)`, 'travel');
+    } else {
+      // They pay to get you there (economy); an upgrade you chose is yours (Life).
+      const up = upgradeCost(c, show);
+      if (up) spend(c, -up, `Travel · ${show.city} (your upgrade)`, 'travel');
     }
     const perDiem = home !== show.country ? PER_DIEM[t] ?? 0 : 0;
     if (perDiem) spend(c, perDiem, `Per diem · ${show.city}`, 'travel');
   }
-  const far = home === show.country ? TRAVEL_FATIGUE.country : regionOfCountry(home) === regionOfCountry(show.country) ? TRAVEL_FATIGUE.region : TRAVEL_FATIGUE.abroad;
-  const tired = far * (TRAVEL_FATIGUE_CUT[t] ?? 1);
+  const tired = tripFatigue(c, show) * (TRAVEL_FATIGUE_CUT[t] ?? 1);
   if (tired) p.fatigue = Math.min(100, p.fatigue + tired);
 }
 
