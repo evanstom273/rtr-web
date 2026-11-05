@@ -192,6 +192,8 @@ export interface Side {
   peakPeril?: number;
   wasArea?: Area;
   legalTurns?: number;
+  /** Tag matches: just tagged in, and can't tag straight back out until something's happened (counts down). */
+  fresh?: number;
   away?: number;
   /** Career: the booker's thumb on the scale (0 almost always). */
   booked: number;

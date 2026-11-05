@@ -8,7 +8,7 @@ import { fansIn, findWrestler, WRESTLERS, type Disposition, type Wrestler } from
 import { fmtDay } from '../../career/dates';
 import { regionOfCountry } from '../../career/places';
 import { activeWorld } from '../../world/world';
-import { commit, useWords } from './parts';
+import { commit, useWords, holderText } from './parts';
 
 const nm = (id: string | null | undefined) => (id ? findWrestler(id)?.name ?? id : 'Vacant');
 
@@ -94,7 +94,7 @@ export function OfficeTitles({ c, promo, say }: { c: Career; promo: string; say:
   const [name, setName] = useState('');
   const [gender, setGender] = useState<'MALE' | 'FEMALE'>('MALE');
   const [div, setDiv] = useState<Division>('world');
-  const [kind, setKind] = useState<'singles' | 'tag' | 'trios' | 'hardcore'>('singles');
+  const [kind, setKind] = useState<'singles' | 'tag' | 'trios'>('singles');
   const [editing, setEditing] = useState<string | null>(null);
   const [rename, setRename] = useState('');
   const [keep, setKeep] = useState(titles[0]?.id ?? '');
@@ -114,7 +114,7 @@ export function OfficeTitles({ c, promo, say }: { c: Career; promo: string; say:
         return (
           <div key={t.id} className="c-ans" style={{ padding: '6px 8px' }}>
             <span className="c-rowsb"><b className="c-at" style={{ fontSize: 15 }}>{t.name}</b><span className="c-hint">{DIVISION_LABEL[t.division ?? (t.gender === 'FEMALE' ? 'women' : 'world')]}</span></span>
-            <span className="c-ad">{t.holder ? `${nm(t.holder)}${r ? ` · since ${fmtDay(r.from, 'dm')} · ${r.defences} defence${r.defences === 1 ? '' : 's'}` : ''}` : 'Vacant'}</span>
+            <span className="c-ad">{t.holder ? `${holderText(t)}${r ? ` · since ${fmtDay(r.from, 'dm')} · ${r.defences} defence${r.defences === 1 ? '' : 's'}` : ''}` : 'Vacant'}</span>
             {editing === t.id ? (
               <>
                 <input className="c-fld" value={rename} maxLength={50} onChange={(e) => setRename(e.target.value)} aria-label="New name" />
@@ -135,7 +135,7 @@ export function OfficeTitles({ c, promo, say }: { c: Career; promo: string; say:
       <input className="c-fld" value={name} maxLength={50} placeholder="Championship name" onChange={(e) => setName(e.target.value)} aria-label="Title name" />
       <div className="c-chips">{(['MALE', 'FEMALE'] as const).map((g) => <button key={g} className={`c-chip${gender === g ? ' on' : ''}`} onClick={() => setGender(g)}>{w(g === 'MALE' ? 'Men' : 'Women')}</button>)}</div>
       <div className="c-chips">{DIVS.map((d) => <button key={d} className={`c-chip${div === d ? ' on' : ''}`} onClick={() => setDiv(d)}>{w(DIVISION_LABEL[d])}</button>)}</div>
-      {FEATURES.matches && <div className="c-chips">{(['singles', 'tag', 'trios', 'hardcore'] as const).map((k) => <button key={k} className={`c-chip${kind === k ? ' on' : ''}`} onClick={() => setKind(k)}>{w(KIND_LABEL[k])}</button>)}</div>}
+      {FEATURES.matches && <div className="c-chips">{(['singles', 'tag', 'trios'] as const).map((k) => <button key={k} className={`c-chip${kind === k ? ' on' : ''}`} onClick={() => setKind(k)}>{w(KIND_LABEL[k])}</button>)}</div>}
       <button className="c-b3" onClick={() => { act(createTitle(c, promo, { name, gender, division: div, kind })); setName(''); }}>{w('Create it ›')}</button>
 
       {titles.length > 1 && (
@@ -172,4 +172,4 @@ export function OfficeTitles({ c, promo, say }: { c: Career; promo: string; say:
   );
 }
 
-const KIND_LABEL = { singles: 'Singles', tag: 'Tag team', trios: 'Trios', hardcore: 'Hardcore' } as const;
+const KIND_LABEL = { singles: 'Singles', tag: 'Tag team', trios: 'Trios' } as const;

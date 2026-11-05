@@ -10,16 +10,45 @@ interface Props {
   rules: string;
   onBack: () => void;
   onBell: () => void;
+  /**
+   * A team match: your corner and theirs (the other teams', in a three- or four-team match). Tap one of yours
+   * to start them; the comparison is whoever starts against whoever starts for them.
+   */
+  team?: Wrestler[];
+  foes?: Wrestler[][];
+  onStarter?: (id: string) => void;
 }
 
 /** Tale of the tape: the two of them side by side before the bell. One model, three dresses. */
-export function Tape({ you, them, rules, onBack, onBell }: Props) {
+export function Tape({ you, them, rules, onBack, onBell, team, foes, onStarter }: Props) {
   const skin = useSkin();
   const t = tape(you, them);
   const Body = skin === 'paper' ? PaperTape : skin === 'broadcast' ? BroadcastTape : BuildingTape;
   return (
     <section id="tape" className={`tape t-${skin}`}>
       <div className="tape-in">
+        {team && team.length > 1 && (
+          <div className="tp-corners">
+            <div className="tp-corner you">
+              <span className="tp-corner-h">Your corner · tap who starts</span>
+              <div className="tp-corner-row">
+                {team.map((x) => (
+                  <button key={x.id} className={`tp-pick${x.id === you.id ? ' on' : ''}`} aria-pressed={x.id === you.id} onClick={() => onStarter?.(x.id)}>
+                    {displayName(x)}{x.id === you.id && <small>starts</small>}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {(foes ?? []).map((side, i) => (
+              <div key={i} className="tp-corner them">
+                <span className="tp-corner-h">{(foes ?? []).length > 1 ? `Team ${String.fromCharCode(66 + i)}` : 'Their corner'}</span>
+                <div className="tp-corner-row">
+                  {side.map((x, j) => <span key={x.id} className={`tp-pick static${j === 0 ? ' on' : ''}`}>{displayName(x)}{j === 0 && <small>starts</small>}</span>)}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
         <Body t={t} rules={rules} />
         <div className="tape-actions">
           <button className="ghost tape-back" onClick={onBack}>

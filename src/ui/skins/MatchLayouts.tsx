@@ -22,6 +22,8 @@ export interface MatchSlots {
   ring: ReactNode;
   log: ReactNode;
   dock: ReactNode;
+  /** More than two people on a phone: everyone else, as a strip of their own (full width, above the ring). */
+  field?: ReactNode;
 }
 
 const pct = (n: number, d: number) => `${d ? Math.max(0, Math.min(100, (n / d) * 100)) : 0}%`;
@@ -90,6 +92,7 @@ export function BroadcastMatch(p: MatchSlots) {
         <StipRow S={S} />
         <CrowdCanvas engine={p.engine} pulse={p.pulse} />
       </header>
+      {p.field && <div className="m-field">{p.field}</div>}
       <div className="bc-stage">
         {p.ring}
         <Moment S={S} />
@@ -121,6 +124,7 @@ export function PaperMatch(p: MatchSlots) {
         </div>
         <StipRow S={S} />
       </header>
+      {p.field && <div className="m-field">{p.field}</div>}
       <Moment S={S} />
       {p.you}
       {p.them}
@@ -165,6 +169,7 @@ export function BuildingMatch(p: MatchSlots) {
         </div>
         <StipRow S={S} />
       </header>
+      {p.field && <div className="m-field">{p.field}</div>}
       <div className="bd-stage">
         {p.ring}
         <Moment S={S} />

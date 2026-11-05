@@ -103,9 +103,10 @@ describe('world history', () => {
     const H = activeWorld().history;
     expect(H.shows.length).toBeGreaterThan(200);
     expect(H.shows.every((s) => s.bouts.length > 0 && s.date < c.today)).toBe(true);
-    // Each title's lineage ends with today's champion.
+    // Each title's lineage ends with today's champion — or, vacant (a tag team that split), with the last reign over.
     for (const t of TITLES) {
       const line = titleLineage(H, t.id);
+      if (!t.holder) { if (line[0]) expect(line[0].to, t.id).not.toBeNull(); continue; }
       expect(line[0]!.holder, t.id).toBe(t.holder);
       expect(line[0]!.to).toBeNull();
     }

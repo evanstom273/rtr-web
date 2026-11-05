@@ -412,11 +412,28 @@ function injure(c: Career, id: string, show: Show, rnd: Rng): void {
   // Pull them from any card they were on.
   for (const s of Object.values(c.shows)) {
     if (s.done || s.date <= show.date || s.date >= p.injury.until || !s.card) continue;
-    s.card = s.card.filter((b) => !inBout(b, id));
-    // Still in your promotion's doghouse (Requests): a shorter card mustn't make you the main event.
-    const last = s.card[s.card.length - 1];
-    if (heated(c, s) && s.card.length > 1 && last && (last.a === c.player || last.b === c.player)) s.card.splice(s.card.length - 2, 0, s.card.pop()!);
+    pullFromCard(c, s, id);
   }
+}
+
+/**
+ * Take someone off a show's card (injured, released, gone): every bout they're in goes. Your match keeps its
+ * place — a back-half match stays in the back half (Booking Commitments promise it) — and the doghouse rule
+ * holds: a shorter card mustn't make you the main event.
+ */
+export function pullFromCard(c: Career, s: Show, id: string, keepPlayed = false): void {
+  if (!s.card) return;
+  const mine = (b: Bout) => inBout(b, c.player);
+  const was = s.card.findIndex(mine), len = s.card.length;
+  const back = was >= 0 && was >= Math.floor(len / 2) && was < len - 1;
+  s.card = s.card.filter((b) => (keepPlayed && !!b.result) || !inBout(b, id));
+  const i = s.card.findIndex(mine);
+  if (back && i >= 0 && i < Math.floor(s.card.length / 2)) {
+    const [b] = s.card.splice(i, 1);
+    s.card.splice(Math.min(s.card.length - 1, Math.floor((s.card.length + 1) / 2)), 0, b!);
+  }
+  const last = s.card[s.card.length - 1];
+  if (heated(c, s) && s.card.length > 1 && last && mine(last)) s.card.splice(s.card.length - 2, 0, s.card.pop()!);
 }
 
 /** Your side of a match: pay, history, the planned finish, tryouts, letters. */
@@ -722,7 +739,7 @@ export function release(c: Career, w: Wrestler, how: 'released' | 'expired', fro
   const p = c.people[w.id]!;
   if (from !== w.promotion) dropDeal(p, w, from);
   else promoteDeal(p, w);
-  for (const s of Object.values(c.shows)) if (!s.done && s.date > c.today && s.card && (s.promos ?? [s.promo]).includes(from)) s.card = s.card.filter((b) => b.result || !inBout(b, w.id));
+  for (const s of Object.values(c.shows)) if (!s.done && s.date > c.today && s.card && (s.promos ?? [s.promo]).includes(from)) pullFromCard(c, s, w.id, true);
   if (worksFor(findWrestler(c.player)!, from)) letter(c, { kind: 'news', from: 'The news desk', subject: `${w.name} leaves ${from}`, body: [how === 'released' ? `${from} have released ${w.name}.` : `${w.name}’s contract ran out${w.promotion === 'TIS' ? ' and they’re a free agent' : ` (they’re still with ${w.promotion})`}.`] });
 }
 
@@ -833,7 +850,7 @@ function contractsEnding(c: Career, day: Day, rnd: Rng): void {
       if (w.id !== c.player && (champThere || rnd() < RENEW_CHANCE_REST + renewLean(w))) { x.start = day; x.end = addMonths(day, CONTRACT_MONTHS[1]!); continue; }
       addEvent(history(), { day, kind: 'expired', who: w.id, name: w.name, promo: x.promo });
       dropDeal(p, w, x.promo);
-      for (const s of Object.values(c.shows)) if (!s.done && s.date >= day && s.card && (s.promos ?? [s.promo]).includes(x.promo)) s.card = s.card.filter((b) => b.result || !inBout(b, w.id));
+      for (const s of Object.values(c.shows)) if (!s.done && s.date >= day && s.card && (s.promos ?? [s.promo]).includes(x.promo)) pullFromCard(c, s, w.id, true);
       if (w.id === c.player) {
         letter(c, { kind: 'contract', from: promoName(x.promo), subject: `Your ${x.promo} deal has ended`, body: [`You’re still with ${p.contract?.promo ?? 'The Indie Scene'}.`] });
         beltsOnMove(c, day);

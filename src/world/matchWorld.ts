@@ -10,7 +10,8 @@ import type { Person } from '../career/types';
 import { likeOf, respectOf } from './people';
 import type { World } from './world';
 
-export const MATCH_WORLD = 1;
+/** The match world's revision: 1 the first; 2 no hardcore belts (Lyra's call: tag belts only) and tag belts named in each promotion's style. */
+export const MATCH_WORLD = 2;
 
 export interface Team {
   id: string;
@@ -139,8 +140,12 @@ export function formTeam(w: World, members: Wrestler[], promo: string, day: Day,
 export function splitTeam(w: World, t: Team, day: Day, why: Team['splitWhy']): void {
   t.split = day;
   t.splitWhy = why;
-  // A team title goes with them.
-  for (const title of w.db.titles) if (title.team === t.id) { title.holder = null; title.holders = []; delete title.team; }
+  // A team title goes with them: vacant, and their reign over in the history.
+  for (const title of w.db.titles) if (title.team === t.id) {
+    const open = w.history.reigns[title.id]?.find((r) => r.to === null);
+    if (open) open.to = day;
+    title.holder = null; title.holders = []; delete title.team;
+  }
 }
 
 /** After a match together: the record, and chemistry grows (or sours after a loss). */
@@ -204,8 +209,17 @@ export function seedTeams(w: World, promo: string, day: Day, out: (id: string) =
 /* ---------- titles ---------- */
 
 const titleId = (promo: string, kind: 'tag' | 'trios' | 'hardcore') => `${promo}_${kind === 'tag' ? 'TAG_TEAM_CHAMPIONSHIP' : kind === 'trios' ? 'TRIOS_CHAMPIONSHIP' : 'HARDCORE_CHAMPIONSHIP'}`;
+/**
+ * Tag belts named the way each promotion names its others (Lyra's call: plain, in their style): their prefix,
+ * "Title" where they say Title, Spanish where their belts are Spanish.
+ */
+export const TAG_TITLE_NAME: Record<string, string> = {
+  VWF: 'VWF Tag Team Championship', TCG: 'TCG Tag Team Title', SLN: 'SLN Campeonato de Parejas', END: 'ENDEAVOUR Tag Team Championship',
+  IVW: 'IVW Tag Team Championship', NWGP: 'NWGP Tag Team Championship', ZWA: 'ZWA Tag Team Championship', UFC: 'UFC Tag Team Title',
+  SSWC: 'SSWC Campeonato de Parejas', AAWA: 'AAWA Tag Team Championship',
+};
 const titleName = (promo: string, kind: 'tag' | 'trios' | 'hardcore') =>
-  kind === 'tag' ? `${promo} Tag Team Championship` : kind === 'trios' ? `${promo} Campeonato de Tríos` : `${promo} Hardcore Championship`;
+  kind === 'tag' ? TAG_TITLE_NAME[promo] ?? `${promo} Tag Team Championship` : kind === 'trios' ? `${promo} Campeonato de Tríos` : `${promo} Hardcore Championship`;
 
 /** Put a team (or a wrestler) on a title, with the history to go with it. */
 export function crown(w: World, t: Title, day: Day, by: { team?: Team; who?: string }): void {
@@ -227,12 +241,12 @@ export function crown(w: World, t: Title, day: Day, by: { team?: Team; who?: str
   if (w.career) w.career.titles[t.id] = { since: day, defences: 0, last: null };
 }
 
-/** A tag title for every major, trios for SLN, a hardcore title for the hardcore promotions; crowned from the best. */
-export function addMatchTitles(w: World, day: Day, out: (id: string) => boolean): Title[] {
+/** A tag title for every major and a trios title for SLN, crowned from their best teams. */
+export function addMatchTitles(w: World, day: Day, _out: (id: string) => boolean): Title[] {
   const made: Title[] = [];
   for (const p of w.db.promotions) {
     if (p.indie) continue;
-    const kinds: ('tag' | 'trios' | 'hardcore')[] = ['tag', ...(TRIOS_PROMOS.has(p.initials) ? ['trios' as const] : []), ...(HARDCORE_PROMOS.has(p.initials) ? ['hardcore' as const] : [])];
+    const kinds: ('tag' | 'trios')[] = ['tag', ...(TRIOS_PROMOS.has(p.initials) ? ['trios' as const] : [])];
     for (const kind of kinds) {
       const id = titleId(p.initials, kind);
       if (w.db.titles.some((t) => t.id === id)) continue;
@@ -240,15 +254,9 @@ export function addMatchTitles(w: World, day: Day, out: (id: string) => boolean)
       w.db.titles.push(t);
       if (!p.titles.includes(id)) p.titles.push(id);
       made.push(t);
-      if (kind === 'hardcore') {
-        const best = rosterOf(w, p.initials, out).filter((x) => x.gender === 'MALE' && willing(x) >= 0 && !w.db.titles.some((o) => o.holder === x.id || o.holders?.includes(x.id)))
-          .sort((a, b) => (willing(b) - willing(a)) * 1e9 + fanTotal(b) - fanTotal(a))[0];
-        if (best) crown(w, t, day, { who: best.id });
-      } else {
-        const teams = teamsIn(w, p.initials).filter((x) => (kind === 'trios') === !!x.trios && w.db.wrestlers.find((y) => y.id === x.members[0])?.gender === 'MALE');
-        const best = teams.sort((a, b) => sumFans(w, b) - sumFans(w, a))[0];
-        if (best) crown(w, t, day, { team: best });
-      }
+      const teams = teamsIn(w, p.initials).filter((x) => (kind === 'trios') === !!x.trios && w.db.wrestlers.find((y) => y.id === x.members[0])?.gender === 'MALE');
+      const best = teams.sort((a, b) => sumFans(w, b) - sumFans(w, a))[0];
+      if (best) crown(w, t, day, { team: best });
     }
   }
   return made;
@@ -347,8 +355,33 @@ export function giveBriefcase(w: World, holder: string, promo: string, day: Day,
 /* ---------- setting it all up ---------- */
 
 /** Once per world, with the flag on: masks and willingness, the teams, and the new titles. */
+/**
+ * Revision 2 on a world that had the first: the hardcore belts go (with their reigns and news, off any card
+ * they were on), and the tag belts take their promotion's naming.
+ */
+function matchWorldRev2(w: World): void {
+  const gone = new Set(w.db.titles.filter((t) => t.kind === 'hardcore' && /_HARDCORE_CHAMPIONSHIP$/.test(t.id)).map((t) => t.id));
+  if (gone.size) {
+    for (let i = w.db.titles.length - 1; i >= 0; i--) if (gone.has(w.db.titles[i]!.id)) w.db.titles.splice(i, 1);
+    for (const p of w.db.promotions) p.titles = p.titles.filter((id) => !gone.has(id));
+    for (const id of gone) delete w.history.reigns[id];
+    w.history.events = w.history.events.filter((e) => !e.title || !gone.has(e.title));
+    for (const sh of w.history.shows) for (const b of sh.bouts) if (b.title && gone.has(b.title)) { delete b.title; delete b.newChamp; }
+    const c = w.career;
+    if (c) {
+      for (const id of gone) delete c.titles[id];
+      for (const s of Object.values(c.shows)) for (const b of s.card ?? []) if (b.title && gone.has(b.title) && !b.result) { delete b.title; delete b.planned; }
+    }
+  }
+  for (const p of w.db.promotions) {
+    const t = w.db.titles.find((x) => x.id === titleId(p.initials, 'tag'));
+    if (t && TAG_TITLE_NAME[p.initials]) t.name = TAG_TITLE_NAME[p.initials]!;
+  }
+}
+
 export function ensureMatchWorld(w: World): void {
   if ((w.matchWorld ?? 0) >= MATCH_WORLD) return;
+  if (w.matchWorld === 1) { matchWorldRev2(w); w.matchWorld = MATCH_WORLD; return; }
   const out = (id: string) => !!w.career?.people[id]?.retired;
   const day = w.career?.today ?? w.day ?? ('2025-01-01' as Day);
   seedMasks(w.db.wrestlers, w.seed);

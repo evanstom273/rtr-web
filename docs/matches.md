@@ -414,6 +414,25 @@ to your partner), simming it (both partners win, a tag title changing hands, bot
 the night in Records; booker mode's Add a match (tag with team picks, battle royal and Rumble options, a
 triple threat on the card).
 
+## After switching it on (Lyra's first play)
+
+- **Tag belts only.** The hardcore belts are gone (hardcore matches and willingness stay); tag belts are named in
+  each promotion's own style (`TAG_TITLE_NAME`: "TCG Tag Team Title", "SLN Campeonato de Parejas"…); SLN keeps its
+  trios belt. A save from before is fixed on load (match world revision 2: the hardcore belts, their reigns and
+  news go, the tag belts are renamed). Tag champions show as the team everywhere (builder, Records, Requests,
+  the office).
+- **No tagging straight back out.** Whoever's just come in has to do something first (`fresh`): pressing Tag on
+  every turn used to swap partners forever while the other side never moved. A tag never did damage — the card
+  flashed the new man's body against the old one's; it doesn't now.
+- **The tale of the tape for a team match** shows both corners; tap who starts for you (exhibition and career).
+- **Phones:** in a match with more than two, everyone else is one strip above the ring, the cards are compact
+  and the log keeps a real share of the screen. The builder's teams panel scrolls inside its share (a Rumble
+  can't push Ring the bell off), Random fills every team to what the match needs, and the building skin's
+  header says what the match is.
+- **`scripts/ui-sweep.mjs`** checks all of it, every match type, phone and fold, all three skins: Random fills
+  every team, the bell's on screen, nothing spills or overlaps, the tape's starter starts, and the match's log
+  and controls are on screen.
+
 ### Harness
 
 `MATCHES=1 npx vitest run src/engine/__tests__/matchesrun.test.ts` runs 40 of each type and reports:

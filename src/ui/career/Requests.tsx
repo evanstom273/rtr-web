@@ -13,7 +13,7 @@ import { isIndieBooker, patienceLog, promoOfBooker, showBooker } from '../../car
 import { addDays, daysBetween, fmtDay } from '../../career/dates';
 import { REGION_LABEL } from '../../career/places';
 import { COOLDOWN_CHALLENGE, COOLDOWN_MORE, COOLDOWN_PROMOTION, COOLDOWN_TITLE, PATIENCE_DECLINE_COUNTER, PATIENCE_TOOK_COUNTER } from '../../career/tuning';
-import { commit, Head, money, Nm, Screen, useToast, useWords } from './parts';
+import { commit, Head, money, Nm, Screen, useToast, useWords, Holders } from './parts';
 
 /** Where a request starts: the Requests tab, or a shortcut elsewhere (a show sheet, a file, a lineage). */
 export type ReqRoute =
@@ -381,7 +381,7 @@ export function RequestFlow({ c, route, onBack, onNegotiate, onAnswered }: FlowP
         <>
           <div className="c-ans" style={{ padding: '8px 10px' }}>
             <span className="c-rowsb"><span className="c-lab">{w('Champion')}</span><span className="c-hint">{ts ? `since ${fmtDay(ts.since, 'dm')} · ${ts.defences} ${ts.defences === 1 ? 'defence' : 'defences'}` : ''}</span></span>
-            <span className="c-vs">{t.holder ? <Nm id={t.holder} /> : 'Vacant'}</span>
+            <span className="c-vs"><Holders t={t} /></span>
           </div>
           <span className="c-sec">{w('When')}</span>
           {shows.length > 0 ? (
@@ -410,7 +410,7 @@ export function RequestFlow({ c, route, onBack, onNegotiate, onAnswered }: FlowP
       body = (
         <div className="c-ans" style={{ padding: '8px 10px' }}>
           <span className="c-rowsb"><span className="c-lab">{w('Champion')}</span><span className="c-hint">{ts ? `since ${fmtDay(ts.since, 'dm')} · ${ts.defences} ${ts.defences === 1 ? 'defence' : 'defences'}` : ''}</span></span>
-          <span className="c-vs">{t.holder ? <Nm id={t.holder} /> : 'Vacant'}</span>
+          <span className="c-vs"><Holders t={t} /></span>
           <span className="c-ad">{last ? (daysBetween(last, c.today) >= titleMinGap(t.id) ? `Last defended ${fmtDay(last, 'dm')}. Due now.` : `Last defended ${fmtDay(last, 'dm')}. Not due again until ${fmtDay(addDays(last, titleMinGap(t.id)), 'dm')}.`) : ''}</span>
         </div>
       );

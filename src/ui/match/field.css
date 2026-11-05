@@ -31,9 +31,10 @@
 .mk-prompt .mk-body p{margin:0 0 6px;font-size:.95rem}
 .mk-prompt .mk-dice{color:var(--mute);font-size:.85rem}
 .mk-choices{display:grid;gap:6px;margin-top:8px}
-.mk-rumbar{display:flex;gap:10px;align-items:center;font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px}
+.mk-rumbar{display:flex;flex-wrap:wrap;gap:3px 10px;min-width:0;align-items:center;font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px}
 .mk-rumbar b{font-family:var(--display);font-size:1rem;letter-spacing:.06em}
 .mk-rumbar .mk-next{margin-left:auto;color:var(--gold)}
+.mk-rumbar>*{white-space:nowrap}
 .mk-roof{border:1px solid var(--line);border-radius:8px;padding:6px 8px;margin-bottom:6px;background:var(--panel)}
 .mk-rooflab{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;color:var(--gold)}
 .mk-roofgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:4px}
@@ -71,3 +72,21 @@
 .rp-elims{margin:0;padding-left:20px;font-size:.92rem;line-height:1.35}
 .rp-elims b{font-family:var(--display);font-weight:800}
 .m-mecol{display:flex;flex-direction:column;gap:6px;min-width:0}
+
+/* More than two people on a phone (Lyra: a tag match was too crowded to see the log). Everyone else is one
+   compact scrolling row of their own; the ring's smaller; the two cards drop the body figure's size, the
+   position chips and the badges; and the log keeps a real share of the screen. */
+.m-field{grid-area:field;min-width:0;display:flex;gap:6px;overflow-x:auto;overscroll-behavior-x:contain}
+.m-field .fs{margin-top:0;flex:none}
+.m-field .fs-row{flex-wrap:nowrap;overflow:visible}
+.m-field .fs-card{min-width:84px;padding:3px 6px}
+.multi.narrow.m-broadcast{grid-template-rows:auto auto auto auto minmax(0,1fr) auto;grid-template-areas:"top top" "field field" "stage stage" "you them" "log log" "dock dock"}
+.multi.narrow.m-building{grid-template-rows:auto auto auto auto minmax(0,1fr) auto;grid-template-areas:"top top" "field field" "stage stage" "you them" "desk desk" "dock dock"}
+.multi.narrow.m-paper{grid-template-rows:auto auto auto auto minmax(0,1fr) auto;grid-template-areas:"top top" "field field" "moment moment" "you them" "cols cols" "dock dock"}
+.multi.narrow :is(.bc-stage,.bd-stage) #ringpanel .ring{max-height:19vh}
+.multi.narrow .card .cpos,.multi.narrow .card .cmeta{display:none}
+.multi.narrow .card .cbody{margin-top:3px;gap:6px}
+.multi.narrow .card .mannequin{width:22px}
+.multi.narrow .card .cname{font-size:.92em}
+.multi.narrow #log{min-height:22vh}
+.multi.narrow .fs-h{display:none}

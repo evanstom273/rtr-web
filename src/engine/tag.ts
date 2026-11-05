@@ -75,7 +75,8 @@ export function cornerDistance(S: MatchState, k: SideKey): number {
 /** Whether k (legal, with the turn) can go for a tag. */
 export function canTag(S: MatchState, k: SideKey): boolean {
   const s = S.sides[k]!;
-  return tagRules(S) && !!s.legal && !S.over && !!partnerFor(S, k) && cornerDistance(S, k) <= 1;
+  // Just tagged in: not straight back out (it was a free loop: tag, tag back, tag, and the other side never moved).
+  return tagRules(S) && !!s.legal && !S.over && !s.fresh && !!partnerFor(S, k) && cornerDistance(S, k) <= 1;
 }
 
 /** Whether k can bring their partner in for a double-team: the other man's in your corner. */
@@ -156,6 +157,8 @@ export function makeTag(ctx: Ctx, from: SideKey, to: SideKey): void {
   T.away = 0;
   T.state = { position: 'STANDING', orientation: 'FRONT', area: 'IN_RING', motion: 'STATIONARY' };
   T.peril = T.peakPeril = T.legalTurns = 0;
+  // Fresh: this tag's own turn ends, then one more action has to happen before they can tag out.
+  T.fresh = 2;
   T.target = opp;
   if (S.sides[opp]) S.sides[opp]!.target = to;
   syncTargets(S);
@@ -277,6 +280,7 @@ export function tagAfterAction(ctx: Ctx): void {
   for (const k of S.order) {
     const s = S.sides[k]!;
     if (s.out === 'eliminated') continue;
+    if (s.fresh) s.fresh--;
     if (s.away && --s.away === 0) {
       s.state = { position: 'STANDING', orientation: 'FRONT', area: 'APRON', motion: 'STATIONARY' };
       say(ctx, LINES.tagBackOnApron, { a: k }, 'dim');
