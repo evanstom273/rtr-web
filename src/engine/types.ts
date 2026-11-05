@@ -127,6 +127,8 @@ export type Control = SideKey | 'neutral';
 export type FinishType =
   | 'PINFALL' | 'SUBMISSION' | 'COUNT_OUT' | 'DOUBLE_COUNT_OUT' | 'DISQUALIFICATION' | 'TABLES' | 'LADDER'
   | 'CAGE_ESCAPE' | 'TEN_COUNT' | 'I_QUIT' | 'TIME_DECISION'
+  /** Battle royals and Rumbles: over the top rope, both feet on the floor. */
+  | 'OVER_THE_TOP'
   /** Booker mode: a run-in ends it, nobody wins. */
   | 'NO_CONTEST';
 
@@ -309,7 +311,7 @@ export type RingBeat = 'move_started' | 'move_landed' | 'reversal' | 'crash' | '
 /** A contested roll: a move attempt or a contested setup. See dice.ts. */
 export interface ContestSpec {
   id: number;
-  kind: 'move' | 'setup' | 'tag';
+  kind: 'move' | 'setup' | 'tag' | 'ott';
   attacker: SideKey;
   defender: SideKey;
   /** Move name or setup title. */
@@ -375,6 +377,9 @@ export interface SaveSpec {
   /** It ends the match for you (or your team) if it counts. */
   mustSave: boolean;
 }
+
+/** A Rumble (or battle royal, or gauntlet) entrant: their number, when they came in and went out, and who they put out. */
+export interface Entry { n: number; inAt: number | null; outAt: number | null; elims: number }
 
 /** Someone out of the match, how, by whom, and when. */
 export interface Elimination { k: SideKey; by: SideKey | null; finish: FinishType; t: number; move: string | null }
@@ -511,6 +516,8 @@ export interface MatchResult {
   winners?: SideKey[];
   losers?: SideKey[];
   elims?: Elimination[];
+  /** Battle royals, Rumbles and gauntlets: every entrant's number, time in and out, and eliminations. */
+  entries?: Record<SideKey, Entry>;
 }
 
 export interface RatingPart {
@@ -575,6 +582,11 @@ export interface CrowdStats {
   saves?: number;
   steals?: number;
   elims?: number;
+  /** Battle royals and Rumbles: over-the-top tries, people left hanging on, saved by skinning the cat, surprise entrants. */
+  ottTries?: number;
+  hangs?: number;
+  skins?: number;
+  surprises?: number;
   /** Tag matches: tags, hot tags, crawls cut off, double-teams. */
   tags?: number;
   hotTags?: number;
@@ -663,6 +675,11 @@ export interface MatchRulesConfig {
   tag?: boolean;
   /** Established teams' finishers, by team index. */
   teamFinishers?: Record<number, string>;
+  /** Rumble: the draw (a booked order of entry; otherwise it's drawn at random), surprise entrants, seconds between entries, and what the winner gets. */
+  draw?: SideKey[];
+  surprises?: SideKey[];
+  entryEvery?: number;
+  prize?: string;
 }
 
 export interface MatchState {
@@ -672,6 +689,12 @@ export interface MatchState {
   /** More than two people: who's had the last few turns, everyone eliminated so far, and whether the heels are working together. */
   turn: { k: SideKey | null; n: number };
   elims: Elimination[];
+  /** Battle royals, Rumbles and gauntlets: the draw, when the next one's due, who's brawling with whom, and everyone's time in it. */
+  draw?: SideKey[];
+  nextEntry?: number;
+  clusters?: SideKey[][];
+  clusterLeft?: number;
+  entries?: Record<SideKey, Entry>;
   alliance: 'none' | 'on' | 'broken';
   rules: MatchRulesConfig;
   /** The first two sides (singles: the whole match). */
@@ -720,6 +743,7 @@ export type Txn =
   | { kind: 'move'; k: SideKey; move: Move; target: TargetResolution; chance: number }
   | { kind: 'setup'; k: SideKey; action: SetupId; chance: number }
   | { kind: 'tag'; k: SideKey; to: SideKey; chance: number }
+  | { kind: 'ott'; k: SideKey; d: SideKey; hanging: boolean; chance: number }
   | { kind: 'sub'; k: SideKey; move: Move; target: TargetResolution; nearTapSaid: boolean; nearEscapeSaid: boolean; lastMarker: number; quit?: boolean; save?: SavePlan; secs?: number; spec?: SubSpec };
 
 export interface PinContext {

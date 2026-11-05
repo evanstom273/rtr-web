@@ -1,7 +1,7 @@
 import { LINES } from '../data/commentary';
 import { getMove, getWrestler, type Part } from '../data/rtr';
 import { AiBrain, aiTurn } from './ai';
-import { foe, say } from './commentary';
+import { foe, isPlayer, say } from './commentary';
 import type { Ctx, EngineHooks } from './ctx';
 import { finalise, render, runNeutralRecovery, schedule, setControl } from './flow';
 import { aiWantsPush, applyPending, resolveDefence, rollPending } from './contest';
@@ -10,6 +10,7 @@ import { canPin, completeKickout, countPin, pinOdds, pinThree, startPin, useResi
 import { isMulti, playerSave, resolveSave, retargetAll, setTarget, targetable } from './multi';
 import { distance } from './zones';
 import { canDoubleTeam, canTag, doubleTeam, goForTag, setupTag, tagRules } from './tag';
+import { canOverTop, hanging, hasEntrants, isRoyal, overTheTop, RUMBLE_INTERVAL, setupRoyal, skinTheCat } from './royal';
 import { mathRng, seededRng, type Rng } from './rng';
 import { aiDefence, type Defence } from './defence';
 import { executeSetup, validSetups } from './setups';
@@ -64,6 +65,10 @@ export class MatchEngine {
     const rules = normaliseRules(merged);
     const extras = (cfg.extras ?? []).map((x) => ({ w: getWrestler(x.id), team: x.team }));
     const S = createState(rnd, getWrestler(cfg.you), getWrestler(cfg.them), rules, { extras, player: cfg.player, type: cfg.type });
+    // Battle royals and Rumbles: over the top is the only way out. Gauntlets: elimination, one after another.
+    if (isRoyal(S)) S.rules = { ...S.rules, pins: false, subs: false, countOuts: false, dq: false, elimination: true, tag: false };
+    if (S.type === 'gauntlet') S.rules = { ...S.rules, elimination: true, tag: false };
+    if (isRoyal(S) || hasEntrants(S)) setupRoyal(S, rnd);
     // Tag rules: one legal man a team, the rest on the apron.
     if (tagRules(S)) {
       setupTag(S);
@@ -198,6 +203,18 @@ export class MatchEngine {
     const ctx = this.ctx;
     switch (c.to) {
       case 'bell': {
+        if (hasEntrants(this.state)) {
+          const S = this.state, [a, b] = S.draw!;
+          say(ctx, S.type === 'rumble' ? LINES.rumbleBell : LINES.gauntletBell, { a: a!, d: b!, vars: { s: S.rules.entryEvery ?? RUMBLE_INTERVAL } });
+          setControl(ctx, ctx.rnd() < 0.5 ? a! : b!);
+          return;
+        }
+        if (isRoyal(this.state)) {
+          const S = this.state;
+          say(ctx, LINES.royalBell, { vars: { n: S.order.length } });
+          setControl(ctx, S.order[Math.floor(ctx.rnd() * S.order.length)]!);
+          return;
+        }
         if (tagRules(this.state)) {
           const S = this.state, legal = S.order.filter((k) => S.sides[k]!.legal);
           say(ctx, LINES.tagBell, { a: legal[0]!, d: legal[1]! });
@@ -438,6 +455,47 @@ export class MatchEngine {
   setTarget(k: SideKey): boolean {
     if (!setTarget(this.state, this.pk, k)) return false;
     return this.act(() => render(this.ctx));
+  }
+
+  /** Battle royals: can the player try to throw their target over the top (or are they hanging on themselves)? */
+  canOverTop(): boolean {
+    return this.playerTurn && canOverTop(this.state, this.pk);
+  }
+  isHanging(): boolean {
+    return hanging(this.state, this.pk);
+  }
+  overTheTop(): boolean {
+    if (!this.canOverTop()) return false;
+    return this.act(() => {
+      this.state.pending = { kind: 'idle' };
+      overTheTop(this.ctx, this.pk);
+    });
+  }
+  /** Hanging on to the apron: skin the cat back in (a speed roll), or fall. */
+  skinTheCat(): boolean {
+    if (!this.playerTurn || !this.isHanging()) return false;
+    return this.act(() => {
+      this.state.pending = { kind: 'idle' };
+      skinTheCat(this.ctx, this.pk);
+    });
+  }
+
+  /**
+   * Run the match on its own until `stop` says so, or something needs the player (skip to your Rumble
+   * entry; once you're out, the rest as a feed). Returns how many steps it took.
+   */
+  fastForward(stop: (S: MatchState) => boolean, max = 20000): number {
+    let n = 0;
+    while (n < max && !stop(this.state)) {
+      const p = this.state.pending;
+      let ok = false;
+      if (p.kind === 'continue' || p.kind === 'aiThinking' || p.kind === 'refCount' || p.kind === 'refTen') ok = this.advance();
+      else if (p.kind === 'contestRoll') ok = this.applyContest();
+      else if (p.kind === 'contest' && !this.state.order.some((k) => isPlayer(this.state, k) && (k === p.spec.attacker || k === p.spec.defender))) ok = this.rollContest(false);
+      if (!ok) break;
+      n++;
+    }
+    return n;
   }
 
   /** Tag matches: can the player go for the tag (or bring their partner in for a double-team) right now? */

@@ -15,7 +15,8 @@ import { snapshotView } from './state';
 import { refereeAfterAction } from './referee';
 import { autoRecovery } from './setups';
 import { stipulation } from './stipulations';
-import { autoAim, eliminate, isMulti, pickTurn, sidesOfResult } from './multi';
+import { autoAim, eliminate, isMulti, opponents, pickTurn, sidesOfResult } from './multi';
+import { royalAfterAction } from './royal';
 import { tagAfterAction } from './tag';
 import type { ActionResult, Cont, Control, FinishType, Move, Side, SideKey, StipulationId } from './types';
 
@@ -46,6 +47,8 @@ export function setControl(ctx: Ctx, value: Control): void {
   // More than two people: whoever won the exchange is favoured, but anyone on their feet can jump in.
   // (With only two in the fight, a tag match's legal men or the last two in an elimination, it's singles.)
   if (isMulti(S) && value !== 'neutral' && !S.over && fighting(S).length > 2) value = pickTurn(ctx, value);
+  // Nobody to fight (alone in a Rumble ring, waiting for the next one): the clock runs on.
+  if (isMulti(S) && value !== 'neutral' && !S.over && !opponents(S, value).length) value = 'neutral';
   const previous = S.control;
   if (value !== 'neutral') S.neutralFavoured = null;
   S.control = value;
@@ -87,6 +90,7 @@ export function afterAction(ctx: Ctx): void {
   if (!S.obj.gateOpen && S.order.some((k) => S.sides[k]!.finisherStock > 0)) openGate(ctx);
   settleRefereeCount(ctx);
   tagAfterAction(ctx);
+  royalAfterAction(ctx);
 }
 
 /** A DQ, objective win or time-out reached during the action: act on it now. */
@@ -181,6 +185,17 @@ export function runNeutralRecovery(ctx: Ctx): void {
   const S = ctx.S;
   advanceClock(ctx);
   if (S.over) return;
+  if (isMulti(S) && new Set(fighting(S).map((k) => S.sides[k]!.team)).size < 2) {
+    // One left in the ring and more to come: wait for them.
+    const alone = fighting(S)[0];
+    if (alone && S.turn.k !== alone) {
+      say(ctx, LINES.royalWait, { a: alone }, 'dim');
+      S.turn = { k: alone, n: 0 };
+    }
+    render(ctx);
+    schedule(ctx, { to: 'neutralRecovery' }, AI_DELAY_MS);
+    return;
+  }
   const favoured = S.neutralFavoured;
   S.neutralFavoured = null;
   let side: SideKey;
@@ -250,6 +265,7 @@ export function endMatch(ctx: Ctx, winner: SideKey | null, finish: FinishType, m
     afterFk: loser ? (S.crowd.fkAbsorbed[loser] ?? 0) > 0 : false,
     ...(stipulation(S.rules.stipulation).multiFall ? { score: { ...S.obj.score } } : {}),
     ...(isMulti(S) ? { ...sidesOfResult(S, winner), elims: [...S.elims] } : {}),
+    ...(S.entries ? { entries: structuredClone(S.entries) } : {}),
   };
   if (winner) {
     if (finish === 'PINFALL') {

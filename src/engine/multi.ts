@@ -14,6 +14,7 @@ import { has } from './traits';
 import { damagePart } from './side';
 import { distance, settleSpots } from './zones';
 import { replaceLegal } from './tag';
+import { clusterOf, isRoyal, royalOnElimination } from './royal';
 import type { Control, FinishType, MatchState, Move, SavePlan, SetupId, Side, SideKey, SubOutcome } from './types';
 
 export const isMulti = (S: MatchState): boolean => S.order.length > 2;
@@ -92,6 +93,9 @@ export function aiPickTarget(ctx: Ctx, k: SideKey): SideKey {
     if (allied(S, k, o)) v -= 40;
     if (!heel(A) && heel(O)) v += 6;
     if (o === A.target) v += 15;
+    // Battle royals: your own brawl, and anyone hanging on by their fingertips.
+    if (clusterOf(S, k).includes(o)) v += 45;
+    if (isRoyal(S) && O.state.area === 'APRON') v += 25;
     v += ctx.rnd() * 20;
     if (v > bestScore) { bestScore = v; best = o; }
   }
@@ -344,7 +348,7 @@ export function simulateAiSub(ctx: Ctx, tick: (marker: number) => void): SubOutc
 /* ---------- eliminations and results ---------- */
 
 const HOW: Partial<Record<FinishType, string>> = {
-  PINFALL: 'pinned', SUBMISSION: 'made to tap', I_QUIT: 'made to quit', COUNT_OUT: 'counted out', DISQUALIFICATION: 'disqualified',
+  PINFALL: 'pinned', SUBMISSION: 'made to tap', I_QUIT: 'made to quit', COUNT_OUT: 'counted out', DISQUALIFICATION: 'disqualified', OVER_THE_TOP: 'Over the top',
 };
 
 /**
@@ -357,6 +361,7 @@ export function eliminate(ctx: Ctx, k: SideKey, by: SideKey | null, finish: Fini
   s.out = 'eliminated';
   S.elims.push({ k, by, finish, t: S.t, move: move?.name ?? null });
   if (by) S.sides[by]!.elimsBy = (S.sides[by]!.elimsBy ?? 0) + 1;
+  royalOnElimination(ctx, k, by);
   S.crowd.elims = (S.crowd.elims ?? 0) + 1;
   S.pinContext = null;
   S.txn = null;

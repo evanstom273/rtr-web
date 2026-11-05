@@ -145,6 +145,37 @@ with everyone legal. Count-outs and DQs stay on.
   Partners get a little breath back on the apron.
 - **Clock**: 2/n of the step for n people still in it (apron included), down to 40%.
 
+## Stage 4: battle royals, Rumbles, gauntlets and series (`royal.ts`, `series.ts`)
+
+- **Battle royal** (`type: 'battle_royal'`): everyone in at the bell. Pins, submissions, count-outs and
+  DQs are off: over the top rope with both feet on the floor is the only way out, and nobody can leave
+  through the ropes (the cage's blocked setups).
+- **Over the top** is its own action and dice contest (`ottContest`): the heaver's strength, momentum
+  and the ropes at the other's back against the clinger's strength, skill and size (a big man is hard to
+  shift). Win by 5+ (or against someone with nothing left): over and out. Win narrowly: over, but **hanging
+  on to the apron** — then it's skin the cat back in (a speed roll; the athletic get a pop for it) or fall,
+  and anyone can try to knock them off (+4). Lose: fought off — and on the defender's natural, turned around
+  and sent over yourself (hanging on half the time). Anyone whose feet touch the floor any other way is out.
+- **Clusters**: with more than four in the ring it splits into brawls of two or three, regrouping each
+  round (and whenever someone comes or goes); the AI goes after its own brawl first (+45) and anyone hanging
+  on (+25). The AI's heave chance grows with how worn the other is and the ropes at their back.
+- **Rumble** (`type: 'rumble'`): a numbered draw (`rules.draw` booked, otherwise drawn at random), two start,
+  and a new entrant every 90 seconds of match time (`rules.entryEvery`). Surprise entrants
+  (`rules.surprises`) get the crowd's biggest pop. Alone in the ring, you wait for the next one.
+  `result.entries` keeps everyone's number, time in and out and eliminations; `ironMen()` reads the longest
+  time and the most eliminations. The winner's prize (`rules.prize`, a title shot) is settled by the
+  career (stage 9).
+- **Gauntlet** (`type: 'gauntlet'`): elimination, winner stays on; the next in the draw comes in the moment
+  someone goes out, and whoever's left carries the damage (with a breather while the next one comes down).
+  Fights are sprints: 55% of the clock step.
+- **Skip to your entry / the feed**: `engine.fastForward(stop)` runs the match on its own until `stop` says
+  so or something needs the player (a Rumble skips to your number; once you're out, the rest plays as a
+  feed).
+- **Series** (`series.ts`): best of three, five or seven across shows, with a stipulation per game if the
+  booker sets them; `seriesLine` for the scoreboard. Booked and recorded by the career in stage 9.
+- **Stars**: hanging on, skinning the cat and surprise entrants count as drama; `RATING_TYPE` has an entry
+  for each (big fields a little more each person past four).
+
 ### Harness
 
 `MATCHES=1 npx vitest run src/engine/__tests__/matchesrun.test.ts` runs 40 of each type and reports:
@@ -174,3 +205,12 @@ At stage 3 (tags a match; hot tags; stars median):
 | Tag, 3 on 3 | 17 | 3.25 | 4.1 | 1.25 | 0.9 |
 | Handicap tag, 2 on 1 | 15 | 3 | 1.6 | 0.25 | 0.3 |
 | Elimination tag, 3 on 3 | 37 | 3 | 7.5 | 2.6 | 1.3 |
+
+At stage 4:
+
+| Type | Minutes | Stars (median) | Over-the-top tries | Left hanging | Time per match |
+|---|---|---|---|---|---|
+| Battle royal, 10 | 19 | 3 | 17 | 3.2 | 140 ms |
+| Battle royal, 20 | 33 | 3 | 36 | 7.1 | 255 ms |
+| Rumble, 30 | 57 | 3.25 | 55 | 10.9 | 415 ms |
+| Gauntlet, 5 | 27 | 3 | | | 160 ms |

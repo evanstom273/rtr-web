@@ -40,6 +40,8 @@ export interface MatchFeatures {
   how: 'pin' | 'sub' | 'countout' | 'dq' | 'stip' | 'none'; byFin: boolean; afterFk: boolean; byFlash: boolean; title: boolean; big: boolean;
   /** More than two people (match overhaul): saves, stolen pins, eliminations, and how many were in it. */
   saves?: number; steals?: number; elims?: number; people?: number;
+  /** Battle royals: people left hanging on, cats skinned, surprise entrants. */
+  hangs?: number; skins?: number; surprises?: number;
 }
 
 export function matchFeatures(S: MatchState): MatchFeatures {
@@ -63,6 +65,7 @@ export function matchFeatures(S: MatchState): MatchFeatures {
     how, byFin: !!R?.byFin, afterFk: !!R?.afterFk, byFlash: !!R?.byFlash, title: !!S.rules.title,
     big: !!S.you.big && S.order.some((k) => has(S.sides[k]!, 'big_match')),
     saves: c.saves ?? 0, steals: c.steals ?? 0, elims: c.elims ?? 0, people: S.order.length,
+    hangs: c.hangs ?? 0, skins: c.skins ?? 0, surprises: c.surprises ?? 0,
   };
 }
 
@@ -79,7 +82,9 @@ export function ratingDims(f: MatchFeatures, live = false): Record<RatingDim, nu
   const dramaRaw = Math.min(0.7, f.nf * 0.15) + Math.min(0.7, f.fk * 0.35) + Math.min(0.5, f.finRev * 0.25) + Math.min(0.45, f.reversals * 0.05)
     + Math.min(0.3, f.counters * 0.08) + Math.min(0.4, f.ropeBreaks * 0.2) + Math.min(0.6, f.stip)
     // Multi-person drama: broken-up pins (the near fall that never was), steals, people going out one by one.
-    + Math.min(0.45, (f.saves ?? 0) * 0.12) + Math.min(0.2, (f.steals ?? 0) * 0.1) + Math.min(0.3, (f.elims ?? 0) * 0.06);
+    + Math.min(0.45, (f.saves ?? 0) * 0.12) + Math.min(0.2, (f.steals ?? 0) * 0.1) + Math.min(0.3, (f.elims ?? 0) * 0.06)
+    // Battle royals: hanging on by the fingertips, skinning the cat, the surprise through the curtain.
+    + Math.min(0.4, (f.hangs ?? 0) * 0.05) + Math.min(0.4, (f.skins ?? 0) * 0.12) + Math.min(0.3, (f.surprises ?? 0) * 0.15);
   const m = f.mins;
   let craft = 0.5;
   if (!live) {

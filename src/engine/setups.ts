@@ -1,6 +1,7 @@
 // Setup / showboat actions. Port of get_valid_setup_actions, execute_setup_action,
 // _execute_contested_setup_action, _apply_reversed_setup_positions, taunts and Catch Breath.
 import { LINES, SETUP_TEXT, setupLogLine, tauntTitle } from '../data/commentary';
+import { isRoyal, ROYAL_BLOCKED } from './royal';
 import { tauntProfile } from './attributes';
 import { advanceClock, sideIsOutside } from './clock';
 import type { Ctx } from './ctx';
@@ -38,9 +39,10 @@ export function validSetups(S: MatchState, k: SideKey): SetupId[] {
     if (path.actions.length && canUseMove(A, path.move)) firstSteps.add(path.actions[0]!);
   }
   const out: SetupId[] = [];
-  const cage = S.rules.stipulation === 'steel_cage';
+  const cage = S.rules.stipulation === 'steel_cage', royal = isRoyal(S);
   for (const id of actions) {
     if (cage && CAGE_BLOCKED.has(id)) continue;
+    if (royal && ROYAL_BLOCKED.has(id)) continue;
     // The AI only leaves the ring alone to fetch a weapon (Godot: only with DQs off).
     if (!isPlayer(S, k) && id === 'exit_ring' && !aiWantsWeaponTrip(S, k)) continue;
     if (id === 'taunt' && S.t < A.tauntCooldownUntil) continue;
