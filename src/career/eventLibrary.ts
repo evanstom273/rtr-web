@@ -9,7 +9,7 @@ import { sideWork } from './deals';
 import { gradeOf, introduce } from './scouting';
 import { ATTR_KEYS } from './create';
 import { addDays, daysBetween, fmtDay } from './dates';
-import { indieFee, travelCost } from './economy';
+import { indieFee } from './economy';
 import {
   type EvCtx, type EvData, type EventDef, type FollowDef, feeBase, fx, homeRegion, join, merchBlocked, money, nearbyCity, outsideApproved,
   outsideBlocked, pick, recentOpp, registerEvents, round5, scene, tallyOf, titlesHeld,
@@ -21,6 +21,7 @@ import { askChallenge, askableIndieShows, askableShows, bookerName, maybeCaught,
 import type { Show } from './types';
 import { FEATURES } from './tuning';
 import { boutPeople } from './bouts';
+import { tripCost } from './life/travel';
 
 // ------------------------------------------------------------------ who and where
 
@@ -583,7 +584,7 @@ const CAREER: EventDef[] = [
     setup: (x) => {
       const indieTitle = titlesHeld(x).find(isIndieTitle);
       const s = pick(x.rnd, askableIndieShows(x.c).filter((y) => indieAllowed(x.c, y).ok && trust(x.c, showBooker(y)) >= 45 && !x.c.asked?.[y.id]).slice(0, 25));
-      return indieTitle && s ? { show: s.id, name: s.name, city: s.city, country: s.country, date: s.date, title: indieTitle, amount: round5(indieFee(x.me, s) * 1.5), travel: travelCost(x.me.country, s.country) } : null;
+      return indieTitle && s ? { show: s.id, name: s.name, city: s.city, country: s.country, date: s.date, title: indieTitle, amount: round5(indieFee(x.me, s) * 1.5), travel: tripCost(x.c, s) } : null;
     },
     from: (_x, d) => `${d.name} · ${d.city}, ${d.country}`, subject: () => 'We want the champion',
     body: (x, d) => [`We want the ${TITLES.find((t) => t.id === d.title)?.name} on ${d.name} (${fmtDay(String(d.date), 'long')}), and we want you defending it. ${stated(x, d)}${Number(d.travel) ? `, plus travel` : ''}.`],
@@ -608,7 +609,7 @@ const CAREER: EventDef[] = [
       const m = x.c.history.find((y) => y.planned === 'off-script' && y.wonTitle)!;
       const crossed = x.c.shows[m.show] ? showBooker(x.c.shows[m.show]!) : '';
       const s = pick(x.rnd, askableIndieShows(x.c).filter((y) => showBooker(y) !== crossed && indieAllowed(x.c, y).ok && !x.c.asked?.[y.id]).slice(0, 25));
-      return s ? { show: s.id, name: s.name, city: s.city, date: s.date, title: m.title!, opp: m.opp, amount: round5(indieFee(x.me, s) * 1.4), travel: travelCost(x.me.country, s.country) } : null;
+      return s ? { show: s.id, name: s.name, city: s.city, date: s.date, title: m.title!, opp: m.opp, amount: round5(indieFee(x.me, s) * 1.4), travel: tripCost(x.c, s) } : null;
     },
     from: (_x, d) => `${d.name} · ${d.city}`, subject: () => '“The Stolen Title”',
     body: (x, d) => [`Everyone’s still arguing about how you won the ${TITLES.find((t) => t.id === d.title)?.name}. We want to sell it: you against ${nameOf(d, 'opp')}, the rematch, on ${d.name}. ${stated(x, d)}.`],
@@ -647,7 +648,7 @@ const PERSONAL: EventDef[] = [
   {
     id: 'travel_trouble', cat: 'personal', weight: 3, cooldown: 60,
     when: (x) => { const s = bookedSoon(x, 3); return !!s && s.country !== x.me.country; },
-    setup: (x) => { const s = bookedSoon(x, 3)!; return { show: s.id, name: s.name, city: s.city, key: showBooker(s), amount: round5(travelCost(x.me.country, s.country) * 0.8 + 80) }; },
+    setup: (x) => { const s = bookedSoon(x, 3)!; return { show: s.id, name: s.name, city: s.city, key: showBooker(s), amount: round5(tripCost(x.c, s) * 0.8 + 80) }; },
     from: () => 'The airline', subject: () => 'Your flight’s been cancelled',
     body: (_x, d) => [`Your flight for ${d.name} in ${d.city} has been cancelled. The next one with seats lands an hour before bell time.`],
     options: [

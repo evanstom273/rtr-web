@@ -252,7 +252,10 @@ export function moodTarget(c: Career, id: string): { v: number; why: string[] } 
     const st = lover.bond.love!.st as keyof typeof ROMANCE.mood;
     parts.push([st === 'dating' ? 'dating' : 'partner', ROMANCE.mood[st] ?? 0]);
     const them = findWrestler(lover.other), me = findWrestler(id);
-    if (them && me && (them.country !== me.country || (them.promotion !== me.promotion && them.promotion !== 'TIS' && me.promotion !== 'TIS'))) parts.push(['apart', ROMANCE.mood.apart]);
+    // Where you live now, not where you were born (you can move to be with them); living together isn't apart.
+    const mine = id === c.player ? c.base ?? me?.country : me?.country, theirs = lover.other === c.player ? c.base ?? them?.country : them?.country;
+    const together = id === c.player ? c.home?.with === lover.other : lover.other === c.player && c.home?.with === id;
+    if (them && me && !together && (theirs !== mine || (them.promotion !== me.promotion && them.promotion !== 'TIS' && me.promotion !== 'TIS'))) parts.push(['apart', ROMANCE.mood.apart]);
   }
   // What's happened lately: a death, a wedding, a baby, a break-up.
   for (const s of P.lives?.[id]?.shocks ?? []) if (s.until > c.today) parts.push([s.k, s.d]);

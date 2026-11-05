@@ -14,7 +14,7 @@ import { approves, sideWork } from './deals';
 import { getInTouch, gradeOf, holdingBack, startWatching } from './scouting';
 import { leaveContract, matchRival, payReview } from './contracts';
 import { addDays, daysBetween, fmtDay, weekday, type Day } from './dates';
-import { indieFee, travelCost } from './economy';
+import { indieFee } from './economy';
 import { dayOff, indieAllowed, joinIndie } from './offers';
 import { bookerKey, movePatience, patienceOf, patienceWeek, showBooker } from './patience';
 import { trust, trustLabel } from './relations';
@@ -22,6 +22,7 @@ import {
   ASK_COUNTER_BAND, ASK_FORM_PER_RESULT, ASK_PATIENCE_DIVISOR, ASK_REP_DIVISOR, ASK_SPOT_BASE_PCT, ASK_SPOT_MAX_PCT, ASK_TRUST_DIVISOR, BOOK_AHEAD_DAYS, CAUGHT_CHANCE, CAUGHT_CHANCE_SAME_REGION, CAUGHT_DAYS, CHALLENGE_BASE, CHALLENGE_CHAMPION, CHALLENGE_IN_FEUD, CHALLENGE_PER_POP_ABOVE, COOLDOWN_CHALLENGE, COOLDOWN_MORE, COOLDOWN_PROMOTION, COOLDOWN_TITLE, CREATIVE_T1_CHANGE, CREATIVE_T2_COOLDOWN_DAYS, INDIE_CH_ALLOWED, INDIE_CH_PROMOTION, INDIE_PROMISE_ROLLS, MORE_BASE, MORE_MIN_DATES, PATIENCE_BOTCHED, PATIENCE_CAUGHT, PATIENCE_DECLINE_COUNTER, PATIENCE_FLOOR, PATIENCE_FOLLOWED_PLAN, PATIENCE_GOOD_MATCH, PATIENCE_GOOD_MATCH_STARS, PATIENCE_NAG, PATIENCE_OFF_SCRIPT, PATIENCE_START, PATIENCE_TOOK_COUNTER, REGIONAL_ELIGIBLE_DATES, REGIONAL_WINDOW_DAYS, REP_NAG, SHOW_ASK_BONUS, SHOW_ASK_FLAGSHIP, SHOW_ASK_SPECIAL, SOCIAL_CALLOUT_CHALLENGE, SOCIAL_CALLOUT_DAYS, TITLE_ASK_BY_RANK, TITLE_ASK_CLAUSE, TRAIT_BACKSTAGE,
 } from './tuning';
 import type { Ask, AskKind, Bout, Career, CounterKind, PlayerMatch, Pledge, Show } from './types';
+import { tripCost } from './life/travel';
 
 // ------------------------------------------------------------------ shared pieces
 
@@ -293,7 +294,7 @@ export function askIndieTitleShot(c: Career, titleId: string, showId: string): A
   (c.asked ??= {})[show.id] = true;
   const champ = findWrestler(t.holder!)!;
   const mine = me(c);
-  const fee = indieFee(mine, show), travel = travelCost(mine.country, show.country);
+  const fee = indieFee(mine, show), travel = tripCost(c, show);
   const busy = champBusy(c, t, show);
   const r = busy ? (roll(c, `title:${t.id}:${show.id}`) < chance + ASK_COUNTER_BAND ? 'counter' : 'no') : outcome(chance, roll(c, `title:${t.id}:${show.id}`));
   if (r === 'yes') {
@@ -440,7 +441,7 @@ export function askIndieChallenge(c: Career, targetId: string, showId: string): 
   if (roll(c, `spot:${show.id}`) >= spot) return record(c, { kind: 'indieChallenge', to: promoter, what, key: 'challenge', answer: 'no', said: '“We’re full. Maybe next time.”' });
   const side = nagged ? previewIndieChallenge(c, targetId, showId).chance : pv.chance;
   const r = outcome(side, roll(c, `indie-ch:${targetId}:${showId}`));
-  const fee = indieFee(mine, show), travel = travelCost(mine.country, show.country);
+  const fee = indieFee(mine, show), travel = tripCost(c, show);
   const terms = { fee, travel };
   if (r === 'yes') {
     const a = record(c, { kind: 'indieChallenge', to: promoter, what, key: 'challenge', answer: 'yes', said: `“${them.name}’s up for it. ${showLine(show)}: £${fee.toLocaleString('en-GB')}${travel ? `, travel £${travel}` : ''}.”` });
@@ -631,7 +632,7 @@ export function previewSpot(c: Career, showId: string): Preview {
   const base = Math.min(ASK_SPOT_MAX_PCT, ASK_SPOT_BASE_PCT + globalScore(me(c)));
   return {
     hard, chance: base + patiencePoints(c, promoter) + trustPoints(c, promoter), nag: 0,
-    stand: [['Fans', `${fmtFans(fansTotal(me(c)))} worldwide`], ['Fee', show ? `£${indieFee(me(c), show).toLocaleString('en-GB')}` : '—'], ['Travel', show ? (travelCost(me(c).country, show.country) ? `£${travelCost(me(c).country, show.country)}` : 'None') : '—']],
+    stand: [['Fans', `${fmtFans(fansTotal(me(c)))} worldwide`], ['Fee', show ? `£${indieFee(me(c), show).toLocaleString('en-GB')}` : '—'], ['Travel', show ? (tripCost(c, show) ? `£${tripCost(c, show)}` : 'None') : '—']],
     weigh: [{ t: `${fmtFans(fansTotal(me(c)))} fans`, s: 1 }, { t: `Promoter patience ${Math.round(patienceOf(c, promoter))}`, s: Math.sign(patiencePoints(c, promoter)) },
       { t: trustLabel(trust(c, promoter)), s: Math.sign(trustPoints(c, promoter)) }],
   };
@@ -649,7 +650,7 @@ export function askSpot(c: Career, showId: string): Ask {
   }
   (c.asked ??= {})[show.id] = true;
   if (roll(c, `spot:${show.id}`) >= pv.chance) return record(c, { kind: 'spot', to: promoter, what, key: `spot:${showId}`, answer: 'no', said: '“We’re full. Maybe next time.”' });
-  const fee = indieFee(me(c), show), travel = travelCost(me(c).country, show.country);
+  const fee = indieFee(me(c), show), travel = tripCost(c, show);
   joinIndie(c, show, fee, travel);
   return record(c, { kind: 'spot', to: promoter, what, key: `spot:${showId}`, answer: 'yes', said: `“You’re on: £${fee.toLocaleString('en-GB')}${travel ? `, travel £${travel}` : ''}.”` });
 }
@@ -740,7 +741,7 @@ export function answerCounter(c: Career, askId: string, accept: boolean): string
   if (k.pledge) {
     const show = k.pledge.show ? c.shows[k.pledge.show] : undefined;
     if (show && show.date < firstAskable(c)) { a.then = 'It lapsed: the card’s been drawn.'; return a.then; }
-    if (show && show.promo === 'TIS' && !c.indie[show.id]) joinIndie(c, show, indieFee(me(c), show), travelCost(me(c).country, show.country));
+    if (show && show.promo === 'TIS' && !c.indie[show.id]) joinIndie(c, show, indieFee(me(c), show), tripCost(c, show));
     pledge(c, { ...k.pledge, ask: a.id });
   }
   leanFrom(c, 'took_counter');
@@ -801,7 +802,7 @@ function afterMine(c: Career, show: Show, bout: Bout, m: PlayerMatch): void {
       const later = indieTitleShow(c, t, addDays(show.date, 1), show);
       if (later) {
         const mine = me(c);
-        joinIndie(c, later, indieFee(mine, later), travelCost(mine.country, later.country));
+        joinIndie(c, later, indieFee(mine, later), tripCost(c, later));
         pledge(c, { promo: 'TIS', kind: 'title', title: t.id, show: later.id, ...(a ? { ask: a.id } : {}) });
         letter(c, { kind: 'news', from: show.name, subject: `You’ve earned your ${t.name} shot`, body: [`You beat ${m.oppName}. Your shot: ${showLine(later)} in ${later.city}, ${later.country}.`] });
         if (a) a.then = `You beat ${m.oppName}: your shot is on ${showLine(later)}.`;
@@ -829,7 +830,7 @@ function rollIndiePromise(c: Career, p: Pledge, show: Show): boolean {
     .sort((a, b) => (a.date < b.date ? -1 : 1)).find((s) => indieAllowed(c, s).ok);
   if (!next) return false;
   const mine = me(c);
-  joinIndie(c, next, c.indie[show.id]?.fee ?? indieFee(mine, next), travelCost(mine.country, next.country));
+  joinIndie(c, next, c.indie[show.id]?.fee ?? indieFee(mine, next), tripCost(c, next));
   p.show = next.id;
   p.rolls = (p.rolls ?? 0) + 1;
   const a = c.asks?.find((x) => x.id === p.ask);

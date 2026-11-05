@@ -10,7 +10,7 @@ import { C } from './clauses';
 import { approves, dealsOf, sideWork } from './deals';
 import { setTryoutLetter } from './scouting';
 import { addDays, addMonths, fmtDay, weekday, type Day } from './dates';
-import { indieFee, travelCost } from './economy';
+import { indieFee } from './economy';
 import {
   ASK_SPOT_BASE_PCT, ASK_SPOT_MAX_PCT, DAY_OFF_T1_CHANCE, INDIE_OFFER_CHAMPION, INDIE_OFFER_TRUSTED, INDIE_OFFER_WINDOW_DAYS, INDIE_OFFERS_BASE, INDIE_OFFERS_PER_POP, PATIENCE_NO_SHOW, REP_NO_SHOW, TITLE_SHOT_BREACH_FEES, TITLE_SHOT_DAYS, TRUST_HIGH, TRUST_LOW,
 } from './tuning';
@@ -18,6 +18,8 @@ import type { Career, Letter, Show } from './types';
 import { movePatience, showBooker } from './patience';
 import { remember, trust } from './relations';
 import { boutPeople } from './bouts';
+import { band, homeCountry, tripCost } from './life/travel';
+import { homeCity, on } from './life/state';
 
 /**
  * Can you take an indie date on this day? Free agents always; signed wrestlers by their Exclusivity (Lyra's call:
@@ -115,9 +117,19 @@ export function askForSpot(c: Career, show: Show): { ok: boolean; text: string }
   if (asked[show.id]) return { ok: false, text: 'They’ve already said no.' };
   asked[show.id] = true;
   if (seededRng(hashSeed(c.seed, 'ask', show.id))() >= chance) return { ok: false, text: 'They’re full. Maybe next time.' };
-  const fee = indieFee(me, show), travel = travelCost(me.country, show.country);
+  const fee = indieFee(me, show), travel = tripCost(c, show);
   joinIndie(c, show, fee, travel);
   return { ok: true, text: `You’re on: £${fee.toLocaleString('en-GB')}${travel ? `, travel £${travel}` : ''}.` };
+}
+
+/**
+ * Promoters near you call more: your own country ×2 (where you live, not where you were born). With Life, by how
+ * far it is: your city's scene ×2.5, a short trip ×2, a long one ×1.3.
+ */
+function localScene(c: Career, s: Show): number {
+  if (!on('homes')) return s.country === homeCountry(c) ? 2 : 1;
+  const b = band({ country: homeCountry(c), city: homeCity(c) }, s);
+  return b === 'local' ? 2.5 : b === 'short' ? 2 : b === 'long' ? 1.3 : 1;
 }
 
 /** Mondays: indie promoters write with bookings. */
@@ -132,7 +144,7 @@ function indieOffers(c: Career, rnd: Rng): void {
   const shows = Object.values(c.shows)
     .filter((s) => s.promo === 'TIS' && s.date > addDays(c.today, 1) && s.date <= addDays(c.today, INDIE_OFFER_WINDOW_DAYS) && indieAllowed(c, s).ok)
     .filter((s) => trust(c, showBooker(s)) >= TRUST_LOW)
-    .map((s) => ({ s, w: (regionalPop(me, s.region) + 5) * (s.country === me.country ? 2 : 1) * (0.5 + rnd())
+    .map((s) => ({ s, w: (regionalPop(me, s.region) + 5) * localScene(c, s) * (0.5 + rnd())
       * (trust(c, showBooker(s)) >= TRUST_HIGH ? INDIE_OFFER_TRUSTED : 1) * (champ ? INDIE_OFFER_CHAMPION : 1) }))
     .sort((a, b) => b.w - a.w);
   const days = new Set<string>();
@@ -141,7 +153,7 @@ function indieOffers(c: Career, rnd: Rng): void {
     if (sent >= n) break;
     if (days.has(s.date)) continue;
     days.add(s.date);
-    const fee = indieFee(me, s), travel = travelCost(me.country, s.country);
+    const fee = indieFee(me, s), travel = tripCost(c, s);
     const ok = indieAllowed(c, s);
     const key = showBooker(s);
     const from = s.brand && activeWorld().people?.staff[key] ? `${activeWorld().people!.staff[key]!.name} · ${activeWorld().people!.brands[s.brand]?.name ?? s.city}` : `${s.name} · ${s.city}, ${s.country}`;

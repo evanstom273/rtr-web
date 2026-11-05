@@ -370,7 +370,7 @@ function daily(c: Career): void {
   if (c.job && new Date(`${c.today}T12:00:00Z`).getUTCDay() === 1 && c.today.slice(5) === '01-01') c.job.holiday = JOB_HOLIDAY;
 }
 
-const PROMO_COUNTRY: Record<string, string> = { VWF: 'USA', TCG: 'Canada', SLN: 'Mexico', END: 'England', IVW: 'France', NWGP: 'Japan', ZWA: 'China', UFC: 'Samoa', SSWC: 'Argentina', AAWA: 'Egypt' };
+const PROMO_COUNTRY: Record<string, string> = { VWF: 'USA', TCG: 'Canada', SLN: 'Mexico', END: 'UK', IVW: 'France', NWGP: 'Japan', ZWA: 'China', UFC: 'Samoa', SSWC: 'Argentina', AAWA: 'Egypt' };
 const promoHome = (promo: string) => regionOfCountry(PROMO_COUNTRY[promo] ?? 'USA');
 
 setCareerHooks({ daily });
