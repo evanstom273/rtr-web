@@ -49,16 +49,26 @@ export function retargetAll(S: MatchState): void {
   for (const k of fighting(S)) {
     const s = S.sides[k]!;
     if (targetable(S, k).includes(s.target)) continue;
-    const near = targetable(S, k).sort((a, b) => distance(S, k, a) - distance(S, k, b))[0];
+    const near = nearestFirst(S, k, targetable(S, k))[0];
     if (near) s.target = near;
   }
+}
+
+/**
+ * Who's nearest k, nearest first. Ties go round the ring from k (the next in the running order after them),
+ * so a crowd doesn't all turn on whoever happens to be first in it.
+ */
+function nearestFirst(S: MatchState, k: SideKey, list: SideKey[]): SideKey[] {
+  const i = S.order.indexOf(k), n = S.order.length;
+  const round = (o: SideKey) => (S.order.indexOf(o) - i + n) % n;
+  return [...list].sort((a, b) => distance(S, k, a) - distance(S, k, b) || round(a) - round(b));
 }
 
 /** The player's turn: if who they're after is out of reach and someone else is close, turn to them. */
 export function autoAim(S: MatchState, k: SideKey): void {
   const s = S.sides[k]!, list = targetable(S, k);
   if (list.includes(s.target) && distance(S, k, s.target) <= 1) return;
-  const near = [...list].sort((a, b) => distance(S, k, a) - distance(S, k, b))[0];
+  const near = nearestFirst(S, k, list)[0];
   if (near && (!list.includes(s.target) || distance(S, k, near) < distance(S, k, s.target))) s.target = near;
 }
 

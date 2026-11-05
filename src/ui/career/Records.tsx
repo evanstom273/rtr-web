@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { REGION_KEY, REGION_LABEL } from '../../career/places';
 import { TraitChips } from './Traits';
 import { FAN_REGIONS, fansTotal, findWrestler, fmtFans, getMove, globalScore, PROMOTIONS, TITLES, titlesHeldBy, WRESTLERS, worksFor } from '../../data/rtr';
@@ -9,7 +9,7 @@ import { ATTR_KEYS, ATTR_LONG, CLASS_NAME, divisionName } from '../../career/cre
 import { daysBetween, fmtDay } from '../../career/dates';
 import { stipulation } from '../../engine';
 import { activeWorld } from '../../world/world';
-import { promotionStory, reignsOf, titleLineage, wrestlerHistory, type ArchivedShow, type WorldEvent } from '../../world/history';
+import { archivedLabel, archivedName, archivedWinner, archivedWon, promotionStory, reignsOf, titleLineage, wrestlerHistory, type ArchivedShow, type WorldEvent } from '../../world/history';
 import { Head, money, Nm, Screen, useWords } from './parts';
 import type { ReqRoute } from './Requests';
 
@@ -99,7 +99,7 @@ export function Records({ c, onBack, onMoveset, onNewCareer, onRequest }: Props)
   const showRow = (s: ArchivedShow) => {
     const main = s.bouts[s.bouts.length - 1]!;
     const best = Math.max(...s.bouts.map((b) => b.stars));
-    const changes = s.bouts.filter((b) => b.newChamp).map((b) => `New champion: ${b.w === 'a' ? b.an : b.bn} (${titleName(b.title)})`);
+    const changes = s.bouts.filter((b) => b.newChamp).map((b) => `New champion${b.sides && archivedWon(b) >= 0 && b.sides[archivedWon(b)]!.length > 1 ? 's' : ''}: ${archivedWinner(b) ?? '—'} (${titleName(b.title)})`);
     return (
       <button key={s.id} className="c-ans" onClick={() => open({ k: 'show', id: s.id })} style={{ padding: '8px 10px' }}>
         <span className="c-rowsb">
@@ -107,7 +107,7 @@ export function Records({ c, onBack, onMoveset, onNewCareer, onRequest }: Props)
           <span className="c-effs">{s.tag ? <span className="c-eff gold">{s.tag.split(':')[0]}</span> : (s.kind === 'special' || s.kind === 'flagship') && <span className="c-eff gold">{w(s.kind)}</span>}<span className="c-hint">{w('Best')} {best}★</span></span>
         </span>
         <b className="c-at">{s.name}</b>
-        <span className="c-vs"><span className="c-hint">{w('Main event:')}</span><Nm id={main.a} name={main.an} plain /><span className="c-vsx">{vs}</span><Nm id={main.b} name={main.bn} plain /></span>
+        <span className="c-vs"><span className="c-hint">{w('Main event:')}</span>{main.sides ? archivedLabel(main) : <><Nm id={main.a} name={main.an} plain /><span className="c-vsx">{vs}</span><Nm id={main.b} name={main.bn} plain /></>}</span>
         {changes.length > 0 && <span className="c-ad">{changes.join(' · ')}</span>}
       </button>
     );
@@ -129,7 +129,7 @@ export function Records({ c, onBack, onMoveset, onNewCareer, onRequest }: Props)
           </div>
           <div className="c-body">
             <span className="c-sec">{w('The champions', 'Champions')}</span>
-            {champs.map((t) => <button key={t!.id} className="c-rowsb" style={{ background: 'none', border: 0, padding: 0, textAlign: 'left' }} onClick={() => open({ k: 'title', id: t!.id })}><span className="c-lab">{t!.name}</span><Nm id={t!.holder!} /></button>)}
+            {champs.map((t) => <button key={t!.id} className="c-rowsb" style={{ background: 'none', border: 0, padding: 0, textAlign: 'left' }} onClick={() => open({ k: 'title', id: t!.id })}><span className="c-lab">{t!.name}</span>{t!.holders && t!.holders.length > 1 ? <span>{t!.holders.map((id, n) => <Fragment key={id}>{n > 0 && ' & '}<Nm id={id} /></Fragment>)}</span> : <Nm id={t!.holder!} />}</button>)}
             <div className="c-rowsb"><span className="c-sec c-grow">{w('The roster', 'Roster')}</span><span className="c-hint">{roster.length}</span></div>
             {roster.map((y) => (
               <button key={y.id} className={y.id === c.player ? 'c-ans on' : 'c-ans'} onClick={() => open({ k: 'wr', id: y.id })} style={{ padding: '7px 10px' }}>
@@ -206,7 +206,7 @@ export function Records({ c, onBack, onMoveset, onNewCareer, onRequest }: Props)
             {bestBouts.map(({ s, b }, i) => (
               <button key={i} className="c-led" style={{ gridTemplateColumns: '54px minmax(0, 1fr) auto', background: 'none', border: 0, textAlign: 'left', color: 'inherit' }} onClick={() => open({ k: 'show', id: s.id })}>
                 <span className="c-hint">{fmtDay(s.date, 'dm')}</span>
-                <span style={{ display: 'flex', flexDirection: 'column' }}><span className="c-vs"><Nm id={b.a} name={b.an} plain /><span className="c-vsx">{vs}</span><Nm id={b.b} name={b.bn} plain /></span><span className="c-hint">{s.name}</span></span>
+                <span style={{ display: 'flex', flexDirection: 'column' }}><span className="c-vs">{b.sides ? archivedLabel(b) : <><Nm id={b.a} name={b.an} plain /><span className="c-vsx">{vs}</span><Nm id={b.b} name={b.bn} plain /></>}</span><span className="c-hint">{s.name}</span></span>
                 <b className="c-big" style={{ fontSize: 16 }}>{b.stars}★</b>
               </button>
             ))}
@@ -250,7 +250,8 @@ function ShowCard({ id, onClose, onWrestler }: { id: string; onClose: () => void
       <div className="c-start" style={{ marginTop: 10 }}><span className="c-lab">{w(`${promoLabel(s.promo)} · ${s.kind}`)}</span><b className="c-sbig">{s.name}</b><span className="c-val">{s.city}, {s.country} · {fmtDay(s.date, 'long')}</span></div>
       <div className="c-body">
         {s.bouts.map((b, i) => {
-          const winner = b.w === 'a' ? b.an : b.w === 'b' ? b.bn : null;
+          const winner = archivedWinner(b);
+          const many = b.sides && archivedWon(b) >= 0 && b.sides[archivedWon(b)]!.length > 1;
           return (
             <div key={i} className={b.newChamp ? 'c-ans on' : 'c-ans'}>
               <div className="c-rowsb">
@@ -261,12 +262,20 @@ function ShowCard({ id, onClose, onWrestler }: { id: string; onClose: () => void
                   {b.stip && <span className="c-eff">{stipulation(b.stip).name}</span>}
                 </span>
               </div>
-              <span className="c-vs">
-                <button style={{ background: 'none', border: 0, padding: 0 }} onClick={() => onWrestler(b.a)}><Nm id={b.a} name={b.an} plain /></button>
-                <span className="c-vsx">{vs}</span>
-                <button style={{ background: 'none', border: 0, padding: 0 }} onClick={() => onWrestler(b.b)}><Nm id={b.b} name={b.bn} plain /></button>
-              </span>
-              <span className="c-ad">{winner ? `${winner} wins` : 'Draw'} · {FINISH[b.finish] ?? b.finish} · {clock(b.t)} · {b.stars}★{b.move ? ` · ${b.move}` : ''}</span>
+              {!b.sides ? (
+                <span className="c-vs">
+                  <button style={{ background: 'none', border: 0, padding: 0 }} onClick={() => onWrestler(b.a)}><Nm id={b.a} name={b.an} plain /></button>
+                  <span className="c-vsx">{vs}</span>
+                  <button style={{ background: 'none', border: 0, padding: 0 }} onClick={() => onWrestler(b.b)}><Nm id={b.b} name={b.bn} plain /></button>
+                </span>
+              ) : b.sides.flat().length > 8 ? <span className="c-vs">{archivedLabel(b)}</span> : (
+                <span className="c-vs">{b.sides.map((side, j) => (
+                  <Fragment key={j}>{j > 0 && <span className="c-vsx">{vs}</span>}{side.map((id, n) => (
+                    <Fragment key={id}>{n > 0 && ' & '}<button style={{ background: 'none', border: 0, padding: 0 }} onClick={() => onWrestler(id)}><Nm id={id} name={archivedName(b, id)} plain /></button></Fragment>
+                  ))}</Fragment>
+                ))}</span>
+              )}
+              <span className="c-ad">{winner ? `${winner} ${many ? 'win' : 'wins'}` : 'Draw'} · {FINISH[b.finish] ?? b.finish} · {clock(b.t)} · {b.stars}★{b.move ? ` · ${b.move}` : ''}</span>
             </div>
           );
         })}

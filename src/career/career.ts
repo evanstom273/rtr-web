@@ -8,7 +8,7 @@ import { seededRng, type Rng } from '../engine/rng';
 import type { MatchRulesConfig, SideKey } from '../engine/types';
 import { addWear, fadeWear, teamOf, violenceOf, wearInjury, wearStart } from '../world/matchWorld';
 import { stipulation } from '../engine/stipulations';
-import { boutEngine, boutPeople, inBout, plannedKey, sideOf } from './bouts';
+import { boutEngine, boutLabel, boutPeople, inBout, plannedKey, sideOf } from './bouts';
 import { HARDCORE_STIPS, available, bookAhead, hashSeed, heated, isIndieTitle, promoRegion, regionalDates, regionalPop, titleRegion } from './booker';
 import { bondOf } from '../world/people';
 import { drawCalendar } from './calendar';
@@ -419,7 +419,11 @@ function injure(c: Career, id: string, show: Show, rnd: Rng): void {
 function settleMine(c: Career, show: Show, bout: Bout, out: SimOut, aIsYou: boolean, popDelta: number, titleChanged: boolean, how: 'played' | 'simmed' = 'played', was?: MailBefore): void {
   const me = person(c, c.player);
   const oppId = bout.a === c.player ? bout.b : bout.a;
-  const opp = findWrestler(oppId)!;
+  // More than two people: who you were up against, all of them (a big field reads as the match).
+  const nm = (id: string) => findWrestler(id)?.name ?? id;
+  const others = bout.sides ? bout.sides.filter((s) => !s.includes(c.player)) : [];
+  const opp = { name: !bout.sides ? findWrestler(oppId)!.name
+    : boutPeople(bout).length > 8 ? `the rest of ${boutLabel(bout, nm)}` : others.map((s) => s.map(nm).join(' & ')).join(' and ') };
   const winner = bout.result!.winner;
   const result = winner === null ? 'draw' : winner === c.player || bout.result!.winners?.includes(c.player) ? 'win' : 'loss';
   let fee = 0, bonus = 0, travel = 0;
@@ -587,7 +591,7 @@ export function endOfDay(c: Career): void {
   const day = c.today;
   const rnd = seededRng(hashSeed(c.seed, 'night', day));
   const worked = new Set<string>();
-  for (const s of showsOn(c, day)) for (const b of s.card ?? []) if (b.result) { worked.add(b.a); worked.add(b.b); }
+  for (const s of showsOn(c, day)) for (const b of s.card ?? []) if (b.result) for (const id of boutPeople(b)) worked.add(id);
   for (const s of Object.values(c.shows)) if (!s.done) for (const b of s.card ?? []) dropStaleTitle(b);
   // Indie dates you agreed to but couldn't wrestle (injured, say) fall away.
   for (const id of Object.keys(c.indie)) if ((c.shows[id]?.date ?? '') <= day) delete c.indie[id];
@@ -662,9 +666,22 @@ function archive(s: Show): void {
       ...(b.title ? { title: b.title } : {}), ...(b.stip ? { stip: b.stip } : {}),
       w: b.result!.winner === null ? null : b.result!.winner === b.a ? 'a' : 'b',
       finish: b.result!.finish, t: b.result!.t, stars: b.result!.stars, ...(b.result!.move ? { move: b.result!.move } : {}), ...(b.result!.newChamp ? { newChamp: true } : {}),
+      ...(b.sides ? archiveSides(b) : {}),
     })),
   };
   H.shows.push(entry);
+}
+
+/** A match with more than two people, for the history: everyone, their names, who won and how it reads. */
+function archiveSides(b: Bout): Partial<ArchivedShow['bouts'][number]> {
+  const nm = (id: string) => findWrestler(id)?.name ?? id;
+  const ws = b.result?.winners?.length ? b.result.winners : b.result?.winner ? [b.result.winner] : [];
+  const won = ws.length ? b.sides!.findIndex((s) => s.includes(ws[0]!)) : -1;
+  return {
+    sides: b.sides!.map((s) => [...s]), names: b.sides!.map((s) => s.map(nm)), won, label: boutLabel(b, nm), ...(b.type ? { type: b.type } : {}),
+    // The two leads' sides: whether one of them won.
+    w: won === 0 ? 'a' : won === 1 ? 'b' : null,
+  };
 }
 
 /** The first of the month: merch, idle wrestlers fading, roster moves, getting noticed. */

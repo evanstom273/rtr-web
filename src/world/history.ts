@@ -20,6 +20,39 @@ export interface ArchivedBout {
   move?: string;
   /** The title changed hands here. */
   newChamp?: boolean;
+  /**
+   * Match overhaul: more than two people. Every side and their names at the time, which side won (−1: nobody),
+   * the kind of match, and how it reads ("Vega & Rook vs Okoro & Bekhit", "a 20-man Rumble"). `a`/`b` stay the
+   * first two sides' leads, and `w` says whether one of their sides won.
+   */
+  sides?: string[][];
+  names?: string[][];
+  won?: number;
+  type?: import('../engine/types').MatchType;
+  label?: string;
+}
+
+/** Everyone in an archived match. */
+export const archivedPeople = (b: ArchivedBout): string[] => (b.sides ? b.sides.flat() : [b.a, b.b]);
+/** The side someone was on (0, 1, …), or −1. */
+export const archivedSideOf = (b: ArchivedBout, id: string): number => (b.sides ? b.sides.findIndex((s) => s.includes(id)) : id === b.a ? 0 : id === b.b ? 1 : -1);
+/** Which side won (−1 for a draw or no contest). */
+export const archivedWon = (b: ArchivedBout): number => b.won ?? (b.w === 'a' ? 0 : b.w === 'b' ? 1 : -1);
+/** Someone's name as it was that night. */
+export function archivedName(b: ArchivedBout, id: string): string {
+  if (id === b.a) return b.an;
+  if (id === b.b) return b.bn;
+  const i = archivedSideOf(b, id);
+  return i >= 0 ? b.names?.[i]?.[b.sides![i]!.indexOf(id)] ?? id : id;
+}
+/** A side's names, joined ("Vega & Rook"). */
+export const archivedSideName = (b: ArchivedBout, i: number): string => (b.names?.[i] ?? (i === 0 ? [b.an] : i === 1 ? [b.bn] : [])).join(' & ');
+/** How the match reads: "A vs B", or its label. */
+export const archivedLabel = (b: ArchivedBout): string => b.label ?? `${b.an} vs ${b.bn}`;
+/** Who won, by name, or null for a draw. */
+export function archivedWinner(b: ArchivedBout): string | null {
+  const i = archivedWon(b);
+  return i < 0 ? null : archivedSideName(b, i) || null;
 }
 
 export interface ArchivedShow {
@@ -101,11 +134,15 @@ export function wrestlerHistory(h: WorldHistory, id: string): WrestlerMatch[] {
   for (let i = h.shows.length - 1; i >= 0; i--) {
     const s = h.shows[i]!;
     for (const b of s.bouts) {
-      if (b.a !== id && b.b !== id) continue;
-      const mine = b.a === id ? 'a' : 'b';
+      const side = archivedSideOf(b, id);
+      if (side < 0) continue;
+      const won = archivedWon(b);
+      // Against: the other lead in a two-sided match; a crowd reads as the match ("a 20-man Rumble").
+      const opp = side === 0 ? b.b : b.a;
+      const crowd = !!b.sides && b.sides.length > 2;
       out.push({
-        day: s.date, show: s.name, showId: s.id, promo: s.promo, opp: mine === 'a' ? b.b : b.a, oppName: mine === 'a' ? b.bn : b.an,
-        result: b.w === null ? 'draw' : b.w === mine ? 'win' : 'loss', stars: b.stars, ...(b.title ? { title: b.title } : {}), finish: b.finish,
+        day: s.date, show: s.name, showId: s.id, promo: s.promo, opp, oppName: crowd ? archivedLabel(b) : b.sides ? archivedSideName(b, side === 0 ? 1 : 0) : side === 0 ? b.bn : b.an,
+        result: won < 0 ? 'draw' : won === side ? 'win' : 'loss', stars: b.stars, ...(b.title ? { title: b.title } : {}), finish: b.finish,
       });
     }
   }

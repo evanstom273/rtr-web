@@ -17,6 +17,7 @@ import { registerReplies } from './mail';
 import { contractWith, homeRegion, worth } from './signing';
 import { BOND_LOG, FEATURES, MORALE, STAFF } from './tuning';
 import type { Career, Show } from './types';
+import { boutPeople } from './bouts';
 
 export type StaffRole = 'writer' | 'agent' | 'producer' | 'scout' | 'doctor';
 export const STAFF_LABEL: Record<StaffRole, string> = { writer: 'Head writer', agent: 'Road agent', producer: 'Producer', scout: 'Scout', doctor: 'Doctor' };
@@ -108,7 +109,7 @@ function afterShow(c: Career, show: Show): void {
   const card = (show.card ?? []).filter((b) => b.result);
   const roster = new Set(rosterOf(show.promo).map((w) => w.id));
   card.forEach((b, i) => {
-    for (const id of [b.a, b.b]) {
+    for (const id of boutPeople(b)) {
       if (!roster.has(id) || id === c.player) continue;
       (officeOf(c) as { lastOn?: Record<string, Day> }).lastOn = { ...((officeOf(c) as { lastOn?: Record<string, Day> }).lastOn ?? {}), [id]: show.date };
       const won = b.result!.winner === id;

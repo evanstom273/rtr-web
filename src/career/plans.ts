@@ -23,6 +23,7 @@ import { introduce } from './scouting';
 import { moodOf, whereIs } from './socialLife';
 import { BORROW, COST_INDEX, GIFTS, LEND, MEET_RULES, MEETS, PLANS_IN, SHARE, TONE_FIT } from './tuning';
 import type { Career, PhaseName } from './types';
+import { boutPeople } from './bouts';
 
 /** Something you've arranged with someone: when, what, who asked, and how it went. */
 export interface Meet {
@@ -333,7 +334,7 @@ function invitations(c: Career): void {
 function shareOffers(c: Career, rnd: () => number): void {
   for (const s of Object.values(c.shows)) {
     if (s.done || s.date <= c.today || s.date > addDays(c.today, 3) || !c.indie[s.id] || !(c.indie[s.id]!.travel > 0) || c.shares?.[s.id] || c.offered?.[s.id]) continue;
-    const mate = s.card?.flatMap((b) => [b.a, b.b]).find((id) => id !== c.player && theirLike(c, id) >= SHARE.offerLike && (bondOf(P(), c.player, id)?.f ?? 0) >= SHARE.offerFam);
+    const mate = s.card?.flatMap((b) => boutPeople(b)).find((id) => id !== c.player && theirLike(c, id) >= SHARE.offerLike && (bondOf(P(), c.player, id)?.f ?? 0) >= SHARE.offerFam);
     if (!mate) continue;
     (c.offered ??= {})[s.id] = c.today;
     if (rnd() >= SHARE.offer) continue;

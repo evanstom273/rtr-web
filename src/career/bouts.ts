@@ -77,3 +77,16 @@ export function plannedKey(b: Bout): string | null {
   const i = e.extras.findIndex((x) => x.id === b.planned);
   return i >= 0 ? `s${i + 2}` : null;
 }
+
+/**
+ * Your match from where you stand: "vs Rook", "with Vega vs Okoro & Bekhit", "vs Rook and Okoro", "in a 20-man
+ * Rumble".
+ */
+export function vsLine(b: Bout, me: string, name: (id: string) => string): string {
+  if (!b.sides) return `vs ${name(b.a === me ? b.b : b.a)}`;
+  if (b.type === 'battle_royal' || b.type === 'rumble' || boutPeople(b).length > 8) return `in ${boutLabel(b, name)}`;
+  const mine = sideOf(b, me) ?? [me];
+  const partners = mine.filter((x) => x !== me);
+  const others = boutSides(b).filter((s) => s !== mine).map((s) => s.map(name).join(' & '));
+  return `${partners.length ? `with ${partners.map(name).join(' & ')} ` : ''}vs ${others.join(' and ')}`;
+}

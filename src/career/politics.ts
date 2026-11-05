@@ -24,6 +24,7 @@ import { registerReplies } from './mail';
 import { phoneOn, sendIn } from './phone';
 import { ANGLES, CHEM, CLIQUE, ENEMY, PAIRING, PULL, ROOM } from './tuning';
 import type { Bout, Career, PlayerMatch, Show } from './types';
+import { boutPeople } from './bouts';
 
 const P = (): People => activeWorld().people!;
 const nameOf = (id: string) => findWrestler(id)?.name ?? P().staff[id]?.name ?? id;
@@ -190,7 +191,7 @@ function backstageTrouble(c: Career, rnd: Rng): void {
   const day = addDays(c.today, -1);
   for (const show of showsOn(c, day)) {
     if (!show.card?.some((b) => b.result)) continue;
-    const here = [...new Set(show.card.flatMap((b) => [b.a, b.b]))];
+    const here = [...new Set(show.card.flatMap((b) => boutPeople(b)))];
     for (let i = 0; i < here.length; i++) for (let j = i + 1; j < here.length; j++) {
       const a = here[i]!, b = here[j]!;
       if (!(hates(a, b) || hates(b, a))) continue;

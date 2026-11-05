@@ -20,6 +20,7 @@ import { affinity, relationOf, relationsList, trust } from './relations';
 import { askChallenge, askableIndieShows, askableShows, bookerName, maybeCaught, myPromo, standingWith } from './requests';
 import type { Show } from './types';
 import { FEATURES } from './tuning';
+import { boutPeople } from './bouts';
 
 // ------------------------------------------------------------------ who and where
 
@@ -367,7 +368,7 @@ const BACKSTAGE: EventDef[] = [
   {
     id: 'help_prepare', cat: 'backstage', weight: 2, cooldown: 30, when: (x) => !FEATURES.phone && colleague(x).length > 0,
     setup: (x) => {
-      const big = Object.values(x.c.shows).filter((s) => !s.done && s.date > x.day && s.card).flatMap((s) => s.card!.filter((b) => b.title || b.feud).flatMap((b) => [b.a, b.b]));
+      const big = Object.values(x.c.shows).filter((s) => !s.done && s.date > x.day && s.card).flatMap((s) => s.card!.filter((b) => b.title || b.feud).flatMap((b) => boutPeople(b)));
       const w = pick(x.rnd, colleague(x).filter((y) => big.includes(y.id))) ?? pick(x.rnd, colleague(x));
       return w ? { who: w.id } : null;
     },

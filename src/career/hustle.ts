@@ -15,6 +15,7 @@ import { patienceOf } from './patience';
 import { CITIES, REGION_LABEL, REGION_OF, regionOfCountry } from './places';
 import { CONTENT, CONVENTION, COACHING, FEATURES, FUND, MEDICAL_PER_DAY, MERCH_ONLINE, MERCH_TABLE, OWN_SHOW, SHOW_WORK, SPONSOR } from './tuning';
 import type { Bout, Career, PhaseName, PlayerMatch, PopRegion, Show } from './types';
+import { boutPeople } from './bouts';
 
 export type GigKind = 'convention' | 'ref' | 'crew' | 'commentary';
 export interface Gig { id: string; kind: GigKind; day: Day; phases: PhaseName[]; country: string; city: string; name: string; show?: string; travel: number }
@@ -349,7 +350,7 @@ export function ownBudget(c: Career, plan: OwnPlan): { draw: number; cap: number
 /** Who you could hire: wrestlers in the region who aren't signed elsewhere (or whose deals let them), by fans. */
 export function hireable(c: Career, country: string, date: Day): Wrestler[] {
   const region = regionOfCountry(country);
-  const busy = new Set(Object.values(c.shows).filter((s) => s.date === date && s.card).flatMap((s) => s.card!.flatMap((b) => [b.a, b.b])));
+  const busy = new Set(Object.values(c.shows).filter((s) => s.date === date && s.card).flatMap((s) => s.card!.flatMap((b) => boutPeople(b))));
   return WRESTLERS.filter((w) => w.id !== c.player && w.promotion === 'TIS' && !busy.has(w.id) && !c.people[w.id]?.injury && !c.people[w.id]?.retired && fansIn(w, region) > 0)
     .sort((a, b) => fansIn(b, region) - fansIn(a, region)).slice(0, 24);
 }
@@ -385,7 +386,7 @@ function settleOwn(c: Career): void {
     if (o.settled || !s || !s.done) continue;
     o.settled = true;
     const rnd = seededRng(hashSeed(c.seed, 'own', s.id));
-    const names = (s.card ?? []).flatMap((b) => [b.a, b.b]).filter((id) => id !== c.player);
+    const names = (s.card ?? []).flatMap((b) => boutPeople(b)).filter((id) => id !== c.player);
     const price = o.price ?? OWN_SHOW.ticket;
     const draw = ownDraw(c, { country: s.country, opp: names[names.length - 1] ?? '', hires: names.slice(0, -1), price }) * (1 - OWN_SHOW.swing + rnd() * 2 * OWN_SHOW.swing);
     const sold = Math.round(Math.min(o.cap, draw));

@@ -11,6 +11,7 @@ import { officeOf, playerRuns, roleIn } from './company';
 import { addDays, daysBetween, weekday, type Day } from './dates';
 import { FEATURES, STORY } from './tuning';
 import type { Career, Feud, Show } from './types';
+import { boutPeople } from './bouts';
 
 export interface Turn { who: string; to: Disposition; day: Day; promo: string; landed?: boolean }
 export interface Alliance { id: string; promo: string; a: string; b: string; since: Day; broke?: Day }
@@ -147,7 +148,7 @@ function scoreShow(c: Career, show: Show): void {
   }
   // Turns: shown on the first show after, they land; not shown, people don't buy it.
   const seen = new Set(segs.flatMap((g) => g.who));
-  const on = new Set(card.flatMap((b) => [b.a, b.b]));
+  const on = new Set(card.flatMap((b) => boutPeople(b)));
   for (const t of turnsOf(c)) {
     if (t.landed !== undefined || t.promo !== show.promo || t.day > show.date || (!seen.has(t.who) && !on.has(t.who))) continue;
     const w = W(t.who);

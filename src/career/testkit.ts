@@ -3,6 +3,7 @@ import { findWrestler, globalScore, TITLES, WRESTLERS } from '../data/rtr';
 import { freshWorld, setWorld } from '../world/world';
 import { applyBout, boutJob, finishDay, myBoutToday, startCareer } from './index';
 import type { SimJob, SimOut } from './sim';
+import { FEATURES } from './tuning';
 import type { Career } from './types';
 
 export type Runner = (jobs: SimJob[]) => Promise<SimOut[]>;
@@ -40,8 +41,9 @@ export function who(player: string): string {
   return (na.length ? na : pool).sort((a, b) => globalScore(b) - globalScore(a) || (a.id < b.id ? -1 : 1))[0]!.id;
 }
 
-/** A fresh world and a career in it. */
+/** A fresh world and a career in it. (MATCHES_ON=1: with the match overhaul on, for the long-run harnesses.) */
 export function begin(player: string, seed = 7, today = '2026-11-03'): Career {
+  if (process.env.MATCHES_ON) (FEATURES as { matches: boolean }).matches = true;
   const w = setWorld(freshWorld(seed));
   const c = startCareer({ player: who(player), today, seed });
   w.career = c;

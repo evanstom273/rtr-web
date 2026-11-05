@@ -70,7 +70,7 @@ export function summarise(from: Day, to: Day, n = 6): Summary {
   const shows = H.shows.filter((s) => s.date >= from && s.date < to);
   const flagship = [...PROMOTIONS.filter((p) => !p.indie && !p.closed).map((p) => p.titles[0]!), PROMOTIONS.find((p) => p.indie)?.titles[0]].filter((x): x is string => !!x);
   const champions = flagship.map((id) => TITLES.find((t) => t.id === id)!).filter(Boolean).map((t) => ({ title: t.name, holder: t.holder ? findWrestler(t.holder)?.name ?? '—' : 'Vacant', promo: PROMOTIONS.find((p) => p.titles.includes(t.id))?.initials ?? '' }));
-  const bouts = shows.flatMap((s) => s.bouts.map((b) => ({ a: b.an, b: b.bn, stars: b.stars, show: `${s.name}, ${year(s.date)}` })));
+  const bouts = shows.flatMap((s) => s.bouts.filter((b) => !b.sides).map((b) => ({ a: b.an, b: b.bn, stars: b.stars, show: `${s.name}, ${year(s.date)}` })));
   const moveEv = ev.filter((e) => e.kind === 'signed' || e.kind === 'poached');
   const shippedDebuts = ev.filter((e) => e.kind === 'debut' && !e.who.startsWith('rookie_') && !e.who.startsWith('ind_') && !e.who.startsWith('hist_'));
   const debutIds = new Set(ev.filter((e) => e.kind === 'debut').map((e) => e.who));

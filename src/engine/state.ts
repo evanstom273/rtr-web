@@ -130,12 +130,23 @@ export function createState(rnd: Rng, you: Wrestler, them: Wrestler, rules: Matc
   // A booked winner's whole team gets the booker's nudge (a tag match: either partner can take the fall).
   const bk = rules.booked && sides[rules.booked.side];
   if (bk && order.length > 2) for (const k of order) if (k !== bk.key && sides[k]!.team === bk.team) { sides[k]!.booked = bk.booked; if (bk.cheat) sides[k]!.cheat = true; }
-  // Everyone starts going after the nearest side on another team, from their own corner.
-  for (const k of order) {
+  // Everyone starts going after the nearest side on another team, from their own corner. In a crowd (not a
+  // tag match, where it's legal man against legal man) that's the next one round the ring, so the whole field
+  // doesn't open on the first side.
+  const spread = order.length > 2 && !rules.tag;
+  order.forEach((k, i) => {
     const me = sides[k]!;
-    me.target = order.find((o) => sides[o]!.team !== me.team) ?? me.target;
+    const ring = spread ? [...order.slice(i + 1), ...order.slice(0, i)] : order;
+    me.target = ring.find((o) => sides[o]!.team !== me.team) ?? me.target;
+  });
+  // Corners: four of them, so in a free-for-all some share — and whoever shares one gets jumped first. Who
+  // that is is the luck of the draw, not the running order. (Teams keep their own corners.)
+  if (order.length > 2) {
+    const deal = order.map((_, i) => i);
+    const ffa = !rules.tag && new Set(order.map((k) => sides[k]!.team)).size === order.length;
+    if (ffa && order.length > 4) for (let i = deal.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [deal[i], deal[j]] = [deal[j]!, deal[i]!]; }
+    order.forEach((k, i) => { sides[k]!.spot = deal[i]! % 4; });
   }
-  if (order.length > 2) order.forEach((k, i) => { sides[k]!.spot = i % 4; });
   const zeros = () => perSide(order, () => 0), noes = () => perSide(order, () => false);
   const S: MatchState = {
     id: nextId++,

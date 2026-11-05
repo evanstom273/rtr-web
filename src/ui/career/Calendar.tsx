@@ -8,6 +8,9 @@ import { addDays, dateOf, dayOf, daysInMonth, fmtDay, MONTHS, monthOf, weekday, 
 import { stipulation } from '../../engine';
 import { EventPopup } from './EventCard';
 import { commit, money, Nm, Screen, useToast, useWords } from './parts';
+import { boutKind, vsLine } from '../../career/bouts';
+
+const nameOf = (id: string): string => findWrestler(id)?.name ?? '?';
 
 interface Props {
   c: Career;
@@ -109,8 +112,8 @@ export function Calendar({ c, busy, skipping, onStop, onSkip, note, awayLog, onA
   const status = (s: Show): { text: string; hot: boolean } => {
     const b = s.card?.find((x) => x.a === c.player || x.b === c.player);
     if (b) {
-      const opp = findWrestler(b.a === c.player ? b.b : b.a);
-      return { text: `${w('Your match', 'Your match')}: vs ${opp?.name ?? '?'}${b.title ? ' · title' : ''}`, hot: true };
+      // A crowd's too long for the row: say what kind (the button above says who).
+      return { text: `${w('Your match', 'Your match')}: ${b.sides ? (boutKind(b) ?? 'match').toLowerCase() : vsLine(b, c.player, nameOf)}${b.title ? ' · title' : ''}`, hot: true };
     }
     if (c.indie[s.id]) return { text: 'You’re booked (card not drawn up yet)', hot: true };
     if (c.tryouts[s.id]) return { text: 'Your tryout (card not drawn up yet)', hot: true };
@@ -166,7 +169,7 @@ export function Calendar({ c, busy, skipping, onStop, onSkip, note, awayLog, onA
         <button className="c-adv" onClick={toShow ? onShowDay : onAdvance} disabled={busy !== null}>
           <span>
             <b>{toShow ? w('To the show', 'To the show') : days ? (ph === 'am' ? w('On to the evening', 'To PM') : w('On to tomorrow', 'Next day')) : w('Next day', 'Advance day')}</b>
-            <span>{mine ? `${days && !toShow ? `This morning: ${doing} · tonight ` : ''}${mine.show.name} · vs ${findWrestler(mine.bout.a === c.player ? mine.bout.b : mine.bout.a)?.name}`
+            <span>{mine ? `${days && !toShow ? `This morning: ${doing} · tonight ` : ''}${mine.show.name} · ${vsLine(mine.bout, c.player, nameOf)}`
               : `${days ? `This ${ph === 'am' ? 'morning' : 'evening'}: ${doing} · ` : ''}${next ? `Next booking: ${next}` : 'Nothing booked yet'}`}</span>
           </span>
           <i>›</i>
