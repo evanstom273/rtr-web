@@ -3,7 +3,7 @@
 import { TRAIT_FX as FX } from '../career/tuning';
 import { has, heatMult } from './traits';
 import { CHANTS, LINES } from '../data/commentary';
-import { chant, say } from './commentary';
+import { chant, foe, say } from './commentary';
 import type { Ctx } from './ctx';
 import { clamp } from './rng';
 import type { Move, SideKey } from './types';
@@ -84,7 +84,7 @@ export function crowdObserve(ctx: Ctx, e: CrowdEvent): void {
     }
     case 'move_landed': {
       landedBy(ctx, e.k);
-      const mult = heatMult(S[e.k], e.highRisk ? 'high' : 'move');
+      const mult = heatMult(S.sides[e.k]!, e.highRisk ? 'high' : 'move');
       let h = e.move.impact * 0.6;
       if (e.highRisk) {
         h += 6;
@@ -121,18 +121,18 @@ export function crowdObserve(ctx: Ctx, e: CrowdEvent): void {
       heat(ctx, 3);
       break;
     case 'taunt':
-      heat(ctx, (6 + (e.charisma - 50) * 0.25) * heatMult(S[e.k], 'taunt'));
+      heat(ctx, (6 + (e.charisma - 50) * 0.25) * heatMult(S.sides[e.k]!, 'taunt'));
       break;
     case 'taunt_interrupted':
       landedBy(ctx, e.k);
       // Caught posing: a showboat interrupted hands the other side more.
-      heat(ctx, 4 + (has(S[e.k === 'you' ? 'them' : 'you'], 'showboat') ? FX.showboat.interruptedHeat : 0));
+      heat(ctx, 4 + (has(S.sides[foe(S, e.k)]!, 'showboat') ? FX.showboat.interruptedHeat : 0));
       break;
     case 'threshold':
       heat(ctx, e.critical ? 4 : 2);
       break;
     case 'kickout': {
-      const km = heatMult(S[e.k], 'kickout');
+      const km = heatMult(S.sides[e.k]!, 'kickout');
       if (e.count <= 1) heat(ctx, 1);
       else if (e.count === 2) {
         heat(ctx, 8 * km);
@@ -144,7 +144,7 @@ export function crowdObserve(ctx: Ctx, e: CrowdEvent): void {
       if (e.count >= 2) {
         if (e.afterFinisher) {
           c.fk++;
-          c.fkAbsorbed[e.k]++;
+          c.fkAbsorbed[e.k] = (c.fkAbsorbed[e.k] ?? 0) + 1;
           heat(ctx, 20);
           chant(ctx, CHANTS.fightForever);
         } else if (e.afterSignature) heat(ctx, 4);

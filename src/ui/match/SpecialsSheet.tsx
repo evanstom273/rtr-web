@@ -4,7 +4,7 @@ import { Name } from '../common/Name';
 import { buzz } from '../format';
 
 function Special({ engine, s, side, canUse, onUsed }: { engine: MatchEngine; s: SpecialInfo; side: SideKey; canUse: boolean; onUsed: () => void }) {
-  const S = engine.state, me = S[side];
+  const S = engine.state, me = S.sides[side]!;
   const you = side === 'you';
   const status = s.usable ? 'Ready now' : s.ready ? (s.fits ? 'Ready — not from here' : 'Ready — get in position') : s.needs ?? '';
   return (
@@ -53,7 +53,7 @@ export function SpecialsSheet({ engine, initial, onClose }: { engine: MatchEngin
   }, [onClose]);
   const list = engine.specials(side);
   const myTurn = S.pending.kind === 'awaitPlayer' && S.control === 'you';
-  const sv = S.view.sides[side];
+  const sv = S.view.sides[side]!;
   return (
     <div className="wheel-ov" onClick={onClose}>
       <div className="movepanel specials-panel" onClick={(e) => e.stopPropagation()}>
@@ -67,7 +67,7 @@ export function SpecialsSheet({ engine, initial, onClose }: { engine: MatchEngin
         <div className="seg sp-tabs" role="tablist">
           {(['you', 'them'] as const).map((k) => (
             <button key={k} role="tab" aria-selected={side === k} className={side === k ? 'on' : ''} onClick={() => setSide(k)}>
-              <Name w={S[k].w} side={k} />
+              <Name w={S.sides[k]!.w} side={k} />
             </button>
           ))}
         </div>

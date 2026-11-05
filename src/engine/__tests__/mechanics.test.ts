@@ -222,7 +222,7 @@ describe('pin resistance comes from damage, not the clock', () => {
 });
 
 describe('holds: go for the tap or work the hold', () => {
-  const S = (a: ReturnType<typeof side>, d: ReturnType<typeof side>, t = 300) => ({ you: d, them: a, t }) as unknown as MatchState;
+  const S = (a: ReturnType<typeof side>, d: ReturnType<typeof side>, t = 300) => ({ you: d, them: a, sides: { you: d, them: a }, order: ['you', 'them'], player: 'you', t }) as unknown as MatchState;
   const armbar = () => getMove('americana');
 
   it('the AI works the hold on a fresh opponent and goes for the tap once the limb is gone', () => {
@@ -401,7 +401,7 @@ describe('defence, reversals and momentum tiers', () => {
     const { S } = engineWith();
     S.you.state = { position: 'GROUNDED', orientation: 'FACE_UP', area: 'IN_RING', motion: 'STATIONARY' };
     S.them.state = { position: 'STANDING', orientation: 'FRONT', area: 'IN_RING', motion: 'STATIONARY' };
-    expect(autoRecovery(S)).toBe('stand_up');
+    expect(autoRecovery(S, 'you')).toBe('stand_up');
   });
 });
 
@@ -418,6 +418,6 @@ describe('dead ends', () => {
     // And for the player it happens on its own.
     S.you.state = { ...S.them.state };
     S.them.state = { position: 'SEATED', orientation: 'FRONT', area: 'IN_RING', motion: 'STATIONARY' };
-    expect(autoRecovery(S)).toBe('turn_around');
+    expect(autoRecovery(S, 'you')).toBe('turn_around');
   });
 });

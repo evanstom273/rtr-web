@@ -8,13 +8,14 @@ import { BODY_PARTS } from './types';
 export const MAX_FINISHER_STOCK = 3;
 export const STAMINA_POOL_MULTIPLIER = 2.5;
 
-export function createSide(w: Wrestler, key: SideKey): Side {
+/** A side: in singles, 'you' (team 0) against 'them' (team 1), each going after the other. */
+export function createSide(w: Wrestler, key: SideKey, team = key === 'them' ? 1 : 0, target: SideKey = key === 'them' ? 'you' : 'them', controller: Side['controller'] = key === 'you' ? 'player' : 'ai'): Side {
   const regular = w.moves.map(getMove), signatures = w.signatures.map(getMove), finishers = w.finishers.map(getMove);
   const all: Move[] = [];
   for (const m of [...regular, ...signatures, ...finishers]) if (!all.includes(m)) all.push(m);
   const maxStamina = Math.ceil(clamp(w.stats.stamina, 0, 100) * STAMINA_POOL_MULTIPLIER);
   return {
-    key, w, regular, signatures, finishers, all, booked: 0, big: false, form: 0,
+    key, w, team, target, controller, regular, signatures, finishers, all, booked: 0, big: false, form: 0,
     state: { position: 'STANDING', orientation: 'FRONT', area: 'IN_RING', motion: 'STATIONARY' },
     hp: { HEAD: 100, BODY: 100, LEFT_ARM: 100, RIGHT_ARM: 100, LEFT_LEG: 100, RIGHT_LEG: 100 },
     stamina: maxStamina, maxStamina, fatigue: 0, momentum: 0, signatureReady: false, finisherStock: 0, signatureArmed: true, finisherArmed: true,

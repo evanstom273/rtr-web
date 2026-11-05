@@ -192,7 +192,7 @@ export const grade = (v: number): string => (v >= 0.8 ? 'A' : v >= 0.6 ? 'B' : v
 export function report(S: MatchState, rating: Rating): Report | null {
   const R = S.result;
   if (!R) return null;
-  const winner = R.winner ? S[R.winner].w : null, loser = R.loser ? S[R.loser].w : null;
+  const winner = R.winner ? S.sides[R.winner]!.w : null, loser = R.loser ? S.sides[R.loser]!.w : null;
   const how = `${FINISH_LABEL[R.finish] ?? 'Decision'}${R.move ? `, ${R.move.name}` : ''}`;
   const headline = winner && loser ? (HEADLINE[R.finish] ?? ((w: string) => `${w} wins`))(surname(winner), surname(loser)) : R.finish === 'DOUBLE_COUNT_OUT' ? 'Nobody beats the count' : 'No contest';
   return {

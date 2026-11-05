@@ -35,7 +35,7 @@ export function telegraphed(A: Side): boolean {
 
 /** The pieces of the AI's decision, so the player's card and the sim can show or reuse them. */
 export function defenceValues(S: MatchState, spec: DefendSpec): Record<Defence, number> {
-  const D = S[spec.defender];
+  const D = S.sides[spec.defender]!;
   const p = spec.reverseChance / 100;
   // Damage in impact points, worse for specials (a finisher is a pin threat, not just a hit).
   const dmg = spec.impact * (spec.major === 'FINISHER' ? 1.6 : spec.major === 'SIGNATURE' ? 1.2 : 1);

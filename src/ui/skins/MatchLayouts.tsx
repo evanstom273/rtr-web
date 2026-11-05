@@ -26,7 +26,7 @@ const pct = (n: number, d: number) => `${d ? Math.max(0, Math.min(100, (n / d) *
 /** The headline moment, in whatever dress the skin gives `.moment`. */
 function Moment({ S }: { S: MatchState }) {
   const m = moment(S);
-  const who = m.side ? surname(S[m.side].w) : null;
+  const who = m.side ? surname(S.sides[m.side]!.w) : null;
   return (
     <div className={`moment${m.side ? ` by-${m.side}` : ''}`} key={m.id} aria-live="polite">
       <span className="mo-kick">

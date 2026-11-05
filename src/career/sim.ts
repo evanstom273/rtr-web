@@ -1,7 +1,7 @@
 // Every match the world needs, run through the real match engine with both sides on the AI.
 import { applyDatabase, type Database } from '../data/rtr';
 import { runHeadless } from '../engine/sim/runHeadless';
-import type { FinishType, MatchRulesConfig, SideKey, SideStats } from '../engine/types';
+import type { BySide, FinishType, MatchRulesConfig, SideKey, SideStats } from '../engine/types';
 import type { MatchEngine } from '../engine/match';
 
 export interface SimJob {
@@ -22,7 +22,7 @@ export interface SimOut {
   t: number;
   stars: number;
   move?: string;
-  stats: Record<SideKey, StatLine>;
+  stats: BySide<StatLine>;
   /** Your match only (never through the workers): the report card, for the result letter. */
   report?: { label: string; verdict: string; recap: string; grades: { l: string; v: number; n: string }[] };
 }

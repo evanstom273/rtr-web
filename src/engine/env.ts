@@ -35,7 +35,7 @@ export function createHeld(ctx: Ctx, k: SideKey, w: Weapon): EnvObject {
   const S = ctx.S;
   const o: EnvObject = {
     id: S.env.nextId++, weaponId: w.id, durability: clamp(randInt(ctx.rnd, w.minDurability, w.maxDurability), 1, 4),
-    state: 'held', area: S[k].state.area, holder: k, positioned: null, positionedBy: null, climber: null, climbStage: 0,
+    state: 'held', area: S.sides[k]!.state.area, holder: k, positioned: null, positionedBy: null, climber: null, climbStage: 0,
     stackedWith: null,
   };
   S.env.objects.push(o);
@@ -163,7 +163,7 @@ export const BLEED_PENALTY = [0, 1, 3, 6];
 
 /** Roll for a cut (or a worse one) after a weapon or tack spot. */
 export function maybeBleed(ctx: Ctx, victim: SideKey, w: Weapon, impact: number, part: BodyPart, clean = true): void {
-  const D = ctx.S[victim];
+  const D = ctx.S.sides[victim]!;
   if (w.bleed <= 0) return;
   if (!w.bleedAnyTarget && part !== 'HEAD') return;
   if (D.bleeding >= 3) return;
@@ -177,8 +177,8 @@ export function maybeBleed(ctx: Ctx, victim: SideKey, w: Weapon, impact: number,
 
 /** Bleeding wears a wrestler down a little every step of the clock. */
 export function bleedTick(S: MatchState): void {
-  for (const k of ['you', 'them'] as SideKey[]) {
-    const s: Side = S[k];
+  for (const k of S.order) {
+    const s: Side = S.sides[k]!;
     if (s.bleeding) s.fatigue = clamp(s.fatigue + BLEED_FATIGUE[s.bleeding]!, 0, 100);
   }
 }

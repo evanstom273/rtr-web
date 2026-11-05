@@ -4,7 +4,7 @@ import { has } from './traits';
 import { LINES, PART_LABEL } from '../data/commentary';
 import { observePhase } from './clock';
 import type { Ctx } from './ctx';
-import { other, ring, say } from './commentary';
+import { foe, isPlayer, ring, say } from './commentary';
 import { crowdObserve } from './crowd';
 import { afterAction, endFall, render, setControl } from './flow';
 import { submissionContext } from './interaction';
@@ -26,7 +26,7 @@ export const SUBMISSION_SPEED_MULTIPLIER = 1.5;
 export const submissionStart = (D: Side): number => clamp(50 - (pinCondition(D) - 50) * 0.5, 25, 75);
 
 function isTrueSquashContext(ctx: Ctx, k: SideKey): boolean {
-  const A = ctx.S[k], D = ctx.S[other(k)];
+  const A = ctx.S.sides[k]!, D = ctx.S.sides[foe(ctx.S, k)]!;
   const dominant = A.momentum >= 80 && D.momentum <= 20;
   const littleDefence = D.movesLanded <= 1 && D.damageDealt < 20;
   const sustained = A.movesLanded >= 3;
@@ -43,8 +43,8 @@ export const workHoldDamage = (A: Side, move: Move): number =>
  * opponent, or late on. Technicians trust their holds sooner.
  */
 export function aiGoesForTap(S: MatchState, k: SideKey, move: Move, target: TargetResolution): boolean {
-  if (move.finisher || S[k].finishers.includes(move)) return true;
-  const D = S[other(k)], tech = S[k].w.classes.includes('TECHNICIAN'), spec = has(S[k], 'submission_specialist');
+  if (move.finisher || S.sides[k]!.finishers.includes(move)) return true;
+  const D = S.sides[foe(S, k)]!, tech = S.sides[k]!.w.classes.includes('TECHNICIAN'), spec = has(S.sides[k]!, 'submission_specialist');
   const hp = targetHp(D.hp, target), cond = pinCondition(D);
   // A submission specialist reads a hold like a technician (both: a little sooner still).
   const hpAt = spec ? FX.submission_specialist.tapHp + (tech ? 10 : 0) : tech ? 50 : 35;
@@ -59,18 +59,18 @@ export function aiGoesForTap(S: MatchState, k: SideKey, move: Move, target: Targ
  */
 export function holdCanWin(S: MatchState, k: SideKey): boolean {
   if (!S.rules.subs) return false;
-  const a = S[k].state.area, d = S[other(k)].state.area;
+  const a = S.sides[k]!.state.area, d = S.sides[foe(S, k)]!.state.area;
   return (a === 'IN_RING' && d === 'IN_RING') || fcaHoldLegal(S, k);
 }
 
 /** A hold has landed. The player chooses; the AI decides on the spot. */
 export function beginSubmission(ctx: Ctx, k: SideKey, move: Move, target: TargetResolution): void {
-  const S = ctx.S, A = S[k], D = S[other(k)];
+  const S = ctx.S, A = S.sides[k]!, D = S.sides[foe(S, k)]!;
   A.stats.holds++;
   // Holds on the ropes, in the corner or from the apron (Tarantula, rope-hung armbars) can't win:
   // the referee forces the break. They're all damage.
   if (!holdCanWin(S, k)) return workTheHold(ctx, k, move, target, S.rules.subs);
-  if (k === 'you') {
+  if (isPlayer(S, k)) {
     const per = workHoldDamage(A, move);
     S.pending = {
       kind: 'subChoice',
@@ -90,7 +90,7 @@ export function beginSubmission(ctx: Ctx, k: SideKey, move: Move, target: Target
 
 /** Wear the limb down without risking the escape: damage, then let go and keep control. */
 export function workTheHold(ctx: Ctx, k: SideKey, move: Move, target: TargetResolution, ropeBreak = false): void {
-  const S = ctx.S, dk = other(k), A = S[k], D = S[dk];
+  const S = ctx.S, dk = foe(S, k), A = S.sides[k]!, D = S.sides[dk]!;
   const per = workHoldDamage(A, move);
   const before = totalHp(D);
   for (const part of target.parts) {
@@ -111,7 +111,7 @@ export function workTheHold(ctx: Ctx, k: SideKey, move: Move, target: TargetReso
 }
 
 export function startSubmission(ctx: Ctx, k: SideKey, move: Move, target: TargetResolution): void {
-  const S = ctx.S, dk = other(k), A = S[k], D = S[dk];
+  const S = ctx.S, dk = foe(S, k), A = S.sides[k]!, D = S.sides[dk]!;
   if (!holdCanWin(S, k)) {
     setControl(ctx, k);
     afterAction(ctx);
@@ -122,7 +122,7 @@ export function startSubmission(ctx: Ctx, k: SideKey, move: Move, target: Target
   crowdObserve(ctx, { type: 'submission_started', limbPayoff: (A.targetAttackCounts[part] ?? 0) >= 4 });
   ring(ctx, 'submission', k, move.name);
   const sc = submissionContext(A, D, move, S.t, target, isTrueSquashContext(ctx, k));
-  const playerAttacking = k === 'you';
+  const playerAttacking = isPlayer(S, k);
   S.txn = { kind: 'sub', k, move, target, nearTapSaid: false, nearEscapeSaid: false, lastMarker: submissionStart(D) };
   S.pending = {
     kind: 'sub',
@@ -147,7 +147,7 @@ export function startSubmission(ctx: Ctx, k: SideKey, move: Move, target: Target
 export function submissionTick(ctx: Ctx, marker: number): void {
   const S = ctx.S, txn = S.txn, p = S.pending;
   if (!txn || txn.kind !== 'sub' || p.kind !== 'sub') return;
-  const k = txn.k, dk = other(k), A = S[k], D = S[dk];
+  const k = txn.k, dk = foe(S, k), A = S.sides[k]!, D = S.sides[dk]!;
   // An I Quit demand is a battle of wills, not a hold: no damage.
   const dmg = txn.quit ? 0 : 0.5 + (Math.max(0, marker - 50) / 50) * 0.75;
   const before = totalHp(D);
@@ -183,13 +183,13 @@ export function submissionTick(ctx: Ctx, marker: number): void {
 export function resolveSubmission(ctx: Ctx, outcome: SubOutcome): void {
   const S = ctx.S, txn = S.txn;
   if (!txn || txn.kind !== 'sub') return;
-  const k = txn.k, dk = other(k), D = S[dk];
+  const k = txn.k, dk = foe(S, k), D = S.sides[dk]!;
   S.txn = null;
   if (outcome === 'TAP_OUT') {
     if (D.resiliencyAvailable && !D.resiliencyUsed) {
-      if (dk === 'you') {
+      if (isPlayer(S, dk)) {
         S.txn = txn;
-        S.pending = { kind: 'resiliency', id: ++S.seq, threat: 'submission' };
+        S.pending = { kind: 'resiliency', id: ++S.seq, threat: 'submission', k: dk, by: k };
         return;
       }
       if (aiShouldUseResiliency(S, dk, txn.move)) return useResiliency(ctx, dk, 'submission');

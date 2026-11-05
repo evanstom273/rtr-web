@@ -3,7 +3,7 @@ import { COUNT_WORDS, LINES } from '../data/commentary';
 import { bleedTick } from './env';
 import { countsAsOutside, ironManClock } from './stip';
 import type { Ctx } from './ctx';
-import { other, ring, say } from './commentary';
+import { foe, ring, say } from './commentary';
 import { crowdTick } from './crowd';
 import { endFall, endMatch } from './flow';
 import { staminaPercent } from './exhaustion';
@@ -27,7 +27,7 @@ export function advanceClock(ctx: Ctx): void {
   ironManClock(ctx);
   crowdTick(ctx);
   S.heatLine.push(Math.round(S.heat));
-  if (S.control === 'you' || S.control === 'them') S[S.control].stats.controlSteps++;
+  if (S.control && S.sides[S.control]) S.sides[S.control]!.stats.controlSteps++;
 }
 
 function startCount(ctx: Ctx): void {
@@ -96,7 +96,7 @@ export function settleRefereeCount(ctx: Ctx): void {
   }
   const out = outside[0] as SideKey;
   say(ctx, LINES.countOut, { d: out, vars: { n: S.rules.countOutLimit } }, 'bad');
-  endFall(ctx, other(out), 'COUNT_OUT', null);
+  endFall(ctx, foe(S, out), 'COUNT_OUT', null);
 }
 
 /* ---------- AI match phase (MatchDecisionFramework._update_phase, simplified) ---------- */
@@ -106,7 +106,7 @@ export type PhaseEvent = 'reversal' | 'control_swing' | 'kickout' | 'late_kickou
 function finishPressure(ctx: Ctx): number {
   let p = 0;
   for (const k of SIDES) {
-    const s = ctx.S[k];
+    const s = ctx.S.sides[k]!;
     if (s.signatureReady) p += 0.3;
     if (s.finisherStock > 0) p += 0.2 + (s.finisherStock - 1) * 0.05;
     if (s.lastMoveWasFinisher) p += 0.18;
@@ -117,7 +117,7 @@ function finishPressure(ctx: Ctx): number {
 function conditionPressure(ctx: Ctx): number {
   let high = 0;
   for (const k of SIDES) {
-    const s = ctx.S[k];
+    const s = ctx.S.sides[k]!;
     const damage = clamp((600 - totalHp(s)) / 360, 0, 1);
     const exhaustion = clamp((100 - staminaPercent(s) + s.fatigue) / 160, 0, 1);
     high = Math.max(high, damage * 0.65 + exhaustion * 0.35);

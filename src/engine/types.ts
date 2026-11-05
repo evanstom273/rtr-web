@@ -7,8 +7,18 @@ import type {
 
 export type { Area, BodyPart, Motion, Move, MoveType, Orientation, Part, Position, Wrestler };
 
-export type SideKey = 'you' | 'them';
+/**
+ * A wrestler's slot in the match. Singles are 'you' and 'them' (as they always were); more people get 's2', 's3'…
+ * (match overhaul, stage 1). 'you' isn't necessarily the player: `MatchState.player` says who is.
+ */
+export type SideKey = string;
 export const SIDES: readonly SideKey[] = ['you', 'them'];
+/** A per-side record: always has the first two (so singles code reads `.you` and `.them` directly), plus anyone else. */
+export type BySide<T> = { you: T; them: T } & Record<SideKey, T>;
+/** Match types (match overhaul): how many, on what teams, and what wins it. */
+export type MatchType = 'singles' | 'tag' | 'tornado' | 'triple' | 'fourway' | 'multi' | 'handicap' | 'battle_royal' | 'rumble' | 'elim_tag' | 'gauntlet';
+/** Not (or no longer) in the fight: eliminated, waiting on the apron for a tag, waiting to enter, locked in a pod. */
+export type SideOut = 'eliminated' | 'apron' | 'waiting' | 'pod';
 export const BODY_PARTS: readonly BodyPart[] = ['HEAD', 'BODY', 'LEFT_ARM', 'RIGHT_ARM', 'LEFT_LEG', 'RIGHT_LEG'];
 
 /** The four-part match state of one wrestler. */
@@ -137,6 +147,13 @@ export type HP = Record<BodyPart, number>;
 export interface Side {
   key: SideKey;
   w: Wrestler;
+  /** Match overhaul: which team they're on (each side its own in singles and multi-mans), who they're going after, who controls them, and whether they're out of the fight. */
+  team: number;
+  target: SideKey;
+  controller: 'player' | 'ai';
+  out?: SideOut;
+  /** Tag matches: the legal man. */
+  legal?: boolean;
   /** Career: the booker's thumb on the scale (0 almost always). */
   booked: number;
   /** Booker mode: booked to win by cheating (leans on dirty tactics). */
@@ -398,7 +415,7 @@ export type Cont =
   | { to: 'startSub'; k: SideKey; moveId: string; target: TargetResolution }
   | { to: 'startPin'; k: SideKey; embedded: boolean }
   | { to: 'nextFall' }
-  | { to: 'autoRecover'; id: SetupId }
+  | { to: 'autoRecover'; k: SideKey; id: SetupId }
   | { to: 'pinNeutral' }
   | { to: 'final' };
 
@@ -406,7 +423,7 @@ export type Pending =
   | { kind: 'idle' }
   | { kind: 'continue'; delay: number; cont: Cont }
   | { kind: 'awaitPlayer' }
-  | { kind: 'aiThinking' }
+  | { kind: 'aiThinking'; k: SideKey }
   /** Waiting for the player to roll (and decide whether to push). */
   | { kind: 'defend'; spec: DefendSpec }
   | { kind: 'contest'; spec: ContestSpec }
@@ -416,7 +433,7 @@ export type Pending =
   /** AI pinned: the count is pre-rolled; the UI counts it out. kickoutAt null = pinned. */
   | { kind: 'refCount'; id: number; pinner: SideKey; kickoutAt: 1 | 2 | 3 | null }
   | { kind: 'sub'; spec: SubSpec }
-  | { kind: 'resiliency'; id: number; threat: 'pinfall' | 'submission' }
+  | { kind: 'resiliency'; id: number; threat: 'pinfall' | 'submission'; k: SideKey; by: SideKey }
   | { kind: 'pinChoice'; spec: PinChoiceSpec }
   | { kind: 'sigConvert'; spec: SigConvertSpec }
   | { kind: 'subChoice'; spec: SubChoiceSpec }
@@ -544,7 +561,7 @@ export interface MatchView {
   over: boolean;
   phase: string;
   count: number | null;
-  sides: Record<SideKey, SideView>;
+  sides: BySide<SideView>;
   /** Star rating so far (the in-match tracker). */
   live: LiveRating;
 }
@@ -593,8 +610,14 @@ export interface MatchState {
   /** Crowd heat at every clock step: the record's crowd graph. */
   heatLine: number[];
   rules: MatchRulesConfig;
+  /** The first two sides (singles: the whole match). */
   you: Side;
   them: Side;
+  /** Everyone (match overhaul): every side by key, in entry order, and which one the player controls right now (none: AI vs AI). */
+  sides: Record<SideKey, Side>;
+  order: SideKey[];
+  player: SideKey | null;
+  type: MatchType;
   t: number;
   control: Control | null;
   over: boolean;

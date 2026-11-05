@@ -2,7 +2,7 @@
 import { RATING_CURVE, RATING_TITLE_BONUS, RATING_WEIGHTS, TRAIT_FX as FX } from '../career/tuning';
 import { has } from './traits';
 import { PART_LABEL, RATING } from '../data/commentary';
-import { fmtClock, format, other } from './commentary';
+import { fmtClock, format, foe } from './commentary';
 import { clamp } from './rng';
 import type { BodyPart, MatchState, Rating, Side } from './types';
 import { BODY_PARTS } from './types';
@@ -22,7 +22,7 @@ export function topPart(w: Side): { part: BodyPart; n: number } {
 const s = (n: number) => (n === 1 ? '' : 's');
 
 /** Hits *received* on a part = the opponent's attack count on it. */
-const workedOn = (S: MatchState, victim: Side) => topPart(S[other(victim.key)]);
+const workedOn = (S: MatchState, victim: Side) => topPart(S.sides[foe(S, victim.key)]!);
 
 /** The crowd's average and the most-worked body part, for the write-up. */
 function components(S: MatchState) {
@@ -45,7 +45,7 @@ export function matchFeatures(S: MatchState): MatchFeatures {
   const mins = (R?.t ?? S.t) / 60;
   let payoff = c.limbPayoff;
   if (R) {
-    const L = R.loser ? S[R.loser] : null;
+    const L = R.loser ? S.sides[R.loser]! : null;
     const finishPart = R.move ? (R.move.parts.find((p) => p !== 'NONE') as BodyPart | undefined) : undefined;
     const lossWork = L ? workedOn(S, L) : { part: 'BODY' as BodyPart, n: 0 };
     payoff = payoff || (!!L && lossWork.n >= 4 && L.hp[lossWork.part] < 25) || (!!finishPart && finishPart === lossWork.part && lossWork.n >= 4);
@@ -152,7 +152,7 @@ export function rate(S: MatchState): Rating {
   const c = S.crowd, R = S.result;
   if (!R) throw new Error('rate() before the match ended');
   const mins = R.t / 60;
-  const W = R.winner ? S[R.winner] : null;
+  const W = R.winner ? S.sides[R.winner]! : null;
   const f = matchFeatures(S);
   const { avg, limb } = components(S);
   const payoff = f.payoff;
@@ -164,8 +164,8 @@ export function rate(S: MatchState): Rating {
 
   const T = RATING;
   const storyBits = [
-    c.heatSeg ? format(T.story.heatSeg, { x: S[c.heatSeg].w.name }) : T.story.noHeatSeg,
-    c.comeback ? format(T.story.comeback, { x: S[c.comeback].w.name }) : T.story.noComeback,
+    c.heatSeg ? format(T.story.heatSeg, { x: S.sides[c.heatSeg]!.w.name }) : T.story.noHeatSeg,
+    c.comeback ? format(T.story.comeback, { x: S.sides[c.comeback]!.w.name }) : T.story.noComeback,
     limb.n >= 4 ? format(T.story.limb, { part: PART_LABEL[limb.part], n: limb.n, tail: payoff ? T.story.limbPaid : T.story.limbUnpaid }) : T.story.noLimb,
     c.repeats ? format(T.story.repeats, { n: c.repeats, s: c.repeats > 1 ? 's' : '' }) : '',
   ];
@@ -192,10 +192,10 @@ export function rate(S: MatchState): Rating {
 
   const rec: string[] = [format(T.recap.intro, { event: S.event, venue: S.venue }) + (S.rules.title && S.titleName ? format(T.recap.title, { title: S.titleName }) : '')];
   if (c.heatSeg) {
-    const dom = S[c.heatSeg], vic = S[other(c.heatSeg)], lp = workedOn(S, vic);
+    const dom = S.sides[c.heatSeg]!, vic = S.sides[foe(S, c.heatSeg)]!, lp = workedOn(S, vic);
     rec.push(format(T.recap.heatSeg, { dom: dom.w.name, tail: lp.n >= 4 ? format(T.recap.heatSegLimb, { vic: vic.w.name, part: PART_LABEL[lp.part] }) : '' }));
   }
-  if (c.comeback) rec.push(format(T.recap.comeback, { x: S[c.comeback].w.name, tail: '' }));
+  if (c.comeback) rec.push(format(T.recap.comeback, { x: S.sides[c.comeback]!.w.name, tail: '' }));
   if (c.nf) rec.push(format(T.recap.nf, { n: c.nf, s: s(c.nf), tail: c.fk ? format(T.recap.nfFk, { fk: c.fk }) : '' }));
   if (c.finRev) rec.push(format(T.recap.finRev, { n: c.finRev, s: c.finRev > 1 ? 's' : '' }));
   if (W) {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
-import type { MatchEngine, SideKey } from '../../engine';
+import type { BySide, MatchEngine } from '../../engine';
 import { buzz, nameTone, reduceMotion } from '../format';
 import { Dock } from '../match/Dock';
 import { Log } from '../match/Log';
@@ -54,7 +54,7 @@ export function Match({ engine, onOver }: { engine: MatchEngine; onOver: () => v
   const pulse = useRef(0);
   const seenEvent = useRef(0);
   const lastHp = useRef(hpTotal(v.sides.you.hp) + hpTotal(v.sides.them.hp));
-  const tones: Record<SideKey, string> = { you: nameTone(S.you.w), them: nameTone(S.them.w) };
+  const tones: BySide<string> = { you: nameTone(S.you.w), them: nameTone(S.them.w) };
 
   // Engine events: big-word flashes, crowd pulses. Hits shake the screen (and the phone) by how much
   // they took off: a jab nudges it, a piledriver rattles it.

@@ -136,7 +136,7 @@ export function App() {
     if (!R || !r) return;
     if (!saved.current.has(S.id)) {
       saved.current.add(S.id);
-      const how = R.winner ? `${S[R.winner].w.name} won, ${fmtClock(R.t)}` : `No contest, ${fmtClock(R.t)}`;
+      const how = R.winner ? `${S.sides[R.winner]!.w.name} won, ${fmtClock(R.t)}` : `No contest, ${fmtClock(R.t)}`;
       setHits(addHit({ stars: r.stars, you: S.you.w.name, them: S.them.w.name, how, venue: S.venue }));
       const rec = buildRecord(S);
       if (rec) void saveRecord(rec).then(reload);

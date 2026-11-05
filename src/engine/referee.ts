@@ -5,7 +5,7 @@ import { TRAIT_FX as FX } from '../career/tuning';
 import { has } from './traits';
 import { LINES } from '../data/commentary';
 import type { Ctx } from './ctx';
-import { flash, other, say } from './commentary';
+import { flash, foe, say } from './commentary';
 import { clamp } from './rng';
 import type { Area, BodyPart, SetupId, SideKey } from './types';
 
@@ -47,7 +47,7 @@ export function detectionChance(ctx: Ctx, base: number, area: Area): number {
 
 /** Does the referee see it? A Dirty Fighter (the offender) gets away with more. */
 export const refSees = (ctx: Ctx, base: number, area: Area, offender?: SideKey): boolean =>
-  ctx.rnd() < detectionChance(ctx, base, area) * (offender && has(ctx.S[offender], 'dirty_fighter') ? FX.dirty_fighter.seen : 1);
+  ctx.rnd() < detectionChance(ctx, base, area) * (offender && has(ctx.S.sides[offender]!, 'dirty_fighter') ? FX.dirty_fighter.seen : 1);
 
 /** After every action: the referee follows the fight and gets their attention back. */
 export function refereeAfterAction(ctx: Ctx): void {
@@ -68,7 +68,7 @@ export function refereeAfterAction(ctx: Ctx): void {
 export function disqualify(ctx: Ctx, offender: SideKey, why: string): void {
   say(ctx, LINES.dq, { a: offender, vars: { x: why } }, 'bad');
   flash(ctx, 'Disqualified', true);
-  ctx.S.obj.decision ??= { winner: other(offender), finish: 'DISQUALIFICATION', move: null };
+  ctx.S.obj.decision ??= { winner: foe(ctx.S, offender), finish: 'DISQUALIFICATION', move: null };
 }
 
 /** A spotted infraction worth `points`. Four is a DQ where there are DQs. */
@@ -79,9 +79,10 @@ export function warn(ctx: Ctx, k: SideKey, points: number, what: string): void {
     return;
   }
   if (points <= 0) return;
-  S.ref.warnings[k] += points;
-  if (S.ref.warnings[k] >= WARNING_LIMIT) return disqualify(ctx, k, what);
-  say(ctx, LINES.refWarning, { a: k, vars: { x: what, n: S.ref.warnings[k], max: WARNING_LIMIT } }, 'warn');
+  const n = (S.ref.warnings[k] ?? 0) + points;
+  S.ref.warnings[k] = n;
+  if (n >= WARNING_LIMIT) return disqualify(ctx, k, what);
+  say(ctx, LINES.refWarning, { a: k, vars: { x: what, n, max: WARNING_LIMIT } }, 'warn');
 }
 
 /* ---------- rule-breaking catalogue ---------- */
