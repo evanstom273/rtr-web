@@ -22,6 +22,7 @@ import {
   BOND_KIND, ROMANCE, ROOM, BOND_LOG, GOALS, MOOD, MOOD_FX, SOCIAL_DRIFT, SOCIAL_ENCOUNTER, SOCIAL_MATCH, SOCIAL_NEWS_MAX, SOCIAL_PRUNE, SOCIAL_READ, SOCIAL_SEEK, SOCIAL_SPILL,
 } from './tuning';
 import type { Bout, Career, Show } from './types';
+import { boutPeople } from './bouts';
 
 const people = (): People => (activeWorld().people ??= freshPeople());
 /** Not really in the world: retired, or a placeholder (Nobody, while history runs). */
@@ -95,7 +96,7 @@ function backstage(c: Career, rnd: Rng): void {
   const P = people();
   for (const show of showsOn(c, day)) {
     if (!show.card?.some((b) => b.result)) continue;
-    const here = [...new Set(show.card.flatMap((b) => [b.a, b.b]))].filter((id) => !!findWrestler(id) && !gone(c, id));
+    const here = [...new Set(show.card.flatMap((b) => boutPeople(b)))].filter((id) => !!findWrestler(id) && !gone(c, id));
     if (here.length < 2) continue;
     const where = show.name;
     for (const x of here) {

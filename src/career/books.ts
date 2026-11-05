@@ -17,6 +17,7 @@ import { registerReplies } from './mail';
 import { regionOfCountry } from './places';
 import { BIZ, FEATURES, SHOW_MULT, STAFF, WAR } from './tuning';
 import type { Career, Show } from './types';
+import { boutPeople } from './bouts';
 
 export const IN_LINES = ['gate', 'merch', 'ppv', 'tv', 'sponsors', 'invest', 'loan'] as const;
 export const OUT_LINES = ['wages', 'fees', 'venue', 'production', 'travel', 'insurance', 'staff', 'salary', 'drawings', 'repay'] as const;
@@ -58,7 +59,7 @@ export function venueFor(co: Company, draw: number): { name: string; cap: number
 }
 
 /** Who was on the show: the card and the segments. */
-const onShow = (show: Show): string[] => [...new Set([...(show.card ?? []).flatMap((b) => [b.a, b.b]), ...(show.segments ?? []).flatMap((g) => g.who)])];
+const onShow = (show: Show): string[] => [...new Set([...(show.card ?? []).flatMap((b) => boutPeople(b)), ...(show.segments ?? []).flatMap((g) => g.who)])];
 
 /** The night's books: the gate, merch, TV and pay-per-view in; wages, fees, venue, production and travel out. */
 export function settleShow(c: Career, show: Show): void {

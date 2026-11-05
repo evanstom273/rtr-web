@@ -8,6 +8,7 @@ import { daysBetween, fmtDay } from '../../career/dates';
 import { REGION_LABEL } from '../../career/places';
 import type { PopRegion } from '../../career/types';
 import { Head, money, Nm, Screen, useWords } from './parts';
+import { vsLine } from '../../career/bouts';
 
 export type ProfileLink = 'contract' | 'history' | 'finances' | 'stats' | 'reputation' | 'relationships' | 'achievements' | 'week' | 'social';
 interface Props { c: Career; onBack: () => void; onOpen: (s: ProfileLink) => void; onShowDay: () => void; onHub: () => void }
@@ -52,7 +53,7 @@ export function Profile({ c, onBack, onOpen, onShowDay, onHub }: Props) {
         {tonight && (
           <button className="c-ans on" style={{ marginTop: 8 }} onClick={onShowDay}>
             <span className="c-rowsb"><span className="c-lab">{w('Tonight')}</span><span className="c-hint">{tonight.show.name} · {tonight.show.city}</span></span>
-            <span className="c-vs">vs <Nm w={opp} /></span>
+            {tonight?.bout.sides ? <span className="c-vs">{vsLine(tonight.bout, c.player, (id) => findWrestler(id)?.name ?? '?')}</span> : <span className="c-vs">vs <Nm w={opp} /></span>}
           </button>
         )}
         <div className="c-start" style={{ marginTop: 8 }}>

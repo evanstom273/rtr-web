@@ -21,6 +21,9 @@ import {
 } from './tuning';
 import type { Bout, Career, Letter, MailReply, MatchReport, PlayerMatch, Show } from './types';
 import { FAN_POSTS, fanHandle, fill, line, TIPS, voiceOf } from './voice';
+import { archivedLabel, archivedName, archivedPeople, archivedSideOf, archivedWinner, archivedWon, type ArchivedBout } from '../world/history';
+/** The winning side's lead (or the first lead, for a draw). */
+const archivedLead = (b: ArchivedBout): string => { const i = archivedWon(b); return i < 0 ? b.a : b.sides?.[i]?.[0] ?? (i === 1 ? b.b : b.a); };
 
 const P = () => activeWorld().people;
 /** How the other one in a bond with you feels about you. */
@@ -291,8 +294,8 @@ function digest(c: Career): void {
   ]);
   const bouts = shows.flatMap((s) => s.bouts.map((b) => ({ s, b }))).sort((x, y) => y.b.stars - x.b.stars);
   const motw = bouts[0];
-  if (motw) add('Match of the week', [`${motw.b.an} vs ${motw.b.bn} · ${stars(motw.b.stars)} · ${motw.s.name}, ${motw.s.city}`]);
-  add('Best matches', bouts.slice(1, 6).filter((x) => x.b.stars >= 4).map((x) => `${x.b.an} vs ${x.b.bn} · ${stars(x.b.stars)} · ${x.s.promo === 'TIS' ? 'indie' : x.s.promo}`));
+  if (motw) add('Match of the week', [`${archivedLabel(motw.b)} · ${stars(motw.b.stars)} · ${motw.s.name}, ${motw.s.city}`]);
+  add('Best matches', bouts.slice(1, 6).filter((x) => x.b.stars >= 4).map((x) => `${archivedLabel(x.b)} · ${stars(x.b.stars)} · ${x.s.promo === 'TIS' ? 'indie' : x.s.promo}`));
   add('Title changes', ev.filter((e) => e.kind === 'title').map((e) => `${e.name} won the ${TITLES.find((t) => t.id === e.title)?.name ?? 'title'} at ${e.show}`));
   add('Moves', ev.filter((e) => e.kind === 'signed' || e.kind === 'poached' || e.kind === 'released' || e.kind === 'expired').map((e) =>
     e.kind === 'released' ? `${e.name} released by ${e.promo}` : e.kind === 'expired' ? `${e.name}’s ${e.promo} deal ran out` : `${e.name} signed with ${e.promo}${e.from ? ` from ${e.from}` : ''}`));
@@ -306,9 +309,9 @@ function digest(c: Career): void {
   add('Headlines', box.filter((x) => x.kind !== 'injury' && !covered.test(x.subject)).map((x) => x.subject));
   // Power rankings: the last 30 days, wins and stars.
   const score = new Map<string, { n: string; s: number; w: number; best: number }>();
-  for (const s of H.shows.filter((x) => x.date >= addDays(c.today, -30))) for (const b of s.bouts) for (const side of ['a', 'b'] as const) {
-    const id = b[side], won = b.w === side;
-    const x = score.get(id) ?? { n: side === 'a' ? b.an : b.bn, s: 0, w: 0, best: 0 };
+  for (const s of H.shows.filter((x) => x.date >= addDays(c.today, -30))) for (const b of s.bouts) for (const id of archivedPeople(b)) {
+    const won = archivedWon(b) >= 0 && archivedWon(b) === archivedSideOf(b, id);
+    const x = score.get(id) ?? { n: archivedName(b, id), s: 0, w: 0, best: 0 };
     x.s += b.stars + (won ? 2 : 0); x.w += won ? 1 : 0; x.best = Math.max(x.best, b.stars);
     score.set(id, x);
   }
@@ -317,10 +320,10 @@ function digest(c: Career): void {
   c.mailBox = [];
   const champ = ev.find((e) => e.kind === 'title' && e.who !== c.player);
   const d = letter(c, {
-    kind: 'digest', from: 'The Weekly', subject: `The week to ${fmtDay(addDays(c.today, -1), 'dm')}`, body: [motw ? `Match of the week: ${motw.b.an} vs ${motw.b.bn}, ${stars(motw.b.stars)}.` : 'A quiet week.'], sections,
-    ctx: { ...(motw ? { motw: motw.b.w === 'b' ? motw.b.b : motw.b.a } : {}), ...(champ ? { champ: champ.who } : {}) },
+    kind: 'digest', from: 'The Weekly', subject: `The week to ${fmtDay(addDays(c.today, -1), 'dm')}`, body: [motw ? `Match of the week: ${archivedLabel(motw.b)}, ${stars(motw.b.stars)}.` : 'A quiet week.'], sections,
+    ctx: { ...(motw ? { motw: archivedLead(motw.b) } : {}), ...(champ ? { champ: champ.who } : {}) },
     replies: [
-      ...(motw && motw.b.a !== c.player && motw.b.b !== c.player ? [{ id: 'congrats', label: `Congratulate ${motw.b.w === 'b' ? motw.b.bn : motw.b.an}`, detail: 'Public · a few fans · team player' }] : []),
+      ...(motw && !archivedPeople(motw.b).includes(c.player) ? [{ id: 'congrats', label: `Congratulate ${archivedWinner(motw.b) ?? motw.b.an}`, detail: 'Public · a few fans · team player' }] : []),
       ...(champ ? [{ id: 'shot', label: `Take a shot at ${champ.name}`, detail: 'Public · makes a rival · can backfire' }] : []),
     ],
   });

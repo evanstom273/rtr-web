@@ -20,6 +20,7 @@ import { simOne } from './sim';
 import { BOND_LOG, FEATURES, PLANNED_RETRIES, SEGMENT, SELF_BOOK, SHOW_RATE, STAFF, STORY } from './tuning';
 import { staffQ } from './morale';
 import type { BookedFinish, Bout, Career, SegKind, Segment, Show, ShowRating } from './types';
+import { archivedPeople } from '../world/history';
 
 export const FINISH_LABEL: Record<BookedFinish, string> = { clean: 'Clean', cheat: 'Cheats to win', dq: 'Disqualification', countout: 'Count-out', nocontest: 'No contest' };
 export const SEG_LABEL: Record<SegKind, string> = { promo: 'Promo', runin: 'Run-in', beatdown: 'Beat-down', signing: 'Contract signing', debut: 'Debut', celebration: 'Celebration', interview: 'Interview', betrayal: 'Betrayal' };
@@ -155,7 +156,7 @@ function staffSegments(c: Career, show: Show): void {
   const champ = final.slice(0, -1).find((b) => b.title);
   if (champ) segs.push({ kind: 'interview', who: [champ.planned ?? champ.a], after: final.indexOf(champ) });
   if (writer > 0) {
-    const on = new Set(final.flatMap((b) => [b.a, b.b]));
+    const on = new Set(final.flatMap((b) => boutPeople(b)));
     const busy = new Set<string>();
     for (const f of c.feuds.filter((x) => x.promo === show.promo && x.by === 'player' && !x.done).sort((a, b) => (b.heat ?? 0) - (a.heat ?? 0)).slice(0, Math.round(writer * STAFF.writerSegs))) {
       if (on.has(f.a) && on.has(f.b)) continue;
@@ -217,7 +218,7 @@ export function rateSegment(c: Career, show: Show, g: Segment): { score: number;
   // A celebration with nothing to celebrate, a run-in with nothing to run in on, a "debut" from someone who's been here before.
   if (g.kind === 'celebration' && !TITLES.some((t) => t.holder === ws[0]!.id)) s -= 0.9;
   if (g.kind === 'runin' && g.after < 0) s -= 0.6;
-  if (g.kind === 'debut' && activeWorld().history.shows.some((x) => x.promo === show.promo && x.bouts.some((b) => b.a === ws[0]!.id || b.b === ws[0]!.id))) s -= 0.9;
+  if (g.kind === 'debut' && activeWorld().history.shows.some((x) => x.promo === show.promo && x.bouts.some((b) => archivedPeople(b).includes(ws[0]!.id)))) s -= 0.9;
   s += (rnd() * 2 - 1) * SEGMENT.luck;
   const score = r2(clamp(s, 0, 5));
   const note = score >= 4 ? 'The building came unglued.' : score >= 3.25 ? 'Went down a storm.' : score >= 2.5 ? 'Did its job.' : score >= 1.5 ? 'The crowd went for a drink.' : 'Died on its arse.';

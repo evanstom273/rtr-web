@@ -364,9 +364,55 @@ trios and hardcore titles, and run tag-team cups (entrants are teams; each round
 team) — they say yes by how much they like you (from 20% at 25 like up to 90% at 60); a yes makes a real
 team and the bookers start pairing you. "Split the team" ends it (and a team title goes with it).
 
-**Known for stage 10.** Tag matches have a fat short tail (2–5 minute submissions, the odd quick DQ):
-SLN's trios came out at a 2★ median over two months of career with the real engine, against 3★ for its
-singles. The ratings refit is stage 10's.
+**Looked at in stage 10.** SLN's trios came out at a 2★ median over two months of career with the real
+engine, against 3★ for its singles. The tag rows of the harness are healthy (3 and 3.25★, and their short
+tail is no fatter than singles': a tenth of tag matches are under 6–8 minutes, as singles are under 7), so
+it was SLN having only two trios teams meeting over and over — it now starts with four.
+
+## Stage 10: validation
+
+**Nobody's place in the running order decides a crowd.** With the AI on every side, the first side won a
+six-way elimination 2 times in 60 (10 is fair). Three causes, all fixed (singles and tag untouched):
+
+- everyone opened on the first opponent in the running order — side 0. In a crowd they now open on the next
+  one round the ring;
+- after every elimination, whoever lost their target turned to the nearest, ties going to the first in the
+  running order — side 0 again, and in the ring nearly everyone's equally near. Ties now go round the ring
+  from each wrestler (`nearestFirst`);
+- six or more in four corners means some share, and corner-sharers get jumped first; in a free-for-all who
+  shares is now the luck of the draw, not the running order (teams keep their own corners).
+
+Over 200 matches each (opt-in check, `MATCHES=1 … fairness.test.ts`, asserting every place wins at least
+60% of its share): four-way 46/47/52/55, four-way elimination 48/44/52/56, six-way elimination
+26/32/41/38/25/38 (33 is fair; within chance).
+
+**The history keeps everyone.** An archived match with more than two people keeps every side, their names at
+the time, which side won, the kind of match and how it reads; a wrestler's match history, the power rankings,
+the match of the week, promotion guest lists and the Records card all read it. Everything else that counts
+who's on a card (fees and the books, who's busy that night, fatigue, politics and social life, the staff's
+segments) now counts everyone in a bout, not just the two leads.
+
+**Stars.** No refit needed: every type's median is 2.75–3.25★ (the full table is the harness's, below).
+
+**Long runs with the flag on** (`MATCHES_ON=1` on any of the long-run harnesses):
+
+| | Flag off | Flag on |
+|---|---|---|
+| World save after a year / two (LONG, seed 7) | 4.1 MB / 5.3 MB | 4.4 MB / 5.8 MB |
+| A day, instant results (median / p95) | 12.9 / 27.6 ms | 14.6 / 27.7 ms |
+| A day with the real engine (sim time, median / p95, 30 days) | 961–1114 / 2029–2055 ms | 1157–1166 / 2134–2412 ms |
+| A match with the real engine (median / p95) | 55 / ~100 ms | 58–60 / 115 ms |
+
+Booker mode (two years), contracts (two years, two seeds) and social life all run clean with the flag on:
+rosters stay at 40, no titles held off-roster, the player's company grows as before, bonds and wellbeing
+within run-to-run noise of the flag off.
+
+**Browser checks** (`?matches=1`, all three skins, no console errors): a career night with a tag match —
+the calendar ("with Harlan Wren vs Jesse Rowe & Marcus Webb"), the show day (every team, the tag title on
+the card, your match's line), the tale of the tape, the match itself (you in, partners on the apron, Tag
+to your partner), simming it (both partners win, a tag title changing hands, both champions marked), and
+the night in Records; booker mode's Add a match (tag with team picks, battle royal and Rumble options, a
+triple threat on the card).
 
 ### Harness
 

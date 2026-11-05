@@ -9,6 +9,7 @@ import {
   BRAND_POP_BASE, BRAND_POP_BOUNDS, BRAND_POP_PER_STAR, PROMO_POP_BOUNDS, PROMO_POP_PER_STAR, PROMO_POP_REF, PROMO_POP_STEP,
 } from './tuning';
 import type { Career } from './types';
+import { archivedPeople } from '../world/history';
 
 const clamp = (v: number, [lo, hi]: readonly [number, number]) => Math.max(lo, Math.min(hi, v));
 const step = (now: number, target: number) => Math.round((now + Math.max(-PROMO_POP_STEP, Math.min(PROMO_POP_STEP, target - now))) * 10) / 10;
@@ -28,7 +29,7 @@ function recentStars(day: string): { promo: Map<string, number>; brand: Map<stri
       // Booker mode: a show judged as a whole counts as that, not match by match.
       add(sum.promo, s.promo, s.rating ?? b.stars);
       if (s.brand) add(sum.brand, s.brand, b.stars);
-      if (s.promo !== 'TIS') { const g = guests.get(s.promo) ?? new Set<string>(); g.add(b.a); g.add(b.b); guests.set(s.promo, g); }
+      if (s.promo !== 'TIS') { const g = guests.get(s.promo) ?? new Set<string>(); for (const id of archivedPeople(b)) g.add(id); guests.set(s.promo, g); }
     }
   }
   const avg = (m: Map<string, [number, number]>) => new Map([...m].map(([k, [t, n]]) => [k, t / n]));

@@ -32,7 +32,7 @@ export const shortMoney = (v: number): string => {
 
 export function tone(w: Wrestler | undefined): 'face' | 'heel' | 'champ' {
   if (!w) return 'face';
-  if (TITLES.some((t) => t.holder === w.id)) return 'champ';
+  if (TITLES.some((t) => t.holder === w.id || t.holders?.includes(w.id))) return 'champ';
   return w.disposition === 'HEEL' ? 'heel' : 'face';
 }
 

@@ -17,6 +17,7 @@ import {
 import type { Career, Letter, Show } from './types';
 import { movePatience, showBooker } from './patience';
 import { remember, trust } from './relations';
+import { boutPeople } from './bouts';
 
 /**
  * Can you take an indie date on this day? Free agents always; signed wrestlers by their Exclusivity (Lyra's call:
@@ -59,7 +60,7 @@ export function joinIndie(c: Career, show: Show, fee: number, travel: number): v
   }
   if (!show.card) return;
   const busy = new Set<string>();
-  for (const s of Object.values(c.shows)) if (s.date === show.date) for (const b of s.card ?? []) { busy.add(b.a); busy.add(b.b); }
+  for (const s of Object.values(c.shows)) if (s.date === show.date) for (const b of s.card ?? []) for (const id of boutPeople(b)) busy.add(id);
   const me = findWrestler(c.player)!;
   const opp = WRESTLERS.filter((w) => w.promotion === 'TIS' && w.id !== c.player && !busy.has(w.id) && available(c.people[w.id], show.date))
     .sort((a, b) => Math.abs(regionalPop(a, show.region) - regionalPop(me, show.region)) - Math.abs(regionalPop(b, show.region) - regionalPop(me, show.region)))[0];

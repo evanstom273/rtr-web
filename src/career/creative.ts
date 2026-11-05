@@ -13,6 +13,7 @@ import { patienceOf } from './patience';
 import { record } from './requests';
 import { BOOK_AHEAD_DAYS, CREATIVE, FEUD_WEEKS } from './tuning';
 import type { Ask, Bout, Career, Show } from './types';
+import { boutPeople } from './bouts';
 
 export type CreativeKind = 'win' | 'lose' | 'opponent' | 'position' | 'feud' | 'endFeud' | 'turn';
 export interface CreativeReq { kind: CreativeKind; promo: string; show?: string; opp?: string }
@@ -53,7 +54,7 @@ export function creativeBouts(c: Career): { show: Show; bout: Bout; index: numbe
 const opponentOf = (b: Bout, me: string): string => (b.a === me ? b.b : b.a);
 const busyThatNight = (c: Career, day: Day): Set<string> => {
   const s = new Set<string>();
-  for (const x of Object.values(c.shows)) if (x.date === day) for (const b of x.card ?? []) { s.add(b.a); s.add(b.b); }
+  for (const x of Object.values(c.shows)) if (x.date === day) for (const b of x.card ?? []) for (const id of boutPeople(b)) s.add(id);
   return s;
 };
 

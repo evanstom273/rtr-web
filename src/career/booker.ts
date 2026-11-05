@@ -106,7 +106,7 @@ function capped(c: Career, show: Show, pool: readonly Wrestler[]): Set<string> {
   const n = new Map<string, number>();
   for (const s of Object.values(c.shows)) {
     if (s.id === show.id || !s.card || !s.date.startsWith(m) || !(s.promos ?? [s.promo]).some((p) => promos.includes(p))) continue;
-    for (const b of s.card) for (const id of [b.a, b.b]) if (caps.has(id)) n.set(id, (n.get(id) ?? 0) + 1);
+    for (const b of s.card) for (const id of boutPeople(b)) if (caps.has(id)) n.set(id, (n.get(id) ?? 0) + 1);
   }
   for (const [id, cap] of caps) if ((n.get(id) ?? 0) >= cap) out.add(id);
   return out;
@@ -118,7 +118,7 @@ function farAway(c: Career, show: Show): Set<string> {
   const near = [addDays(show.date, -1), addDays(show.date, 1)];
   for (const s of Object.values(c.shows)) {
     if (!near.includes(s.date) || !s.card || s.region === show.region) continue;
-    for (const b of s.card) { out.add(b.a); out.add(b.b); }
+    for (const b of s.card) for (const id of boutPeople(b)) out.add(id);
   }
   return out;
 }
