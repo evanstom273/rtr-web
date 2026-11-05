@@ -13,6 +13,7 @@ import { clamp } from './rng';
 import { has } from './traits';
 import { damagePart } from './side';
 import { distance, settleSpots } from './zones';
+import { replaceLegal } from './tag';
 import type { Control, FinishType, MatchState, Move, SavePlan, SetupId, Side, SideKey, SubOutcome } from './types';
 
 export const isMulti = (S: MatchState): boolean => S.order.length > 2;
@@ -232,12 +233,16 @@ export function planSave(ctx: Ctx, attacker: SideKey, victim: SideKey, kind: 'pi
   const S = ctx.S;
   if (!isMulti(S)) return null;
   let best = player;
-  for (const c of fighting(S)) {
+  // Tag matches: the victim's partners on the apron can come in to break it up too.
+  const apron = S.rules.tag ? S.order.filter((o) => S.sides[o]!.out === 'apron' && !S.sides[o]!.away && sameTeam(S, o, victim)) : [];
+  // ...and the pinner's partner on the apron is there to cut them off.
+  const guarded = !!S.rules.tag && S.order.some((o) => S.sides[o]!.out === 'apron' && !S.sides[o]!.away && sameTeam(S, o, attacker));
+  for (const c of [...fighting(S), ...apron]) {
     if (c === attacker || c === victim || isPlayer(S, c)) continue;
-    const p = saveMotive(S, c, attacker, victim) * reachChance(S, c, victim);
+    const p = saveMotive(S, c, attacker, victim) * reachChance(S, c, victim) * (guarded ? 0.5 : 1);
     if (p <= 0 || ctx.rnd() >= p) continue;
-    const near = distance(S, c, victim) === 0;
-    const at = kind === 'pin' ? (near && ctx.rnd() < 0.35 ? 1 : 2) : near ? 2 : 4;
+    const d = distance(S, c, victim), near = d === 0;
+    const at = kind === 'pin' ? (near && ctx.rnd() < 0.35 ? 1 : 2) : near ? 2 : d === 1 ? 3 : 4;
     const plan = { by: c, at, steal: ctx.rnd() < stealChance(S, c, victim) };
     if (!best || plan.at < best.at) best = plan;
   }
@@ -289,6 +294,14 @@ export function resolveSave(ctx: Ctx, attacker: SideKey, victim: SideKey, plan: 
   say(ctx, kind === 'pin' ? (plan.at >= 2 ? LINES.multiSaveTwo : LINES.multiSave) : LINES.multiSaveHold, { a: plan.by, d: attacker, vars: { x: S.sides[victim]!.w.name } }, 'hl');
   flash(ctx, 'Broken up!', true);
   ring(ctx, 'move_landed', plan.by, 'Save');
+  if (C.out === 'apron') {
+    // The partner off the apron: the referee sends them back, and it's anyone's.
+    say(ctx, LINES.tagSaveBack, { a: plan.by }, 'dim');
+    render(ctx);
+    setControl(ctx, 'neutral');
+    afterAction(ctx);
+    return;
+  }
   C.target = attacker;
   render(ctx);
   setControl(ctx, plan.by);
@@ -355,6 +368,9 @@ export function eliminate(ctx: Ctx, k: SideKey, by: SideKey | null, finish: Fini
     const winner = by && alive(S).includes(by) ? by : alive(S)[0] ?? null;
     return endMatch(ctx, winner, finish, move, k);
   }
+  // Elimination tag: their partner comes in.
+  const next = replaceLegal(S, k);
+  if (next) say(ctx, LINES.tagIn, { a: next }, 'dim');
   retargetAll(S);
   ring(ctx, 'control', null);
   render(ctx);

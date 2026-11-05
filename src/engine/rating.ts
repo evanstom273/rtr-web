@@ -168,7 +168,7 @@ export function rate(S: MatchState): Rating {
   // More than two people: judged on its own terms (see RATING_TYPE).
   if (S.order.length > 2) {
     const adj = RATING_TYPE[S.type] ?? RATING_TYPE.multi!;
-    raw = Math.max(0.25, raw + (S.rules.elimination ? adj.elim : adj.fall));
+    raw = Math.max(0.25, raw + (S.rules.elimination ? adj.elim : adj.fall) + (adj.extra ?? 0) * Math.max(0, S.order.length - 4));
   }
   const stars = quarter(raw);
 

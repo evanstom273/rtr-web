@@ -1,0 +1,133 @@
+import { describe, expect, it } from 'vitest';
+import { WRESTLERS } from '../../data/rtr';
+import { MatchEngine } from '../match';
+import { runHeadless } from '../sim/runHeadless';
+import { seededRng } from '../rng';
+import { fighting } from '../commentary';
+import { canTag, cornerDistance, makeTag, partnerFor } from '../tag';
+import type { Ctx } from '../ctx';
+
+const pick = (seed: number, n: number) => {
+  const rnd = seededRng(seed), out: string[] = [];
+  while (out.length < n) { const w = WRESTLERS[Math.floor(rnd() * WRESTLERS.length)]!; if (!out.includes(w.id)) out.push(w.id); }
+  return out;
+};
+const tagMatch = (seed: number, teams = [0, 1, 0, 1], rules: Record<string, unknown> = {}) => {
+  const ids = pick(seed, teams.length);
+  return new MatchEngine({ you: ids[0]!, them: ids[1]!, extras: ids.slice(2).map((id, i) => ({ id, team: teams[i + 2]! })), seed, rules: { tag: true, ...rules } });
+};
+const runTag = (seed: number, teams = [0, 1, 0, 1], rules: Record<string, unknown> = {}, onStep?: Parameters<typeof runHeadless>[0]['onStep']) => {
+  const ids = pick(seed, teams.length);
+  return runHeadless({ seed, you: ids[0]!, them: ids[1]!, extras: ids.slice(2).map((id, i) => ({ id, team: teams[i + 2]! })), model: { kind: 'fixed', rate: 0.5 }, rules: { tag: true, ...rules }, onStep });
+};
+const ctxOf = (e: MatchEngine) => (e as unknown as { ctx: Ctx }).ctx;
+
+describe('tag rules', () => {
+  it('one legal man a team; partners wait on the apron in their own corner', () => {
+    const S = tagMatch(1).state;
+    expect(S.type).toBe('tag');
+    expect(S.order.filter((k) => S.sides[k]!.legal)).toEqual(['you', 'them']);
+    expect(S.sides.s2!.out).toBe('apron');
+    expect(S.sides.s2!.state.area).toBe('APRON');
+    expect(fighting(S)).toEqual(['you', 'them']);
+    expect(S.you.target).toBe('them');
+    expect(S.sides.s3!.target).toBe('you');
+    // Count-outs and DQs stay on (unlike a one-fall multi-man).
+    expect(S.rules.countOuts).toBe(true);
+    expect(S.rules.dq).toBe(true);
+  });
+
+  it('a tag swaps the legal man, and the player goes with it', () => {
+    const e = tagMatch(2), S = e.state;
+    S.you.state = { position: 'STANDING', orientation: 'FRONT', area: 'CORNER', motion: 'STATIONARY' };
+    S.you.spot = 0; // team 0's corner (north-east)
+    expect(cornerDistance(S, 'you')).toBe(0);
+    expect(canTag(S, 'you')).toBe(true);
+    makeTag(ctxOf(e), 'you', 's2');
+    expect(S.you.legal).toBe(false);
+    expect(S.you.out).toBe('apron');
+    expect(S.sides.s2!.legal).toBe(true);
+    expect(S.player).toBe('s2');
+    expect(S.sides.s2!.controller).toBe('player');
+    expect(S.them.target).toBe('s2');
+    expect(fighting(S)).toEqual(['them', 's2']);
+  });
+
+  it('a babyface’s tag doesn’t count while the referee is distracted', () => {
+    const e = tagMatch(3), S = e.state;
+    S.you.w = { ...S.you.w, disposition: 'FACE' };
+    S.ref.distracted = 2;
+    makeTag(ctxOf(e), 'you', 's2');
+    expect(S.you.legal).toBe(true);
+    expect(S.sides.s2!.out).toBe('apron');
+  });
+
+  it('nobody to tag when your partner has been knocked off the apron', () => {
+    const S = tagMatch(4).state;
+    S.sides.s2!.away = 2;
+    expect(partnerFor(S, 'you')).toBeNull();
+    expect(canTag(S, 'you')).toBe(false);
+  });
+
+  it('only legal men pin or get pinned', () => {
+    for (let seed = 10; seed < 30; seed++) {
+      let illegal = false;
+      const r = runTag(seed, [0, 1, 0, 1], {}, (e) => {
+        const p = e.pending;
+        const pinner = p.kind === 'refCount' ? p.pinner : p.kind === 'kickout' ? p.spec.pinner : null;
+        if (pinner && (!e.state.sides[pinner]!.legal || !e.state.sides[e.state.sides[pinner]!.target]!.legal)) illegal = true;
+      });
+      expect(r.stuck).toBeNull();
+      expect(illegal).toBe(false);
+      if (r.result!.finish === 'PINFALL' || r.result!.finish === 'SUBMISSION') {
+        expect(r.engine.state.sides[r.result!.loser!]!.legal).toBe(true);
+      }
+    }
+  });
+
+  it('matches have tags, hot tags, cut-offs and double-teams', () => {
+    const c = { tags: 0, hot: 0, cut: 0, dt: 0 };
+    for (let seed = 40; seed < 80; seed++) {
+      const S = runTag(seed, [0, 1, 0, 1, 0, 1]).engine.state;
+      c.tags += S.crowd.tags ?? 0;
+      c.hot += S.crowd.hotTags ?? 0;
+      c.cut += S.crowd.cutOffs ?? 0;
+      c.dt += S.crowd.doubleTeams ?? 0;
+    }
+    expect(c.tags).toBeGreaterThan(80);
+    expect(c.hot).toBeGreaterThan(15);
+    expect(c.cut).toBeGreaterThan(2);
+    expect(c.dt).toBeGreaterThan(10);
+  });
+
+  it('handicap with tag rules: the one on their own never tags', () => {
+    for (let seed = 90; seed < 96; seed++) {
+      let soloTagged = false;
+      const r = runTag(seed, [0, 1, 1], {}, (e) => { if (!e.state.you.legal && !e.state.over) soloTagged = true; });
+      expect(r.stuck).toBeNull();
+      expect(soloTagged).toBe(false);
+    }
+  });
+
+  it('elimination tag: when a legal man goes out, their partner comes in, until a team is gone', () => {
+    for (let seed = 100; seed < 108; seed++) {
+      const r = runTag(seed, [0, 1, 0, 1, 0, 1], { elimination: true });
+      expect(r.stuck).toBeNull();
+      const S = r.engine.state, R = r.result!;
+      const losing = S.order.filter((k) => !R.winners!.includes(k));
+      expect(losing.every((k) => S.sides[k]!.out === 'eliminated')).toBe(true);
+      expect(S.elims.length).toBeGreaterThanOrEqual(3);
+      // Whoever's left standing for the winners was legal at the end.
+      expect(R.winners!.some((k) => S.sides[k]!.legal)).toBe(true);
+    }
+  });
+
+  it('a team finisher: the team named it, and they hit it', () => {
+    let hit = 0;
+    for (let seed = 120; seed < 160 && !hit; seed++) {
+      const r = runTag(seed, [0, 1, 0, 1], { teamFinishers: { 0: 'Total Eclipse', 1: 'Midnight Express Lane' } });
+      if (r.engine.state.log.some((l) => l.segs.some((s) => /TOTAL ECLIPSE|MIDNIGHT EXPRESS LANE/.test(s.v)))) hit++;
+    }
+    expect(hit).toBeGreaterThan(0);
+  });
+});

@@ -113,6 +113,38 @@ heat and more drama by default, so `RATING_TYPE` takes each type down after the 
 
 The drama score also counts saves (up to +0.45), steals and eliminations.
 
+## Stage 3: tag teams (`tag.ts`)
+
+Tag rules (`rules.tag`) give each team one legal man; partners wait on the apron in their team's corner
+(team 0 north-east, team 1 south-west). Only the legal men fight, pin and get pinned, so with two legal
+men the match runs on singles' control rules (no turn queue). **You play whoever's legal on your team**:
+when you tag out, you take over your partner. The same rules power handicaps (the one on their own never
+tags) and elimination tag (a legal man going out brings their partner in). Tornado is the stage 2 core
+with everyone legal. Count-outs and DQs stay on.
+
+- **Tags happen in your corner.** From your own corner it's automatic; from elsewhere in the ring it's a
+  dice contest (`tagContest`): your speed, momentum and desperation (the crowd's behind someone who's been
+  on the wrong end a while; −2 for crawling) against the cut-off man's speed, skill and momentum (−4 if
+  they're down; down or out of the ring, there's no contest at all). Lose it and you're cut off, dragged
+  back, and a heel may knock your partner off the apron (two turns before they're back).
+- **Hot tag**: five or more turns on the wrong end and properly hurt (condition under 65). The crowd
+  erupts (+15 heat), the one coming in gets +25 momentum and the turn, and it counts as the comeback.
+- **The heels' tricks**, from the apron for the team in control: distracting the referee (5% an action),
+  sneaking in behind his back while he's distracted (35%), or chancing it in plain sight (3%, with a
+  warning — and a DQ count — if he sees it). A babyface's tag while the referee's distracted doesn't count.
+- **Double-teams** in your own corner (the other man thrown in there; you're legal with a partner on the
+  apron): a generic team move, or the team's finisher (`rules.teamFinishers`, by team) if they've a
+  finisher banked, with a cover. Legal for the referee's five-count; heels and dirty fighters linger past
+  it a quarter of the time (a warning). Can fail: fought off, and the other man takes over.
+- **Saves**: the victim's partner can come off the apron to break up a pin or a hold (holds: in three
+  seconds from the apron); the pinner's partner on the apron halves the chance by cutting them off.
+  The referee then sends them back, and it restarts even.
+- **The AI**: cuts off a man in his own corner with a partner waiting; brings its partner in for a
+  double-team (heels 45%, faces 30%); tags out when desperate (45%), when the partner's much fresher (15%)
+  or, heels, for a quick tag with the other man down (7%) — never in its first four turns in.
+  Partners get a little breath back on the apron.
+- **Clock**: 2/n of the step for n people still in it (apron included), down to 40%.
+
 ### Harness
 
 `MATCHES=1 npx vitest run src/engine/__tests__/matchesrun.test.ts` runs 40 of each type and reports:
@@ -131,4 +163,14 @@ At stage 2 (minutes, stars, saves and steals are medians or per-match averages):
 | Four-way, elimination | 27 | 3.25 | 0.3 | | |
 | Handicap, 2 on 1 | 15 | 3 | | | |
 | Tornado, 2 on 2 | 17 | 3.25 | | | |
-| Six-way elimination | 37 | 3.25 | | | 220 ms |
+| Six-way elimination | 34 | 3.25 | | | 220 ms |
+
+At stage 3 (tags a match; hot tags; stars median):
+
+| Type | Minutes | Stars | Tags | Hot tags | Double-teams |
+|---|---|---|---|---|---|
+| Singles (for comparison) | 18 | 3 | | | |
+| Tag, 2 on 2 | 14 | 3 | 2.6 | 0.6 | 0.8 |
+| Tag, 3 on 3 | 17 | 3.25 | 4.1 | 1.25 | 0.9 |
+| Handicap tag, 2 on 1 | 15 | 3 | 1.6 | 0.25 | 0.3 |
+| Elimination tag, 3 on 3 | 37 | 3 | 7.5 | 2.6 | 1.3 |
