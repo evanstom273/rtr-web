@@ -2,7 +2,7 @@
 // count-out or no contest), and segments between them (promos, run-ins, beat-downs, signings, debuts, celebrations,
 // interviews). Every match is simmed with the full engine; you can watch any of yours play out, and play your own. The
 // whole show's judged once it's over. Booking yourself is allowed, but the locker room and your opponents notice.
-import { findWrestler, fansIn, PROMOTIONS, TITLES, WRESTLERS, type Wrestler } from '../data/rtr';
+import { findWrestler, fansIn, PROMOTIONS, TITLES, WRESTLERS, type Wrestler, holds } from '../data/rtr';
 import { boutPeople, plannedKey } from './bouts';
 import { hashSeed, seededRng } from '../engine/rng';
 import type { LogEntry, StipulationId } from '../engine/types';
@@ -187,7 +187,7 @@ export function cardIssues(c: Career, show: Show, card: Bout[] = show.card ?? []
     if (mine.planned === c.player) out.push('You’re booking yourself to win: the locker room will notice.');
   }
   for (const g of segs) {
-    if (g.kind === 'celebration' && !TITLES.some((t) => t.holder === g.who[0])) out.push(`${nameOf(g.who[0]!)} has nothing to celebrate.`);
+    if (g.kind === 'celebration' && !TITLES.some((t) => holds(t, g.who[0]!))) out.push(`${nameOf(g.who[0]!)} has nothing to celebrate.`);
     if (g.kind === 'runin' && g.after < 0) out.push('A run-in needs a match to run in on.');
   }
   return out;
@@ -216,7 +216,7 @@ export function rateSegment(c: Career, show: Show, g: Segment): { score: number;
   // A producer gets more out of a segment (booker mode, stage 5).
   if (playerRuns(show.promo)) s += staffQ(show.promo, 'producer') * STAFF.producerSeg;
   // A celebration with nothing to celebrate, a run-in with nothing to run in on, a "debut" from someone who's been here before.
-  if (g.kind === 'celebration' && !TITLES.some((t) => t.holder === ws[0]!.id)) s -= 0.9;
+  if (g.kind === 'celebration' && !TITLES.some((t) => holds(t, ws[0]!.id))) s -= 0.9;
   if (g.kind === 'runin' && g.after < 0) s -= 0.6;
   if (g.kind === 'debut' && activeWorld().history.shows.some((x) => x.promo === show.promo && x.bouts.some((b) => archivedPeople(b).includes(ws[0]!.id)))) s -= 0.9;
   s += (rnd() * 2 - 1) * SEGMENT.luck;

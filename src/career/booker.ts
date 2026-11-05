@@ -3,7 +3,7 @@ import { booked, fitsTrip } from './availability';
 import { boutPeople } from './bouts';
 import { changeLean, contenderBias, stipMult, titleBooker } from './bookerLeans';
 import { contenderLean } from './leans';
-import { fanScore, findWrestler, PROMOTIONS, type Title, TITLES, type Wrestler, worksFor } from '../data/rtr';
+import { fanScore, findWrestler, PROMOTIONS, type Title, TITLES, type Wrestler, worksFor, holds } from '../data/rtr';
 import { tierOf } from './clauses';
 import { dealWith, sideWork } from './deals';
 import type { StipulationId } from '../engine/types';
@@ -271,7 +271,7 @@ export function contenders(c: Career, title: Title, pool: Wrestler[], region: Po
   // Working for more than one major (Lyra's call: anyone's titles), a champion elsewhere can still chase this one.
   const indie = isIndieTitle(title.id);
   const owner = PROMOTIONS.find((p) => p.titles.includes(title.id));
-  const unheld = eligible.filter((w) => !TITLES.some((t) => t.holder === w.id && (indie || (!isIndieTitle(t.id) && (!owner || owner.titles.includes(t.id))))));
+  const unheld = eligible.filter((w) => !TITLES.some((t) => holds(t, w.id) && (indie || (!isIndieTitle(t.id) && (!owner || owner.titles.includes(t.id))))));
   return (unheld.length ? unheld : eligible).sort((a, b) => score(b) - score(a));
 }
 
@@ -309,7 +309,7 @@ export function refreshFeuds(c: Career, show: Show, roster: readonly Wrestler[])
     busy.add(champ.id); busy.add(top.id);
   }
   let others = live.filter((f) => !f.title).length;
-  const free = pool.filter((w) => !busy.has(w.id) && !TITLES.some((t) => t.holder === w.id)).sort((a, b) => regionalPop(b, region) - regionalPop(a, region));
+  const free = pool.filter((w) => !busy.has(w.id) && !TITLES.some((t) => holds(t, w.id))).sort((a, b) => regionalPop(b, region) - regionalPop(a, region));
   // Angles from real life (relationships stage 6): real heat between two on the roster becomes the storyline.
   if (others < FEUDS_PER_PROMOTION && free.length >= 2) {
     const pair = heatPick(c, free.map((w) => w.id), rnd);

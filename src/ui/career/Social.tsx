@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { fansTotal, findWrestler, fmtFans, TITLES, WRESTLERS } from '../../data/rtr';
+import { fansTotal, findWrestler, fmtFans, TITLES, WRESTLERS, holds } from '../../data/rtr';
 import { nextMatch, socialAct, socialPreview, socialWeekCap, type Career, type SocialKind } from '../../career';
 import { fmtDay } from '../../career/dates';
 import { SOCIAL_BACKLASH } from '../../career/tuning';
@@ -23,7 +23,7 @@ export function Social({ c, onBack }: Props) {
   const me = findWrestler(c.player)!;
   const promo = c.people[c.player]?.contract?.promo ?? me.promotion;
   // Who you can talk about: your own roster (or the indie scene), champions, sorted by fans.
-  const people = WRESTLERS.filter((x) => x.id !== c.player && !c.people[x.id]?.retired && (x.promotion === promo || TITLES.some((t) => t.holder === x.id)))
+  const people = WRESTLERS.filter((x) => x.id !== c.player && !c.people[x.id]?.retired && (x.promotion === promo || TITLES.some((t) => holds(t, x.id))))
     .sort((a, b) => fansTotal(b) - fansTotal(a)).slice(0, 60);
   const [target, setTarget] = useState(people[0]?.id ?? '');
   const def = KINDS.find((x) => x.k === kind)!;

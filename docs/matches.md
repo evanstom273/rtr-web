@@ -429,6 +429,26 @@ triple threat on the card).
   and the log keeps a real share of the screen. The builder's teams panel scrolls inside its share (a Rumble
   can't push Ring the bell off), Random fills every team to what the match needs, and the building skin's
   header says what the match is.
+- **Tag champions are champions** (`holds(t, id)`): both partners show as (c), filter and search by the belt,
+  and count as champions everywhere a champion's treated differently (fees, signing, bookings, events). The
+  builder's search index refreshes when titles change hands (it had kept whoever held a belt when first searched).
+- **Hardcore matches use the weapons.** The AI was never offered leaving the ring (it only gets setups that lead
+  to a move), so street fights, no holds barred and deathmatches averaged under 0.1 weapons a match. In those
+  (and Texas death) it now goes under the ring once things are under way (likelier for hardcore wrestlers,
+  likeliest in a deathmatch: three trips, the glass, the barbed-wire board and the light tubes first), brings
+  it back, sets the glass or board up and puts them through it. Deathmatch: about 4 kit pieces a match, over
+  half used on someone; street fight about 2.5 weapons. Ratings refitted (deathmatch −0.4, Texas death −0.6).
+  First blood stays out of it (with weapons it was over in no time). The same block still keeps the AI from
+  fetching weapons in No DQ (an original stipulation, held by the golden test).
+- **Rumbles can be won from anywhere in the draw.** It was 54 of 60 from #21–30, none from #1–10. Now: a
+  breather for anyone not in the exchange, a "ring-wise" edge for hanging on (+1 for every eight minutes in,
+  up to +4), and fewer heaves while the ring's still filling. 60 Rumbles of 30: 9 / 16 / 35 by draw third
+  (real Rumbles run roughly a quarter, a quarter, a half). A 30-man Rumble now runs about 70 minutes.
+- **Big fields are rated on their own terms.** Story and craft were the same number in every Rumble (a long
+  one always has a heat segment, a comeback and a worked limb; an over-the-top finish after 35 minutes always
+  scored the same craft). Battle royals and Rumbles now have their own: an iron-man run, a winner from early
+  in the draw, someone running riot, a surprise, a comeback; a proper final showdown, a length that fits the
+  field, people hanging on. Rumbles 2.5–4★ around 3; battle royals recentred on 3.
 - **`scripts/ui-sweep.mjs`** checks all of it, every match type, phone and fold, all three skins: Random fills
   every team, the bell's on screen, nothing spills or overlaps, the tape's starter starts, and the match's log
   and controls are on screen.

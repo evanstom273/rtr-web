@@ -21,7 +21,7 @@ import { executionChance, isHighRisk } from './interaction';
 import { executeMove, isLadderDive, moveIsValid, validMoves } from './moves';
 import { canPin, isFlashPinMove, pinCondition, startPin } from './pin';
 import { clamp } from './rng';
-import { aiWantsWeaponTrip, aiWantsWeaponsHere, executeSetup, validSetups } from './setups';
+import { aiWantsWeaponTrip, aiWantsWeaponsHere, executeSetup, HARDCORE_TRIPS, validSetups } from './setups';
 import { heldBy, objectsIn, weaponOf } from './env';
 import { chooseAiWeapon, extraSetups, isExtraSetup } from './stip';
 import { findFollowupPaths, isContested, isRecovery, moveMatchesSnapshots, projectAction } from './setupRules';
@@ -451,6 +451,12 @@ export class AiBrain {
       const best = chooseAiWeapon(S, this.k);
       if (best && (want ? best.kind === want : aiWantsWeaponsHere(S) || ai.weaponTrips > 0)) return pickSetup('retrieve_weapon');
     }
+    // Hardcore matches (Lyra: the weapons hardly ever came out, the kit never): once it's under way, with
+    // nothing in hand, go under the ring for something — hardcore wrestlers likelier, a deathmatch likeliest.
+    if (!held && HARDCORE_TRIPS.has(stip) && has('exit_ring') && ai.state.area === 'IN_RING' && S.t >= 90) {
+      const p = (stip === 'deathmatch' ? 0.3 : 0.16) + (ai.w.classes.includes('HARDCORE') ? 0.12 : 0) + ((ai.w.hardcore ?? 0) > 0 ? 0.08 : 0) + (down ? 0.1 : 0);
+      if (this.ctx.rnd() < p) return pickSetup('exit_ring');
+    }
     if (held) {
       const kind = weaponOf(held).kind;
       // The prize hangs over the ring, and tables are no use where the fight isn't: take them inside.
@@ -461,6 +467,16 @@ export class AiBrain {
         if (has('set_table_flat') && ai.state.area === 'IN_RING') return pickSetup('set_table_flat');
       }
       if (kind === 'THUMBTACKS' && has('spread_thumbtacks') && ai.state.area === 'IN_RING') return pickSetup('spread_thumbtacks');
+    }
+    // Hardcore matches: bring what you fetched to the fight, set the glass or the board up, and use it.
+    if (HARDCORE_TRIPS.has(stip)) {
+      if (held) {
+        const kind = weaponOf(held).kind;
+        if (ai.state.area !== 'IN_RING' && target.state.area === 'IN_RING' && has('return_to_ring')) return pickSetup('return_to_ring');
+        if (kind === 'TABLE' && ai.state.area === 'IN_RING' && has('set_table_flat')) return pickSetup('set_table_flat');
+        if (kind === 'THUMBTACKS' && ai.state.area === 'IN_RING' && has('spread_thumbtacks')) return pickSetup('spread_thumbtacks');
+      }
+      for (const id of ['lay_on_table', 'position_at_table', 'position_at_corner_table'] as SetupId[]) if (has(id) && this.ctx.rnd() < 0.7) return pickSetup(id);
     }
     if (isLadderStip(stip) && has('climb_ladder') && (down || this.ctx.rnd() < 0.5)) return pickSetup('climb_ladder');
     if (stip === 'tables') {

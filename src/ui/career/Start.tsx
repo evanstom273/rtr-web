@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { fansTotal, fmtFans, globalScore, PROMOTIONS, TITLES, type Wrestler, WRESTLERS } from '../../data/rtr';
+import { fansTotal, fmtFans, globalScore, PROMOTIONS, TITLES, type Wrestler, WRESTLERS, holds } from '../../data/rtr';
 import { contractFee, debutYear, onesToWatch, type BonusTrigger } from '../../career';
 import { C, NO_CLAUSES, packageClauses, PACKAGES, PLAYER_PACKAGES, triggerSlots } from '../../career/clauses';
 import { ClauseGroups } from './Clauses';
@@ -37,7 +37,7 @@ export function Start({ hasCareer, fresh, onBack, onPick, onCreate, onHistory }:
   const [editing, setEditing] = useState(false);
   const promo = PROMOTIONS.find((p) => p.initials === ORDER[pi])!;
   const roster = useMemo(() => WRESTLERS.filter((x) => x.promotion === promo.initials)
-    .sort((a, b) => Number(TITLES.some((t) => t.holder === b.id)) - Number(TITLES.some((t) => t.holder === a.id)) || globalScore(b) - globalScore(a)), [promo]);
+    .sort((a, b) => Number(TITLES.some((t) => holds(t, b.id))) - Number(TITLES.some((t) => holds(t, a.id))) || globalScore(b) - globalScore(a)), [promo]);
   // Better picking (Lyra's call): sorts, an age filter, debut years, and (after a history) ones to watch.
   const [sort, setSort] = useState<'card' | 'fans' | 'ability' | 'age' | 'debut'>('card');
   const [ages, setAges] = useState<'all' | 'young' | 'prime' | 'vet'>('all');

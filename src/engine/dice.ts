@@ -243,7 +243,8 @@ export function tagContest(A: Side, D: Side, peril: number, partnerFresh: boolea
 }
 
 /** Over the top rope (battle royals and Rumbles): heaving them over against them clinging on. */
-export function ottContest(A: Side, D: Side, hanging: boolean): { attack: ContestSide; defend: ContestSide } {
+/** `ringWise`: a Rumble's long-stayer knows how to survive (+1 for every eight minutes in it, up to +4). */
+export function ottContest(A: Side, D: Side, hanging: boolean, ringWise = 0): { attack: ContestSide; defend: ContestSide } {
   const aMods: Mod[] = [], aEdges: ContestSide['edges'] = [];
   push(aMods, `Strength ${A.w.stats.strength}`, statMod(A.w.stats.strength));
   push(aMods, 'Booked to win', A.booked);
@@ -261,6 +262,7 @@ export function ottContest(A: Side, D: Side, hanging: boolean): { attack: Contes
   push(dMods, 'Booked to win', D.booked);
   for (const m of anyRollMods(D)) push(dMods, m.label, m.value);
   push(dMods, 'Bigger than them', D.w.weight - A.w.weight >= 60 ? 2 : D.w.weight - A.w.weight >= 30 ? 1 : 0);
+  push(dMods, 'Ring-wise', ringWise);
   exhaustion(dMods, D, false);
   if (D.hp.HEAD < 40) push(dMods, 'Rattled (head)', -2);
   if (exhaustionBand(D) === 'Spent') dEdges.push({ label: 'Spent', dir: -1 });

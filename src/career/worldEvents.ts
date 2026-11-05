@@ -2,7 +2,7 @@
 // retire (after a farewell) and now and then come back; rookies break through; long reigns and injured
 // champions make the news; your own career milestones get noticed. All of it goes into the world's
 // history (Records), and only the bits that touch you, or are big news, reach your mail.
-import { findWrestler, globalScore, PROMOTIONS, shippedWrestler, TITLES, type Wrestler, WRESTLERS } from '../data/rtr';
+import { findWrestler, globalScore, PROMOTIONS, shippedWrestler, TITLES, type Wrestler, WRESTLERS, holds } from '../data/rtr';
 import { seededRng, type Rng } from '../engine/rng';
 import { activeWorld } from '../world/world';
 import { addEvent, type WorldEvent } from '../world/history';
@@ -20,7 +20,7 @@ import type { Career } from './types';
 const world = (c: Career) => (c.world ??= { last: {}, seen: {} });
 const record = (e: WorldEvent) => addEvent(activeWorld().history, e);
 const relOf = (c: Career, id: string) => affinity(c, id);
-const titleHolder = (id: string) => TITLES.some((t) => t.holder === id);
+const titleHolder = (id: string) => TITLES.some((t) => holds(t, id));
 const promoOfTitle = (id: string) => PROMOTIONS.find((p) => p.titles.includes(id))?.initials;
 const ord = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;
 

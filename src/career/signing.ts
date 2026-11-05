@@ -3,7 +3,7 @@
 // player gets); you offer; they accept, counter, or walk. What they ask depends on their fans where you are, how big
 // you are against where they are now, their traits, and how they feel about you. Releases cost what's left of the deal.
 // Contracts ending on your roster: you're asked whether to renew; someone who can't stand you won't.
-import { databaseChanged, fansIn, findWrestler, globalScore, rosterOf, TITLES, WRESTLERS, type Wrestler } from '../data/rtr';
+import { databaseChanged, fansIn, findWrestler, globalScore, rosterOf, TITLES, WRESTLERS, type Wrestler, holds } from '../data/rtr';
 import { inBout } from './bouts';
 import { hashSeed, seededRng } from '../engine/rng';
 import { activeWorld } from '../world/world';
@@ -96,7 +96,7 @@ export function cantApproach(c: Career, promo: string, who: string): string | nu
   if (who === c.player) return 'That’s you.';
   if (contractWith(c, who, promo)) return 'They’re already signed with you.';
   if (approachesOf(c).some((a) => a.who === who && a.status === 'open')) return 'You’re already talking to them.';
-  if (TITLES.some((t) => t.holder === who && w.promotion !== 'TIS')) return 'They’re a champion where they are: nobody’s selling.';
+  if (TITLES.some((t) => holds(t, who) && w.promotion !== 'TIS')) return 'They’re a champion where they are: nobody’s selling.';
   return null;
 }
 

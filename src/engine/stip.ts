@@ -21,6 +21,7 @@ import { motionMatches } from './setupRules';
 import { addFatigue, damagePart, spendStamina, totalHp } from './side';
 import { stipulation, isLadderStip } from './stipulations';
 import { cellPinLegal } from './structures';
+import { DEATHMATCH_KIT } from './gimmicks';
 import type {
   ActionResult, Area, BodyPart, EnvObject, MatchState, Move, Position, SetupId, Side, SideKey, Snapshot,
 } from './types';
@@ -685,6 +686,8 @@ export function chooseAiWeapon(S: MatchState, k: SideKey): Weapon | null {
     // TLC: the ladder first, but the tables and chairs are part of it too.
     if (isLadderStip(stip)) s += w.kind === 'LADDER' ? 140 : stip === 'tlc' ? 20 : -80;
     if (stip === 'tables') s += w.kind === 'TABLE' ? 120 : -55;
+    // A deathmatch: the glass, the barbed-wire board and the light tubes are what they came for.
+    if (stip === 'deathmatch' && DEATHMATCH_KIT.has(w.id)) s += 70;
     if (A.w.classes.includes('HARDCORE')) s += 12;
     if (w.kind === 'LADDER' && A.all.some((m) => m.type === 'AERIAL')) s += 8;
     if (GROUNDED.includes(D.state.position)) s += 4;

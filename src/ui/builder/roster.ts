@@ -1,7 +1,7 @@
 // Match builder roster: the Godot filters and sorts (match_setup_popup.gd), over the imported data.
 import { CLASS_LABEL } from '../../data/commentary';
 import {
-  type FanRegion, fansIn, fansTotal, fmtFans, getPromotion, isChampion, PROMOTIONS, TITLES, titlesHeldBy, type Wrestler, type WrestlerClass, WRESTLERS,
+  databaseVersion, type FanRegion, fansIn, fansTotal, fmtFans, getPromotion, isChampion, PROMOTIONS, TITLES, titlesHeldBy, type Wrestler, type WrestlerClass, WRESTLERS,
 } from '../../data/rtr';
 
 export type SortMode =
@@ -54,7 +54,10 @@ const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCa
 const sortName = (w: Wrestler) => fold(w.name.replace(/^"[^"]*"\s*/, '').replace(/"/g, ''));
 
 const searchText = new Map<string, string>();
+let searchVersion = -1;
 function haystack(w: Wrestler): string {
+  // Titles change hands (and worlds load): rebuild whenever the database has moved on.
+  if (searchVersion !== databaseVersion()) { searchText.clear(); searchVersion = databaseVersion(); }
   let t = searchText.get(w.id);
   if (!t) {
     const promo = getPromotion(w.promotion);

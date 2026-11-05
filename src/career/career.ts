@@ -2,8 +2,7 @@
 import { matchFans } from './fanGrowth';
 import { poachMult, renewLean, retryAdjust } from './leans';
 import {
-  databaseChanged, fansTotal, findWrestler, fmtFans, globalScore, hasTrait, PROMOTIONS, rosterOf, shippedWomenShare, TITLES, worksFor, type Wrestler, WRESTLERS,
-} from '../data/rtr';
+  databaseChanged, fansTotal, findWrestler, fmtFans, globalScore, hasTrait, PROMOTIONS, rosterOf, shippedWomenShare, TITLES, worksFor, type Wrestler, WRESTLERS, holds } from '../data/rtr';
 import { seededRng, type Rng } from '../engine/rng';
 import type { MatchRulesConfig, SideKey } from '../engine/types';
 import { addWear, fadeWear, teamOf, violenceOf, wearInjury, wearStart } from '../world/matchWorld';
@@ -724,7 +723,7 @@ function monthly(c: Career, day: Day, rnd: Rng): void {
   for (const p of PROMOTIONS.filter((x) => !x.indie && !x.closed && !x.closed)) {
     const roster = rosterOf(p.initials).sort((a, b) => globalScore(a) - globalScore(b));
     for (const w of roster.slice(0, Math.floor(roster.length / 4))) {
-      if (w.id === c.player || TITLES.some((t) => t.holder === w.id)) continue;
+      if (w.id === c.player || TITLES.some((t) => holds(t, w.id))) continue;
       if (hooks.protect.some((f) => f(c, w.id, p.initials))) continue;
       if (rnd() < RELEASE_MONTHLY_BOTTOM) release(c, w, 'released', p.initials);
     }
@@ -805,7 +804,7 @@ function scoutRosters(c: Career, day: Day): void {
     if (n >= want) continue;
     pool ??= WRESTLERS.filter((w) => {
       const q = c.people[w.id];
-      return w.promotion === 'TIS' && w.id !== c.player && !q?.retired && !q?.retiring && !q?.injury && !TITLES.some((t) => t.holder === w.id);
+      return w.promotion === 'TIS' && w.id !== c.player && !q?.retired && !q?.retiring && !q?.injury && !TITLES.some((t) => holds(t, w.id));
     });
     const region = promoRegion(p.initials);
     const wantWomen = Math.round(target * shippedWomenShare(p.initials));
@@ -846,7 +845,7 @@ function contractsEnding(c: Career, day: Day, rnd: Rng): void {
     for (const x of [...(p.deals ?? [])]) {
       if (x.end >= day) continue;
       // A champion there always re-signs (as on a main deal).
-      const champThere = TITLES.some((t) => t.holder === w.id && PROMOTIONS.find((q) => q.initials === x.promo)?.titles.includes(t.id));
+      const champThere = TITLES.some((t) => holds(t, w.id) && PROMOTIONS.find((q) => q.initials === x.promo)?.titles.includes(t.id));
       if (w.id !== c.player && (champThere || rnd() < RENEW_CHANCE_REST + renewLean(w))) { x.start = day; x.end = addMonths(day, CONTRACT_MONTHS[1]!); continue; }
       addEvent(history(), { day, kind: 'expired', who: w.id, name: w.name, promo: x.promo });
       dropDeal(p, w, x.promo);
@@ -864,7 +863,7 @@ function contractsEnding(c: Career, day: Day, rnd: Rng): void {
     const roster = rosterOf(w.promotion);
     const byPop = [...roster].sort((a, b) => globalScore(a) - globalScore(b));
     const median = byPop.length ? globalScore(byPop[Math.floor(byPop.length / 2)]!) : 0;
-    const champ = TITLES.some((t) => t.holder === w.id);
+    const champ = TITLES.some((t) => holds(t, w.id));
     // Personality: Loyal stays more, Mercenary less; the Ambitious leave if they're stuck below the top third.
     const third = byPop.length ? globalScore(byPop[byPop.length - 1 - Math.floor(byPop.length / 3)]!) : 0;
     const restless = hasTrait(w, 'ambitious') && globalScore(w) < third && rnd() < TRAIT_BACKSTAGE.ambitious.leave;

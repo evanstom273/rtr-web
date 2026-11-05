@@ -60,7 +60,9 @@ export function validSetups(S: MatchState, k: SideKey): SetupId[] {
     if (!isPlayer(S, k) && id === 'exit_ring' && !aiWantsWeaponTrip(S, k)) continue;
     if (id === 'taunt' && S.t < A.tauntCooldownUntil) continue;
     if (id === 'catch_breath' && (staminaPercent(A) >= CATCH_BREATH_STAMINA_THRESHOLD || S.t < A.catchBreathCooldownUntil)) continue;
-    if (isRecovery(id) || id === 'taunt' || id === 'catch_breath' || (isPlayer(S, k) && id === 'exit_ring') || firstSteps.has(id)) out.push(id);
+    // The AI's weapon trip in a hardcore match: leaving the ring leads to no move, so it'd never be offered.
+    const trip = !isPlayer(S, k) && id === 'exit_ring' && HARDCORE_TRIPS.has(S.rules.stipulation);
+    if (isRecovery(id) || id === 'taunt' || id === 'catch_breath' || (isPlayer(S, k) && id === 'exit_ring') || trip || firstSteps.has(id)) out.push(id);
   }
   if (S.rules.countOuts && !sideIsOutside(S, k) && sideIsOutside(S, foe(S, k)) && !out.includes('wait_for_count')) {
     out.push('wait_for_count');
@@ -86,6 +88,10 @@ export function autoRecovery(S: MatchState, k: SideKey): SetupId | null {
   return SELF_RECOVERIES.find((id) => setups.includes(id)) ?? null;
 }
 
+/** Hardcore matches where going under the ring for something is the plan (the new stipulations only: the old ones play as they always did). */
+// (Not first blood: with weapons it ends in no time.)
+export const HARDCORE_TRIPS: ReadonlySet<string> = new Set(['street_fight', 'no_holds_barred', 'texas_death', 'deathmatch']);
+
 /** Stipulations where weapons are part of the plan. */
 export const aiWantsWeaponsHere = (S: MatchState): boolean =>
   S.rules.weapons && (!S.rules.dq || ['ladder', 'tables', 'tlc', 'money_in_the_bank'].includes(S.rules.stipulation));
@@ -98,7 +104,8 @@ export function aiWantsWeaponTrip(S: MatchState, k: SideKey): boolean {
   // Ladder and Tables: go and get the thing the match is about, if it isn't already standing in the ring.
   if (isLadderStip(id)) return !objectiveReady(S, 'LADDER');
   if (id === 'tables') return !objectiveReady(S, 'TABLE');
-  return S.sides[k]!.weaponTrips < 2 && S.t >= S.sides[k]!.nextWeaponTripAt;
+  // A deathmatch: three trips (the kit's under there), the next sooner.
+  return S.sides[k]!.weaponTrips < (id === 'deathmatch' ? 3 : 2) && S.t >= S.sides[k]!.nextWeaponTripAt;
 }
 
 export function setupTitle(s: Side, id: SetupId): string {
@@ -113,7 +120,7 @@ export function executeSetup(ctx: Ctx, k: SideKey, id: SetupId, arg?: string): b
   D.setUp = false;
   if (id === 'exit_ring' && !isPlayer(S, k)) {
     A.weaponTrips++;
-    A.nextWeaponTripAt = S.t + 300;
+    A.nextWeaponTripAt = S.t + (S.rules.stipulation === 'deathmatch' ? 180 : 300);
   }
   if (isExtraSetup(id)) {
     if (!isExtraContested(id)) {

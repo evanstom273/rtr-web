@@ -1,5 +1,5 @@
 // Money: fees, travel and the training price curve.
-import { fansIn, findWrestler, TITLES, type Wrestler, rosterOf } from '../data/rtr';
+import { fansIn, findWrestler, TITLES, type Wrestler, rosterOf, holds } from '../data/rtr';
 import schedulesJson from '../data/rtr/schedules.json';
 import { activeWorld } from '../world/world';
 import { C, feeFloor } from './clauses';
@@ -36,7 +36,7 @@ export function indieFee(w: Wrestler, at: PopRegion | Show): number {
   const pop = show?.brand ? activeWorld().people?.brands[show.brand]?.popularity : undefined;
   const [b0, b1] = INDIE_FEE_BRAND;
   const brand = pop === undefined ? 1 : b0 + ((Math.max(5, Math.min(30, pop)) - 5) / 25) * (b1 - b0);
-  const champ = TITLES.some((t) => t.holder === w.id && isIndieTitle(t.id)) ? INDIE_FEE_CHAMP : 1;
+  const champ = TITLES.some((t) => holds(t, w.id) && isIndieTitle(t.id)) ? INDIE_FEE_CHAMP : 1;
   const special = show && (show.special || show.kind === 'special') ? INDIE_FEE_SPECIAL : 1;
   const fee = INDIE_FEE_BASE * brand * (Math.max(1, fansIn(w, region)) / INDIE_FEE_FANS_REF) ** INDIE_FEE_EXP * champ * special;
   return Math.max(INDIE_FEE_RANGE[0], Math.min(INDIE_FEE_RANGE[1], round5(fee)));
