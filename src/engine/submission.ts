@@ -40,11 +40,25 @@ export const workHoldDamage = (A: Side, move: Move): number =>
   (4 + move.impact * 0.5) * (A.w.classes.includes('TECHNICIAN') ? 1.5 : 1) * (has(A, 'submission_specialist') ? FX.submission_specialist.holdDamage : 1);
 
 /**
+ * A rest hold (a headlock, a front facelock, a wrist lock: the weakest holds) wears someone down; it doesn't
+ * make them tap. Unless it's somebody's finisher.
+ */
+export const restHold = (A: Side, move: Move): boolean => move.impact <= REST_HOLD_IMPACT && !move.finisher && !A.finishers.includes(move);
+export const REST_HOLD_IMPACT = 3;
+
+/** A tag match: the defender has a partner on the apron who could come in (not knocked off it). */
+const partnerReady = (S: MatchState, d: SideKey): boolean =>
+  !!S.rules?.tag && S.order.length > 2 && S.order.some((o) => o !== d && S.sides[o]!.team === S.sides[d]!.team && S.sides[o]!.out === 'apron' && !S.sides[o]!.away);
+
+/**
  * AI: go for the tap only when it's credible: a finisher, a properly worn target, a worn-down
  * opponent, or late on. Technicians trust their holds sooner.
  */
 export function aiGoesForTap(S: MatchState, k: SideKey, move: Move, target: TargetResolution): boolean {
   if (move.finisher || S.sides[k]!.finishers.includes(move)) return true;
+  if (restHold(S.sides[k]!, move)) return false;
+  // A tag match, with their partner stood on the apron ready to stomp in: work it, don't bet the match on it.
+  if (partnerReady(S, foe(S, k))) return false;
   const D = S.sides[foe(S, k)]!, tech = S.sides[k]!.w.classes.includes('TECHNICIAN'), spec = has(S.sides[k]!, 'submission_specialist');
   const hp = targetHp(D.hp, target), cond = pinCondition(D);
   // A submission specialist reads a hold like a technician (both: a little sooner still).
@@ -71,6 +85,8 @@ export function beginSubmission(ctx: Ctx, k: SideKey, move: Move, target: Target
   // Holds on the ropes, in the corner or from the apron (Tarantula, rope-hung armbars) can't win:
   // the referee forces the break. They're all damage.
   if (!holdCanWin(S, k)) return workTheHold(ctx, k, move, target, S.rules.subs);
+  // A rest hold: worked, never a tap (for anyone, the player included).
+  if (restHold(A, move)) return workTheHold(ctx, k, move, target);
   if (isPlayer(S, k)) {
     const per = workHoldDamage(A, move);
     S.pending = {

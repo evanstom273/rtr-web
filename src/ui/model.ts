@@ -171,7 +171,30 @@ export interface Report {
   headline: string;
   rating: Rating;
   parts: (Rating['parts'][number] & { grade: string })[];
+  /** The scoreboard's two sides: in a team match, the whole teams ("Ibarra & Ferreira"); otherwise the surnames. */
+  a: string;
+  b: string;
+  /** Which of the scoreboard's two sides won (by team, so a tag match counts the partner's fall). */
+  aWon: boolean;
+  bWon: boolean;
+  /** Team match: the winning and losing teams in full ("Colt Briggs & Brett McLean"); null otherwise. */
+  winTeam: string | null;
+  loseTeam: string | null;
 }
+
+/**
+ * Two teams with more than one person on a side (tag, tornado, handicap): the teams, partners in order, the lead
+ * first. Null for singles and every-man-for-himself matches.
+ */
+export function teamsOf(S: MatchState): [SideKey[], SideKey[]] | null {
+  if (S.order.length <= 2) return null;
+  const a = S.sides.you!.team, b = S.sides.them!.team;
+  const team = (t: number, lead: SideKey) => [lead, ...S.order.filter((k) => k !== lead && S.sides[k]!.team === t)];
+  const ta = team(a, 'you'), tb = team(b, 'them');
+  if (ta.length + tb.length !== S.order.length || (ta.length < 2 && tb.length < 2)) return null;
+  return [ta, tb];
+}
+const names = (S: MatchState, ks: SideKey[], full: boolean) => ks.map((k) => (full ? S.sides[k]!.w.name : surname(S.sides[k]!.w))).join(' & ');
 
 const HEADLINE: Record<string, (w: string, l: string) => string> = {
   PINFALL: (w, l) => `${w} pins ${l}`,
@@ -205,10 +228,16 @@ export function report(S: MatchState, rating: Rating): Report | null {
   const winner = R.winner ? S.sides[R.winner]!.w : null, loser = R.loser ? S.sides[R.loser]!.w : null;
   const how = `${FINISH_LABEL[R.finish] ?? 'Decision'}${R.move ? `, ${R.move.name}` : ''}`;
   const headline = winner && loser ? (HEADLINE[R.finish] ?? ((w: string) => `${w} wins`))(surname(winner), surname(loser)) : R.finish === 'DOUBLE_COUNT_OUT' ? 'Nobody beats the count' : 'No contest';
+  const teams = teamsOf(S);
+  const wonTeam = R.winner ? S.sides[R.winner]!.team : null;
+  const aWon = teams ? wonTeam === S.sides.you!.team : R.winner === 'you', bWon = teams ? wonTeam === S.sides.them!.team : R.winner === 'them';
   return {
     winner, loser, winnerSide: R.winner, how, time: fmtClock(R.t),
     falls: R.score && R.winner && R.loser ? `${R.score[R.winner]}–${R.score[R.loser]} in falls` : '',
     headline, rating, parts: rating.parts.map((p) => ({ ...p, grade: grade(p.v) })),
+    a: teams ? names(S, teams[0], false) : surname(S.you.w), b: teams ? names(S, teams[1], false) : surname(S.them.w), aWon, bWon,
+    winTeam: teams && (aWon || bWon) ? names(S, aWon ? teams[0] : teams[1], true) : null,
+    loseTeam: teams && (aWon || bWon) ? names(S, aWon ? teams[1] : teams[0], true) : null,
   };
 }
 

@@ -4,8 +4,8 @@ import { clamp, fmtClock } from '../../engine';
 import { downloadFile } from '../../storage/zip';
 import { nameTone } from '../format';
 import { Segment } from '../match/Log';
-import { grade, starText, surname } from '../model';
-import { fileStem, fmtWhen, recordsZip, recordTitle, statRows, type MatchRecord } from '../record';
+import { grade, starText } from '../model';
+import { fileStem, fmtWhen, recordCols, recordsZip, recordTitle, statRows, type MatchRecord } from '../record';
 import { useSkin } from '../skin';
 
 interface Props {
@@ -13,8 +13,6 @@ interface Props {
   onBack: () => void;
   onDelete: () => void;
 }
-
-const sur = (name: string) => surname({ name } as never);
 
 /** The crowd across the match: a line on paper and broadcast, LED bars in the building. */
 function Crowd({ r, bars }: { r: MatchRecord; bars: boolean }) {
@@ -53,7 +51,8 @@ export function Record({ r, onBack, onDelete }: Props) {
   const wy = findWrestler(r.you.id), wt = findWrestler(r.them.id);
   const tones = { you: wy ? nameTone(wy) : 'face', them: wt ? nameTone(wt) : 'heel' };
   const meta = `${fmtWhen(r.at)} · ${r.stipulation}${r.venue ? ` · ${r.venue}` : ''}`;
-  const head = r.winnerName && r.loserName ? recordTitle(r) : `${sur(r.you.name)} vs ${sur(r.them.name)}`;
+  const cols = recordCols(r);
+  const head = r.winnerName && r.loserName ? recordTitle(r) : `${cols.you} vs ${cols.them}`;
   return (
     <section id="record" className={`record rc-${skin}`}>
       <div className="rc-in">
@@ -67,10 +66,10 @@ export function Record({ r, onBack, onDelete }: Props) {
         <div className="rc-result">
           {skin === 'broadcast' && (
             <>
-              <div className="bc-bug rp-bug">
+              <div className={`bc-bug rp-bug${r.teams ? ' teams' : ''}`}>
                 <div className={`bc-side you${r.winner === 'you' ? ' won' : ''}`}>
                   <i className="bc-chip" />
-                  <span className="bc-nm">{sur(r.you.name)}{r.winner === 'you' ? ' ✓' : ''}</span>
+                  <span className="bc-nm">{cols.you}{r.winner === 'you' ? ' ✓' : ''}</span>
                 </div>
                 <span className="bc-clock rp-final">
                   Final
@@ -78,7 +77,7 @@ export function Record({ r, onBack, onDelete }: Props) {
                 </span>
                 <div className={`bc-side them${r.winner === 'them' ? ' won' : ''}`}>
                   <i className="bc-chip" />
-                  <span className="bc-nm">{r.winner === 'them' ? '✓ ' : ''}{sur(r.them.name)}</span>
+                  <span className="bc-nm">{r.winner === 'them' ? '✓ ' : ''}{cols.them}</span>
                 </div>
               </div>
               <div className="rp-score">
@@ -136,8 +135,8 @@ export function Record({ r, onBack, onDelete }: Props) {
               <thead>
                 <tr>
                   <th scope="col" />
-                  <th scope="col" className={`nm ${tones.you}`}>{sur(r.you.name)}</th>
-                  <th scope="col" className={`nm ${tones.them}`}>{sur(r.them.name)}</th>
+                  <th scope="col" className={`nm ${tones.you}`}>{cols.you}</th>
+                  <th scope="col" className={`nm ${tones.them}`}>{cols.them}</th>
                 </tr>
               </thead>
               <tbody>

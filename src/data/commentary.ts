@@ -156,6 +156,8 @@ export const LINES = {
   tagCrawl: '{a} crawls for the corner, {x} at full stretch… can {d} stop it?',
   tagCutOff: '<g>{a} cuts {d} off!</g> Dragged back to the wrong side of the ring.',
   tagKnockedOff: '{a} knocks {d} clean off the apron. Nobody to tag now.',
+  tagSaveCut: '{a} goes to break it up, but {d} gets there first and heads them off!',
+  tagSaveBrawl: '{a} goes straight after {d}, and the two of them spill to the floor, trading shots! The legal men are on their own.',
   tagNotSeen: '{a} makes the tag, but the referee didn’t see it! {d} is sent back to the corner.',
   tagHot: '<G>HOT TAG!</G> {a} comes in like a house on fire!',
   tagMade: '{a} tags in {d}.',

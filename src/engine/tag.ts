@@ -26,6 +26,17 @@ const heel = (s: Side): boolean => s.w.disposition === 'HEEL';
 const ownCorner = (S: MatchState, k: SideKey): number => CORNERS.indexOf(TEAM_CORNER[S.sides[k]!.team % TEAM_CORNER.length]!);
 const IN_RING: ReadonlySet<Area> = new Set<Area>(['IN_RING', 'ROPES', 'CORNER', 'TOP_ROPE']);
 const CORNERED: ReadonlySet<Area> = new Set<Area>(['CORNER', 'TOP_ROPE']);
+/**
+ * When the AI tags out, per turn it could. Beaten (this many actions on the wrong end) or running on empty:
+ * reach for the corner. After a run of its own: tag a fresher partner in, keep a fresh man on them while on
+ * top (heels with their man cornered or down most of all), and now and then otherwise.
+ */
+/**
+ * A partner on the apron breaking up a pin or a hold: how often they get there, and with the other team's man there
+ * to head them off. After a save, how often the two partners brawl to the floor, and for how many actions.
+ */
+export const TAG_SAVE = { reach: 0.85, guarded: 0.45, guardedHold: 0.9, brawl: 0.7, brawlFor: 5, sayCut: 0.3 };
+export const TAG_AI = { beaten: 5, reach: 0.35, settled: 3, fresher: 0.15, quick: 0.05, heelQuick: 0.12, idle: 0.01, bigTeams: 0.5 };
 const standing = (S: MatchState, k: SideKey): Side['state'] => ({ position: 'STANDING', orientation: 'FRONT', area: S.sides[k]!.state.area, motion: 'STATIONARY' });
 
 /** The legal man for a team (or null). */
@@ -352,10 +363,19 @@ export function aiTagInstinct(ctx: Ctx, k: SideKey, setups: readonly SetupId[]):
   const D = S.sides[A.target];
   if (D?.legal && cornerDistance(S, D.key) === 0 && partnerFor(S, D.key) && setups.includes('pull_opponent_from_corner')) return 'pull_opponent_from_corner';
   if (canDoubleTeam(S, k) && ctx.rnd() < (heel(A) ? 0.45 : 0.3)) return 'double';
-  if (!canTag(S, k) || (A.legalTurns ?? 0) < 4) return null;
+  if (!canTag(S, k)) return null;
   const partner = S.sides[partnerFor(S, k)!]!, cond = pinCondition(A);
-  const desperate = cond < 45 || staminaPercent(A) < 30;
+  // A proper beating (or running on empty): reach for the corner, whether or not you've had a turn on top.
+  // (It used to wait for four turns in control, so the man in peril almost never went for the hot tag.)
+  const beaten = (A.peakPeril ?? 0) >= TAG_AI.beaten, desperate = cond < 45 || staminaPercent(A) < 30;
+  if (beaten || desperate) return ctx.rnd() < TAG_AI.reach ? 'tag' : null;
+  // Otherwise, only once you've had a run of your own.
+  if ((A.legalTurns ?? 0) < TAG_AI.settled) return null;
   const fresher = pinCondition(partner) - cond > 30;
-  const p = desperate ? 0.45 : fresher ? 0.15 : heel(A) && D && D.state.position !== 'STANDING' ? 0.07 : 0.02;
+  // In control, a team keeps a fresh man on them: quick tags (heels most of all, with their man cornered or down).
+  const onTop = S.control === k, pinned = !!D && (D.state.position !== 'STANDING' || (CORNERED.has(D.state.area) && D.spot === ownCorner(S, k)));
+  // Three or more a side: fewer quick tags (or the work never adds up on anyone).
+  const big = S.order.filter((o) => S.sides[o]!.team === A.team).length > 2 ? TAG_AI.bigTeams : 1;
+  const p = fresher ? TAG_AI.fresher : onTop ? (heel(A) && pinned ? TAG_AI.heelQuick : TAG_AI.quick) * big : TAG_AI.idle;
   return ctx.rnd() < p ? 'tag' : null;
 }

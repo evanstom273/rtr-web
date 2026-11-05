@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { MatchEngine } from '../engine';
 import { runHeadless } from '../engine/sim/runHeadless';
 import { crc32, zipBytes } from '../storage/zip';
-import { buildRecord, fileStem, recordText, recordsZip, statRows } from './record';
+import { buildRecord, fileStem, recordText, recordTitle, recordsZip, statRows } from './record';
 
 function playOne(seed: number) {
   let engine: MatchEngine | null = null;
@@ -61,5 +61,28 @@ describe('match records v2 (more than two people)', () => {
     expect(r.you.name).toBe(S.you.w.name);
     expect(statRows(r)).toHaveLength(13);
     expect(recordText(r)).toContain('THE COMMENTARY');
+  });
+
+  it('a tag match is team against team: the line-up, the result, the title and the numbers', () => {
+    let engine: MatchEngine | null = null;
+    const ids = ['abril_sosa', 'adebayo_the_great_okoro', 'afa_togia', 'aguila_de_bronce'];
+    runHeadless({ seed: 11, you: ids[0]!, them: ids[1]!, extras: [{ id: ids[2]!, team: 0 }, { id: ids[3]!, team: 1 }], rules: { tag: true }, model: { kind: 'fixed', rate: 0.6 }, onStep: (e) => { engine = e; } });
+    const S = (engine as MatchEngine | null)!.state;
+    const r = buildRecord(S, Date.UTC(2026, 10, 5, 2, 0))!;
+    const name = (id: string) => S.order.map((k) => S.sides[k]!.w).find((w) => w.id === id)!.name;
+    const mine = `${name(ids[0]!)} & ${name(ids[2]!)}`, theirs = `${name(ids[1]!)} & ${name(ids[3]!)}`;
+    expect(r.lineup).toBe(`${mine} vs ${theirs}`);
+    expect(r.teams).toEqual({ you: 'Sosa & Togia', them: 'Okoro & Bronce' });
+    expect(['you', 'them']).toContain(r.winner);
+    // Whoever got the fall, the result is the teams.
+    expect(r.winnerName).toBe(r.winner === 'you' ? mine : theirs);
+    expect(r.loserName).toBe(r.winner === 'you' ? theirs : mine);
+    expect(recordTitle(r)).toBe(r.winner === 'you' ? 'Sosa & Togia def. Okoro & Bronce' : 'Okoro & Bronce def. Sosa & Togia');
+    const text = recordText(r);
+    expect(text.split('\n')[0]).toBe(`${mine} vs ${theirs}`);
+    expect(text).toContain('BY THE NUMBERS (team totals)');
+    // Team totals: both partners' moves.
+    const tried = S.order.filter((k) => S.sides[k]!.team === S.sides.you!.team).reduce((t, k) => t + S.sides[k]!.stats.movesTried, 0);
+    expect(r.stats!.you.movesTried).toBe(tried);
   });
 });

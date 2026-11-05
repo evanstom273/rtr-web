@@ -289,7 +289,9 @@ export function applyBout(c: Career, show: Show, index: number, out: SimOut, aIs
       const side = t.kind === 'tag' || t.kind === 'trios' ? sideOf(bout, winner) ?? [winner] : null;
       const team = side ? teamOf(activeWorld(), winner) : undefined;
       const reignName = side ? team?.name ?? side.map((id) => findWrestler(id)?.name ?? id).join(' & ') : w.name;
-      reigns.push({ holder: winner, name: reignName, from: show.date, to: null, defences: 0, won: { show: show.name, from: before?.id ?? null, fromName: before?.name ?? null } });
+      // Won from a team: the team (the old reign carries its name), not just its first man.
+      const fromName = held.length > 1 ? reign?.name ?? held.map((id) => findWrestler(id)?.name ?? id).join(' & ') : before?.name ?? null;
+      reigns.push({ holder: winner, name: reignName, from: show.date, to: null, defences: 0, won: { show: show.name, from: before?.id ?? null, fromName } });
       if (side) { t.holders = [...side]; if (team && side.every((id) => team.members.includes(id))) t.team = team.id; else delete t.team; }
       addEvent(history(), { day: show.date, kind: 'title', who: winner, name: w.name, promo: show.promo, title: t.id, show: show.name });
       ts.since = show.date; ts.defences = 0;

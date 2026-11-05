@@ -13,7 +13,7 @@ import { clamp } from './rng';
 import { has } from './traits';
 import { damagePart } from './side';
 import { distance, settleSpots } from './zones';
-import { replaceLegal } from './tag';
+import { replaceLegal, TAG_SAVE } from './tag';
 import { clusterOf, isRoyal, royalOnElimination } from './royal';
 import type { Control, FinishType, MatchState, Move, SavePlan, SetupId, Side, SideKey, SubOutcome } from './types';
 
@@ -260,10 +260,27 @@ export function planSave(ctx: Ctx, attacker: SideKey, victim: SideKey, kind: 'pi
   const guarded = !!S.rules.tag && S.order.some((o) => S.sides[o]!.out === 'apron' && !S.sides[o]!.away && sameTeam(S, o, attacker));
   for (const c of [...fighting(S), ...apron]) {
     if (c === attacker || c === victim || isPlayer(S, c)) continue;
-    const p = saveMotive(S, c, attacker, victim) * reachChance(S, c, victim) * (guarded ? 0.5 : 1);
-    if (p <= 0 || ctx.rnd() >= p) continue;
-    const d = distance(S, c, victim), near = d === 0;
-    const at = kind === 'pin' ? (near && ctx.rnd() < 0.35 ? 1 : 2) : near ? 2 : d === 1 ? 3 : 4;
+    // A partner on the apron is right there: through the ropes and in, if the other team's man doesn't head them off.
+    const onApron = apron.includes(c), C = S.sides[c]!;
+    const reach = onApron ? TAG_SAVE.reach * (0.6 + 0.4 * (staminaPercent(C) / 100)) : reachChance(S, c, victim);
+    // A hold takes seconds, not a three-count: the other team's man can't head off a save on a hold so easily.
+    const free = saveMotive(S, c, attacker, victim) * reach, p = free * (guarded ? (onApron ? (kind === 'sub' ? TAG_SAVE.guardedHold : TAG_SAVE.guarded) : 0.5) : 1);
+    if (p <= 0) continue;
+    const r = ctx.rnd();
+    if (r >= p) {
+      // Would have made it but for the pinner's partner: say so, now and then (it's half the drama of a tag match,
+      // but not every cover).
+      if (onApron && guarded && r < free && ctx.rnd() < TAG_SAVE.sayCut) {
+        const guard = S.order.find((o) => S.sides[o]!.out === 'apron' && !S.sides[o]!.away && sameTeam(S, o, attacker));
+        if (guard) say(ctx, LINES.tagSaveCut, { a: c, d: guard }, 'warn');
+      }
+      continue;
+    }
+    const d = distance(S, c, victim), near = d === 0 || onApron;
+    // A hold: someone right there gets in within a couple of seconds; a partner on the apron who sees a finisher
+    // locked in is through the ropes at once.
+    const finisher = kind === 'sub' && S.txn?.kind === 'sub' && (S.txn.move.finisher || S.sides[attacker]!.finishers.includes(S.txn.move));
+    const at = kind === 'pin' ? (near && ctx.rnd() < 0.35 ? 1 : 2) : onApron && finisher ? 1 : near ? 2 : d === 1 ? 3 : 4;
     const plan = { by: c, at, steal: ctx.rnd() < stealChance(S, c, victim) };
     if (!best || plan.at < best.at) best = plan;
   }
@@ -316,8 +333,18 @@ export function resolveSave(ctx: Ctx, attacker: SideKey, victim: SideKey, plan: 
   flash(ctx, 'Broken up!', true);
   ring(ctx, 'move_landed', plan.by, 'Save');
   if (C.out === 'apron') {
-    // The partner off the apron: the referee sends them back, and it's anyone's.
-    say(ctx, LINES.tagSaveBack, { a: plan.by }, 'dim');
+    // The pinner's partner goes after the man who made the save, and more often than not the two of them spill
+    // to the floor: the legal men are left alone (which is how a tag match gets to its finish).
+    const guard = S.order.find((o) => S.sides[o]!.out === 'apron' && !S.sides[o]!.away && sameTeam(S, o, attacker));
+    if (guard && ctx.rnd() < TAG_SAVE.brawl) {
+      for (const k of [plan.by, guard]) {
+        const P = S.sides[k]!;
+        P.away = TAG_SAVE.brawlFor;
+        P.state = { position: 'STANDING', orientation: 'FRONT', area: 'OUTSIDE', motion: 'STATIONARY' };
+      }
+      say(ctx, LINES.tagSaveBrawl, { a: guard, d: plan.by }, 'warn');
+      heat(ctx, 4);
+    } else say(ctx, LINES.tagSaveBack, { a: plan.by }, 'dim');
     render(ctx);
     setControl(ctx, 'neutral');
     afterAction(ctx);

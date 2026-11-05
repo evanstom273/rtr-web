@@ -323,7 +323,7 @@ export function Builder({ state: s, hits, onChange, onStart, onMenu }: Props) {
                 </option>
               ))}
             </select>
-            <select value={titleValid ? s.titleId : ''} onChange={(e) => set({ titleId: e.target.value })} disabled={!titles.length} aria-label="Title on the line">
+            <select value={titleValid ? s.titleId : ''} onChange={(e) => set({ titleId: e.target.value })} disabled={!titles.length} aria-label="Title on the line (for show)">
               <option value="">Non-title match</option>
               {titles.map((t) => (
                 <option key={t.id} value={t.id}>
@@ -331,6 +331,7 @@ export function Builder({ state: s, hits, onChange, onStart, onMenu }: Props) {
                 </option>
               ))}
             </select>
+            {titleName && <span className="bd-blurb">For show: belts only change hands in a career.</span>}
           </div>
         </div>
 

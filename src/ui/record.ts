@@ -3,7 +3,7 @@
 import { PART_LABEL } from '../data/commentary';
 import { fmtClock, stipulation, topPart, type LogEntry, type MatchState, type RatingPart, type Seg, type SideKey, type SideStats } from '../engine';
 import { zipBytes, type ZipFile } from '../storage/zip';
-import { FINISH_LABEL, report, starText, surname } from './model';
+import { FINISH_LABEL, report, starText, surname, teamsOf } from './model';
 
 export interface RecordSide extends SideStats {
   damageDealt: number;
@@ -33,6 +33,10 @@ export interface MatchRecord {
   type?: string;
   sides?: RecordEntrant[];
   winners?: string[];
+  /** v2, two teams (tag, tornado, handicap): each team's surnames ("Ibarra & Ferreira"), yours first; the numbers are team totals. */
+  teams?: { you: string; them: string };
+  /** v2: everyone, as a line-up ("Cruz Ibarra & Marco Ferreira vs Colt Briggs & Brett McLean"). */
+  lineup?: string;
   id: string;
   /** When it finished (epoch ms); 0 for matches carried over from before the archive. */
   at: number;
@@ -68,6 +72,19 @@ function side(S: MatchState, k: SideKey): RecordSide {
   return { ...w.stats, damageDealt: Math.round(w.damageDealt), worked: top.n ? PART_LABEL[top.part] : '', workedN: top.n, warnings: S.ref.warnings[k] ?? 0 };
 }
 
+/** A team's numbers: everyone's added up (what they worked: whoever worked something most). */
+function teamSide(S: MatchState, ks: SideKey[]): RecordSide {
+  const all = ks.map((k) => side(S, k));
+  const out = { ...all[0]! } as RecordSide;
+  for (const x of all.slice(1)) {
+    for (const key of Object.keys(x) as (keyof RecordSide)[]) {
+      if (typeof x[key] === 'number' && key !== 'workedN') (out as unknown as Record<string, number>)[key] = ((out[key] as number) ?? 0) + (x[key] as number);
+    }
+    if (x.workedN > out.workedN) { out.worked = x.worked; out.workedN = x.workedN; }
+  }
+  return out;
+}
+
 export function buildRecord(S: MatchState, at = Date.now()): MatchRecord | null {
   const R = S.result, r = S.rating;
   if (!R || !r) return null;
@@ -77,10 +94,17 @@ export function buildRecord(S: MatchState, at = Date.now()): MatchRecord | null 
   // With more than two: the record's "you" is the player's side (or the first), and "them" whoever beat them, or the first they beat.
   const me: SideKey = S.player ?? 'you';
   const them: SideKey = multi ? (R.winner && R.winner !== me ? R.winner : R.loser && R.loser !== me ? R.loser : S.order.find((k) => k !== me)!) : 'them';
+  // Two teams: the record's two columns are the teams (yours first), and the result is team against team.
+  const tt = teamsOf(S), teams: [SideKey[], SideKey[]] | null = tt ? (me === 'them' ? [tt[1], tt[0]] : tt) : null;
+  const label = (ks: SideKey[], full: boolean) => ks.map((k) => (full ? S.sides[k]!.w.name : surname(S.sides[k]!.w))).join(' & ');
+  const wonTeam = R.winner ? S.sides[R.winner]!.team : null;
+  const mineWon = !!teams && wonTeam === S.sides[teams[0][0]!]!.team, theirsWon = !!teams && wonTeam === S.sides[teams[1][0]!]!.team;
+  const lineup = multi ? (teams ? `${label(teams[0], true)} vs ${label(teams[1], true)}` : S.order.map((k) => S.sides[k]!.w.name).join(' vs ')) : undefined;
   return {
     v: multi ? 2 : 1, id: `${at}-${S.id}`, at, stars: r.stars, label: r.label, verdict: r.verdict, recap: r.recap,
     ...(multi ? {
-      type: S.type,
+      type: S.type, lineup,
+      ...(teams ? { teams: { you: label(teams[0], false), them: label(teams[1], false) } } : {}),
       winners: (R.winners ?? []).map((k) => S.sides[k]!.w.name),
       sides: S.order.map((k): RecordEntrant => {
         const s = S.sides[k]!, el = S.elims.find((x) => x.k === k), e = S.entries?.[k];
@@ -92,10 +116,12 @@ export function buildRecord(S: MatchState, at = Date.now()): MatchRecord | null 
       }),
     } : {}),
     you: { id: S.sides[me]!.w.id, name: S.sides[me]!.w.name }, them: { id: S.sides[them]!.w.id, name: S.sides[them]!.w.name },
-    winner: R.winner, winnerName: rep.winner?.name ?? null, loserName: rep.loser?.name ?? null,
+    ...(teams && (mineWon || theirsWon)
+      ? { winner: mineWon ? 'you' : 'them', winnerName: label(mineWon ? teams[0] : teams[1], true), loserName: label(mineWon ? teams[1] : teams[0], true) }
+      : { winner: R.winner, winnerName: rep.winner?.name ?? null, loserName: rep.loser?.name ?? null }),
     finish: R.finish, how: rep.how, t: R.t, falls: rep.falls,
     stipulation: stipulation(S.rules.stipulation).name, venue: S.venue, event: S.event, title: S.rules.title ? S.titleName : '',
-    parts: r.parts, stats: { you: side(S, me), them: side(S, them) },
+    parts: r.parts, stats: teams ? { you: teamSide(S, teams[0]), them: teamSide(S, teams[1]) } : { you: side(S, me), them: side(S, them) },
     heat: { avg: Math.round(c.heatSum / Math.max(1, c.heatN)), peak: Math.round(c.heatPeak), line: [...S.heatLine] },
     log: S.log.map((l) => ({ t: l.t, cls: l.cls, segs: l.segs })),
   };
@@ -147,10 +173,15 @@ export function fmtWhen(at: number, now = Date.now()): string {
 
 /** "Okoro def. Sosa" */
 export function recordTitle(r: MatchRecord): string {
-  const s = (n: string) => surname({ name: n } as never);
+  const s = (n: string) => n.split(' & ').map((x) => surname({ name: x } as never)).join(' & ');
+  if (r.teams && (r.winner === 'you' || r.winner === 'them')) return r.winner === 'you' ? `${r.teams.you} def. ${r.teams.them}` : `${r.teams.them} def. ${r.teams.you}`;
   if (r.winnerName && r.loserName) return `${s(r.winnerName)} def. ${s(r.loserName)}`;
-  return `${s(r.you.name)} vs ${s(r.them.name)}`;
+  return r.teams ? `${r.teams.you} vs ${r.teams.them}` : `${s(r.you.name)} vs ${s(r.them.name)}`;
 }
+
+/** The record's two columns: the teams in a team match, the two people otherwise. */
+export const recordCols = (r: MatchRecord): { you: string; them: string } =>
+  r.teams ?? { you: surname({ name: r.you.name } as never), them: surname({ name: r.them.name } as never) };
 
 /** A filename-safe stem: "okoro-def-sosa-2026-11-03-0142". */
 export function fileStem(r: MatchRecord): string {
@@ -164,7 +195,7 @@ export function fileStem(r: MatchRecord): string {
 export function recordText(r: MatchRecord): string {
   const L: string[] = [];
   const rule = '-'.repeat(60);
-  L.push(`${r.you.name} vs ${r.them.name}`);
+  L.push(r.lineup ?? `${r.you.name} vs ${r.them.name}`);
   L.push(`${r.stipulation} · ${r.event ? r.event + ' · ' : ''}${r.venue}${r.title ? ' · ' + r.title : ''}`);
   L.push(r.at ? new Date(r.at).toLocaleString('en-GB') : 'Before the archive');
   L.push(rule);
@@ -178,8 +209,9 @@ export function recordText(r: MatchRecord): string {
   }
   const rows = statRows(r);
   if (rows.length) {
-    const w = Math.max(...rows.map((x) => x.a.length), r.you.name.length, 6);
-    L.push('', 'BY THE NUMBERS', `  ${''.padEnd(16)} ${r.you.name.padEnd(w)}   ${r.them.name}`);
+    const cols = r.teams ?? { you: r.you.name, them: r.them.name };
+    const w = Math.max(...rows.map((x) => x.a.length), cols.you.length, 6);
+    L.push('', r.teams ? 'BY THE NUMBERS (team totals)' : 'BY THE NUMBERS', `  ${''.padEnd(16)} ${cols.you.padEnd(w)}   ${cols.them}`);
     for (const x of rows) L.push(`  ${x.label.padEnd(16)} ${x.a.padEnd(w)}   ${x.b}`);
   }
   if (r.heat.line.length) L.push('', `THE CROWD  average ${r.heat.avg}, peak ${r.heat.peak}`, `  ${r.heat.line.join(' ')}`);

@@ -453,6 +453,38 @@ triple threat on the card).
   every team, the bell's on screen, nothing spills or overlaps, the tape's starter starts, and the match's log
   and controls are on screen.
 
+## Tag matches that play like tag matches (Lyra's 16 tag matches)
+
+Read from 16 AI tag matches she sent: about one tag a match (five had none), partners breaking up one hold in
+11, a side headlock ending a match, and a scoreboard that showed two people.
+
+- **Hot tags.** The AI only thought about tagging after four turns *on top* since coming in, so the man taking a
+  beating (rarely on top) almost never reached for his corner. Now (`TAG_AI` in `tag.ts`): beaten (five actions on
+  the wrong end) or running on empty, he reaches whenever he can (35% a turn); otherwise, after a run of his own, a
+  team tags a fresher partner in (15%) and keeps a fresh man on them while on top (5%, heels with their man cornered
+  or down 12%, half that with three or more a side).
+- **Saves** (`TAG_SAVE`). A partner on the apron is right there: 85% to get in (by stamina), cut to 45% on a pin and
+  90% on a hold when the other team's man is on the apron to head them off (a hold takes seconds; a three-count
+  doesn't). A partner sees a finisher locked in and is through the ropes in a second. After a save from the apron,
+  70% of the time the two partners brawl to the floor for five actions: the legal men on their own, which is how
+  a tag match gets to its finish. "Heads them off" is said now and then (30%), not on every cover.
+- **No betting the match on an ordinary hold** with the other man's partner stood on the apron: the AI works it
+  instead (finishers still go for the tap; a partner knocked off the apron and it's on).
+- **Rest holds** (impact 3: side headlock, standing and grounded headlocks, front facelock, standing hammerlock
+  and wrist lock) wear someone down and never make them tap, unless it's somebody's finisher. Singles too: they'd
+  ended about 4% of singles matches. The golden singles record was regenerated on purpose for this (19 of 176
+  changed; with the rule off, the rest is identical). Long-run stars still on target: median 3, 4★+ 12.1%,
+  4.5★+ 2.1%, 5★ 0.15%.
+- **Numbers** (2-on-2, 150 matches, skill model): about 9 tags and a hot tag a match, pinfall about 75–80% of
+  finishes (submissions 40% before), median 17.5 minutes, stars median 3 with 9% at 4★+ (tag rating offset
+  refitted: 2-on-2 down 0.3, three a side as before). Six-man tags run long: median 24 minutes.
+- **Team against team on paper.** The result screen and the saved record name the teams ("Briggs & McLean def.
+  Ibarra & Ferreira"), the line-up heads the record, and By the Numbers is team totals. Title history names the
+  team a belt was won from, not its first man.
+- **Exhibition belts are for show.** Exhibition and career share one world, so an exhibition never moves a belt
+  (it never has, singles included). The builder says so under the title, and the result screen says who'd have
+  been new champions.
+
 ### Harness
 
 `MATCHES=1 npx vitest run src/engine/__tests__/matchesrun.test.ts` runs 40 of each type and reports:
