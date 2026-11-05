@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AREA_LABEL, POSITION_LABEL } from '../../data/commentary';
-import { liveObjects, weaponOf, type MatchEngine, type RingBeat, type SideKey, type Snapshot } from '../../engine';
+import { liveObjects, weaponOf, type MatchEngine, type BySide, type RingBeat, type SideKey, type Snapshot } from '../../engine';
 import { nameTone, reduceMotion, shortName } from '../format';
 import { APRON, BARRIER, CENTRE, MAT, POSTS, VIEW, facing, newMemory, objectAnchor, placePair, type Pt } from './ringLayout';
 
@@ -146,7 +146,7 @@ export function RingView({ engine, version, variant }: { engine: MatchEngine; ve
   const mem = useRef(newMemory());
   const you = v.sides.you.state, them = v.sides.them.state;
   const pos = useMemo(() => placePair(you, them, mem.current), [you, them]);
-  const tones: Record<SideKey, string> = { you: nameTone(S.you.w), them: nameTone(S.them.w) };
+  const tones: BySide<string> = { you: nameTone(S.you.w), them: nameTone(S.them.w) };
   const [fx, setFx] = useState<Fx[]>([]);
   const seen = useRef(S.events.length ? S.events[S.events.length - 1]!.id : 0);
   const [quake, setQuake] = useState({ n: 0, heavy: false });
@@ -160,15 +160,15 @@ export function RingView({ engine, version, variant }: { engine: MatchEngine; ve
       if (ev.id <= seen.current) continue;
       seen.current = ev.id;
       if (ev.type !== 'ring' || !FX_MS[ev.beat]) continue;
-      const actor = ev.actor ?? 'you', target = other(actor), p = posRef.current;
-      if (ev.beat === 'move_started') add.push({ id: ev.id, beat: ev.beat, from: p[actor], at: p[target], label: ev.label, tone: tones[actor] });
+      const actor = ev.actor ?? 'you', target = S.sides[actor]?.target ?? other(actor), p = posRef.current;
+      if (ev.beat === 'move_started') add.push({ id: ev.id, beat: ev.beat, from: p[actor]!, at: p[target]!, label: ev.label, tone: tones[actor]! });
       else if (ev.beat === 'move_landed') {
-        add.push({ id: ev.id, beat: ev.beat, at: p[target], tone: tones[actor] });
+        add.push({ id: ev.id, beat: ev.beat, at: p[target]!, tone: tones[actor]! });
         jolt = Math.max(jolt, 1);
       } else if (ev.beat === 'crash') {
-        add.push({ id: ev.id, beat: ev.beat, at: p[actor], tone: 'bad' });
+        add.push({ id: ev.id, beat: ev.beat, at: p[actor]!, tone: 'bad' });
         jolt = 2;
-      } else add.push({ id: ev.id, beat: ev.beat, at: p[actor], tone: ev.beat === 'reversal' ? 'gold' : tones[actor] });
+      } else add.push({ id: ev.id, beat: ev.beat, at: p[actor]!, tone: ev.beat === 'reversal' ? 'gold' : tones[actor]! });
     }
     if (!add.length) return;
     if (jolt && !reduceMotion()) setQuake((q) => ({ n: q.n + 1, heavy: jolt === 2 }));
@@ -215,7 +215,7 @@ export function RingView({ engine, version, variant }: { engine: MatchEngine; ve
         ))}
         {S.rules.stipulation === 'steel_cage' && <rect className="cage" x={APRON.x - 4} y={APRON.y - 4} width={APRON.w + 8} height={APRON.h + 8} rx="2" />}
         <Objects engine={engine} />
-        {pinning && <circle className="pinring" cx={pos[other(pinning)].x} cy={pos[other(pinning)].y} r="26" />}
+        {pinning && <circle className="pinring" cx={pos[other(pinning)]!.x} cy={pos[other(pinning)]!.y} r="26" />}
         {subbing && <circle className="subring" cx={(pos.you.x + pos.them.x) / 2} cy={(pos.you.y + pos.them.y) / 2} r="30" />}
         {v.count !== null && (
           <text className="refcount" x={CENTRE.x} y={CENTRE.y + 14}>
@@ -224,8 +224,8 @@ export function RingView({ engine, version, variant }: { engine: MatchEngine; ve
         )}
       </g>
       {(['them', 'you'] as const).map((k) => (
-        <Marker key={k} k={k} s={k === 'you' ? you : them} at={pos[k]} face={facing(pos[k], pos[other(k)], k === 'you' ? you : them)}
-          tone={tones[k]} label={variant === 'thumb' ? '' : shortName(S[k].w)} active={ctrl === k} />
+        <Marker key={k} k={k} s={k === 'you' ? you : them} at={pos[k]} face={facing(pos[k], pos[other(k)]!, k === 'you' ? you : them)}
+          tone={tones[k]} label={variant === 'thumb' ? '' : shortName(S.sides[k]!.w)} active={ctrl === k} />
       ))}
       {fx.map((f) => (
         <Burst key={f.id} fx={f} />

@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef } from 'react';
-import { fmtClock, type LogEntry, type Seg, type SideKey } from '../../engine';
+import { fmtClock, type BySide, type LogEntry, type Seg } from '../../engine';
 
-export function Segment({ s, tones }: { s: Seg; tones: Record<SideKey, string> }) {
+export function Segment({ s, tones }: { s: Seg; tones: BySide<string> }) {
   switch (s.k) {
     case 'text': return <>{s.v}</>;
     case 'name': return <b className={`nm ${tones[s.side]}`}>{s.v}</b>;
@@ -13,7 +13,7 @@ export function Segment({ s, tones }: { s: Seg; tones: Record<SideKey, string> }
 
 const lineClass = (c: LogEntry['cls']) => (c === 'crowd' ? 'crowdln' : c);
 
-export function Log({ entries, tones }: { entries: readonly LogEntry[]; tones: Record<SideKey, string> }) {
+export function Log({ entries, tones }: { entries: readonly LogEntry[]; tones: BySide<string> }) {
   const box = useRef<HTMLDivElement>(null);
   const n = entries.length;
   useLayoutEffect(() => {

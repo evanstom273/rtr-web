@@ -1,7 +1,7 @@
 // Contest flow: build the roll, let the player (and the AI) decide on a push, roll, then hand the
 // outcome back to the move or setup that started it.
 import { LINES } from '../data/commentary';
-import { say } from './commentary';
+import { isPlayer, say } from './commentary';
 import type { Ctx } from './ctx';
 import { canPush, landChance, PUSH_COST, rollContest, type ContestSide } from './dice';
 import { gainMomentum } from './momentum';
@@ -18,12 +18,12 @@ const MOVE_TYPE_LABEL: Partial<Record<Move['type'], string>> = {
 
 /** When the AI spends momentum to push: big moments, or desperation on defence. */
 export function aiWantsPush(S: MatchState, k: SideKey, spec: ContestSpec): boolean {
-  if (!canPush(S[k])) return false;
+  if (!canPush(S.sides[k]!)) return false;
   if (spec.major) return true;
-  if (k === spec.defender && pinCondition(S[k]) < 45 && S[k].momentum >= 40) return true;
+  if (k === spec.defender && pinCondition(S.sides[k]!) < 45 && S.sides[k]!.momentum >= 40) return true;
   // Close calls with plenty of momentum to spare.
   const mine = k === spec.attacker ? spec.chance : 100 - spec.chance;
-  return S[k].momentum >= 60 && mine >= 35 && mine <= 60;
+  return S.sides[k]!.momentum >= 60 && mine >= 35 && mine <= 60;
 }
 
 type ContestBase = Pick<ContestSpec, 'kind' | 'attacker' | 'defender' | 'title' | 'major' | 'attack' | 'defend'>;
@@ -31,10 +31,13 @@ type ContestBase = Pick<ContestSpec, 'kind' | 'attacker' | 'defender' | 'title' 
 /** Put a contest in front of the player. The AI side declares its push up front. */
 export function startContest(ctx: Ctx, base: ContestBase, defence: ContestSpec['defence'] = null): void {
   const S = ctx.S;
-  const spec: ContestSpec = { ...base, id: ++S.seq, chance: 0, playerCanPush: canPush(S.you), defence };
+  const pk = [base.attacker, base.defender].find((k) => isPlayer(S, k));
+  const spec: ContestSpec = { ...base, id: ++S.seq, chance: 0, playerCanPush: !!pk && canPush(S.sides[pk]!), defence };
   spec.chance = landChance(spec.attack, spec.defend);
-  const aiSide: ContestSide = spec.attacker === 'them' ? spec.attack : spec.defend;
-  if (aiWantsPush(S, 'them', spec)) aiSide.pushed = true;
+  // Every AI side in it declares its push up front.
+  for (const [side, k] of [[spec.attack, spec.attacker], [spec.defend, spec.defender]] as [ContestSide, SideKey][]) {
+    if (!isPlayer(S, k) && aiWantsPush(S, k, spec)) side.pushed = true;
+  }
   spec.chance = landChance(spec.attack, spec.defend);
   S.pending = { kind: 'contest', spec };
 }
@@ -46,7 +49,7 @@ const withMod = (s: ContestSide, label: string, value: number): ContestSide => (
  * card; the AI decides on the spot. Only going for the reversal is rolled for.
  */
 export function offerDefence(ctx: Ctx, base: ContestBase & { move: Move; aimed: string }): void {
-  const S = ctx.S, A = S[base.attacker];
+  const S = ctx.S, A = S.sides[base.attacker]!;
   const tele = telegraphed(A);
   const defend = tele ? withMod(base.defend, 'Saw it coming', TELEGRAPH_BONUS) : base.defend;
   const spec: DefendSpec = {
@@ -54,7 +57,7 @@ export function offerDefence(ctx: Ctx, base: ContestBase & { move: Move; aimed: 
     impact: base.move.impact, major: base.major, aimed: base.aimed, reverseChance: 100 - landChance(base.attack, defend), telegraphed: tele,
     attack: base.attack, defend,
   };
-  if (base.defender === 'you') {
+  if (isPlayer(S, base.defender)) {
     S.pending = { kind: 'defend', spec };
     return;
   }
@@ -63,7 +66,7 @@ export function offerDefence(ctx: Ctx, base: ContestBase & { move: Move; aimed: 
 
 /** The defender's call is in. Reverse: roll for it. Brace or ride: the move lands now. */
 export function resolveDefence(ctx: Ctx, spec: DefendSpec, choice: Defence): void {
-  const S = ctx.S, txn = S.txn, d = spec.defender, st = S[d].stats;
+  const S = ctx.S, txn = S.txn, d = spec.defender, st = S.sides[d]!.stats;
   if (!txn || txn.kind !== 'move') return;
   S.pending = { kind: 'idle' };
   if (choice === 'reverse') {
@@ -84,7 +87,7 @@ export function rollPending(ctx: Ctx, push: boolean): boolean {
   const S = ctx.S, p = S.pending;
   if (p.kind !== 'contest') return false;
   const spec = { ...p.spec, attack: { ...p.spec.attack }, defend: { ...p.spec.defend } };
-  const mine = spec.attacker === 'you' ? spec.attack : spec.defend;
+  const mine = isPlayer(S, spec.attacker) ? spec.attack : spec.defend;
   if (push && spec.playerCanPush) mine.pushed = true;
   for (const s of [spec.attack, spec.defend]) {
     if (s.pushed) gainMomentum(ctx, s.key, -PUSH_COST);

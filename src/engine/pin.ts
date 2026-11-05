@@ -5,7 +5,7 @@ import { has } from './traits';
 import { COUNT_PHRASE, LINES } from '../data/commentary';
 import { observePhase, advanceClock } from './clock';
 import type { Ctx } from './ctx';
-import { flash, other, ring, say } from './commentary';
+import { flash, foe, isPlayer, ring, say } from './commentary';
 import { crowdObserve } from './crowd';
 import { endFall, render, setControl, afterAction } from './flow';
 import { lateMatchProfile, pinProfile } from './interaction';
@@ -17,7 +17,7 @@ import { staminaPercent } from './exhaustion';
 import type { KickoutCount, MatchState, Move, PinContext, Side, SideKey } from './types';
 
 export function canPin(S: MatchState, k: SideKey): boolean {
-  const A = S[k], D = S[other(k)];
+  const A = S.sides[k]!, D = S.sides[foe(S, k)]!;
   return A.state.position === 'STANDING' && D.state.position === 'GROUNDED' && pinAreaLegal(S, k) && A.state.motion === 'STATIONARY';
 }
 
@@ -50,7 +50,7 @@ export function isSquashFinish(A: Side, D: Side, last: Move | null): boolean {
 
 /** The pin context before the flash roll (shared by the real cover and the odds shown to the player). */
 function pinContextBase(S: MatchState, k: SideKey, embedded: boolean): PinContext {
-  const A = S[k], D = S[other(k)];
+  const A = S.sides[k]!, D = S.sides[foe(S, k)]!;
   const last = A.lastActionResult === 'CLEAN_SUCCESS' ? A.lastMoveLanded : null;
   const impact = last?.impact ?? 0;
   const lastFin = !!last?.finisher;
@@ -62,7 +62,7 @@ function pinContextBase(S: MatchState, k: SideKey, embedded: boolean): PinContex
 
 function buildPinContext(ctx: Ctx, k: SideKey, embedded: boolean): PinContext {
   const pc = pinContextBase(ctx.S, k, embedded);
-  pc.flashSuccess = pc.flashQualified && ctx.rnd() * 100 < flashFinishChance(ctx.S.t) + flashEdge(ctx.S[k]);
+  pc.flashSuccess = pc.flashQualified && ctx.rnd() * 100 < flashFinishChance(ctx.S.t) + flashEdge(ctx.S.sides[k]!);
   return pc;
 }
 
@@ -72,13 +72,13 @@ const flashEdge = (A: Side) => (has(A, 'opportunist') ? FX.opportunist.flash : 0
 
 /** Chance (0–100) the AI stays down for three when k covers it now, before any Resiliency. */
 export function pinOdds(S: MatchState, k: SideKey, embedded: boolean): number {
-  const base = pinContextBase(S, k, embedded), D = S[other(k)];
+  const base = pinContextBase(S, k, embedded), D = S.sides[foe(S, k)]!;
   const stays = (pc: PinContext) => AI_KICKOUT_BASES.reduce((p, b, i) => {
     const { pressure, resistance } = pinPressureAndResistance(S, k, pc, i + 1);
     return p * (1 - pinProfile(b, pressure, resistance, i + 1, D).aiChance / 100);
   }, 1);
   if (!base.flashQualified) return stays(base) * 100;
-  const f = (flashFinishChance(S.t) + flashEdge(S[k])) / 100;
+  const f = (flashFinishChance(S.t) + flashEdge(S.sides[k]!)) / 100;
   return (f * stays({ ...base, flashSuccess: true }) + (1 - f) * stays(base)) * 100;
 }
 
@@ -107,7 +107,7 @@ export const PIN_CONDITION_SCALE = 3.2;
 export const conditionResistance = (D: Side): number => (pinCondition(D) - PIN_CONDITION_PIVOT) * PIN_CONDITION_SCALE;
 
 export function pinPressureAndResistance(S: MatchState, k: SideKey, pc: PinContext, count: number): { pressure: number; resistance: number } {
-  const A = S[k], D = S[other(k)];
+  const A = S.sides[k]!, D = S.sides[foe(S, k)]!;
   const impact = pc.lastMove?.impact ?? 1;
   // Momentum counts for less than in Godot: it no longer resets when a signature lands, so it runs
   // high late in matches, and at full weight it turned mid-match covers into wins.
@@ -127,7 +127,7 @@ export function pinPressureAndResistance(S: MatchState, k: SideKey, pc: PinConte
 }
 
 export function startPin(ctx: Ctx, k: SideKey, embedded: boolean): boolean {
-  const S = ctx.S, dk = other(k), A = S[k];
+  const S = ctx.S, dk = foe(S, k), A = S.sides[k]!;
   if (embedded) {
     if (!pinAreaLegal(S, k)) {
       setControl(ctx, k);
@@ -144,14 +144,14 @@ export function startPin(ctx: Ctx, k: SideKey, embedded: boolean): boolean {
   const pc = buildPinContext(ctx, k, embedded);
   S.pinContext = pc;
   S.recentReversalSide = null;
-  ctx.ai[k].notePinAttempt(A, pc.lastMove);
+  ctx.ai[k]!.notePinAttempt(A, pc.lastMove);
   say(ctx, LINES.pinHook, { a: k }, 'warn');
   if (pc.flashQualified) say(ctx, LINES.pinSurprise, { a: k, d: dk }, 'warn');
   ring(ctx, 'pin', k);
   render(ctx);
-  if (dk === 'you') {
+  if (isPlayer(S, dk)) {
     const { pressure, resistance } = pinPressureAndResistance(S, k, pc, 2);
-    const profile = pinProfile(18, pressure, resistance, 2, S[dk]);
+    const profile = pinProfile(18, pressure, resistance, 2, S.sides[dk]!);
     const half = profile.window / 200;
     S.pending = {
       kind: 'kickout',
@@ -165,7 +165,7 @@ export function startPin(ctx: Ctx, k: SideKey, embedded: boolean): boolean {
     let kickoutAt: 1 | 2 | 3 | null = null;
     for (let count = 1; count <= 3; count++) {
       const { pressure, resistance } = pinPressureAndResistance(S, k, pc, count);
-      const profile = pinProfile(AI_KICKOUT_BASES[count - 1]!, pressure, resistance, count, S[dk]);
+      const profile = pinProfile(AI_KICKOUT_BASES[count - 1]!, pressure, resistance, count, S.sides[dk]!);
       if (ctx.rnd() * 100 < profile.aiChance) {
         kickoutAt = count as 1 | 2 | 3;
         break;
@@ -178,7 +178,7 @@ export function startPin(ctx: Ctx, k: SideKey, embedded: boolean): boolean {
 
 /** Both kickout paths end here. count: 0 (before one), 1, 2 or 3 (THREE—NO!). */
 export function completeKickout(ctx: Ctx, k: SideKey, count: KickoutCount): void {
-  const S = ctx.S, dk = other(k), D = S[dk], pc = S.pinContext;
+  const S = ctx.S, dk = foe(S, k), D = S.sides[dk]!, pc = S.pinContext;
   D.kickouts++;
   D.stats.kickouts++;
   D.lastActionResult = 'KICKOUT';
@@ -192,11 +192,11 @@ export function completeKickout(ctx: Ctx, k: SideKey, count: KickoutCount): void
     if (count === 2) say(ctx, LINES.nearlyHadIt, { a: k }, 'dim');
     observePhase(ctx, 'kickout');
   }
-  if (count >= 2 && pc?.lastMoveWasFinisher) S[dk].stats.fk++;
+  if (count >= 2 && pc?.lastMoveWasFinisher) S.sides[dk]!.stats.fk++;
   crowdObserve(ctx, {
     type: 'kickout', k: dk, count,
     afterFinisher: !!pc?.lastMoveWasFinisher,
-    afterSignature: !!pc?.lastMove && isSignatureMove(S[k], pc.lastMove),
+    afterSignature: !!pc?.lastMove && isSignatureMove(S.sides[k]!, pc.lastMove),
   });
   ring(ctx, 'kickout', dk);
   S.pinContext = null;
@@ -206,10 +206,10 @@ export function completeKickout(ctx: Ctx, k: SideKey, count: KickoutCount): void
 
 /** The cover has reached three: Resiliency may still save the defender. */
 export function pinThree(ctx: Ctx, k: SideKey): void {
-  const S = ctx.S, dk = other(k), D = S[dk];
+  const S = ctx.S, dk = foe(S, k), D = S.sides[dk]!;
   if (D.resiliencyAvailable && !D.resiliencyUsed) {
-    if (dk === 'you') {
-      S.pending = { kind: 'resiliency', id: ++S.seq, threat: 'pinfall' };
+    if (isPlayer(S, dk)) {
+      S.pending = { kind: 'resiliency', id: ++S.seq, threat: 'pinfall', k: dk, by: k };
       return;
     }
     if (aiShouldUseResiliency(S, dk, S.pinContext?.lastMove ?? null)) return useResiliency(ctx, dk, 'pinfall');
@@ -220,7 +220,7 @@ export function pinThree(ctx: Ctx, k: SideKey): void {
 }
 
 export function aiShouldUseResiliency(S: MatchState, dk: SideKey, move: Move | null): boolean {
-  const D = S[dk], A = S[other(dk)];
+  const D = S.sides[dk]!, A = S.sides[foe(S, dk)]!;
   if (move && isFinisherMove(A, move)) return true;
   const avg = totalHp(D) / 6;
   if (S.t >= 900) return true;
@@ -229,7 +229,7 @@ export function aiShouldUseResiliency(S: MatchState, dk: SideKey, move: Move | n
 }
 
 export function useResiliency(ctx: Ctx, dk: SideKey, threat: 'pinfall' | 'submission'): void {
-  const S = ctx.S, D = S[dk];
+  const S = ctx.S, D = S.sides[dk]!;
   D.resiliencyAvailable = false;
   D.resiliencyUsed = true;
   D.kickouts++;

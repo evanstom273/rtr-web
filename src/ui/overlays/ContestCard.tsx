@@ -99,7 +99,7 @@ function Column({ engine, side, role, dice, kept, total, rolling, settled, won, 
   return (
     <div className={`cc-col ${side.key} ${role}${won === true ? ' won' : won === false ? ' lost' : ''}`}>
       <div className="cc-who">
-        <Name w={S[side.key].w} side={side.key} />
+        <Name w={S.sides[side.key]!.w} side={side.key} />
         <span className="cc-role">{role === 'attack' ? 'Attacking' : 'Defending'}</span>
       </div>
       <div className={`cc-dice n${nDice}`}>

@@ -6,7 +6,7 @@ import { LINES, SETUP_TEXT, setupLogLine } from '../data/commentary';
 import { isOutsideArea, isSharedFlatArea } from './areaRules';
 import { advanceClock } from './clock';
 import type { Ctx } from './ctx';
-import { flash, other, ring, say } from './commentary';
+import { flash, foe, isPlayer, ring, say } from './commentary';
 import { crowdObserve } from './crowd';
 import {
   canRetrieve, consumeObject, createHeld, dropObject, findSetup, getWeaponMove, heldBy, holdObject, isLive, liveObjects,
@@ -41,7 +41,7 @@ const ladderIn = (S: MatchState, area: Area): EnvObject | null => findSetup(S, '
 
 /** Where a wrestler really is for counts and the referee: on a ladder, it's where the ladder stands. */
 export function groundArea(S: MatchState, k: SideKey): Area {
-  const a = S[k].state.area;
+  const a = S.sides[k]!.state.area;
   if (a === 'LADDER') return ladderUnder(S, k)?.area ?? 'IN_RING';
   if (a === 'CAGE') return 'IN_RING';
   return a;
@@ -87,7 +87,7 @@ const hasQualifier = (A: Side, o: EnvObject) => A.all.some((m) => qualifiesForSp
 
 /** The table or tacks the attacker has lined the opponent up for. */
 export const armedSpot = (S: MatchState, k: SideKey): EnvObject | null =>
-  liveObjects(S).find((o) => o.positionedBy === k && o.positioned === other(k)) ?? null;
+  liveObjects(S).find((o) => o.positionedBy === k && o.positioned === foe(S, k)) ?? null;
 
 /* ---------- what's on offer ---------- */
 
@@ -96,7 +96,7 @@ export function extraSetups(S: MatchState, k: SideKey): SetupId[] {
   const add = (id: SetupId) => {
     if (!gateBlocks(S, id) && !out.includes(id)) out.push(id);
   };
-  const A = S[k], dk = other(k), D = S[dk], a = A.state, d = D.state, rules = S.rules, stip = rules.stipulation;
+  const A = S.sides[k]!, dk = foe(S, k), D = S.sides[dk]!, a = A.state, d = D.state, rules = S.rules, stip = rules.stipulation;
   const held = heldBy(S, k);
   const still = standingStill(a);
 
@@ -184,21 +184,21 @@ export function extraSetups(S: MatchState, k: SideKey): SetupId[] {
   return out;
 }
 
-const sameSpot = (S: MatchState, k: SideKey) => groundArea(S, k) === groundArea(S, other(k));
+const sameSpot = (S: MatchState, k: SideKey) => groundArea(S, k) === groundArea(S, foe(S, k));
 
 /** _i_quit_demand_is_credible. */
 export function quitCredible(S: MatchState, k: SideKey): boolean {
-  const D = S[other(k)];
-  return totalHp(D) / 6 <= 62 || D.fatigue >= 65 || D.bleeding >= 2 || S.obj.finisherLanded[k] || S.obj.quitPressure[other(k)] > 0;
+  const D = S.sides[foe(S, k)]!;
+  return totalHp(D) / 6 <= 62 || D.fatigue >= 65 || D.bleeding >= 2 || S.obj.finisherLanded[k] || (S.obj.quitPressure[foe(S, k)] ?? 0) > 0;
 }
 
 /* ---------- doing them ---------- */
 
-const say2 = (ctx: Ctx, id: SetupId, k: SideKey, w = '') => say(ctx, setupLogLine(id), { a: k, d: other(k), vars: { w } }, 'dim');
+const say2 = (ctx: Ctx, id: SetupId, k: SideKey, w = '') => say(ctx, setupLogLine(id), { a: k, d: foe(ctx.S, k), vars: { w } }, 'dim');
 
 /** Uncontested object and objective actions. arg: the weapon to fetch / object to pick up. */
 export function executeExtra(ctx: Ctx, k: SideKey, id: SetupId, arg?: string): boolean {
-  const S = ctx.S, A = S[k], dk = other(k), D = S[dk];
+  const S = ctx.S, A = S.sides[k]!, dk = foe(S, k), D = S.sides[dk]!;
   const cost = (n: number, demand: 'BASIC' | 'STANDARD' | 'EXPLOSIVE' = 'STANDARD') => spendStamina(A, n * staminaCostMultiplier(A, demand));
   switch (id) {
     case 'retrieve_weapon': {
@@ -307,7 +307,7 @@ export function executeExtra(ctx: Ctx, k: SideKey, id: SetupId, arg?: string): b
   }
   if (S.over) return true;
   A.lastActionResult = 'SETUP_SUCCESS';
-  ctx.ai[k].noteSetupExecuted(id, A);
+  ctx.ai[k]!.noteSetupExecuted(id, A);
   ring(ctx, 'setup', k, SETUP_TEXT[id].title);
   void D;
   setControl(ctx, k);
@@ -317,7 +317,7 @@ export function executeExtra(ctx: Ctx, k: SideKey, id: SetupId, arg?: string): b
 
 /** A contested extra has been rolled. Bookkeeping common to all setups is done by the caller. */
 export function finishExtraContest(ctx: Ctx, k: SideKey, id: SetupId, reversed: boolean): void {
-  const S = ctx.S, A = S[k], dk = other(k), D = S[dk];
+  const S = ctx.S, A = S.sides[k]!, dk = foe(S, k), D = S.sides[dk]!;
   if (reversed) {
     switch (id) {
       case 'climb_ladder': case 'climb_ladder_top': {
@@ -454,11 +454,11 @@ export function finishExtraContest(ctx: Ctx, k: SideKey, id: SetupId, reversed: 
 
 /** _resolve_environment_after_move. Call after the move's damage and positions are applied. */
 export function environmentAfterMove(ctx: Ctx, k: SideKey, move: Move, result: ActionResult): void {
-  const S = ctx.S, dk = other(k), A = S[k];
+  const S = ctx.S, dk = foe(S, k), A = S.sides[k]!;
   const o = armedSpot(S, k);
   if (!o || !qualifiesForSpot(A, move, o)) return;
   // They have to still be by it.
-  const dArea = S[dk].state.area;
+  const dArea = S.sides[dk]!.state.area;
   if (o.state === 'corner' ? dArea !== 'IN_RING' && dArea !== 'CORNER' : dArea !== o.area) return;
   const w = weaponOf(o);
   let victim: SideKey, credit: SideKey | null;
@@ -466,7 +466,7 @@ export function environmentAfterMove(ctx: Ctx, k: SideKey, move: Move, result: A
   else if (result === 'REVERSAL') [victim, credit] = [k, dk];
   else if (result === 'HIGH_RISK_CRASH' && isHighRisk(move)) [victim, credit] = [k, null];
   else return;
-  const V = S[victim];
+  const V = S.sides[victim]!;
   V.state = { position: 'GROUNDED', orientation: 'FACE_UP', area: V.state.area === 'LADDER' ? o.area : V.state.area, motion: 'STATIONARY' };
   if (w.kind === 'THUMBTACKS') {
     const part: BodyPart = victim === dk ? (move.parts.find((p) => p !== 'NONE') as BodyPart | undefined) ?? 'BODY' : 'BODY';
@@ -495,7 +495,7 @@ export function environmentAfterMove(ctx: Ctx, k: SideKey, move: Move, result: A
 /** After a clean move in Last Man Standing: a big enough blow lets the attacker make the referee count. */
 export function lmsAfterMove(S: MatchState, k: SideKey, move: Move, result: ActionResult): void {
   if (S.rules.stipulation !== 'last_man_standing') return;
-  const dk = other(k), D = S[dk], A = S[k];
+  const dk = foe(S, k), D = S.sides[dk]!, A = S.sides[k]!;
   if (result !== 'CLEAN_SUCCESS' || D.state.position !== 'GROUNDED') return;
   const fin = move.finisher || A.finishers.includes(move);
   if (fin || A.signatures.includes(move) || move.impact >= 8 || totalHp(D) / 6 <= 35) {
@@ -506,7 +506,7 @@ export function lmsAfterMove(S: MatchState, k: SideKey, move: Move, result: Acti
 
 /** _resolve_standing_ten_count: how likely the counted wrestler is to beat it (8–78). */
 export function standingRecovery(S: MatchState, k: SideKey): number {
-  const s = S[k];
+  const s = S.sides[k]!;
   return clamp(
     32 + s.w.stats.skill * 0.28 + staminaPercent(s) * 0.3 - s.fatigue * 0.22 - (100 - totalHp(s) / 6) * 0.2 - S.obj.lmsImpact * 1.5 - s.bleeding * 2,
     8, 78,
@@ -514,7 +514,7 @@ export function standingRecovery(S: MatchState, k: SideKey): number {
 }
 
 function beginStandingCount(ctx: Ctx, k: SideKey): boolean {
-  const S = ctx.S, dk = other(k);
+  const S = ctx.S, dk = foe(S, k);
   advanceClock(ctx);
   if (S.over) return true;
   S.obj.lmsFor = null;
@@ -522,7 +522,7 @@ function beginStandingCount(ctx: Ctx, k: SideKey): boolean {
   say(ctx, LINES.tenCountStart, { a: k, d: dk }, 'warn');
   ring(ctx, 'count', null);
   const score = standingRecovery(S, dk);
-  if (dk === 'you') {
+  if (isPlayer(S, dk)) {
     // Hold and release in the gold, like a kickout but out of ten.
     const width = clamp(score * 0.35, 5, 28);
     const half = width / 200;
@@ -540,10 +540,10 @@ function beginStandingCount(ctx: Ctx, k: SideKey): boolean {
 
 /** The ten count is over: up in time, or that's the match. */
 export function resolveTenCount(ctx: Ctx, counted: SideKey, beatenAt: number | null): void {
-  const S = ctx.S, s = S[counted];
+  const S = ctx.S, s = S.sides[counted]!;
   if (beatenAt === null) {
     say(ctx, LINES.tenCountLost, { d: counted }, 'bad');
-    endMatch(ctx, other(counted), 'TEN_COUNT', null);
+    endMatch(ctx, foe(S, counted), 'TEN_COUNT', null);
     return;
   }
   s.state = { position: 'STANDING', orientation: 'FRONT', area: s.state.area === 'LADDER' ? groundArea(S, counted) : s.state.area, motion: 'STATIONARY' };
@@ -572,20 +572,20 @@ export const QUIT_MOVE: Move = {
 };
 
 export function quitScores(S: MatchState, k: SideKey): { attack: number; defend: number } {
-  const A = S[k], D = S[other(k)];
-  const attack = clamp(28 + (100 - totalHp(D) / 6) * 0.36 + D.fatigue * 0.16 + A.momentum * 0.1 + S.obj.quitPressure[other(k)], 20, 90);
+  const A = S.sides[k]!, D = S.sides[foe(S, k)]!;
+  const attack = clamp(28 + (100 - totalHp(D) / 6) * 0.36 + D.fatigue * 0.16 + A.momentum * 0.1 + (S.obj.quitPressure[foe(S, k)] ?? 0), 20, 90);
   const defend = clamp(42 + D.w.stats.skill * 0.3 + staminaPercent(D) * 0.24 - D.bleeding * 2, 20, 90);
   return { attack, defend };
 }
 
 function askToQuit(ctx: Ctx, k: SideKey): boolean {
-  const S = ctx.S, dk = other(k);
+  const S = ctx.S, dk = foe(S, k);
   advanceClock(ctx);
   if (S.over) return true;
   const { attack, defend } = quitScores(S, k);
   say(ctx, LINES.quitAsk, { a: k, d: dk }, 'warn');
   ring(ctx, 'submission', k, 'I Quit?');
-  const playerAttacking = k === 'you';
+  const playerAttacking = isPlayer(S, k);
   S.txn = {
     kind: 'sub', k, move: QUIT_MOVE, nearTapSaid: false, nearEscapeSaid: false, lastMarker: 50, quit: true,
     target: { parts: ['HEAD'], storyPart: 'HEAD', weights: { HEAD: 1 }, pressureParts: ['HEAD'], pressureUsesAverage: false, isBilateral: false, focusApplied: false, fullTag: 'HEAD', compactTag: 'HEAD' },
@@ -604,8 +604,8 @@ function askToQuit(ctx: Ctx, k: SideKey): boolean {
 
 /** They refused: it gets harder to keep refusing. */
 export function quitRefused(ctx: Ctx, k: SideKey, near: boolean): void {
-  const S = ctx.S, dk = other(k);
-  S.obj.quitPressure[dk] = Math.min(MAX_QUIT_PRESSURE, S.obj.quitPressure[dk] + 3);
+  const S = ctx.S, dk = foe(S, k);
+  S.obj.quitPressure[dk] = Math.min(MAX_QUIT_PRESSURE, (S.obj.quitPressure[dk] ?? 0) + 3);
   if (near) S.crowd.nearQuits++;
   say(ctx, near ? LINES.quitRefusedNear : LINES.quitRefused, { a: k, d: dk }, near ? 'hl' : '');
 }
@@ -617,13 +617,14 @@ export function ironManClock(ctx: Ctx): void {
   const S = ctx.S, o = S.obj;
   if (S.rules.stipulation !== 'iron_man' || o.overtime || S.over || o.decision) return;
   if (S.t < S.rules.ironManMinutes * 60) return;
-  if (o.score.you !== o.score.them) {
-    const leader: SideKey = o.score.you > o.score.them ? 'you' : 'them';
-    say(ctx, LINES.ironManTime, { a: leader, vars: { s: `${o.score.you}–${o.score.them}` } }, 'hl');
+  const a = o.score.you ?? 0, b = o.score.them ?? 0;
+  if (a !== b) {
+    const leader: SideKey = a > b ? 'you' : 'them';
+    say(ctx, LINES.ironManTime, { a: leader, vars: { s: `${a}–${b}` } }, 'hl');
     o.decision = { winner: leader, finish: 'TIME_DECISION', move: null, final: true };
   } else {
     o.overtime = true;
-    say(ctx, LINES.ironManOvertime, { vars: { s: `${o.score.you}–${o.score.them}` } }, 'hl');
+    say(ctx, LINES.ironManOvertime, { vars: { s: `${a}–${b}` } }, 'hl');
     flash(ctx, 'Sudden death', true);
   }
 }
@@ -633,14 +634,14 @@ export function ironManClock(ctx: Ctx): void {
 /** Pins: allowed by the stipulation, both in the ring (anywhere flat and together in Falls Count Anywhere). */
 export function pinAreaLegal(S: MatchState, k: SideKey): boolean {
   if (!S.rules.pins) return false;
-  const a = S[k].state.area, d = S[other(k)].state.area;
+  const a = S.sides[k]!.state.area, d = S.sides[foe(S, k)]!.state.area;
   if (S.rules.stipulation === 'falls_count_anywhere') return a === d && isSharedFlatArea(a);
   return a === 'IN_RING' && d === 'IN_RING';
 }
 
 /** Falls Count Anywhere also lets holds go on anywhere flat. */
 export const fcaHoldLegal = (S: MatchState, k: SideKey): boolean =>
-  S.rules.stipulation === 'falls_count_anywhere' && S[k].state.area === S[other(k)].state.area && isSharedFlatArea(S[k].state.area);
+  S.rules.stipulation === 'falls_count_anywhere' && S.sides[k]!.state.area === S.sides[foe(S, k)]!.state.area && isSharedFlatArea(S.sides[k]!.state.area);
 
 /** Count-outs: where the referee counts, with ladders counted where they stand. */
 export const countsAsOutside = (S: MatchState, k: SideKey): boolean => isOutsideArea(groundArea(S, k));
@@ -662,7 +663,7 @@ export function bestPickUp(S: MatchState, list: EnvObject[]): EnvObject | undefi
 
 /** _choose_ai_weapon: no randomness, the best fit for the match and the wrestler. */
 export function chooseAiWeapon(S: MatchState, k: SideKey): Weapon | null {
-  const A = S[k], D = S[other(k)], stip = S.rules.stipulation;
+  const A = S.sides[k]!, D = S.sides[foe(S, k)]!, stip = S.rules.stipulation;
   let best: Weapon | null = null, bestScore = -Infinity;
   for (const w of retrievableWeapons(S)) {
     let s = w.aiWeight * 10 + w.impact * 2 + w.bleed * 0.08;

@@ -12,7 +12,12 @@ export interface FillParams {
   vars?: Vars;
 }
 
-export const other = (k: SideKey): SideKey => (k === 'you' ? 'them' : 'you');
+/** Who this side is going after (singles: the other one). */
+export const foe = (S: MatchState, k: SideKey): SideKey => S.sides[k]!.target;
+/** Whether the player is controlling this side right now. */
+export const isPlayer = (S: MatchState, k: SideKey | null | undefined): boolean => !!k && S.player === k;
+/** Everyone still in the fight (not eliminated, on the apron, waiting to come in or locked in a pod), in entry order. */
+export const fighting = (S: MatchState): SideKey[] => S.order.filter((k) => !S.sides[k]!.out);
 
 export function format(tpl: string, vars: Vars = {}): string {
   return tpl.replace(/\{(\w+)\}/g, (all, key: string) => (key in vars ? String(vars[key]) : all));
@@ -42,7 +47,7 @@ export function fill(S: MatchState, tpl: string, p: FillParams = {}): Seg[] {
     if (key === 'a' || key === 'd') {
       const side = p[key];
       if (!side) throw new Error(`Template needs {${key}}: ${tpl}`);
-      out.push({ k: 'name', side, v: S[side].w.name });
+      out.push({ k: 'name', side, v: S.sides[side]!.w.name });
     } else if (key === 'm') {
       if (p.m !== undefined) out.push({ k: 'move', v: p.m });
     } else if (key in vars) text(String(vars[key]));

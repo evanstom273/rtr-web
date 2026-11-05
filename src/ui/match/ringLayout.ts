@@ -3,7 +3,7 @@
  * the engine has no coordinates. Inspired by Godot's RingVisualPlacementResolver, but resolved
  * for the pair together so attackers stand next to whoever they're working on.
  */
-import type { Area, SideKey, Snapshot } from '../../engine';
+import type { Area, BySide, SideKey, Snapshot } from '../../engine';
 
 export const VIEW = { w: 440, h: 300 };
 export const APRON = { x: 150, y: 40, w: 220, h: 220 };
@@ -47,8 +47,8 @@ const towards = (from: Pt, to: Pt, d: number): Pt => {
 
 export interface Memory {
   /** North/south preference per side, flipped each time they enter a corner/top rope. */
-  vert: Record<SideKey, Vert>;
-  lastArea: Record<SideKey, Area>;
+  vert: BySide<Vert>;
+  lastArea: BySide<Area>;
 }
 
 export const newMemory = (): Memory => ({ vert: { you: 'S', them: 'N' }, lastArea: { you: 'IN_RING', them: 'IN_RING' } });
@@ -86,21 +86,21 @@ function soloAnchor(k: SideKey, s: Snapshot, m: Memory): Pt {
 const isFlat = (a: Area) => a === 'IN_RING';
 
 /** Resolve both anchors together. */
-export function placePair(you: Snapshot, them: Snapshot, m: Memory): Record<SideKey, Pt> {
+export function placePair(you: Snapshot, them: Snapshot, m: Memory): BySide<Pt> {
   for (const [k, s] of [['you', you], ['them', them]] as const) {
     const entered = (s.area === 'CORNER' || s.area === 'TOP_ROPE' || s.area === 'ROPES' || s.area === 'APRON') && m.lastArea[k] !== s.area;
     if (entered) m.vert[k] = m.vert[k] === 'N' ? 'S' : 'N';
     m.lastArea[k] = s.area;
   }
-  const out: Record<SideKey, Pt> = { you: soloAnchor('you', you, m), them: soloAnchor('them', them, m) };
-  const snaps: Record<SideKey, Snapshot> = { you, them };
+  const out: BySide<Pt> = { you: soloAnchor('you', you, m), them: soloAnchor('them', them, m) };
+  const snaps: BySide<Snapshot> = { you, them };
 
   // Someone in the ring working on someone at the edge: stand next to them, inside.
   for (const k of ['you', 'them'] as const) {
     const o: SideKey = k === 'you' ? 'them' : 'you';
-    const me = snaps[k], op = snaps[o];
+    const me = snaps[k], op = snaps[o]!;
     if (isFlat(me.area) && me.motion === 'STATIONARY' && (op.area === 'CORNER' || op.area === 'ROPES' || op.area === 'TOP_ROPE' || op.area === 'APRON')) {
-      out[k] = towards(out[o], CENTRE, op.area === 'TOP_ROPE' ? 26 : 24);
+      out[k] = towards(out[o]!, CENTRE, op.area === 'TOP_ROPE' ? 26 : 24);
     }
   }
   // Both on the floor together: side by side.

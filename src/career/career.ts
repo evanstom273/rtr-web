@@ -5,7 +5,7 @@ import {
   databaseChanged, fansTotal, findWrestler, fmtFans, globalScore, hasTrait, PROMOTIONS, rosterOf, shippedWomenShare, TITLES, worksFor, type Wrestler, WRESTLERS,
 } from '../data/rtr';
 import { seededRng, type Rng } from '../engine/rng';
-import type { MatchRulesConfig } from '../engine/types';
+import type { MatchRulesConfig, SideKey } from '../engine/types';
 import { HARDCORE_STIPS, available, bookAhead, hashSeed, heated, isIndieTitle, promoRegion, regionalDates, regionalPop, titleRegion } from './booker';
 import { bondOf } from '../world/people';
 import { drawCalendar } from './calendar';
@@ -241,7 +241,7 @@ export function applyBout(c: Career, show: Show, index: number, out: SimOut, aIs
   if (bout.result) return; // a match is settled once, however many times the night gets run
   dropStaleTitle(bout);
   const rnd = seededRng(hashSeed(c.seed, 'after', show.id, index));
-  const sideId = (s: 'you' | 'them' | null) => (s === null ? null : (s === 'you') === aIsYou ? bout.a : bout.b);
+  const sideId = (s: SideKey | null) => (s === null ? null : (s === 'you') === aIsYou ? bout.a : bout.b);
   const winner = sideId(out.winner);
   bout.result = { winner, finish: out.finish, t: out.t, stars: out.stars, ...(out.move ? { move: out.move } : {}) };
   const hardcore = !!bout.stip && HARDCORE_STIPS.has(bout.stip);

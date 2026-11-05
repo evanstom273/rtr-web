@@ -5,7 +5,7 @@ import type { BodyPart } from '../data/rtr/types';
 import { attributeDelta, moveAttributeProfile, setupScoringModifier, tauntProfile } from './attributes';
 import { advanceClock, sideIsOutside } from './clock';
 import type { Ctx } from './ctx';
-import { other, say } from './commentary';
+import { foe, say } from './commentary';
 import { LINES } from '../data/commentary';
 import {
   combinedExhaustion, executionPenalty, exhaustionBand, moveDemand, staminaCostMultiplier, staminaPercent, staminaRecoveryMultiplier,
@@ -253,7 +253,7 @@ export class AiBrain {
     if (!top.length) return null;
     const lowest = top[top.length - 1]!.score;
     // Personality: Methodical picks the best more often; Inconsistent and Unpredictable spread wider.
-    const spread = 10 * temperature(this.S[this.k]);
+    const spread = 10 * temperature(this.S.sides[this.k]!);
     const weights = top.map((c) => Math.max(1, c.score - lowest + spread));
     let roll = this.ctx.rnd() * weights.reduce((a, b) => a + b, 0);
     for (let i = 0; i < top.length; i++) {
@@ -729,7 +729,7 @@ export class AiBrain {
         score += id === 'exposed_turnbuckle' ? 10 : -25;
         if (heel) score += 20;
         if (S.ref.distracted > 0) score += 20;
-        if (S.rules.dq && S.ref.warnings[this.k] >= 2) score -= 70;
+        if (S.rules.dq && (S.ref.warnings[this.k] ?? 0) >= 2) score -= 70;
       }
     }
     if (hardcore && ['retrieve_weapon', 'pick_up_weapon', 'set_table_flat', 'stack_table', 'spread_thumbtacks', 'set_up_ladder'].includes(id)) score += 12;
@@ -934,11 +934,11 @@ export class AiBrain {
 /* ---------- the AI's turn (_perform_ai_decision) ---------- */
 
 function specialStateRecovery(S: MatchState, k: SideKey, moves: Move[], setups: SetupId[]): SetupId | null {
-  const A = S[k], D = S[other(k)], r = S.referee;
+  const A = S.sides[k]!, D = S.sides[foe(S, k)]!, r = S.referee;
   if (S.rules.countOuts && r.active) {
     const remaining = S.rules.countOutLimit - r.value;
     if (sideIsOutside(S, k) && remaining <= 3 && setups.includes('return_to_ring')) return 'return_to_ring';
-    if (!sideIsOutside(S, k) && sideIsOutside(S, other(k)) && remaining <= Math.max(3, Math.floor(S.rules.countOutLimit / 2)) && setups.includes('wait_for_count')) return 'wait_for_count';
+    if (!sideIsOutside(S, k) && sideIsOutside(S, foe(S, k)) && remaining <= Math.max(3, Math.floor(S.rules.countOutLimit / 2)) && setups.includes('wait_for_count')) return 'wait_for_count';
   }
   if (moves.length) return null;
   // Objective and weapon business outranks tidying up.
@@ -967,7 +967,7 @@ function urgentCountOut(S: MatchState, k: SideKey, id: SetupId | null): boolean 
   if (!id || !S.rules.countOuts || !S.referee.active) return false;
   const remaining = S.rules.countOutLimit - S.referee.value;
   if (id === 'return_to_ring' && sideIsOutside(S, k) && remaining <= 3) return true;
-  return id === 'wait_for_count' && !sideIsOutside(S, k) && sideIsOutside(S, other(k)) && remaining <= Math.max(3, Math.floor(S.rules.countOutLimit / 2));
+  return id === 'wait_for_count' && !sideIsOutside(S, k) && sideIsOutside(S, foe(S, k)) && remaining <= Math.max(3, Math.floor(S.rules.countOutLimit / 2));
 }
 
 export function isValidChoice(S: MatchState, k: SideKey, c: Choice): boolean {
@@ -978,7 +978,7 @@ export function isValidChoice(S: MatchState, k: SideKey, c: Choice): boolean {
 
 /** One AI decision for side k, executed. */
 export function aiTurn(ctx: Ctx, k: SideKey): void {
-  const S = ctx.S, A = S[k], D = S[other(k)], brain = ctx.ai[k];
+  const S = ctx.S, A = S.sides[k]!, D = S.sides[foe(S, k)]!, brain = ctx.ai[k]!;
   const moves = validMoves(S, k);
   const setups = validSetups(S, k);
   const ready = A.signatureReady || A.finisherStock > 0;
@@ -1005,8 +1005,8 @@ export function aiTurn(ctx: Ctx, k: SideKey): void {
 }
 
 function aiFallback(ctx: Ctx, k: SideKey): void {
-  const S = ctx.S, A = S[k];
-  ctx.ai[k].noteForcedFallback(A);
+  const S = ctx.S, A = S.sides[k]!;
+  ctx.ai[k]!.noteForcedFallback(A);
   advanceClock(ctx);
   if (S.over) return;
   say(ctx, LINES.aiCircles, { a: k }, 'dim');

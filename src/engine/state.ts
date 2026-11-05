@@ -7,7 +7,7 @@ import { heldBy, weaponOf } from './env';
 import { rateSoFar } from './rating';
 import { pick, type Rng } from './rng';
 import { createSide } from './side';
-import type { CrowdStats, MatchRulesConfig, MatchState, MatchView, Side, SideView } from './types';
+import type { BySide, CrowdStats, MatchRulesConfig, MatchState, MatchType, MatchView, Side, SideKey, SideView } from './types';
 
 /** Host cities by promotion region (RtR's exhibition data has no show/venue list yet). */
 const VENUES: Record<string, string[]> = {
@@ -56,10 +56,10 @@ export function eventFor(rnd: Rng, a: Wrestler, b: Wrestler, title: boolean, rul
   };
 }
 
-function emptyCrowd(): CrowdStats {
+function emptyCrowd(order: readonly SideKey[]): CrowdStats {
   return {
     heatSum: 0, heatN: 0, heatPeak: 0, reversals: 0, finRev: 0, nf: 0, fk: 0, crashes: 0, high: 0, spots: 0, rest: 0,
-    repeats: 0, heatSeg: null, comeback: null, limbPayoff: false, finAttemptsSeen: false, fkAbsorbed: { you: 0, them: 0 },
+    repeats: 0, heatSeg: null, comeback: null, limbPayoff: false, finAttemptsSeen: false, fkAbsorbed: perSide(order, () => 0),
     tableBreaks: 0, weaponHits: 0, bleeds: 0, ladderPulls: 0, climbStops: 0, cageClimbs: 0, travel: 0, falls: 0, tenCounts: 0,
     nearQuits: 0, dirty: 0, nearTaps: 0, ropeBreaks: 0, counters: 0, bigHits: 0, lastRev: null, lastRevT: 0,
   };
@@ -79,30 +79,66 @@ function careerSide(s: Side, rules: MatchRulesConfig, rnd: Rng): Side {
   return s;
 }
 
-export function createState(rnd: Rng, you: Wrestler, them: Wrestler, rules: MatchRulesConfig): MatchState {
+/** Everyone past the first two (match overhaul): who, on which team. */
+export interface ExtraSide { w: Wrestler; team: number }
+export interface StateOpts {
+  extras?: ExtraSide[];
+  /** Which side the player controls (default 'you'; null: AI vs AI). */
+  player?: SideKey | null;
+  type?: MatchType;
+}
+
+/** A record with an entry for every side. */
+export function perSide<T>(order: readonly SideKey[], v: () => T): Record<SideKey, T> {
+  const out: Record<SideKey, T> = {};
+  for (const k of order) out[k] = v();
+  return out;
+}
+
+export function createState(rnd: Rng, you: Wrestler, them: Wrestler, rules: MatchRulesConfig, opts: StateOpts = {}): MatchState {
   const ev = eventFor(rnd, you, them, rules.title, rules);
   if (rules.eventName) ev.event = rules.eventName;
   if (rules.venueName) ev.venue = rules.venueName;
+  const player = opts.player === undefined ? 'you' : opts.player;
+  const sYou = careerSide(createSide(you, 'you', 0, 'them', player === 'you' ? 'player' : 'ai'), rules, rnd);
+  const sThem = careerSide(createSide(them, 'them', 1, 'you', player === 'them' ? 'player' : 'ai'), rules, rnd);
+  const sides: Record<SideKey, Side> = { you: sYou, them: sThem };
+  const order: SideKey[] = ['you', 'them'];
+  (opts.extras ?? []).forEach((x, i) => {
+    const key = `s${i + 2}`;
+    sides[key] = careerSide(createSide(x.w, key, x.team, 'you', player === key ? 'player' : 'ai'), rules, rnd);
+    order.push(key);
+  });
+  // Everyone starts going after the nearest side on another team.
+  for (const k of order) {
+    const me = sides[k]!;
+    me.target = order.find((o) => sides[o]!.team !== me.team) ?? me.target;
+  }
+  const zeros = () => perSide(order, () => 0), noes = () => perSide(order, () => false);
   const S: MatchState = {
     id: nextId++,
     rules,
-    you: careerSide(createSide(you, 'you'), rules, rnd),
-    them: careerSide(createSide(them, 'them'), rules, rnd),
+    you: sYou,
+    them: sThem,
+    sides,
+    order,
+    player,
+    type: opts.type ?? (order.length === 2 ? 'singles' : 'multi'),
     t: 0,
     control: null,
     over: false,
     neutralFavoured: null,
     recentReversalSide: null,
-    referee: { active: false, value: 0, elapsed: 0, pendingResolution: false, outside: { you: false, them: false } },
-    ref: { distracted: 0, distractedBy: null, moving: 0, area: 'IN_RING', warnings: { you: 0, them: 0 } },
+    referee: { active: false, value: 0, elapsed: 0, pendingResolution: false, outside: noes() },
+    ref: { distracted: 0, distractedBy: null, moving: 0, area: 'IN_RING', warnings: zeros() },
     env: { objects: [], nextId: 1, padRemoved: false },
     obj: {
-      gateOpen: false, ladderPulls: 0, cageStage: { you: 0, them: 0 }, score: { you: 0, them: 0 }, falls: [], overtime: false,
-      lmsFor: null, lmsImpact: 0, quitPressure: { you: 0, them: 0 }, finisherLanded: { you: false, them: false }, decision: null,
+      gateOpen: false, ladderPulls: 0, cageStage: zeros(), score: zeros(), falls: [], overtime: false,
+      lmsFor: null, lmsImpact: 0, quitPressure: zeros(), finisherLanded: noes(), decision: null,
     },
     phase: { name: 'opening', drama: 0, controlSwings: 0, actionsSinceChange: 0 },
     heat: rules.title ? 45 : 35,
-    crowd: emptyCrowd(),
+    crowd: emptyCrowd(order),
     streak: { who: null, n: 0 },
     event: ev.event,
     venue: ev.venue,
@@ -129,7 +165,7 @@ export function phaseLabel(S: MatchState): string {
   if (S.over) return PHASES.over;
   if (mins >= 16 || c.finAttemptsSeen) return PHASES.finishing;
   if (c.comeback) return PHASES.comeback;
-  if (c.heatSeg) return format(PHASES.control, { x: S[c.heatSeg].w.name.split(' ').pop() ?? '' });
+  if (c.heatSeg) return format(PHASES.control, { x: S.sides[c.heatSeg]!.w.name.split(' ').pop() ?? '' });
   if (mins < 4) return PHASES.feelingOut;
   return PHASES.backAndForth;
 }
@@ -145,7 +181,7 @@ function sideView(S: MatchState, s: Side): SideView {
     key: s.key, hp: { ...s.hp }, stamina: s.stamina, maxStamina: s.maxStamina, fatigue: s.fatigue, momentum: s.momentum,
     signatureReady: s.signatureReady, finisherStock: s.finisherStock, state: { ...s.state }, exhaustion: exhaustionBand(s),
     targetFocus: s.targetFocus, resiliencyAvailable: s.resiliencyAvailable,
-    held: held ? weaponOf(held).name : null, bleeding: s.bleeding, warnings: S.ref.warnings[s.key],
+    held: held ? weaponOf(held).name : null, bleeding: s.bleeding, warnings: S.ref.warnings[s.key] ?? 0,
   };
 }
 
@@ -153,7 +189,7 @@ export function snapshotView(S: MatchState): MatchView {
   return {
     t: S.t, heat: S.heat, control: S.control, over: S.over, phase: phaseLabel(S),
     count: S.referee.active ? S.referee.value : null,
-    sides: { you: sideView(S, S.you), them: sideView(S, S.them) },
+    sides: Object.fromEntries(S.order.map((k) => [k, sideView(S, S.sides[k]!)])) as BySide<SideView>,
     live: rateSoFar(S),
   };
 }

@@ -16,6 +16,7 @@ import { Tape } from './screens/Tape';
 import { Settings } from './Settings';
 import { freshBuilder, type BuilderState } from './builder/state';
 import { CareerApp, type CareerScreen } from './career/CareerApp';
+import { MatchMocks } from './mock/MatchMocks';
 import { commit } from './career/parts';
 import { applyBout, boutRules, promoName, runToday } from '../career';
 import { runJobs } from '../career/runner';
@@ -135,7 +136,7 @@ export function App() {
     if (!R || !r) return;
     if (!saved.current.has(S.id)) {
       saved.current.add(S.id);
-      const how = R.winner ? `${S[R.winner].w.name} won, ${fmtClock(R.t)}` : `No contest, ${fmtClock(R.t)}`;
+      const how = R.winner ? `${S.sides[R.winner]!.w.name} won, ${fmtClock(R.t)}` : `No contest, ${fmtClock(R.t)}`;
       setHits(addHit({ stars: r.stars, you: S.you.w.name, them: S.them.w.name, how, venue: S.venue }));
       const rec = buildRecord(S);
       if (rec) void saveRecord(rec).then(reload);
@@ -146,7 +147,10 @@ export function App() {
   }, [engine, reload, screen, settleCareer]);
 
   let body: JSX.Element | null = null;
-  if (screen.name === 'menu') {
+  // Dev only: the match overhaul mock-ups (?mock=matches&scene=…), for approval.
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('mock') === 'matches') {
+    body = <MatchMocks />;
+  } else if (screen.name === 'menu') {
     const latest = records?.find((r) => !r.legacy) ?? records?.[0] ?? null;
     const best = records?.length ? Math.max(...records.map((r) => r.stars)) : 0;
     body = (

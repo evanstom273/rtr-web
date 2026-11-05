@@ -1,7 +1,7 @@
 import { LINES } from '../data/commentary';
 import { getMove, getWrestler, type Part } from '../data/rtr';
 import { AiBrain, aiTurn } from './ai';
-import { say } from './commentary';
+import { foe, say } from './commentary';
 import type { Ctx, EngineHooks } from './ctx';
 import { finalise, render, runNeutralRecovery, schedule, setControl } from './flow';
 import { aiWantsPush, applyPending, resolveDefence, rollPending } from './contest';
@@ -21,11 +21,16 @@ import { createState } from './state';
 import { aiGoesForTap, beginSubmission, resolveSubmission, startSubmission, submissionTick, workTheHold } from './submission';
 import { resolveTarget } from './targeting';
 import { endFall } from './flow';
-import type { EnvObject, SideKey, Cont, KickoutCount, MatchRulesConfig, MatchState, Move, SetupId, SubOutcome, TargetResolution } from './types';
+import type { EnvObject, MatchType, Side, SideKey, Cont, KickoutCount, MatchRulesConfig, MatchState, Move, SetupId, SubOutcome, TargetResolution } from './types';
 
 export interface MatchConfig {
   you: string;
   them: string;
+  /** Match overhaul: everyone past the first two, and their team (singles: none). */
+  extras?: { id: string; team: number }[];
+  /** Which side the player controls (default 'you'; null: nobody, AI vs AI). */
+  player?: SideKey | null;
+  type?: MatchType;
   rules?: Partial<MatchRulesConfig>;
   seed?: number;
   rng?: Rng;
@@ -49,10 +54,11 @@ export class MatchEngine {
     const merged = { ...DEFAULT_RULES, ...cfg.rules };
     if (merged.titleId) merged.title = true;
     const rules = normaliseRules(merged);
-    const S = createState(rnd, getWrestler(cfg.you), getWrestler(cfg.them), rules);
+    const extras = (cfg.extras ?? []).map((x) => ({ w: getWrestler(x.id), team: x.team }));
+    const S = createState(rnd, getWrestler(cfg.you), getWrestler(cfg.them), rules, { extras, player: cfg.player, type: cfg.type });
     this.state = S;
     const ctx: Ctx = { S, rnd, hooks: cfg.hooks ?? {}, ai: undefined as unknown as Ctx['ai'] };
-    ctx.ai = { you: new AiBrain(ctx, 'you'), them: new AiBrain(ctx, 'them') };
+    ctx.ai = Object.fromEntries(S.order.map((k) => [k, new AiBrain(ctx, k)]));
     this.ctx = ctx;
     say(ctx, LINES.intro + (rules.title && S.titleName ? LINES.titleOnLine : ''), { vars: { event: S.event, venue: S.venue, title: S.titleName } }, 'dim');
     render(ctx);
@@ -82,56 +88,68 @@ export class MatchEngine {
 
   /* ---------- queries for the player's UI ---------- */
 
+  /** The side the player controls (singles: 'you'). Headless AI-vs-AI runs have none, and this falls back to 'you'. */
+  get pk(): SideKey {
+    return this.state.player ?? 'you';
+  }
+  /** The player's side and whoever they're going after. */
+  get me(): Side {
+    return this.state.sides[this.pk]!;
+  }
+  get foe(): Side {
+    return this.state.sides[foe(this.state, this.pk)]!;
+  }
+
   private get playerTurn(): boolean {
-    return this.state.pending.kind === 'awaitPlayer' && this.state.control === 'you';
+    return this.state.pending.kind === 'awaitPlayer' && this.state.control === this.pk;
   }
   playerMoves(): Move[] {
-    return validMoves(this.state, 'you');
+    return validMoves(this.state, this.pk);
   }
   moveAvailable(move: Move): boolean {
-    return moveIsValid(this.state, 'you', move);
+    return moveIsValid(this.state, this.pk, move);
   }
   playerSetups(): SetupId[] {
-    return validSetups(this.state, 'you');
+    return validSetups(this.state, this.pk);
   }
   /** The move's positions fit right now (it may still be locked, e.g. a finisher with no stock). */
   movePositionsFit(move: Move): boolean {
-    return moveMatchesSnapshots(move, this.state.you.state, this.state.them.state) || isLadderDive(this.state, 'you', move);
+    return moveMatchesSnapshots(move, this.me.state, this.foe.state) || isLadderDive(this.state, this.pk, move);
   }
   /** Attacks with whatever the player is holding. */
   weaponMoves(): Move[] {
-    return weaponMovesFor(this.state, 'you');
+    return weaponMovesFor(this.state, this.pk);
   }
   /** Would this move put them through the table (or into the tacks) they're lined up for? */
   usesSpot(move: Move): boolean {
-    const o = armedSpot(this.state, 'you');
-    return !!o && qualifiesForSpot(this.state.you, move, o);
+    const o = armedSpot(this.state, this.pk);
+    return !!o && qualifiesForSpot(this.me, move, o);
   }
   /** Why a positionally valid move can't be used, or null if it can. */
   lockedReason(move: Move): string | null {
     const S = this.state;
-    if (!submissionAreaOk(S, 'you', move)) return 'Submissions need both of you in the ring';
-    if (!canUseMove(S.you, move)) {
-      if (move.finisher || S.you.finishers.includes(move)) return `Bank a finisher first (${FINISHER_MOMENTUM} momentum)`;
-      return S.you.signatureArmed ? `Bank your signature first (${SIGNATURE_MOMENTUM} momentum)` : 'Signature used';
+    if (!submissionAreaOk(S, this.pk, move)) return 'Submissions need both of you in the ring';
+    if (!canUseMove(this.me, move)) {
+      if (move.finisher || this.me.finishers.includes(move)) return `Bank a finisher first (${FINISHER_MOMENTUM} momentum)`;
+      return this.me.signatureArmed ? `Bank your signature first (${SIGNATURE_MOMENTUM} momentum)` : 'Signature used';
     }
-    return tierLock(S, 'you', move) ?? limbLock(S.you, move);
+    return tierLock(S, this.pk, move) ?? limbLock(this.me, move);
   }
   /** Signatures and finishers for either side: readiness, positions and the route there. */
   specials(k: SideKey): SpecialInfo[] {
     return specialsFor(this.state, k);
   }
   canPin(): boolean {
-    return this.playerTurn && canPin(this.state, 'you');
+    return this.playerTurn && canPin(this.state, this.pk);
   }
   /** How a move would resolve against the opponent with the current focus. */
   previewTarget(move: Move): TargetResolution {
-    return resolveTarget(move, this.state.you.targetFocus, this.state.them.hp);
+    return resolveTarget(move, this.me.targetFocus, this.foe.hp);
   }
   /** Player's body-part focus. Selecting the current focus again returns to Auto. */
   setFocus(part: Part): void {
     this.act(() => {
-      const s = this.state.you;
+      const s = this.me;
       s.targetFocus = s.targetFocus === part ? 'NONE' : part;
       render(this.ctx);
     });
@@ -148,7 +166,7 @@ export class MatchEngine {
     });
     if (p.kind === 'aiThinking') return this.act(() => {
       this.state.pending = { kind: 'idle' };
-      aiTurn(this.ctx, 'them');
+      aiTurn(this.ctx, p.k);
     });
     if (p.kind === 'refTen') return this.act(() => {
       this.state.pending = { kind: 'idle' };
@@ -167,6 +185,7 @@ export class MatchEngine {
     switch (c.to) {
       case 'bell': {
         say(ctx, LINES.bell, { a: 'you', d: 'them' });
+        // Singles: a coin toss for who gets going first (more sides: the turn queue, from stage 2).
         setControl(ctx, ctx.rnd() < 0.5 ? 'you' : 'them');
         return;
       }
@@ -179,7 +198,7 @@ export class MatchEngine {
       }
       case 'pinNeutral': return setControl(ctx, 'neutral');
       case 'autoRecover': {
-        if (!executeSetup(ctx, 'you', c.id)) this.state.pending = { kind: 'awaitPlayer' };
+        if (!executeSetup(ctx, c.k, c.id)) this.state.pending = { kind: 'awaitPlayer' };
         return;
       }
       case 'nextFall': {
@@ -194,20 +213,20 @@ export class MatchEngine {
 
   chooseMove(moveId: string): boolean {
     if (!this.playerTurn) return false;
-    const move = this.state.you.all.find((m) => m.id === moveId) ?? getWeaponMove(moveId);
-    if (!move || !moveIsValid(this.state, 'you', move)) return false;
+    const move = this.me.all.find((m) => m.id === moveId) ?? getWeaponMove(moveId);
+    if (!move || !moveIsValid(this.state, this.pk, move)) return false;
     return this.act(() => {
       this.state.pending = { kind: 'idle' };
-      executeMove(this.ctx, 'you', move);
+      executeMove(this.ctx, this.pk, move);
     });
   }
 
   /** arg: the weapon to fetch (retrieve_weapon) or object id to pick up (pick_up_weapon). */
   chooseSetup(id: SetupId, arg?: string): boolean {
-    if (!this.playerTurn || !validSetups(this.state, 'you').includes(id)) return false;
+    if (!this.playerTurn || !validSetups(this.state, this.pk).includes(id)) return false;
     return this.act(() => {
       this.state.pending = { kind: 'idle' };
-      if (!executeSetup(this.ctx, 'you', id, arg)) this.state.pending = { kind: 'awaitPlayer' };
+      if (!executeSetup(this.ctx, this.pk, id, arg)) this.state.pending = { kind: 'awaitPlayer' };
     });
   }
 
@@ -218,7 +237,7 @@ export class MatchEngine {
 
   /** Dropped objects the player could pick up where they stand. */
   pickUps(): EnvObject[] {
-    return objectsIn(this.state, this.state.you.state.area, ['dropped']);
+    return objectsIn(this.state, this.me.state.area, ['dropped']);
   }
 
   /** Last Man Standing: the player's ten count. success = up in time; count = where they beat it. */
@@ -227,7 +246,7 @@ export class MatchEngine {
     if (p.kind !== 'tenCount') return false;
     return this.act(() => {
       this.state.pending = { kind: 'idle' };
-      resolveTenCount(this.ctx, 'you', success ? Math.max(1, Math.min(9, Math.round(count))) : null);
+      resolveTenCount(this.ctx, this.pk, success ? Math.max(1, Math.min(9, Math.round(count))) : null);
     });
   }
 
@@ -235,7 +254,7 @@ export class MatchEngine {
     if (!this.canPin()) return false;
     return this.act(() => {
       this.state.pending = { kind: 'idle' };
-      startPin(this.ctx, 'you', false);
+      startPin(this.ctx, this.pk, false);
     });
   }
 
@@ -263,7 +282,7 @@ export class MatchEngine {
   /** What the AI would do in the player's shoes (headless play). */
   autoPush(): boolean {
     const p = this.state.pending;
-    return p.kind === 'contest' && aiWantsPush(this.state, 'you', p.spec);
+    return p.kind === 'contest' && aiWantsPush(this.state, this.pk, p.spec);
   }
 
   /** The dice have finished animating: play out the result. */
@@ -303,7 +322,7 @@ export class MatchEngine {
     if (p.kind !== 'pinChoice') return false;
     return this.act(() => {
       this.state.pending = { kind: 'idle' };
-      resolvePinChoice(this.ctx, getMove(p.spec.moveId), cover);
+      resolvePinChoice(this.ctx, this.pk, getMove(p.spec.moveId), cover);
     });
   }
 
@@ -313,13 +332,13 @@ export class MatchEngine {
     if (p.kind !== 'sigConvert') return false;
     return this.act(() => {
       this.state.pending = { kind: 'idle' };
-      resolveSigConvert(this.ctx, getMove(p.spec.moveId), p.spec.target, convert);
+      resolveSigConvert(this.ctx, this.pk, getMove(p.spec.moveId), p.spec.target, convert);
     });
   }
 
   /** What the AI would do in the player's shoes (headless play). */
   autoSigConvert(): boolean {
-    return aiWantsConvert(this.state.you);
+    return aiWantsConvert(this.me);
   }
 
   /** What the AI would do in the player's shoes (headless play): cover when it's a real chance. */
@@ -330,7 +349,7 @@ export class MatchEngine {
 
   /** The player's chance (0–100) to get the three with a cover right now, or null if they can't pin. */
   pinOdds(): number | null {
-    return this.canPin() ? pinOdds(this.state, 'you', false) : null;
+    return this.canPin() ? pinOdds(this.state, this.pk, false) : null;
   }
 
   /** A hold has landed: go for the tap, or work the hold and keep control. */
@@ -340,15 +359,15 @@ export class MatchEngine {
     return this.act(() => {
       this.state.pending = { kind: 'idle' };
       const move = getMove(p.spec.moveId);
-      if (goForTap) startSubmission(this.ctx, 'you', move, p.spec.target);
-      else workTheHold(this.ctx, 'you', move, p.spec.target);
+      if (goForTap) startSubmission(this.ctx, this.pk, move, p.spec.target);
+      else workTheHold(this.ctx, this.pk, move, p.spec.target);
     });
   }
 
   /** What the AI would choose in the player's shoes (headless play). */
   autoSubChoice(): boolean {
     const p = this.state.pending;
-    return p.kind === 'subChoice' && aiGoesForTap(this.state, 'you', getMove(p.spec.moveId), p.spec.target);
+    return p.kind === 'subChoice' && aiGoesForTap(this.state, this.pk, getMove(p.spec.moveId), p.spec.target);
   }
 
   /** Answer the "use Resiliency?" prompt. */
@@ -358,15 +377,15 @@ export class MatchEngine {
     return this.act(() => {
       this.state.pending = { kind: 'idle' };
       const S = this.state;
-      if (use) return useResiliency(this.ctx, 'you', p.threat);
+      if (use) return useResiliency(this.ctx, p.k, p.threat);
       if (p.threat === 'pinfall') {
         const move = S.pinContext?.lastMove ?? null;
         S.pinContext = null;
-        endFall(this.ctx, 'them', 'PINFALL', move);
+        endFall(this.ctx, p.by, 'PINFALL', move);
       } else {
         const txn = S.txn;
         S.txn = null;
-        endFall(this.ctx, 'them', txn && txn.kind === 'sub' && txn.quit ? 'I_QUIT' : 'SUBMISSION', txn && txn.kind === 'sub' ? txn.move : null);
+        endFall(this.ctx, p.by, txn && txn.kind === 'sub' && txn.quit ? 'I_QUIT' : 'SUBMISSION', txn && txn.kind === 'sub' ? txn.move : null);
       }
     });
   }
@@ -378,7 +397,7 @@ export class MatchEngine {
     if (!this.playerTurn) return false;
     return this.act(() => {
       this.state.pending = { kind: 'idle' };
-      aiTurn(this.ctx, 'you');
+      aiTurn(this.ctx, this.pk);
     });
   }
 }

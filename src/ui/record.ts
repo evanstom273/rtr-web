@@ -46,8 +46,8 @@ export interface MatchRecord {
 }
 
 function side(S: MatchState, k: SideKey): RecordSide {
-  const w = S[k], top = topPart(w);
-  return { ...w.stats, damageDealt: Math.round(w.damageDealt), worked: top.n ? PART_LABEL[top.part] : '', workedN: top.n, warnings: S.ref.warnings[k] };
+  const w = S.sides[k]!, top = topPart(w);
+  return { ...w.stats, damageDealt: Math.round(w.damageDealt), worked: top.n ? PART_LABEL[top.part] : '', workedN: top.n, warnings: S.ref.warnings[k] ?? 0 };
 }
 
 export function buildRecord(S: MatchState, at = Date.now()): MatchRecord | null {

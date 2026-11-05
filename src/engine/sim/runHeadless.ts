@@ -31,6 +31,9 @@ export interface SimOptions {
   /** Player mash rate in submissions (taps/s, capped at 8 by the game). */
   mashRate?: number;
   rules?: MatchConfig['rules'];
+  /** Match overhaul: more sides, and who (if anyone) the simulated player is. */
+  extras?: MatchConfig['extras'];
+  player?: MatchConfig['player'];
   maxSteps?: number;
   /** Called after every step (for diagnostics). */
   onStep?: (e: MatchEngine) => void;
@@ -83,7 +86,7 @@ function simSub(e: MatchEngine, spec: SubSpec, rnd: Rng, mashRate: number): SubO
 export function runHeadless(o: SimOptions): SimResult {
   const invalid: SimResult['invalid'] = [];
   const cfg: MatchConfig = {
-    you: o.you, them: o.them, seed: o.seed, rules: o.rules,
+    you: o.you, them: o.them, seed: o.seed, rules: o.rules, ...(o.extras ? { extras: o.extras } : {}), ...(o.player !== undefined ? { player: o.player } : {}),
     hooks: { onAiChoice: (side, c, valid) => { if (!valid) invalid.push({ side, detail: JSON.stringify(c && (c.kind === 'move' ? c.move.name : c.kind === 'setup' ? c.action : 'pin')) }); } },
   };
   const e = new MatchEngine(cfg);

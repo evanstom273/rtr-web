@@ -1,7 +1,7 @@
 // What each wrestler's signatures and finishers need, whether they're ready, and how to get there.
 import { AREA_LABEL, MOTION_LABEL, ORIENTATION_LABEL, POSITION_LABEL } from '../data/commentary';
 import type { StateRequirement } from '../data/rtr/types';
-import { other } from './commentary';
+import { foe } from './commentary';
 import { moveIsValid, submissionAreaOk } from './moves';
 import { candidateActions, findFollowupPaths, isRecovery, moveMatchesSnapshots, projectAction } from './setupRules';
 import { canUseMove, FINISHER_MOMENTUM, REARM_MARGIN, SIGNATURE_MOMENTUM } from './side';
@@ -80,7 +80,7 @@ function hintFor(move: Move, D: Side): string | null {
 
 /** Signatures and finishers for one side, from that side's point of view. */
 export function specialsFor(S: MatchState, k: SideKey): SpecialInfo[] {
-  const A = S[k], D = S[other(k)];
+  const A = S.sides[k]!, D = S.sides[foe(S, k)]!;
   const list: [Move, SpecialInfo['kind']][] = [
     ...A.signatures.map((m) => [m, 'SIGNATURE'] as [Move, SpecialInfo['kind']]),
     ...A.finishers.filter((m) => !A.signatures.includes(m)).map((m) => [m, 'FINISHER'] as [Move, SpecialInfo['kind']]),

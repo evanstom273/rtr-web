@@ -4,7 +4,7 @@ import { LINES, SETUP_TEXT, setupLogLine, tauntTitle } from '../data/commentary'
 import { tauntProfile } from './attributes';
 import { advanceClock, sideIsOutside } from './clock';
 import type { Ctx } from './ctx';
-import { other, ring, say } from './commentary';
+import { foe, isPlayer, ring, say } from './commentary';
 import { crowdObserve } from './crowd';
 import {
   CATCH_BREATH_COOLDOWN_SECONDS, CATCH_BREATH_STAMINA_THRESHOLD, catchBreathRecovery, recoveryDelayChance,
@@ -31,7 +31,7 @@ const GOES_NOWHERE: ReadonlySet<SetupId> = new Set<SetupId>([
 
 /** get_valid_setup_actions: recoveries, taunt/breath when eligible, and first steps toward a real follow-up. */
 export function validSetups(S: MatchState, k: SideKey): SetupId[] {
-  const A = S[k], D = S[other(k)];
+  const A = S.sides[k]!, D = S.sides[foe(S, k)]!;
   const actions = candidateActions(A.state, D.state);
   const firstSteps = new Set<SetupId>();
   for (const path of findFollowupPaths(A.all, A.state, D.state, 2)) {
@@ -42,12 +42,12 @@ export function validSetups(S: MatchState, k: SideKey): SetupId[] {
   for (const id of actions) {
     if (cage && CAGE_BLOCKED.has(id)) continue;
     // The AI only leaves the ring alone to fetch a weapon (Godot: only with DQs off).
-    if (k === 'them' && id === 'exit_ring' && !aiWantsWeaponTrip(S, k)) continue;
+    if (!isPlayer(S, k) && id === 'exit_ring' && !aiWantsWeaponTrip(S, k)) continue;
     if (id === 'taunt' && S.t < A.tauntCooldownUntil) continue;
     if (id === 'catch_breath' && (staminaPercent(A) >= CATCH_BREATH_STAMINA_THRESHOLD || S.t < A.catchBreathCooldownUntil)) continue;
-    if (isRecovery(id) || id === 'taunt' || id === 'catch_breath' || (k === 'you' && id === 'exit_ring') || firstSteps.has(id)) out.push(id);
+    if (isRecovery(id) || id === 'taunt' || id === 'catch_breath' || (isPlayer(S, k) && id === 'exit_ring') || firstSteps.has(id)) out.push(id);
   }
-  if (S.rules.countOuts && !sideIsOutside(S, k) && sideIsOutside(S, other(k)) && !out.includes('wait_for_count')) {
+  if (S.rules.countOuts && !sideIsOutside(S, k) && sideIsOutside(S, foe(S, k)) && !out.includes('wait_for_count')) {
     out.push('wait_for_count');
   }
   for (const id of extraSetups(S, k)) if (!out.includes(id)) out.push(id);
@@ -65,9 +65,9 @@ export function objectiveReady(S: MatchState, kind: 'LADDER' | 'TABLE'): boolean
 
 /** Getting up, or steadying yourself, when there's nothing else you could do: done for the player automatically. */
 const SELF_RECOVERIES: readonly SetupId[] = ['stand_up', 'regain_footing', 'regain_composure', 'turn_around'];
-export function autoRecovery(S: MatchState): SetupId | null {
-  if (validMoves(S, 'you').length) return null;
-  const setups = validSetups(S, 'you');
+export function autoRecovery(S: MatchState, k: SideKey): SetupId | null {
+  if (validMoves(S, k).length) return null;
+  const setups = validSetups(S, k);
   return SELF_RECOVERIES.find((id) => setups.includes(id)) ?? null;
 }
 
@@ -78,12 +78,12 @@ export const aiWantsWeaponsHere = (S: MatchState): boolean =>
 /** _ai_weapon_plan: with weapons around and no DQs, the AI may go under the ring (twice at most). */
 export function aiWantsWeaponTrip(S: MatchState, k: SideKey): boolean {
   if (!S.rules.weapons || S.rules.dq || heldBy(S, k)) return false;
-  if (S[k].state.area !== 'IN_RING') return false;
+  if (S.sides[k]!.state.area !== 'IN_RING') return false;
   const id = S.rules.stipulation;
   // Ladder and Tables: go and get the thing the match is about, if it isn't already standing in the ring.
   if (id === 'ladder') return !objectiveReady(S, 'LADDER');
   if (id === 'tables') return !objectiveReady(S, 'TABLE');
-  return S[k].weaponTrips < 2 && S.t >= S[k].nextWeaponTripAt;
+  return S.sides[k]!.weaponTrips < 2 && S.t >= S.sides[k]!.nextWeaponTripAt;
 }
 
 export function setupTitle(s: Side, id: SetupId): string {
@@ -93,10 +93,10 @@ export function setupTitle(s: Side, id: SetupId): string {
 const DELAYABLE: ReadonlySet<SetupId> = new Set<SetupId>(['stand_up', 'stop_running', 'regain_footing', 'regain_composure', 'turn_around']);
 
 export function executeSetup(ctx: Ctx, k: SideKey, id: SetupId, arg?: string): boolean {
-  const S = ctx.S, A = S[k], dk = other(k), D = S[dk];
+  const S = ctx.S, A = S.sides[k]!, dk = foe(S, k), D = S.sides[dk]!;
   if (!validSetups(S, k).includes(id)) return false;
   D.setUp = false;
-  if (id === 'exit_ring' && k === 'them') {
+  if (id === 'exit_ring' && !isPlayer(S, k)) {
     A.weaponTrips++;
     A.nextWeaponTripAt = S.t + 300;
   }
@@ -146,7 +146,7 @@ export function executeSetup(ctx: Ctx, k: SideKey, id: SetupId, arg?: string): b
     say(ctx, LINES.catchBreath, { a: k, vars: { n: String(Math.round(recovered)) } }, 'good');
     A.stats.rests++;
     crowdObserve(ctx, { type: 'catch_breath' });
-    ctx.ai[k].noteSetupExecuted('catch_breath', A);
+    ctx.ai[k]!.noteSetupExecuted('catch_breath', A);
     A.lastActionResult = 'SETUP_SUCCESS';
     // Surrender initiative: the opponent gets the favoured neutral roll.
     S.neutralFavoured = dk;
@@ -172,7 +172,7 @@ export function executeSetup(ctx: Ctx, k: SideKey, id: SetupId, arg?: string): b
   spendStamina(A, (recovery ? 1 : 3) * staminaCostMultiplier(A, recovery ? 'BASIC' : 'STANDARD'));
   addFatigue(A, recovery ? 0.5 : 1);
   exhaustionCommentary(ctx, k);
-  ctx.ai[k].noteSetupExecuted(id, A);
+  ctx.ai[k]!.noteSetupExecuted(id, A);
   A.lastActionResult = 'SETUP_SUCCESS';
   say(ctx, setupLogLine(id), { a: k, d: dk }, 'dim');
   ring(ctx, 'setup', k, setupTitle(A, id));
@@ -183,12 +183,12 @@ export function executeSetup(ctx: Ctx, k: SideKey, id: SetupId, arg?: string): b
 
 /** The contested setup's bar has resolved. */
 export function finishContestedSetup(ctx: Ctx, k: SideKey, id: SetupId, reversed: boolean): void {
-  const S = ctx.S, A = S[k], dk = other(k), D = S[dk];
+  const S = ctx.S, A = S.sides[k]!, dk = foe(S, k), D = S.sides[dk]!;
   const isTaunt = id === 'taunt';
   const originalArea = A.state.area;
   if (isExtraSetup(id)) {
     if (reversed) {
-      ctx.ai[k].noteSetupExecuted(null, A);
+      ctx.ai[k]!.noteSetupExecuted(null, A);
       spendStamina(A, 2 * staminaCostMultiplier(A, 'STANDARD'));
       addFatigue(A, 1);
       gainMomentum(ctx, dk, REVERSAL_MOMENTUM);
@@ -198,7 +198,7 @@ export function finishContestedSetup(ctx: Ctx, k: SideKey, id: SetupId, reversed
       ring(ctx, 'reversal', dk, setupTitle(A, id));
     } else {
       A.lastActionResult = 'SETUP_SUCCESS';
-      ctx.ai[k].noteSetupExecuted(id, A);
+      ctx.ai[k]!.noteSetupExecuted(id, A);
       ring(ctx, 'setup', k, setupTitle(A, id));
     }
     finishExtraContest(ctx, k, id, reversed);
@@ -209,7 +209,7 @@ export function finishContestedSetup(ctx: Ctx, k: SideKey, id: SetupId, reversed
     return;
   }
   if (reversed) {
-    ctx.ai[k].noteSetupExecuted(null, A);
+    ctx.ai[k]!.noteSetupExecuted(null, A);
     applyReversedSetupPositions(id, A, D);
     spendStamina(A, 3 * staminaCostMultiplier(A, 'STANDARD'));
     addFatigue(A, 2);
@@ -243,7 +243,7 @@ export function finishContestedSetup(ctx: Ctx, k: SideKey, id: SetupId, reversed
       say(ctx, setupLogLine(id), { a: k, d: dk }, 'dim');
     }
     A.lastActionResult = 'SETUP_SUCCESS';
-    ctx.ai[k].noteSetupExecuted(id, A);
+    ctx.ai[k]!.noteSetupExecuted(id, A);
     ring(ctx, 'setup', k, setupTitle(A, id));
   }
   exhaustionCommentary(ctx, k);
@@ -257,7 +257,7 @@ export function finishContestedSetup(ctx: Ctx, k: SideKey, id: SetupId, reversed
 
 function hasImmediateOutsideFollowup(S: MatchState, k: SideKey): boolean {
   if (validMoves(S, k).length) return true;
-  const A = S[k], D = S[other(k)];
+  const A = S.sides[k]!, D = S.sides[foe(S, k)]!;
   return findFollowupPaths(A.all, A.state, D.state, 1).some((p) => canUseMove(A, p.move));
 }
 
