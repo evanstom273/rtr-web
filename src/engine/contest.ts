@@ -40,6 +40,8 @@ export function startContest(ctx: Ctx, base: ContestBase, defence: ContestSpec['
   }
   spec.chance = landChance(spec.attack, spec.defend);
   S.pending = { kind: 'contest', spec };
+  // Nobody at the controls in this one (two AI wrestlers while the player watches): roll straight away.
+  if (!pk) rollPending(ctx, false);
 }
 
 const withMod = (s: ContestSide, label: string, value: number): ContestSide => ({ ...s, mods: [...s.mods, { label, value }], bonus: s.bonus + value });

@@ -588,6 +588,20 @@ export const PLEDGE_LOG_MAX = 50;
  * docs). Refit if the engine's crowd changes.
  */
 export const RATING_WEIGHTS = { crowd: 1.2, story: 1.0, drama: 1.1, craft: 0.9, spectacle: 0.8 } as const;
+/**
+ * Match overhaul: each match type is judged on its own terms, with the same spread as singles (median
+ * about 3★, Lyra's call). More people means more heat, more near falls and more drama by default, so each
+ * type is taken down this much after the curve. First fit from the stage 2 probe (40 matches a type);
+ * refitted by the MATCHES harness in stage 10.
+ */
+export const RATING_TYPE: Record<string, { fall: number; elim: number }> = {
+  triple: { fall: -0.25, elim: -0.6 },
+  fourway: { fall: -0.75, elim: -1.0 },
+  multi: { fall: -0.9, elim: -1.3 },
+  handicap: { fall: -0.25, elim: -0.8 },
+  tornado: { fall: -0.6, elim: -0.8 },
+};
+
 export const RATING_CURVE = {
   at: [0, 0.0268, 0.2212, 0.3841, 0.6008, 0.705, 0.7896, 0.8362, 0.8994, 0.9428, 0.9742],
   stars: [0.25, 0.5, 1.25, 2.0, 2.5, 3.0, 3.5, 3.875, 4.375, 4.875, 5.25],

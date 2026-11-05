@@ -2,6 +2,7 @@
 // wrestling-identity modifiers are not ported yet; with no framework, Godot itself falls back to the
 // weighted top-five choice used here.
 import type { BodyPart } from '../data/rtr/types';
+import { aiMultiInstinct, aiPickTarget, isMulti } from './multi';
 import { attributeDelta, moveAttributeProfile, setupScoringModifier, tauntProfile } from './attributes';
 import { advanceClock, sideIsOutside } from './clock';
 import type { Ctx } from './ctx';
@@ -978,10 +979,14 @@ export function isValidChoice(S: MatchState, k: SideKey, c: Choice): boolean {
 
 /** One AI decision for side k, executed. */
 export function aiTurn(ctx: Ctx, k: SideKey): void {
+  // More than two people: first, who to go after.
+  if (isMulti(ctx.S)) ctx.S.sides[k]!.target = aiPickTarget(ctx, k);
   const S = ctx.S, A = S.sides[k]!, D = S.sides[foe(S, k)]!, brain = ctx.ai[k]!;
   const moves = validMoves(S, k);
   const setups = validSetups(S, k);
   const ready = A.signatureReady || A.finisherStock > 0;
+  const instinct = isMulti(S) ? aiMultiInstinct(S, k, setups) : null;
+  if (instinct && executeSetup(ctx, k, instinct)) return;
   const forced = specialStateRecovery(S, k, moves, setups);
   let specialContinuation = false, offensiveContinuation = false;
   if (forced) {

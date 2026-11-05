@@ -6,14 +6,15 @@ import { observePhase } from './clock';
 import type { Ctx } from './ctx';
 import { foe, isPlayer, ring, say } from './commentary';
 import { crowdObserve } from './crowd';
-import { afterAction, endFall, render, setControl } from './flow';
+import { afterAction, endFall, render, schedule, setControl } from './flow';
+import { planSave, resolveSave, saveOffer, simulateAiSub } from './multi';
 import { submissionContext } from './interaction';
 import { aiShouldUseResiliency, conditionWord, pinCondition, useResiliency } from './pin';
 import { clamp } from './rng';
 import { fcaHoldLegal, quitRefused } from './stip';
 import { damagePart, markCrossedThresholds, spendStamina, totalHp } from './side';
 import { targetHp } from './targeting';
-import type { MatchState, Move, Side, SideKey, SubOutcome, TargetResolution } from './types';
+import type { MatchState, Move, SavePlan, Side, SideKey, SubOutcome, SubSpec, TargetResolution } from './types';
 
 /** Both resolution forces are scaled by this (Godot submission_resolution_speed_multiplier). */
 export const SUBMISSION_SPEED_MULTIPLIER = 1.5;
@@ -121,26 +122,59 @@ export function startSubmission(ctx: Ctx, k: SideKey, move: Move, target: Target
   say(ctx, LINES.subTrapped, { a: k, d: dk, m: move.name, vars: { part: PART_LABEL[part] } }, move.finisher ? 'hl' : '');
   crowdObserve(ctx, { type: 'submission_started', limbPayoff: (A.targetAttackCounts[part] ?? 0) >= 4 });
   ring(ctx, 'submission', k, move.name);
+  S.txn = { kind: 'sub', k, move, target, nearTapSaid: false, nearEscapeSaid: false, lastMarker: submissionStart(D) };
+  // More than two people and you could get there: stomp them loose, or leave it?
+  const offer = saveOffer(S, k, dk);
+  if (offer) {
+    S.pending = { kind: 'save', spec: { id: ++S.seq, kind: 'sub', attacker: k, victim: dk, ...offer } };
+    render(ctx);
+    return;
+  }
+  openSub(ctx, null);
+}
+
+/** The struggle itself: the player's tug, or (two AI wrestlers) played out while the player watches. */
+export function openSub(ctx: Ctx, playerSave: SavePlan | null): void {
+  const S = ctx.S, txn = S.txn;
+  if (!txn || txn.kind !== 'sub') return;
+  const k = txn.k, dk = foe(S, k), A = S.sides[k]!, D = S.sides[dk]!, move = txn.move, target = txn.target, part = target.storyPart;
   const sc = submissionContext(A, D, move, S.t, target, isTrueSquashContext(ctx, k));
   const playerAttacking = isPlayer(S, k);
-  S.txn = { kind: 'sub', k, move, target, nearTapSaid: false, nearEscapeSaid: false, lastMarker: submissionStart(D) };
-  S.pending = {
-    kind: 'sub',
-    spec: {
-      id: ++S.seq, attacker: k, defender: dk,
-      playerDirection: playerAttacking ? 1 : -1,
-      playerScore: playerAttacking ? sc.attackerScore : sc.defenderScore,
-      aiScore: playerAttacking ? sc.defenderScore : sc.attackerScore,
-      tapThreshold: sc.tapThreshold,
-      escapeThreshold: sc.escapeThreshold,
-      speedMultiplier: SUBMISSION_SPEED_MULTIPLIER,
-      start: submissionStart(D),
-      moveName: move.name,
-      partLabel: PART_LABEL[part],
-      finisher: move.finisher,
-    },
+  const save = planSave(ctx, k, dk, 'sub', playerSave);
+  if (save) txn.save = save;
+  const spec: SubSpec = {
+    id: ++S.seq, attacker: k, defender: dk,
+    playerDirection: playerAttacking ? 1 : -1,
+    playerScore: playerAttacking ? sc.attackerScore : sc.defenderScore,
+    aiScore: playerAttacking ? sc.defenderScore : sc.attackerScore,
+    tapThreshold: sc.tapThreshold,
+    escapeThreshold: sc.escapeThreshold,
+    speedMultiplier: SUBMISSION_SPEED_MULTIPLIER,
+    start: submissionStart(D),
+    moveName: move.name,
+    partLabel: PART_LABEL[part],
+    finisher: move.finisher,
   };
+  txn.spec = spec;
+  if (!playerAttacking && !isPlayer(S, dk)) {
+    // Nobody's playing this one: a beat for the watching player, then it plays out.
+    schedule(ctx, { to: 'aiSub' }, 900);
+    render(ctx);
+    return;
+  }
+  S.pending = { kind: 'sub', spec };
   render(ctx);
+}
+
+/** Two AI wrestlers' hold, played out second by second (or broken up). */
+export function runAiSub(ctx: Ctx): void {
+  const S = ctx.S, txn = S.txn;
+  if (!txn || txn.kind !== 'sub' || !txn.spec) return;
+  S.pending = { kind: 'sub', spec: txn.spec };
+  const out = simulateAiSub(ctx, (m) => submissionTick(ctx, m));
+  if (out === 'SAVED') return;
+  S.pending = { kind: 'idle' };
+  resolveSubmission(ctx, out);
 }
 
 /** One second of the struggle has passed with the marker at `marker` (0–100, 100 = tap). */
@@ -177,6 +211,9 @@ export function submissionTick(ctx: Ctx, marker: number): void {
   } else if (marker - txn.lastMarker >= 6) say(ctx, LINES.subGaining, { a: k }, 'dim');
   else if (txn.lastMarker - marker >= 6) say(ctx, LINES.subFighting, { d: dk }, 'dim');
   txn.lastMarker = marker;
+  // Someone's coming to break it up.
+  txn.secs = (txn.secs ?? 0) + 1;
+  if (txn.save && txn.secs >= txn.save.at) return resolveSave(ctx, k, dk, txn.save, 'sub');
   render(ctx);
 }
 
@@ -192,9 +229,9 @@ export function resolveSubmission(ctx: Ctx, outcome: SubOutcome): void {
         S.pending = { kind: 'resiliency', id: ++S.seq, threat: 'submission', k: dk, by: k };
         return;
       }
-      if (aiShouldUseResiliency(S, dk, txn.move)) return useResiliency(ctx, dk, 'submission');
+      if (aiShouldUseResiliency(S, dk, txn.move, k)) return useResiliency(ctx, dk, 'submission');
     }
-    return endFall(ctx, k, txn.quit || S.rules.stipulation === 'i_quit' ? 'I_QUIT' : 'SUBMISSION', txn.move);
+    return endFall(ctx, k, txn.quit || S.rules.stipulation === 'i_quit' ? 'I_QUIT' : 'SUBMISSION', txn.move, dk);
   }
   if (txn.quit) {
     quitRefused(ctx, k, txn.nearTapSaid);

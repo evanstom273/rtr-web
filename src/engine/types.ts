@@ -105,6 +105,8 @@ export interface Decision {
   move: Move | null;
   /** End the whole match even in a multi-fall match (time running out). */
   final?: boolean;
+  /** Who lost it (more than two people: who's out). Default: whoever the winner was fighting. */
+  loser?: SideKey | null;
 }
 
 /** The referee's attention and the rulebook (MatchRefereeState). */
@@ -154,6 +156,13 @@ export interface Side {
   out?: SideOut;
   /** Tag matches: the legal man. */
   legal?: boolean;
+  /** Which way they are (0–3): their corner, apron or side of the floor (zones.ts). */
+  spot?: number;
+  /** Who hit them last (for grudges), and who they've eliminated. */
+  lastHitBy?: SideKey;
+  elimsBy?: number;
+  /** Turns spent outside the ring in a row (the AI takes it back in after a while). */
+  outsideTurns?: number;
   /** Career: the booker's thumb on the scale (0 almost always). */
   booked: number;
   /** Booker mode: booked to win by cheating (leans on dirty tactics). */
@@ -342,7 +351,27 @@ export interface KickoutSpec {
   timeLimit: number;
   /** Forgiveness either side of the zone, in % of the track (Godot: 4px touch on a ~400px track). */
   forgiveness: number;
+  /** Multi-person matches: someone's coming to break it up, at this count (unless you kick out first). */
+  save?: SavePlan;
 }
+
+/** Someone breaking up a pin or a hold (match overhaul): who, at which count (holds: after that many seconds), and whether they steal it. */
+export interface SavePlan { by: SideKey; at: number; steal: boolean }
+
+/** The player's chance to break up someone else's pin or hold. */
+export interface SaveSpec {
+  id: number;
+  kind: 'pin' | 'sub';
+  attacker: SideKey;
+  victim: SideKey;
+  /** Chance (0–100) of getting there in time. */
+  chance: number;
+  /** It ends the match for you (or your team) if it counts. */
+  mustSave: boolean;
+}
+
+/** Someone out of the match, how, by whom, and when. */
+export interface Elimination { k: SideKey; by: SideKey | null; finish: FinishType; t: number; move: string | null }
 
 /** Player landed a pin combo / flash pin: cover now, or keep the upper hand (web addition). */
 export interface PinChoiceSpec {
@@ -413,7 +442,8 @@ export type Cont =
   | { to: 'bell' }
   | { to: 'neutralRecovery' }
   | { to: 'startSub'; k: SideKey; moveId: string; target: TargetResolution }
-  | { to: 'startPin'; k: SideKey; embedded: boolean }
+  | { to: 'startPin'; k: SideKey; embedded: boolean; steal?: boolean }
+  | { to: 'aiSub' }
   | { to: 'nextFall' }
   | { to: 'autoRecover'; k: SideKey; id: SetupId }
   | { to: 'pinNeutral' }
@@ -431,7 +461,8 @@ export type Pending =
   | { kind: 'contestRoll'; spec: ContestSpec; roll: ContestRoll }
   | { kind: 'kickout'; spec: KickoutSpec }
   /** AI pinned: the count is pre-rolled; the UI counts it out. kickoutAt null = pinned. */
-  | { kind: 'refCount'; id: number; pinner: SideKey; kickoutAt: 1 | 2 | 3 | null }
+  | { kind: 'refCount'; id: number; pinner: SideKey; kickoutAt: 1 | 2 | 3 | null; save?: SavePlan }
+  | { kind: 'save'; spec: SaveSpec }
   | { kind: 'sub'; spec: SubSpec }
   | { kind: 'resiliency'; id: number; threat: 'pinfall' | 'submission'; k: SideKey; by: SideKey }
   | { kind: 'pinChoice'; spec: PinChoiceSpec }
@@ -470,6 +501,10 @@ export interface MatchResult {
   afterFk: boolean;
   /** Multi-fall matches: the final score. */
   score?: Record<SideKey, number>;
+  /** More than two people: everyone on the winning team, everyone else, and who went out how. */
+  winners?: SideKey[];
+  losers?: SideKey[];
+  elims?: Elimination[];
 }
 
 export interface RatingPart {
@@ -530,6 +565,10 @@ export interface CrowdStats {
   /** Who reversed last, and when (for counters). */
   lastRev?: SideKey | null;
   lastRevT?: number;
+  /** Multi-person matches: pins and holds broken up, pins stolen, people eliminated. */
+  saves?: number;
+  steals?: number;
+  elims?: number;
 }
 
 /* ---------- view ---------- */
@@ -603,12 +642,22 @@ export interface MatchRulesConfig {
   mood?: Partial<Record<SideKey, number>>;
   /** Chemistry between the two: added to the stars. */
   chemistry?: number;
+  /** Match overhaul. More than two people: elimination (last team standing) instead of first fall wins. */
+  elimination?: boolean;
+  /** How each side feels about each other side (−100 to 100): friends go easier and save each other, enemies go after each other first. */
+  bonds?: Record<SideKey, Record<SideKey, number>>;
+  /** The champion in a multi-person title match: everyone's a little keener to go after them. */
+  champion?: SideKey;
 }
 
 export interface MatchState {
   id: number;
   /** Crowd heat at every clock step: the record's crowd graph. */
   heatLine: number[];
+  /** More than two people: who's had the last few turns, everyone eliminated so far, and whether the heels are working together. */
+  turn: { k: SideKey | null; n: number };
+  elims: Elimination[];
+  alliance: 'none' | 'on' | 'broken';
   rules: MatchRulesConfig;
   /** The first two sides (singles: the whole match). */
   you: Side;
@@ -655,7 +704,7 @@ export interface MatchState {
 export type Txn =
   | { kind: 'move'; k: SideKey; move: Move; target: TargetResolution; chance: number }
   | { kind: 'setup'; k: SideKey; action: SetupId; chance: number }
-  | { kind: 'sub'; k: SideKey; move: Move; target: TargetResolution; nearTapSaid: boolean; nearEscapeSaid: boolean; lastMarker: number; quit?: boolean };
+  | { kind: 'sub'; k: SideKey; move: Move; target: TargetResolution; nearTapSaid: boolean; nearEscapeSaid: boolean; lastMarker: number; quit?: boolean; save?: SavePlan; secs?: number; spec?: SubSpec };
 
 export interface PinContext {
   embedded: boolean;
@@ -664,6 +713,8 @@ export interface PinContext {
   flashQualified: boolean;
   flashSuccess: boolean;
   squashQualified: boolean;
+  /** A stolen pin: someone threw the pinner off and covered instead. */
+  steal?: boolean;
 }
 
 /** An AI (or auto-player) decision. */

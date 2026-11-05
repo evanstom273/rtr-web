@@ -6,7 +6,9 @@ import type { Ctx, EngineHooks } from './ctx';
 import { finalise, render, runNeutralRecovery, schedule, setControl } from './flow';
 import { aiWantsPush, applyPending, resolveDefence, rollPending } from './contest';
 import { aiWantsConvert, executeMove, isLadderDive, limbLock, moveIsValid, tierLock, resolvePinChoice, resolveSigConvert, submissionAreaOk, validMoves } from './moves';
-import { canPin, completeKickout, pinOdds, pinThree, startPin, useResiliency } from './pin';
+import { canPin, completeKickout, countPin, pinOdds, pinThree, startPin, useResiliency } from './pin';
+import { isMulti, playerSave, resolveSave, retargetAll, setTarget, targetable } from './multi';
+import { distance } from './zones';
 import { mathRng, seededRng, type Rng } from './rng';
 import { aiDefence, type Defence } from './defence';
 import { executeSetup, validSetups } from './setups';
@@ -18,7 +20,7 @@ import { armedSpot, qualifiesForSpot, resolveTenCount } from './stip';
 import type { Weapon } from '../data/rtr';
 import { DEFAULT_STIPULATION_RULES, normaliseRules } from './stipulations';
 import { createState } from './state';
-import { aiGoesForTap, beginSubmission, resolveSubmission, startSubmission, submissionTick, workTheHold } from './submission';
+import { aiGoesForTap, beginSubmission, openSub, resolveSubmission, runAiSub, startSubmission, submissionTick, workTheHold } from './submission';
 import { resolveTarget } from './targeting';
 import { endFall } from './flow';
 import type { EnvObject, MatchType, Side, SideKey, Cont, KickoutCount, MatchRulesConfig, MatchState, Move, SetupId, SubOutcome, TargetResolution } from './types';
@@ -52,6 +54,11 @@ export class MatchEngine {
   constructor(cfg: MatchConfig) {
     const rnd = cfg.rng ?? (cfg.seed !== undefined ? seededRng(cfg.seed) : mathRng);
     const merged = { ...DEFAULT_RULES, ...cfg.rules };
+    // More than two people, one fall: no count-outs or DQs unless the booker says otherwise.
+    if (cfg.extras?.length && !cfg.rules?.elimination) {
+      if (cfg.rules?.countOuts === undefined) merged.countOuts = false;
+      if (cfg.rules?.dq === undefined) merged.dq = false;
+    }
     if (merged.titleId) merged.title = true;
     const rules = normaliseRules(merged);
     const extras = (cfg.extras ?? []).map((x) => ({ w: getWrestler(x.id), team: x.team }));
@@ -174,7 +181,8 @@ export class MatchEngine {
     });
     if (p.kind === 'refCount') return this.act(() => {
       this.state.pending = { kind: 'idle' };
-      if (p.kickoutAt === null) pinThree(this.ctx, p.pinner);
+      if (p.save) resolveSave(this.ctx, p.pinner, foe(this.state, p.pinner), p.save, 'pin');
+      else if (p.kickoutAt === null) pinThree(this.ctx, p.pinner);
       else completeKickout(this.ctx, p.pinner, p.kickoutAt);
     });
     return false;
@@ -184,6 +192,13 @@ export class MatchEngine {
     const ctx = this.ctx;
     switch (c.to) {
       case 'bell': {
+        if (isMulti(this.state)) {
+          const S = this.state, names = S.order.map((k) => S.sides[k]!.w.name);
+          say(ctx, S.rules.elimination ? LINES.multiBellElim : LINES.multiBell, { vars: { x: `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`, n: names.length } });
+          retargetAll(S);
+          setControl(ctx, S.order[Math.floor(ctx.rnd() * S.order.length)]!);
+          return;
+        }
         say(ctx, LINES.bell, { a: 'you', d: 'them' });
         // Singles: a coin toss for who gets going first (more sides: the turn queue, from stage 2).
         setControl(ctx, ctx.rnd() < 0.5 ? 'you' : 'them');
@@ -193,9 +208,10 @@ export class MatchEngine {
       case 'neutralRecovery': return runNeutralRecovery(ctx);
       case 'startSub': return beginSubmission(ctx, c.k, getMove(c.moveId), c.target);
       case 'startPin': {
-        startPin(ctx, c.k, c.embedded);
+        startPin(ctx, c.k, c.embedded, c.steal);
         return;
       }
+      case 'aiSub': return runAiSub(ctx);
       case 'pinNeutral': return setControl(ctx, 'neutral');
       case 'autoRecover': {
         if (!executeSetup(ctx, c.k, c.id)) this.state.pending = { kind: 'awaitPlayer' };
@@ -297,7 +313,10 @@ export class MatchEngine {
     if (p.kind !== 'kickout') return false;
     return this.act(() => {
       this.state.pending = { kind: 'idle' };
-      if (success) completeKickout(this.ctx, p.spec.pinner, Math.min(2, count) as KickoutCount);
+      const save = p.spec.save;
+      // Someone was on their way: they get there first unless you're out before they arrive.
+      if (save && (!success || count > save.at)) resolveSave(this.ctx, p.spec.pinner, this.pk, save, 'pin');
+      else if (success) completeKickout(this.ctx, p.spec.pinner, Math.min(2, count) as KickoutCount);
       else pinThree(this.ctx, p.spec.pinner);
     });
   }
@@ -388,6 +407,40 @@ export class MatchEngine {
         endFall(this.ctx, p.by, txn && txn.kind === 'sub' && txn.quit ? 'I_QUIT' : 'SUBMISSION', txn && txn.kind === 'sub' ? txn.move : null);
       }
     });
+  }
+
+  /* ---------- more than two people ---------- */
+
+  /** Who the player could go after, nearest first (with how far, in zones). */
+  targets(): { k: SideKey; name: string; distance: number; current: boolean }[] {
+    const S = this.state, pk = this.pk;
+    return targetable(S, pk).map((k) => ({ k, name: S.sides[k]!.w.name, distance: distance(S, pk, k), current: S.sides[pk]!.target === k }))
+      .sort((a, b) => a.distance - b.distance);
+  }
+
+  /** Go after someone else (free: it doesn't use the turn). */
+  setTarget(k: SideKey): boolean {
+    if (!setTarget(this.state, this.pk, k)) return false;
+    return this.act(() => render(this.ctx));
+  }
+
+  /** Someone else's pin or hold: try to break it up, steal it, or leave it. */
+  resolveSavePrompt(choice: 'save' | 'steal' | 'leave'): boolean {
+    const p = this.state.pending;
+    if (p.kind !== 'save') return false;
+    return this.act(() => {
+      this.state.pending = { kind: 'idle' };
+      const plan = playerSave(this.ctx, p.spec.victim, p.spec.kind === 'sub' && choice === 'steal' ? 'save' : choice);
+      if (p.spec.kind === 'pin') countPin(this.ctx, p.spec.attacker, plan);
+      else openSub(this.ctx, plan);
+    });
+  }
+
+  /** What the AI would do in the player's shoes (headless play): save it when losing's on the line. */
+  autoSave(): 'save' | 'steal' | 'leave' {
+    const p = this.state.pending;
+    if (p.kind !== 'save') return 'leave';
+    return p.spec.mustSave ? (p.spec.kind === 'pin' && this.ctx.rnd() < 0.3 ? 'steal' : 'save') : 'leave';
   }
 
   /* ---------- headless ---------- */

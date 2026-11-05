@@ -1,5 +1,5 @@
 // Match of the Night's star rating, fed by the RtR engine's crowd stats.
-import { RATING_CURVE, RATING_TITLE_BONUS, RATING_WEIGHTS, TRAIT_FX as FX } from '../career/tuning';
+import { RATING_CURVE, RATING_TITLE_BONUS, RATING_TYPE, RATING_WEIGHTS, TRAIT_FX as FX } from '../career/tuning';
 import { has } from './traits';
 import { PART_LABEL, RATING } from '../data/commentary';
 import { fmtClock, format, foe } from './commentary';
@@ -28,7 +28,7 @@ const workedOn = (S: MatchState, victim: Side) => topPart(S.sides[foe(S, victim.
 function components(S: MatchState) {
   const c = S.crowd;
   const avg = c.heatSum / Math.max(1, c.heatN);
-  const limb = [topPart(S.you), topPart(S.them)].sort((a, b) => b.n - a.n)[0]!;
+  const limb = S.order.map((k) => topPart(S.sides[k]!)).sort((a, b) => b.n - a.n)[0]!;
   return { avg, limb };
 }
 
@@ -38,6 +38,8 @@ export interface MatchFeatures {
   repeats: number; rest: number; nf: number; nearTaps: number; fk: number; finRev: number; reversals: number; counters: number; ropeBreaks: number;
   stip: number; tableBreaks: number; weaponHits: number; bleeds: number; high: number; spots: number; bigHits: number;
   how: 'pin' | 'sub' | 'countout' | 'dq' | 'stip' | 'none'; byFin: boolean; afterFk: boolean; byFlash: boolean; title: boolean; big: boolean;
+  /** More than two people (match overhaul): saves, stolen pins, eliminations, and how many were in it. */
+  saves?: number; steals?: number; elims?: number; people?: number;
 }
 
 export function matchFeatures(S: MatchState): MatchFeatures {
@@ -54,12 +56,13 @@ export function matchFeatures(S: MatchState): MatchFeatures {
     : R.finish === 'COUNT_OUT' || R.finish === 'DOUBLE_COUNT_OUT' ? 'countout' : R.finish === 'DISQUALIFICATION' ? 'dq' : 'stip';
   return {
     mins, avg: c.heatSum / Math.max(1, c.heatN), peak: c.heatPeak, heatSeg: !!c.heatSeg, comeback: !!c.comeback,
-    limbN: Math.max(topPart(S.you).n, topPart(S.them).n), payoff, repeats: c.repeats, rest: c.rest,
+    limbN: Math.max(...S.order.map((k) => topPart(S.sides[k]!).n)), payoff, repeats: c.repeats, rest: c.rest,
     nf: c.nf, nearTaps: c.nearTaps ?? 0, fk: c.fk, finRev: c.finRev, reversals: c.reversals, counters: c.counters ?? 0, ropeBreaks: c.ropeBreaks ?? 0,
     stip: c.climbStops * 0.15 + c.ladderPulls * 0.05 + c.cageClimbs * 0.06 + c.tenCounts * 0.12 + c.nearQuits * 0.2 + c.falls * 0.12,
     tableBreaks: c.tableBreaks, weaponHits: c.weaponHits, bleeds: c.bleeds, high: c.high, spots: c.spots, bigHits: c.bigHits ?? 0,
     how, byFin: !!R?.byFin, afterFk: !!R?.afterFk, byFlash: !!R?.byFlash, title: !!S.rules.title,
-    big: !!S.you.big && (has(S.you, 'big_match') || has(S.them, 'big_match')),
+    big: !!S.you.big && S.order.some((k) => has(S.sides[k]!, 'big_match')),
+    saves: c.saves ?? 0, steals: c.steals ?? 0, elims: c.elims ?? 0, people: S.order.length,
   };
 }
 
@@ -74,7 +77,9 @@ export function ratingDims(f: MatchFeatures, live = false): Record<RatingDim, nu
   const crowdRaw = clamp((f.avg - 25) / 35, 0, 1.2) + (f.peak >= 95 ? 0.35 : f.peak >= 85 ? 0.25 : f.peak >= 75 ? 0.1 : 0);
   const story = clamp(((f.heatSeg ? 0.3 : 0) + (f.comeback ? 0.5 : 0) + (f.limbN >= 5 ? 0.25 : 0) + (f.payoff ? 0.35 : 0)) / 1.4, 0, 1);
   const dramaRaw = Math.min(0.7, f.nf * 0.15) + Math.min(0.7, f.fk * 0.35) + Math.min(0.5, f.finRev * 0.25) + Math.min(0.45, f.reversals * 0.05)
-    + Math.min(0.3, f.counters * 0.08) + Math.min(0.4, f.ropeBreaks * 0.2) + Math.min(0.6, f.stip);
+    + Math.min(0.3, f.counters * 0.08) + Math.min(0.4, f.ropeBreaks * 0.2) + Math.min(0.6, f.stip)
+    // Multi-person drama: broken-up pins (the near fall that never was), steals, people going out one by one.
+    + Math.min(0.45, (f.saves ?? 0) * 0.12) + Math.min(0.2, (f.steals ?? 0) * 0.1) + Math.min(0.3, (f.elims ?? 0) * 0.06);
   const m = f.mins;
   let craft = 0.5;
   if (!live) {
@@ -159,7 +164,12 @@ export function rate(S: MatchState): Rating {
   const d = ratingDims(f);
   const how = f.how;
   const bigMatch = f.big ? FX.big_match.stars : 0;
-  const raw = ratingCurve(ratingComposite(d)) + (S.rules.title ? RATING_TITLE_BONUS : 0) + bigMatch + (S.rules.chemistry ?? 0);
+  let raw = ratingCurve(ratingComposite(d)) + (S.rules.title ? RATING_TITLE_BONUS : 0) + bigMatch + (S.rules.chemistry ?? 0);
+  // More than two people: judged on its own terms (see RATING_TYPE).
+  if (S.order.length > 2) {
+    const adj = RATING_TYPE[S.type] ?? RATING_TYPE.multi!;
+    raw = Math.max(0.25, raw + (S.rules.elimination ? adj.elim : adj.fall));
+  }
   const stars = quarter(raw);
 
   const T = RATING;

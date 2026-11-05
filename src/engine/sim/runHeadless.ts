@@ -49,7 +49,7 @@ export interface SimResult {
   engine: MatchEngine;
 }
 
-function simSub(e: MatchEngine, spec: SubSpec, rnd: Rng, mashRate: number): SubOutcome {
+function simSub(e: MatchEngine, spec: SubSpec, rnd: Rng, mashRate: number): SubOutcome | null {
   const dt = 1 / 60, tapEvery = 1 / Math.min(mashRate, ix.TUG_MAX_TAPS_PER_SECOND);
   let marker = spec.start, t = 0, pulse = 0, second = 0, nextTap = tapEvery * (0.5 + rnd() * 0.5);
   let windowMin = marker, windowMax = marker, windowStart = 0;
@@ -69,6 +69,8 @@ function simSub(e: MatchEngine, spec: SubSpec, rnd: Rng, mashRate: number): SubO
     if (second >= 1) {
       second -= 1;
       e.subSecond(marker);
+      // Broken up by someone else (more than two people): the hold's already over.
+      if (e.pending.kind !== 'sub') return null;
     }
     const out = ix.tugOutcome(marker, spec.tapThreshold, spec.escapeThreshold);
     if (out) return out;
@@ -131,9 +133,11 @@ export function runHeadless(o: SimOptions): SimResult {
         ok = e.resolveKickout(success, count);
         break;
       }
-      case 'sub':
-        ok = e.resolveSub(simSub(e, p.spec, rnd, o.mashRate ?? 6));
+      case 'sub': {
+        const out = simSub(e, p.spec, rnd, o.mashRate ?? 6);
+        ok = out === null ? true : e.resolveSub(out);
         break;
+      }
       case 'subChoice':
         ok = e.resolveSubChoice(e.autoSubChoice());
         break;
@@ -153,6 +157,9 @@ export function runHeadless(o: SimOptions): SimResult {
         break;
       case 'resiliency':
         ok = e.resolveResiliency(true);
+        break;
+      case 'save':
+        ok = e.resolveSavePrompt(e.autoSave());
         break;
       default:
         ok = false;

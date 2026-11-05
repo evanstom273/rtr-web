@@ -3,24 +3,25 @@ import { COUNT_WORDS, LINES } from '../data/commentary';
 import { bleedTick } from './env';
 import { countsAsOutside, ironManClock } from './stip';
 import type { Ctx } from './ctx';
-import { foe, ring, say } from './commentary';
+import { fighting, foe, ring, say } from './commentary';
 import { crowdTick } from './crowd';
 import { endFall, endMatch } from './flow';
 import { staminaPercent } from './exhaustion';
 import { clamp } from './rng';
 import { totalHp } from './side';
 import type { MatchState, SideKey } from './types';
-import { SIDES } from './types';
+import { isMulti, multiCountOut } from './multi';
 
 export const COUNT_OUT_INTERVAL_SECONDS = 30;
 
 export const sideIsOutside = (S: MatchState, k: SideKey): boolean => countsAsOutside(S, k);
-const outsideSides = (ctx: Ctx): SideKey[] => SIDES.filter((k) => sideIsOutside(ctx.S, k));
+const outsideSides = (ctx: Ctx): SideKey[] => fighting(ctx.S).filter((k) => sideIsOutside(ctx.S, k));
 
 /** Advance the clock by one action step. */
 export function advanceClock(ctx: Ctx): void {
   const S = ctx.S;
-  const step = S.rules.actionClock;
+  // More than two people: things happen at once, so each action is a shorter slice of the match.
+  const step = isMulti(S) ? Math.max(5, Math.round(S.rules.actionClock * Math.min(1, Math.max(0.5, 2 / fighting(S).length)))) : S.rules.actionClock;
   S.t += step;
   accumulateRefereeCount(ctx, step);
   bleedTick(S);
@@ -37,7 +38,7 @@ function startCount(ctx: Ctx): void {
   r.value = 0;
   r.elapsed = 0;
   r.pendingResolution = false;
-  for (const k of SIDES) r.outside[k] = sideIsOutside(ctx.S, k);
+  for (const k of fighting(ctx.S)) r.outside[k] = sideIsOutside(ctx.S, k);
   say(ctx, LINES.countStart, {}, 'warn');
   ring(ctx, 'count', null);
 }
@@ -67,7 +68,7 @@ export function settleRefereeCount(ctx: Ctx): void {
     return;
   }
   const outside = outsideSides(ctx);
-  for (const k of SIDES) {
+  for (const k of fighting(S)) {
     const was = r.outside[k], is = outside.includes(k);
     if (was && !is && r.active) {
       if (r.value >= Math.max(1, S.rules.countOutLimit - 2)) say(ctx, LINES.countLate, { a: k, vars: { n: r.value } }, 'warn');
@@ -89,6 +90,7 @@ export function settleRefereeCount(ctx: Ctx): void {
   if (!r.active) startCount(ctx);
   if (!r.pendingResolution) return;
   r.pendingResolution = false;
+  if (isMulti(S)) return multiCountOut(ctx, outside);
   if (outside.length >= 2) {
     say(ctx, LINES.doubleCountOut, {}, 'bad');
     endMatch(ctx, null, 'DOUBLE_COUNT_OUT', null);
@@ -105,7 +107,7 @@ export type PhaseEvent = 'reversal' | 'control_swing' | 'kickout' | 'late_kickou
 
 function finishPressure(ctx: Ctx): number {
   let p = 0;
-  for (const k of SIDES) {
+  for (const k of fighting(ctx.S)) {
     const s = ctx.S.sides[k]!;
     if (s.signatureReady) p += 0.3;
     if (s.finisherStock > 0) p += 0.2 + (s.finisherStock - 1) * 0.05;
@@ -116,7 +118,7 @@ function finishPressure(ctx: Ctx): number {
 
 function conditionPressure(ctx: Ctx): number {
   let high = 0;
-  for (const k of SIDES) {
+  for (const k of fighting(ctx.S)) {
     const s = ctx.S.sides[k]!;
     const damage = clamp((600 - totalHp(s)) / 360, 0, 1);
     const exhaustion = clamp((100 - staminaPercent(s) + s.fatigue) / 160, 0, 1);
