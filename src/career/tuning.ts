@@ -729,7 +729,7 @@ export const BACKDATE = { debut: [19, 22] as [number, number], potentialSpread: 
 /** Shipped wrestlers retire as if this many years younger (Lyra's call: the names you know stay a bit longer). */
 export const SHIPPED_RETIRE_YOUNGER = 3;
 /** Match overhaul (tag teams, multi-mans, battle royals, Rumbles, the new stipulations): off until Lyra approves. */
-export const FEATURES = { livingCosts: true, social: true, days: true, jobs: true, skip: true, mail: true, hustles: true, history: true, phone: true, booker: true, matches: false };
+export const FEATURES = { livingCosts: true, social: true, days: true, jobs: true, skip: true, mail: true, hustles: true, history: true, phone: true, booker: true, matches: true };
 
 /**
  * Pay (Lyra's call: how many dates you get decides your income). A major promotion's weekly-show fee:

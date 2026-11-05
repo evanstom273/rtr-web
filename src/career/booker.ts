@@ -221,7 +221,7 @@ export function planRetain(c: Career, titleId: string, day: Day): number {
  * Planned retention when you're in it: a promoter who doesn't trust you would rather the belt went off
  * you (or not onto you); one who trusts you leans the other way.
  */
-function planRetainWith(c: Career, titleId: string, show: Show, champ: string, challenger: string): number {
+export function planRetainWith(c: Career, titleId: string, show: Show, champ: string, challenger: string): number {
   // The booker's personality: the rebellious and the unpredictable plan more changes.
   let r = planRetain(c, titleId, show.date) - changeLean(showBooker(show));
   if (champ !== c.player && challenger !== c.player) return r;
@@ -350,7 +350,8 @@ export function sinceLastDefence(c: Career, titleId: string, show: Show): number
 
 /** A card's been drawn up: clauses that shape it (Creative Control's protected stars) run here. Set by creative.ts. */
 let cardHooks: ((c: Career, show: Show, card: Bout[]) => void)[] = [];
-export const setCardHook = (f: (c: Career, show: Show, card: Bout[]) => void): void => { cardHooks = [...cardHooks, f]; };
+/** `first`: runs before the others (the match overhaul's style booking reshapes the card before clauses look at it). */
+export const setCardHook = (f: (c: Career, show: Show, card: Bout[]) => void, first = false): void => { cardHooks = first ? [f, ...cardHooks] : [...cardHooks, f]; };
 
 /** Indie promises that can't happen roll on to the promoter's next show: set by requests.ts. */
 let rollIndie: ((c: Career, p: Pledge, show: Show) => boolean) | null = null;

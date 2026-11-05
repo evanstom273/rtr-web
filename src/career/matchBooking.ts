@@ -8,7 +8,7 @@ import { hashSeed, seededRng, type Rng } from '../engine/rng';
 import type { StipulationId } from '../engine/types';
 import { activeWorld } from '../world/world';
 import { activeTeams, briefcaseOf, teamOf, willing, type Team } from '../world/matchWorld';
-import { available, setCardHook, showRoster, sinceLastDefence, titlePending } from './booker';
+import { available, planRetainWith, setCardHook, showRoster, showTitles, sinceLastDefence, titlePending } from './booker';
 import { boutPeople, inBout, multiBout } from './bouts';
 import { daysBetween } from './dates';
 import { FEATURES } from './tuning';
@@ -83,7 +83,8 @@ const fans = (id: string) => { const w = findWrestler(id); return w ? Object.val
  * teams for it. Your own team defends when you're on the show (you've no say in who you face).
  */
 function teamTitle(c: Career, show: Show, card: Bout[], pool: ReturnType<typeof freePool>, rnd: Rng, kind: 'tag' | 'trios', chance: number): void {
-  const title = TITLES.find((t) => t.kind === kind && (show.promos ?? [show.promo]).some((p) => t.id.startsWith(`${p}_`)));
+  // Only titles this show can put on the line (none on a crossover or a no-titles night).
+  const title = showTitles(show).find((t) => t.kind === kind);
   if (!title || titlePending(c, title.id, show)) return;
   const W = activeWorld(), champs = title.team ? W.teams?.[title.team] : undefined;
   const mine = champs?.members.includes(c.player);
@@ -102,7 +103,8 @@ function teamTitle(c: Career, show: Show, card: Bout[], pool: ReturnType<typeof 
     const rival = teams[0];
     if (!rival) return;
     sides = [champs.members, rival.members];
-    planned = rnd() < 0.6 ? champs.members[0]! : rival.members[0]!;
+    // The booker plans it the way they plan any title: the same odds of a change as a singles title of its class.
+    planned = rnd() < planRetainWith(c, title.id, show, champs.members[0]!, rival.members[0]!) ? champs.members[0]! : rival.members[0]!;
   } else {
     const [x, y] = teams.filter((t) => gender(t) === gender(teams[0]!));
     if (!x || !y) return;
@@ -180,7 +182,7 @@ function bigMatch(c: Career, show: Show, card: Bout[], pool: ReturnType<typeof f
   const gender = 'MALE';
   const field = [...pool.free].filter((id) => findWrestler(id)?.gender === gender).sort((a, b) => fans(b) - fans(a));
   const want = kind === 'rumble' ? 20 : kind === 'battle_royal' ? 12 : kind === 'chamber' ? 6 : kind === 'wargames' ? 8 : kind === 'mitb' ? 6 : 0;
-  const top = TITLES.find((t) => t.promotionId && (show.promos ?? [show.promo]).some((p) => t.id.startsWith(`${p}_`)) && (t.kind ?? 'singles') === 'singles' && t.gender === 'MALE');
+  const top = showTitles(show).find((t) => (t.kind ?? 'singles') === 'singles' && t.gender === 'MALE');
   if (kind === 'cell') {
     // The Cell: the hottest feud's match goes inside it.
     const f = card.find((b) => b.feud && !b.title && !b.sides);
@@ -253,6 +255,9 @@ export function styleCard(c: Career, show: Show, card: Bout[]): void {
   if (!style) return;
   const rnd = seededRng(hashSeed(c.seq, 'style', show.id));
   const size = card.length;
+  // Where your match sits (Booking Commitments keep you off the opener and in the back half): kept.
+  const was = card.findIndex((b) => inBout(b, c.player));
+  const wasMain = was >= 0 && was === card.length - 1;
   const pool = freePool(c, show, card);
   teamTitle(c, show, card, pool, rnd, 'tag', big(show) ? 0.9 : 0.3);
   if (style.trios) teamTitle(c, show, card, pool, rnd, 'trios', big(show) ? 0.8 : 0.25);
@@ -265,6 +270,22 @@ export function styleCard(c: Career, show: Show, card: Bout[]): void {
   cashIn(c, show, card, pool, rnd);
   hardcore(card, show, rnd, style.hardcore * (big(show) ? 1.5 : 1));
   repair(card, pool, size);
+  if (was >= 0) keepPlace(c, card, was / size, wasMain, was >= Math.floor(size / 2));
 }
 
-setCardHook(styleCard);
+/**
+ * Put your match back where it was on the card, proportionally: the main event stays the main event, and the
+ * back half stays the back half (Booking Commitments promise it).
+ */
+function keepPlace(c: Career, card: Bout[], frac: number, main: boolean, backHalf: boolean): void {
+  const i = card.findIndex((b) => inBout(b, c.player));
+  if (i < 0 || card.length < 2) return;
+  const at = Math.max(Math.round(frac * card.length), backHalf ? Math.floor(card.length / 2) : 0);
+  const want = main ? card.length - 1 : frac === 0 ? 0 : Math.min(card.length - 2, Math.max(1, at));
+  if (want === i || want < 0) return;
+  const [b] = card.splice(i, 1);
+  card.splice(want, 0, b!);
+}
+
+// First, so clauses (Creative Control's protected stars) see the card as it'll be wrestled.
+setCardHook(styleCard, true);

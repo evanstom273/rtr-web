@@ -7,8 +7,8 @@ import { bootWorld } from './world/world';
 import './ui/styles.css';
 import './ui/skins.css';
 
-// Dev only: ?matches=1 turns the match overhaul on for this session (the real flag stays off until Lyra says).
-if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('matches') === '1') (FEATURES as { matches: boolean }).matches = true;
+// Dev only: ?matches=0 turns the match overhaul off for this session (singles only, as before it).
+if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('matches') === '0') (FEATURES as { matches: boolean }).matches = false;
 // Dev only: the career's insides for the browser-check scripts.
 if (import.meta.env.DEV) void import('./devHooks').then((m) => m.install());
 

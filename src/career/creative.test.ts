@@ -5,6 +5,7 @@ import { creativeAsk, creativeBouts, creativeOdds, vetoNext } from './creative';
 import { dealWith } from './deals';
 import { begin, day } from './testkit';
 import type { Career } from './types';
+import { boutPeople, inBout, sideOf } from './bouts';
 
 /** A career a week in, so cards are drawn, with your Creative Control at `tier`. */
 async function withCreative(tier: number, seed = 7): Promise<Career> {
@@ -72,11 +73,12 @@ describe('Creative Control (Lyra’s design)', () => {
     for (const s of Object.values(c.shows)) {
       if (s.promo === 'TIS' || !s.card) continue;
       for (const b of s.card) {
-        if (b.title || b.tourney || b.farewell || b.tryout || b.a === c.player || b.b === c.player) continue;
-        const wa = findWrestler(b.a)!, wb = findWrestler(b.b)!;
-        const top = globalScore(wa) >= globalScore(wb) ? wa : wb;
+        if (b.title || b.tourney || b.farewell || b.tryout || inBout(b, c.player)) continue;
+        // Everyone in it (a tag match or a multi-man too): the biggest star, and their side's booked to win.
+        const ws = boutPeople(b).map((id) => findWrestler(id)!);
+        const top = ws.reduce((x, y) => (globalScore(y) > globalScore(x) ? y : x));
         const say = tierOf(dealWith(c.people[top.id], s.promo), 'creative');
-        if (say >= 1) { expect(b.planned).toBe(top.id); checked++; }
+        if (say >= 1) { expect(b.planned).toBe(b.sides ? sideOf(b, top.id)![0] : top.id); checked++; }
       }
     }
     expect(checked).toBeGreaterThan(0);
