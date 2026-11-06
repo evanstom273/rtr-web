@@ -100,26 +100,46 @@ export function preferredPay(promo: string): PayType {
   const pop = getPromotion(promo)?.popularity ?? 0;
   return pop >= PAY.prefers.monthly ? 'monthly' : pop >= PAY.prefers.both ? 'both' : 'ppa';
 }
-/** A deal's monthly salary (Monthly, or Both's base), sized to the promotion's schedule; 0 on PPA. */
-export function monthlySalary(k: Pick<Contract, 'fee' | 'pay' | 'promo'> & { dates?: number }): number {
+/** What a unit buys on each way of being paid: the per-date share (× the show's size) and the salary share (× dates a month). */
+const dateShare = (t: PayType): number => (t === 'monthly' ? 0 : t === 'both' ? PAY.bothShow : PAY.ppaPremium);
+const salaryShare = (t: PayType): number => (t === 'ppa' ? 0 : t === 'both' ? PAY.bothBase : 1);
+type PayParts = Pick<Contract, 'fee' | 'pay' | 'promo'> & { dates?: number; salaryMult?: number; dateMult?: number };
+const datesOf = (k: PayParts): number => Math.min(k.dates ?? PAY.datesPerMonth, promoDates(k.promo));
+
+/** A deal's monthly salary (Monthly, or Both's base): set in the deal, or sized to the promotion's schedule; 0 on PPA. */
+export function monthlySalary(k: PayParts): number {
   const t = payOf(k);
-  const dates = Math.min(k.dates ?? PAY.datesPerMonth, promoDates(k.promo));
-  return t === 'ppa' ? 0 : round5(k.fee * dates * (t === 'both' ? PAY.bothBase : 1));
+  if (t === 'ppa') return 0;
+  return round5(k.fee * (k.salaryMult ?? datesOf(k) * salaryShare(t)));
+}
+/** What a deal pays a weekly-show appearance (PPA, or Both's per-date part): set in the deal, or the unit × its share. */
+export function perDateOf(k: PayParts): number {
+  const t = payOf(k);
+  return t === 'monthly' ? 0 : round5(k.fee * (k.dateMult ?? dateShare(t)));
+}
+/**
+ * Lyra's call: on Both you set the salary and the fee a date separately (and on Monthly the salary, on PPA the fee).
+ * The two amounts become the deal's unit (what it's worth a year, as the standard split would pay it: that's what
+ * the promotion weighs, and what every "in fees" price uses) and each one's ratio to it (so raises scale both).
+ */
+export function splitDeal(promo: string, pay: PayType, salary: number, perDate: number, dates?: number): { fee: number; salaryMult?: number; dateMult?: number } {
+  const d = Math.min(dates ?? PAY.datesPerMonth, promoDates(promo));
+  const s = pay === 'ppa' ? 0 : Math.max(0, salary), x = pay === 'monthly' ? 0 : Math.max(0, perDate);
+  const perUnit = (salaryShare(pay) + dateShare(pay)) * d * 12;
+  const fee = Math.max(5, round5(((s + x * d) * 12) / Math.max(1e-9, perUnit)));
+  return { fee, ...(pay !== 'ppa' ? { salaryMult: s / fee } : {}), ...(pay !== 'monthly' ? { dateMult: x / fee } : {}) };
 }
 const money = (n: number): string => (n >= 1_000_000 ? `£${(n / 1_000_000).toFixed(n >= 10_000_000 ? 1 : 2).replace(/\.?0+$/, '')}m` : `£${n.toLocaleString('en-GB')}`);
 /** A deal's pay in words: "£1.2m a year: a monthly salary of £100,000", "£22,000 an appearance", or both parts. */
-export function payWords(k: Pick<Contract, 'fee' | 'pay' | 'dates' | 'promo'>): string {
-  const t = payOf(k), m = monthlySalary(k), per = matchPay(k, 'weekly').pay;
+export function payWords(k: PayParts): string {
+  const t = payOf(k), m = monthlySalary(k), per = perDateOf(k);
   const parts = t === 'monthly' ? `${money(m)} a month` : t === 'both' ? `${money(m)} a month + ${money(per)} an appearance` : `${money(per)} an appearance`;
   return `about ${money(yearlyPay(k))} a year (${parts})`;
 }
 
 /** About what a deal's worth a year at a normal workload (for the screens and the AI's money). */
-export function yearlyPay(k: Pick<Contract, 'fee' | 'pay' | 'dates' | 'promo'>): number {
-  const t = payOf(k);
-  const dates = Math.min(k.dates ?? PAY.datesPerMonth, promoDates(k.promo));
-  const perShow = t === 'monthly' ? 0 : k.fee * (t === 'both' ? PAY.bothShow : PAY.ppaPremium);
-  return Math.round((monthlySalary(k) + perShow * dates) * 12);
+export function yearlyPay(k: PayParts): number {
+  return Math.round((monthlySalary(k) + perDateOf(k) * datesOf(k)) * 12);
 }
 
 /**
@@ -159,10 +179,10 @@ export function travelCost(home: string, showCountry: string): number {
  * × the PPA premium, on Both its per-show share, on Monthly nothing (the salary covers it). Guaranteed Pay Tier 3 adds
  * an appearance bonus. `lost` is kept for old callers and changes nothing.
  */
-export function matchPay(contract: Pick<Contract, 'fee' | 'pay'> & { clauses?: number[] }, kind: ShowKind, _lost = false, weeklyFlagship = false): { pay: number; bonus: number } {
+export function matchPay(contract: Pick<Contract, 'fee' | 'pay'> & { clauses?: number[]; dateMult?: number }, kind: ShowKind, _lost = false, weeklyFlagship = false): { pay: number; bonus: number } {
   const size = weeklyFlagship ? SHOW_MULT_WEEKLY_FLAGSHIP : SHOW_MULT[kind];
   const t = payOf(contract);
-  const share = t === 'monthly' ? 0 : t === 'both' ? PAY.bothShow : PAY.ppaPremium;
+  const share = t === 'monthly' ? 0 : contract.dateMult ?? dateShare(t);
   const pay = round5(contract.fee * size * share);
   const tier = contract.clauses?.[C.guaranteed] ?? 0;
   const bonus = tier >= 3 ? round5(contract.fee * size * APPEARANCE_BONUS_T3) : 0;

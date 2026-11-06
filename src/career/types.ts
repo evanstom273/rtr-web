@@ -150,6 +150,9 @@ export interface Contract {
   promo: string;
   /** How it pays (unset: per appearance, every deal before the rework). */
   pay?: PayType;
+  /** Set in the deal (Lyra's call: on Both, the salary and the fee a date separately): each as a multiple of `fee`. Unset: the standard split. */
+  salaryMult?: number;
+  dateMult?: number;
   start: Day;
   end: Day;
   /** Life: signed through your agent (they take their cut of it). */
@@ -357,6 +360,8 @@ export interface Offer {
   day: Day;
   /** How it'd pay (Lyra's pay rework: negotiated; unset on old offers: per appearance). */
   pay?: PayType;
+  salaryMult?: number;
+  dateMult?: number;
   fee: number;
   months: number;
   clauses: number[];

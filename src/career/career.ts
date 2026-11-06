@@ -51,7 +51,7 @@ export interface StartOptions {
   /** Carrying on in a kept world: its show numbering and irregular schedules. */
   calendar?: { counters: Record<string, number>; nextIrregular: Record<string, Day> };
   /** Lyra's call: start on whatever deal you like, no negotiating. null: a free agent. */
-  deal?: { promo: string; fee: number; months: number; clauses: number[]; dates?: number; triggers?: import('./clauses').BonusTrigger[]; pay?: import('./types').PayType } | null;
+  deal?: { promo: string; fee: number; months: number; clauses: number[]; dates?: number; triggers?: import('./clauses').BonusTrigger[]; pay?: import('./types').PayType; salaryMult?: number; dateMult?: number } | null;
   /** A simulated history to carry on from: its calendar, contracts, title clocks, feuds and everyone's state. */
   carry?: Career;
 }
@@ -98,7 +98,7 @@ export function startCareer(o: StartOptions): Career {
     const was = w.promotion;
     if (o.deal === null) { w.promotion = 'TIS'; p.contract = null; } else {
       w.promotion = o.deal.promo;
-      p.contract = { promo: o.deal.promo, pay: o.deal.pay ?? preferredPay(o.deal.promo), start: o.today, end: addMonths(o.today, o.deal.months), fee: Math.max(0, Math.round(o.deal.fee)), clauses: [...o.deal.clauses], since: o.today,
+      p.contract = { promo: o.deal.promo, pay: o.deal.pay ?? preferredPay(o.deal.promo), ...(o.deal.salaryMult !== undefined ? { salaryMult: o.deal.salaryMult } : {}), ...(o.deal.dateMult !== undefined ? { dateMult: o.deal.dateMult } : {}), start: o.today, end: addMonths(o.today, o.deal.months), fee: Math.max(0, Math.round(o.deal.fee)), clauses: [...o.deal.clauses], since: o.today,
         ...(o.deal.dates ? { dates: o.deal.dates } : {}), ...(o.deal.triggers?.length ? { triggers: [...o.deal.triggers] } : {}) };
     }
     // Lyra's call: moving strips the belt. A title from the promotion you've left is vacated (the reign closes below);
