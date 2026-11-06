@@ -26,6 +26,22 @@ describe('your own deal at the start (Lyra’s call: no negotiating)', () => {
     startCareer({ player: again.holder!, today: '2026-11-03', seed: 3, deal: { promo: 'VWF', fee: 5000, months: 12, clauses: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] } });
     expect(again.holder).toBe(who);
   });
+  it('more than one major at the start (Lyra’s call): non-exclusive deals, the dates split, on both rosters', () => {
+    setWorld(freshWorld(3));
+    const c = startCareer({ player: 'jamie_mercer', today: '2026-11-03', seed: 3, deal: {
+      promo: 'VWF', fee: 20000, months: 24, clauses: excl(3), pay: 'monthly',
+      also: [{ promo: 'NWGP', fee: 15000, months: 12, clauses: excl(3), dates: 4, pay: 'ppa' }, { promo: 'VWF', fee: 1, months: 6, clauses: NO_CLAUSES() }],
+    } });
+    const p = c.people.jamie_mercer!;
+    expect(p.contract!.promo).toBe('VWF');
+    expect(p.contract!.clauses[C.exclusivity]).toBeLessThanOrEqual(1);
+    expect(p.deals?.map((k) => k.promo)).toEqual(['NWGP']);
+    expect(p.deals![0]!.clauses[C.exclusivity]).toBeLessThanOrEqual(1);
+    expect(p.deals![0]!.pay).toBe('ppa');
+    expect((p.contract!.dates ?? 0) + (p.deals![0]!.dates ?? 0)).toBeLessThanOrEqual(12);
+    expect(findWrestler('jamie_mercer')!.also).toContain('NWGP');
+  });
+
   it('null: a free agent on the indies', () => {
     setWorld(freshWorld(3));
     const c = startCareer({ player: 'jamie_mercer', today: '2026-11-03', seed: 3, deal: null });

@@ -32,7 +32,7 @@ import { Relationships } from './Relationships';
 import { Phone } from './Phone';
 import { RequestFlow, Requests, showAnswersNext, type ReqRoute } from './Requests';
 import { ShowDay } from './ShowDay';
-import { Start, type StartDeal } from './Start';
+import { DealEditor, Start, type StartDeal } from './Start';
 import { OwnShow } from './OwnShow';
 import { Office } from './Office';
 import { Life } from './Life';
@@ -67,6 +67,8 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
   // A history mid-simulation picks up where it left off.
   const [stack, setStack] = useState<CareerScreen[]>(() => [c ? initial ?? 'cal' : activeWorld().sim ? 'history' : 'start']);
   const [busy, setBusy] = useState<number | null>(null);
+  /** A wrestler just created, on their way to the contract screen. */
+  const [made, setMade] = useState<Wrestler | null>(null);
   const screen = stack[stack.length - 1]!;
   const go = useCallback((s: CareerScreen) => setStack((st) => [...st, s]), []);
   const back = useCallback(() => setStack((st) => (st.length > 1 ? st.slice(0, -1) : st)), []);
@@ -216,7 +218,16 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
         </Screen>
       );
     }
-    if (s === 'create') return <Create hasCareer={hadCareer} onBack={back} onDone={(w) => void begin(w.id, w)} />;
+    // A created wrestler goes to the contract screen next (Lyra's call): signed somewhere (or several), or a free agent.
+    // The creator stays underneath, so backing out of the contract keeps everything you made.
+    if (s === 'create') {
+      return (
+        <>
+          <div style={{ display: made ? 'none' : 'contents' }}><Create hasCareer={hadCareer} onBack={back} onDone={(w) => setMade(w)} /></div>
+          {made && <Screen><DealEditor who={made} initial={undefined} created onCancel={() => setMade(null)} onDone={(d) => { const w = made; setMade(null); void begin(w.id, w, d === undefined ? null : d); }} /></Screen>}
+        </>
+      );
+    }
     return (
       <>
         <Start hasCareer={hadCareer} fresh={universe === 'fresh'} onBack={activeWorld().sim ? () => setStack(['history']) : leaveStart} onPick={(id, deal, booking) => void begin(id, undefined, deal, booking)} onCreate={() => go('create')}
