@@ -352,3 +352,28 @@ investments, your school), the Office if you book or own a promotion, and the ma
 - **Comebacks** (up to 58): one night only (you're taking bookings again, and you retire again after your next
   match) or a short run (six months; then a letter asks whether you'll do six more or call it a day). A send-off
   purse and pension aren't paid twice.
+
+## Stage 9: validation (everything switched on)
+
+**Two years of each life** (ECON harness, `ECON=1`), worth at 24 months:
+
+| Life | Worth | Notes |
+|---|---|---|
+| Unknown indie, no job | −£10,950 | Past the overdraft with nothing to sell: bankrupt (the debts wiped once) and still behind. Meant to struggle. |
+| Unknown indie, part-time retail | £1,475 | Steady. Rent £185 a week, no tax. |
+| Indie regular (5k fans), part-time | £1,209 | Steady; £2k tax over two years. |
+| Successful indie (50k fans) | £1,651 | Steady; £20k tax. |
+| Newly signed, bottom of VWF | £2,409 | Lives up to its means; £49k tax (about 19%). |
+| Established star, nothing bought | £967k | Rent only. |
+| Established star, careful | £1.55M | A house on a mortgage, a decent car, an agent, a physio, the rest in a balanced fund. On target (£1.3–1.8M). |
+| Established star, flash | £995k | A mansion, a jet share, a luxury car, a tour bus, a flat to let, the full team. Still solvent: borrowing limits (a multiple of a year's earnings) stop a star on steady money overreaching, so the flash fall comes when the money stops (injury, release, retirement), not on a good run. |
+
+**The world** (long runs, 3 seeds × 3 years and one world × 10): the richest about £4–6M, the tenth £1.3–2.5M, the
+median signed wrestler £200k growing to £500k+ over ten years, a few percent of veterans broke. Day time unchanged
+(about 20 ms median); perf about 95 ms a job (it was 85–92 before Life's later stages, within run-to-run noise).
+
+**Checks for every stage:** typecheck; the full suite with Life on and off; build; the golden test unchanged; long run;
+perf; the match UI sweep and the Life sweep (homes, travel, staff, invest, school, rich list, showing off, retiring and
+carrying on) in all three skins at phone and fold widths.
+
+Price tweaks wait for Lyra's play.
