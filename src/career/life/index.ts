@@ -12,6 +12,11 @@ import { agentFinds, agentHandles, offIncome, pruneMonths } from './money';
 import { dailyPA, monthlyStaff, payEntrance } from './staff';
 import { monthlyWealth, richList } from './aiMoney';
 import { monthlySchool, monthlyWorldSchools } from './school';
+import { monthlyStatus } from './status';
+import { monthlyFamily } from './family';
+import { monthlyFall } from './fall';
+import { dailySure, monthlyRisk } from './risk';
+import { dailyComeback, monthlyAfter } from './afterlife';
 import { netWorth } from './worth';
 import { monthlyFunds, monthlyInsurance, monthlyLuxury, monthlyStakes, monthlyVentures, seizeVenture } from './invest';
 import { life, liveHome, on } from './state';
@@ -46,6 +51,8 @@ setCareerHooks({
     welcome(c);
     agentHandles(c);
     if (on('staff')) dailyPA(c);
+    if (on('risk')) dailySure(c);
+    if (on('after')) dailyComeback(c);
   },
   monthly: (c) => {
     // Everyone's money, even with no one at the controls; the rich list every January.
@@ -65,6 +72,10 @@ setCareerHooks({
     }
     if (on('staff')) monthlyStaff(c);
     if (on('school')) monthlySchool(c);
+    if (on('status')) monthlyStatus(c, addDays(c.today, 1).slice(0, 7));
+    if (on('family')) monthlyFamily(c);
+    if (on('risk')) monthlyRisk(c, addDays(c.today, 1).slice(0, 7));
+    if (on('after')) monthlyAfter(c, addDays(c.today, 1).slice(0, 7));
     if (on('invest')) {
       const month = addDays(c.today, 1).slice(0, 7);
       monthlyVentures(c, month);
@@ -74,6 +85,7 @@ setCareerHooks({
       monthlyInsurance(c);
     }
     monthlyLoans(c, (cc, loan) => (loan.kind === 'mortgage' ? seizeHome(cc, loan.on) : loan.kind === 'business' ? seizeVenture(cc, loan.on) : seizeVehicle(cc, loan.on)));
+    if (on('risk')) monthlyFall(c);
     pruneMonths(c);
     agentFinds(c);
   },

@@ -20,6 +20,8 @@ import { Creative } from './Creative';
 import { Scouting } from './Scouting';
 import { Rebrand } from './Rebrand';
 import { Epilogue } from './Epilogue';
+import { carryOn } from '../../career/life/afterlife';
+import { on } from '../../career/life/state';
 import { HistoryScreen, HistorySetup } from './HistorySim';
 import { commit, Head, Screen, useCareer, useWords } from './parts';
 import { Profile, type ProfileLink } from './Profile';
@@ -226,7 +228,8 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
   if (!c) return startScreen('start');
 
   // Retired: the career's over (Records and a new career are still there).
-  if (c.over && screen !== 'records') return <Epilogue c={c} onRecords={() => go('records')} onNew={() => go('start')} />;
+  // Life (after you retire): the Epilogue shows once, then you carry on in retired mode.
+  if (c.over && screen !== 'records' && !(on('after') && c.life?.after)) return <Epilogue c={c} onRecords={() => go('records')} onNew={() => go('start')} {...(on('after') ? { onCarryOn: () => { carryOn(c); commit(); setStack(['cal', 'life']); } } : {})} />;
   // You've left a promotion that owned your name: pick a new one before anything else.
   if (c.rebrand) return <Rebrand c={c} onDone={() => setStack((st) => [...st])} />;
   if (typeof screen === 'object') {

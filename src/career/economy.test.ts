@@ -9,10 +9,13 @@ import { hashSeed } from '../engine/rng';
 import { begin, day, type Runner } from './testkit';
 import { FEATURES } from './tuning';
 import type { Show } from './types';
-import { buyHome, homesValue, letHome, switchTo } from './life/homes';
-import { buyVehicle, garageValue } from './life/garage';
+import { buyHome, letHome, switchTo } from './life/homes';
+import { buyVehicle } from './life/garage';
 import { hireAgent } from './life/money';
 import { life } from './life/state';
+import { hire, STAFF_ROLES } from './life/staff';
+import { buyLuxury, buyVenture, putIn } from './life/invest';
+import { netWorth } from './life/worth';
 
 const setFans = (w: Wrestler, region: (typeof FAN_REGIONS)[number], n: number) => { w.fans[region] = n; };
 const nextMonday = (d: string) => { let x = d; while (weekday(x) !== 1) x = addDays(x, 1); return x; };
@@ -216,8 +219,8 @@ async function live(life: Life, months = 24) {
   const by = (k: string) => Math.round(c.totals?.[k as 'fee']?.amount ?? 0);
   // Life: what you own less what you owe.
   const L = c.life;
-  const worth = Math.round(c.money + (L ? homesValue(c) + garageValue(c) - L.loans.reduce((t, l) => t + l.left, 0) : 0));
-  const life$ = L ? ` · rent £${(-by('rent')).toLocaleString('en-GB')} · homes £${(-by('home')).toLocaleString('en-GB')} · transport £${(-by('transport')).toLocaleString('en-GB')} · repayments £${(-by('loan')).toLocaleString('en-GB')} · tax £${(-by('tax')).toLocaleString('en-GB')} · agent £${(-by('agent')).toLocaleString('en-GB')} · worth £${worth.toLocaleString('en-GB')}${L.loans.length ? ` (owes £${Math.round(L.loans.reduce((t, l) => t + l.left, 0)).toLocaleString('en-GB')})` : ''}${c.letters.some((x) => /Repossessed/.test(x.subject)) ? ' · REPOSSESSED' : ''}` : '';
+  const worth = L ? netWorth(c) : Math.round(c.money);
+  const life$ = L ? ` · rent £${(-by('rent')).toLocaleString('en-GB')} · homes £${(-by('home')).toLocaleString('en-GB')} · transport £${(-by('transport')).toLocaleString('en-GB')} · repayments £${(-by('loan')).toLocaleString('en-GB')} · tax £${(-by('tax')).toLocaleString('en-GB')} · agent £${(-by('agent')).toLocaleString('en-GB')} · worth £${worth.toLocaleString('en-GB')}${L.loans.length ? ` (owes £${Math.round(L.loans.reduce((t, l) => t + l.left, 0)).toLocaleString('en-GB')})` : ''}${c.letters.some((x) => /Repossessed/.test(x.subject)) ? ' · REPOSSESSED' : ''}${c.letters.some((x) => /declared bankrupt/.test(x.subject)) ? ' · BANKRUPT' : ''}${c.letters.some((x) => /overdraft/i.test(x.subject)) ? ' · FORCED SALES' : ''}` : '';
   return `${life.name}: balance at 3/6/12/18/24 months ${rows.join(', ')} · ${(dates / months).toFixed(1)} dates a month · fees £${by('fee').toLocaleString('en-GB')} · merch £${by('merch').toLocaleString('en-GB')} · events £${by('event').toLocaleString('en-GB')} · wages £${by('wage').toLocaleString('en-GB')} · travel £${(-by('travel')).toLocaleString('en-GB')} · living £${(-by('living')).toLocaleString('en-GB')}${life$} · ${points} points (total ${startTotal} → ${attributeTotal(me)}) · fans ${fansTotal(me).toLocaleString('en-GB')}`;
 }
 
@@ -244,6 +247,9 @@ describe.skipIf(!process.env.ECON)('ECON=1: two years of five lives', () => {
           for (const t of ['house', 'flat'] as const) if (buyHome(c, L.city, t, true).ok) break;
           const h = L.homes.find((x) => x.own); if (h) switchTo(c, h.id);
           buyVehicle(c, 'car', false);
+          // A physio, and the rest into a balanced fund.
+          hire(c, 'physio');
+          if (c.money > 60_000) putIn(c, 'balanced', Math.round((c.money - 40_000) / 1000) * 1000);
         } },
         { name: 'Established star, flash', player: 'buck_stratton', acceptPerMonth: 0, wage: 0, training: false, setup: (c: Career) => { hireAgent(c, 'super'); }, at: 91, buy: (c: Career) => {
           const L = life(c);
@@ -251,6 +257,10 @@ describe.skipIf(!process.env.ECON)('ECON=1: two years of five lives', () => {
           const h = L.homes.find((x) => x.own); if (h) switchTo(c, h.id);
           buyVehicle(c, 'jet_share', true); buyVehicle(c, 'luxury_car', true); buyVehicle(c, 'tour_bus', true);
           const second = buyHome(c, L.city === 'London' ? 'Manchester' : 'London', 'flat', true); if (second.id) letHome(c, second.id, true);
+          // Stages 2–3: the full team, a bar on a business loan, a boat.
+          for (const r of STAFF_ROLES) hire(c, r);
+          buyVenture(c, 'bar', L.city, true);
+          buyLuxury(c, 'boat', 0);
         } },
       ] as Life[] : []),
     ];

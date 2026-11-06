@@ -98,6 +98,16 @@ export interface LifeState {
   luxury?: Luxury[];
   /** Your school (stage 5): students, applicants, the next intake, shows and a feeder deal. */
   school?: import('./school').PlayerSchool;
+  /** Stage 6: the days you showed off (newest first). */
+  flaunts?: Day[];
+  /** Stage 7: a "sure thing" you put money into, bankruptcies so far, when you were discharged. */
+  sure?: { amount: number; due: Day; lost?: number }[];
+  busts?: number;
+  discharged?: Day;
+  /** Stage 8: carrying on after retiring, the wrestlers you're training, and a comeback. */
+  after?: Day;
+  clients?: { id: string; fee: number; until: Day }[];
+  comeback?: { kind: 'one' | 'run'; since: Day; until: Day; matches: number; asked?: Day };
   /** Insurance on your homes and businesses. */
   insure?: { home?: boolean; business?: boolean };
   /** Entrance: the kit you own, and whether you use pyro and sets where they're allowed. */

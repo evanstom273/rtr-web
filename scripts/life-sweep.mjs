@@ -53,6 +53,9 @@ for (const skin of ['broadcast', 'paper', 'building'].filter((s) => !ONLY || s =
     await house.getByRole('button', { name: /mortgage/i }).click(); await wait(500);
     const owned = await p.getByText(/what you own/i).count();
     if (!owned) fails.push(`${tag}: buying a house didn't land`);
+    // Show it off: a party.
+    await p.getByRole('button', { name: /^throw a party$/i }).click(); await wait(400);
+    if (!(await p.getByText(/you showed off/i).count())) fails.push(`${tag}: showing off didn't land`);
     await p.getByRole('button', { name: /getting about/i }).click(); await wait(500);
     sections.about = (await p.getByText(/flying abroad/i).count()) > 0;
     await p.locator('.c-ans').filter({ hasText: /^Decent car/ }).first().getByRole('button', { name: /^cash$/i }).click(); await wait(500);
@@ -104,6 +107,23 @@ for (const skin of ['broadcast', 'paper', 'building'].filter((s) => !ONLY || s =
       if (!/homes|getting about/i.test(rows)) fails.push(`${tag}: Finances has no Life rows`);
       await p.screenshot({ path: `${SP}/${skin}-${vn}-finances.png`, fullPage: true });
     } else fails.push(`${tag}: no Finances button`);
+    // Retire, see the Epilogue once, carry on into Life (stage 8).
+    await p.evaluate(async () => {
+      const { world } = window.__rtrDev;
+      const c = world.activeWorld().career;
+      c.people[c.player].retired = true; c.people[c.player].retiredOn = c.today; c.over = c.today;
+      await world.saveWorld();
+    });
+    await p.goto(URL); await wait(1500);
+    await p.locator('#menu button').filter({ hasText: /^(The career|Career)/i }).first().click(); await wait(1200);
+    const carry = p.getByRole('button', { name: /carry on/i });
+    if (!(await carry.count())) fails.push(`${tag}: no Carry on in the Epilogue`);
+    else {
+      await p.screenshot({ path: `${SP}/${skin}-${vn}-epilogue.png`, fullPage: true });
+      await carry.click(); await wait(800);
+      if (!(await p.getByRole('button', { name: /one night only/i }).count())) fails.push(`${tag}: carrying on didn't land in Life`);
+      await p.screenshot({ path: `${SP}/${skin}-${vn}-retired.png`, fullPage: true });
+    }
     if (errs.length) fails.push(`${tag}: page errors ${errs.slice(0, 2).join(' | ')}`);
     console.log(tag, JSON.stringify(navCheck), JSON.stringify(sections));
     await ctx.close();

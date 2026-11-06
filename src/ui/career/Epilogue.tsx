@@ -4,7 +4,7 @@ import { fmtDay } from '../../career/dates';
 import { Head, money, Screen, useWords } from './parts';
 
 /** Retirement & Legacy: the career's over. What it added up to, and what next. */
-export function Epilogue({ c, onRecords, onNew }: { c: Career; onRecords: () => void; onNew: () => void }) {
+export function Epilogue({ c, onRecords, onNew, onCarryOn }: { c: Career; onRecords: () => void; onNew: () => void; onCarryOn?: () => void }) {
   const { w } = useWords();
   const me = findWrestler(c.player)!;
   const wins = c.history.filter((m) => m.result === 'win').length;
@@ -25,9 +25,13 @@ export function Epilogue({ c, onRecords, onNew }: { c: Career; onRecords: () => 
           <span className="c-lab">{w('Earned')}</span><span className="c-val">{money(earned)} over the years</span>
           <span className="c-lab">{w('In the bank')}</span><span className="c-val">{money(c.money)}</span>
         </div>
-        <span className="c-note">Your story stays in Records: every match, every reign. Thanks for playing it.</span>
+        <span className="c-note">Your story stays in Records: every match, every reign.{onCarryOn ? ' Or carry on: run what you own, coach, book, or come back for one more.' : ' Thanks for playing it.'}</span>
       </div>
-      <div className="c-nav"><button className="c-b2" onClick={onRecords}>{w('Records')}</button><button className="c-b1" onClick={onNew}>{w('A new career ›')}</button></div>
+      <div className="c-nav">
+        <button className="c-b2" onClick={onRecords}>{w('Records')}</button>
+        {onCarryOn ? <button className="c-b2" onClick={onNew}>{w('A new career')}</button> : null}
+        <button className="c-b1" onClick={onCarryOn ?? onNew}>{w(onCarryOn ? 'Carry on ›' : 'A new career ›')}</button>
+      </div>
     </Screen>
   );
 }
