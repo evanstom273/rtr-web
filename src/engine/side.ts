@@ -10,7 +10,16 @@ export const STAMINA_POOL_MULTIPLIER = 2.5;
 
 /** A side: in singles, 'you' (team 0) against 'them' (team 1), each going after the other. */
 export function createSide(w: Wrestler, key: SideKey, team = key === 'them' ? 1 : 0, target: SideKey = key === 'them' ? 'you' : 'them', controller: Side['controller'] = key === 'you' ? 'player' : 'ai'): Side {
-  const regular = w.moves.map(getMove), signatures = w.signatures.map(getMove), finishers = w.finishers.map(getMove);
+  // Your own names for your finishers and signatures: one renamed copy of each move for this side (so the same move
+  // is the same object wherever it turns up, and nothing changes for anyone without names).
+  const named = new Map<string, Move>();
+  const own = (id: string): Move => {
+    const m = getMove(id), n = w.moveNames?.[id]?.trim();
+    if (!n || n === m.name) return m;
+    if (!named.has(id)) named.set(id, { ...m, name: n });
+    return named.get(id)!;
+  };
+  const regular = w.moves.map(own), signatures = w.signatures.map(own), finishers = w.finishers.map(own);
   const all: Move[] = [];
   for (const m of [...regular, ...signatures, ...finishers]) if (!all.includes(m)) all.push(m);
   const maxStamina = Math.ceil(clamp(w.stats.stamina, 0, 100) * STAMINA_POOL_MULTIPLIER);
@@ -222,3 +231,6 @@ export function weakestPart(s: Side): BodyPart {
 
 export const lowestTargetHp = (s: Side, parts: readonly BodyPart[]): number =>
   parts.length ? parts.reduce((low, p) => Math.min(low, s.hp[p]), 100) : s.hp.BODY;
+
+/** A move as this side has it (its own name, if it's one of theirs), else the plain move. */
+export const sideMove = (s: Side | undefined, id: string): Move => s?.all.find((m) => m.id === id) ?? getMove(id);

@@ -9,14 +9,14 @@ export const SHOW_MULT: Record<ShowKind, number> = { weekly: 1, tour: 0.8, speci
 /** Losing doesn't cost you any pay (Lyra's call, the pay rework): the booker decides who goes over. Kept at 0 for old callers. */
 export const LOSS_CUT = 0;
 /** Travel to an indie show: same country, same region, different region. */
-export const TRAVEL = { country: 0, region: 60, abroad: 250 };
+export const TRAVEL = { country: 0, region: 150, abroad: 625 }; // ×2.5 (COST_SCALE)
 /** A created wrestler's savings (someone you pick: START_MONEY_BASE in section 16). */
 export const START_MONEY_CREATED = 500;
 
 // --- Training (Elden Ring curve) ----------------------------------------------------------------
 /** Level = attribute total − offset; price = Elden Ring's rune cost for that level ÷ divisor. */
 export const TRAIN_LEVEL_OFFSET = 300;
-export const TRAIN_DIVISOR = 100;
+export const TRAIN_DIVISOR = 40; // 100 before the pay rework: ×2.5 (COST_SCALE)
 export const ATTRIBUTE_CAP = 100;
 
 // --- Fatigue and injuries ----------------------------------------------------------------------
@@ -34,7 +34,7 @@ export const INJURY_SEVERITY: { share: number; days: [number, number]; label: st
   { share: 0.3, days: [8, 21], label: 'moderate' },
   { share: 0.1, days: [22, 60], label: 'serious' },
 ];
-export const MEDICAL_PER_DAY = 100;
+export const MEDICAL_PER_DAY = 250; // ×2.5 (COST_SCALE)
 
 // --- Fans (section 16: FAN_*) and reputation ---------------------------------------------------
 /** No match for this long and fans start drifting away (FAN_IDLE_LOSS a month). */
@@ -871,7 +871,7 @@ export const START_MONEY_PER_DECADE = 2000;
  * region's cost index (wages from day jobs scale the same way). An existing career gets four weeks'
  * notice before the first one.
  */
-export const LIVING_COST_EUROPE = 220;
+export const LIVING_COST_EUROPE = 550; // ×2.5 (COST_SCALE): the shared room's rent and bills
 export const COST_INDEX: Record<PopRegion, number> = { northAmerica: 1.15, oceania: 1.1, europe: 1, asia: 0.8, southAmerica: 0.6, africa: 0.5 };
 export const LIVING_GRACE_DAYS = 28;
 
@@ -1457,7 +1457,7 @@ export const WAR = {
  * Life: the price book (Lyra approved the plan; numbers from the published price book). Prices are pounds at European
  * prices in an average city; homes, rent and wages scale with the region's cost index and the city's price.
  */
-export const PRICE_BOOK = {
+const PRICE_BOOK_BASE = {
   /** Renting, a week: rent + bills and food. A shared room is today's living cost. Rest is the sleep recovery bonus; mood is wellbeing. */
   rent: {
     room: { name: 'Shared room', rent: 130, bills: 90, rest: 0, mood: 0 },
@@ -1615,6 +1615,35 @@ export const PRICE_BOOK = {
   /** Insurance a year: homes and businesses, as a share of what they're worth. */
   insurance: { home: 0.003, business: 0.015 },
 } as const;
+
+/**
+ * Costs (Lyra's call, after the pay rework): living, homes, cars, luxury, staff, medical and travel cost 2.5× the
+ * price book above (not as much as pay went up, but enough that you have to think). Training: TRAIN_DIVISOR.
+ */
+export const COST_SCALE = 2.5;
+/**
+ * Rebranding (Lyra's call): merch starts at this share after a rebrand and builds back to full over `merchMonths`;
+ * buying a name back costs `buyPerFan` a fan it lost you (at least `buyMin`), and brings back `fansBack` of them.
+ */
+export const REBRAND = { merchStart: 0.25, merchMonths: 12, buyPerFan: 3, buyMin: 25_000, fansBack: 0.5 };
+/**
+ * Negotiating (Lyra's call: a nobody shouldn't talk their way into a top deal): your standing (half reputation, half
+ * where your drawing power puts you on their roster, 0–100) caps the tiers of the big clauses. Under `two` you can
+ * get Tier 1 at most; under `three`, Tier 2. Their own offer's tiers always stand.
+ */
+export const NEGO_CAPS = { two: 35, three: 60, clauses: ['creative', 'guaranteed', 'merch', 'profit', 'title', 'push', 'booking', 'wage', 'signing', 'image'] as string[] };
+const COST_FIELDS: Record<string, string[]> = {
+  rent: ['rent', 'bills'], buy: ['price', 'lets', 'bills'], homeGym: ['price'], ring: ['price'], vehicles: ['price', 'monthly'],
+  trip: ['cost', 'road'], fly: ['cost'], staff: ['wage'], medical: ['surgeon', 'clinicWeek', 'price', 'monthly'], entrance: ['price', 'cost'],
+  luxury: ['tiers'], status: ['party'], family: ['kid'], risk: ['burgle', 'excess'],
+};
+function scaleCosts(v: unknown, keys: string[], hit = false): unknown {
+  if (typeof v === 'number') return hit && Number.isFinite(v) ? Math.round(v * COST_SCALE) : v;
+  if (Array.isArray(v)) return v.map((x) => scaleCosts(x, keys, hit));
+  if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, scaleCosts(x, keys, hit || keys.includes(k))]));
+  return v;
+}
+export const PRICE_BOOK = Object.fromEntries(Object.entries(PRICE_BOOK_BASE).map(([k, v]) => [k, k === 'chipIn' ? Math.round((v as number) * COST_SCALE) : COST_FIELDS[k] ? scaleCosts(v, COST_FIELDS[k]!) : v])) as unknown as typeof PRICE_BOOK_BASE;
 
 /** Each city's price, on top of its region's cost index (Life: homes, rent, wages). Anywhere unlisted is 1. */
 export const CITY_PRICE: Record<string, number> = {

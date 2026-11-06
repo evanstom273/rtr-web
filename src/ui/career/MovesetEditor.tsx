@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { MOVES, getMove, type MoveType, type WrestlerClass } from '../../data/rtr';
 import { Head, Screen, useWords } from './parts';
 
-export interface Kit { moves: (string | null)[]; signatures: (string | null)[]; finishers: (string | null)[] }
+export interface Kit { moves: (string | null)[]; signatures: (string | null)[]; finishers: (string | null)[]; /** Your own names for your finishers and signatures. */ names?: Record<string, string> }
 
 const TYPES: [MoveType, string][] = [['GRAPPLE', 'Grapples'], ['STRIKE', 'Strikes'], ['SUBMISSION', 'Submissions'], ['RUNNING', 'Running'], ['PINNING_MOVE', 'Pins'], ['AERIAL', 'Aerial'], ['SPRINGBOARD', 'Springboard']];
 type Slot = { kind: 'fin' | 'sig' | 'move'; i: number };
@@ -13,13 +13,14 @@ interface Props {
   classes: WrestlerClass[];
   kit: Kit;
   onCancel: () => void;
-  onSave: (kit: { moves: string[]; signatures: string[]; finishers: string[] }) => void;
+  onSave: (kit: { moves: string[]; signatures: string[]; finishers: string[]; names: Record<string, string> }) => void;
 }
 
 /** Swap any move in a 40/2/3 moveset. Empty slots (a blank moveset) fill the same way. */
 export function MovesetEditor({ title, who, classes, kit: initial, onCancel, onSave }: Props) {
   const { skin, w } = useWords();
   const [kit, setKit] = useState<Kit>(() => ({ moves: [...initial.moves], signatures: [...initial.signatures], finishers: [...initial.finishers] }));
+  const [names, setNames] = useState<Record<string, string>>(() => ({ ...(initial.names ?? {}) }));
   const [pick, setPick] = useState<Slot | null>(null);
   const [q, setQ] = useState('');
   const [type, setType] = useState<MoveType>('GRAPPLE');
@@ -56,6 +57,11 @@ export function MovesetEditor({ title, who, classes, kit: initial, onCancel, onS
       <span style={id ? undefined : { opacity: 0.55, fontStyle: 'italic' }}>{name(id)}</span>{k && <span className="c-hint">{k}</span>}
     </button>
   );
+  // Your own name for a finisher or signature (blank: the move's own name).
+  const nameBox = (id: string | null) => (id ? (
+    <input className="c-fld" value={names[id] ?? ''} placeholder={`Call it… (${getMove(id).name})`} maxLength={32} aria-label={`Name for ${getMove(id).name}`}
+      onChange={(e) => setNames({ ...names, [id]: e.target.value })} style={{ marginTop: 2, marginBottom: 6 }} />
+  ) : null);
   const groups = TYPES.map(([t, label]) => ({ t, label, slots: kit.moves.map((id, i) => ({ id, i })).filter((x) => (x.id ? getMove(x.id).type === t : false)) }));
   const empties = kit.moves.map((id, i) => ({ id, i })).filter((x) => !x.id);
 
@@ -64,9 +70,10 @@ export function MovesetEditor({ title, who, classes, kit: initial, onCancel, onS
       <Head title={title ?? (skin === 'paper' ? 'The Arsenal' : 'MOVESET')} meta={w(who)} onBack={onCancel} />
       <div className="c-body">
         <span className="c-sec">{w('Finishers')}</span>
-        {kit.finishers.map((id, i) => slot({ kind: 'fin', i }, id, w('Finisher')))}
+        {kit.finishers.map((id, i) => <div key={`f${i}`} style={{ display: 'contents' }}>{slot({ kind: 'fin', i }, id, w('Finisher'))}{nameBox(id)}</div>)}
         <span className="c-sec">{w('Signatures')}</span>
-        {kit.signatures.map((id, i) => slot({ kind: 'sig', i }, id, w('Signature')))}
+        {kit.signatures.map((id, i) => <div key={`s${i}`} style={{ display: 'contents' }}>{slot({ kind: 'sig', i }, id, w('Signature'))}{nameBox(id)}</div>)}
+        <span className="c-note">Name your finishers and signatures: the commentary and the results use your names. Leave a promotion that owns your character and they go back to the plain move names.</span>
         {groups.filter((g) => g.slots.length).map((g) => (
           <div key={g.t} style={{ display: 'contents' }}>
             <div className="c-rowsb"><span className="c-sec c-grow">{w(g.label)}</span><span className="c-hint">{g.slots.length}</span></div>
@@ -82,7 +89,13 @@ export function MovesetEditor({ title, who, classes, kit: initial, onCancel, onS
       </div>
       <div className="c-nav">
         <button className="c-b2" onClick={onCancel}>{w('Cancel')}</button>
-        <button className="c-b1" disabled={!complete} onClick={() => onSave({ moves: kit.moves as string[], signatures: kit.signatures as string[], finishers: kit.finishers as string[] })}>
+        <button className="c-b1" disabled={!complete} onClick={() => {
+          // Names only for moves still in the finishers and signatures, and only if they say something.
+          const keep = new Set([...kit.finishers, ...kit.signatures].filter(Boolean) as string[]);
+          const out: Record<string, string> = {};
+          for (const [k, v] of Object.entries(names)) { const n = v.trim(); if (keep.has(k) && n && n !== getMove(k).name) out[k] = n; }
+          onSave({ moves: kit.moves as string[], signatures: kit.signatures as string[], finishers: kit.finishers as string[], names: out });
+        }}>
           {complete ? w('Save') : w(`${[...kit.moves, ...kit.signatures, ...kit.finishers].filter((x) => !x).length} to fill`)}
         </button>
       </div>

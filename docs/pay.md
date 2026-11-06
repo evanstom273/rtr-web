@@ -77,9 +77,28 @@ win streaks (2), **winning** (0.25), **drawing a crowd** (1: headlining a show t
   sponsors) comes to each company in line with what its roster's worth on the curve (×0.8 a month), not what it
   actually pays, so overpaying still costs you. Local and regional companies' takings ×4 and ×2.5 (indie talent
   costs £250+ a head now). Every major stays in profit, close to its old margins.
-- Prices (training, homes, cars, staff, Life) are unchanged: Lyra's call.
+- Prices went up 2.5× afterwards (Lyra's call: not as much as pay, but enough that you have to think): training,
+  homes and rent, cars and travel, luxury, staff, medical, the cost of living (`COST_SCALE`, applied to the price book
+  in `tuning.ts`; `TRAIN_DIVISOR`, `TRAVEL`, `MEDICAL_PER_DAY`, `LIVING_COST_EUROPE`).
 
 ## Old saves (world rev 12)
 
 Every current deal is lifted onto the curve (never down) and stays per-appearance; you get a letter, and you can ask
 for Monthly or Both at renewal. Open offers too.
+
+## Negotiating (Lyra's call: a nobody shouldn't talk their way into a star's deal)
+
+- **No live read.** You only see how they took an offer after you put it to them, and it's rough: Interested, They
+  could live with it, Not keen, Losing patience.
+- **Your standing caps the big clauses.** Standing is half your reputation and half where your drawing power puts
+  you on their roster (0–100). Under 35 you can ask for Tier 1 at most of Creative Control, Guaranteed Pay, Merch,
+  Profit Share, Championship Opportunities, Push, Booking Commitments, Wage Matching, Signing Bonus and Image Rights;
+  under 60, Tier 2. Whatever they offered themselves stands (`NEGO_CAPS`, `clauseCap` in `contracts.ts`).
+
+## Leaving without your Character & Image Rights
+
+The character stays with them: the name, your entrance theme and video, your finishers' and signatures' names
+(name them in the moveset editor), and your merch drops to a quarter, building back over a year. The new name has to
+be properly new: not the old one with a capital, a space, a letter or two changed, or a "The" added. Buy the old name
+back from your profile (£3 a fan it lost you, £25,000 at least): the name, the finishers' names, the entrance and
+half the lost fans come back. Re-sign with them and it's yours again for nothing (`REBRAND`, `buyBackName`).

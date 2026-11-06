@@ -1,5 +1,5 @@
 import { LINES } from '../data/commentary';
-import { getMove, getWrestler, type Part } from '../data/rtr';
+import { getWrestler, type Part } from '../data/rtr';
 import { AiBrain, aiTurn } from './ai';
 import { foe, isPlayer, say } from './commentary';
 import type { Ctx, EngineHooks } from './ctx';
@@ -17,7 +17,7 @@ import { mathRng, seededRng, type Rng } from './rng';
 import { aiDefence, type Defence } from './defence';
 import { executeSetup, validSetups } from './setups';
 import { moveMatchesSnapshots } from './setupRules';
-import { canUseMove, FINISHER_MOMENTUM, SIGNATURE_MOMENTUM } from './side';
+import { canUseMove, FINISHER_MOMENTUM, sideMove, SIGNATURE_MOMENTUM } from './side';
 import { specialsFor, type SpecialInfo } from './specials';
 import { getWeaponMove, objectsIn, retrievableWeapons, weaponMovesFor } from './env';
 import { armedSpot, qualifiesForSpot, resolveTenCount } from './stip';
@@ -259,7 +259,7 @@ export class MatchEngine {
       }
       case 'next': return;
       case 'neutralRecovery': return runNeutralRecovery(ctx);
-      case 'startSub': return beginSubmission(ctx, c.k, getMove(c.moveId), c.target);
+      case 'startSub': return beginSubmission(ctx, c.k, sideMove(ctx.S.sides[c.k], c.moveId), c.target);
       case 'startPin': {
         startPin(ctx, c.k, c.embedded, c.steal);
         return;
@@ -394,7 +394,7 @@ export class MatchEngine {
     if (p.kind !== 'pinChoice') return false;
     return this.act(() => {
       this.state.pending = { kind: 'idle' };
-      resolvePinChoice(this.ctx, this.pk, getMove(p.spec.moveId), cover);
+      resolvePinChoice(this.ctx, this.pk, sideMove(this.state.sides[this.pk], p.spec.moveId), cover);
     });
   }
 
@@ -404,7 +404,7 @@ export class MatchEngine {
     if (p.kind !== 'sigConvert') return false;
     return this.act(() => {
       this.state.pending = { kind: 'idle' };
-      resolveSigConvert(this.ctx, this.pk, getMove(p.spec.moveId), p.spec.target, convert);
+      resolveSigConvert(this.ctx, this.pk, sideMove(this.state.sides[this.pk], p.spec.moveId), p.spec.target, convert);
     });
   }
 
@@ -430,7 +430,7 @@ export class MatchEngine {
     if (p.kind !== 'subChoice') return false;
     return this.act(() => {
       this.state.pending = { kind: 'idle' };
-      const move = getMove(p.spec.moveId);
+      const move = sideMove(this.state.sides[this.pk], p.spec.moveId);
       if (goForTap) startSubmission(this.ctx, this.pk, move, p.spec.target);
       else workTheHold(this.ctx, this.pk, move, p.spec.target);
     });
@@ -439,7 +439,7 @@ export class MatchEngine {
   /** What the AI would choose in the player's shoes (headless play). */
   autoSubChoice(): boolean {
     const p = this.state.pending;
-    return p.kind === 'subChoice' && aiGoesForTap(this.state, this.pk, getMove(p.spec.moveId), p.spec.target);
+    return p.kind === 'subChoice' && aiGoesForTap(this.state, this.pk, sideMove(this.state.sides[this.pk], p.spec.moveId), p.spec.target);
   }
 
   /** Answer the "use Resiliency?" prompt. */

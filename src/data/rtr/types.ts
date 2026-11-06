@@ -118,6 +118,8 @@ export interface Wrestler {
   moves: string[];
   signatures: string[];
   finishers: string[];
+  /** Your own names for your finishers and signatures (move id → name); the commentary and screens use them. */
+  moveNames?: Record<string, string>;
   /** Personality: one to three traits (data/rtr/traits.ts). Missing on saves from before traits. */
   traits?: TraitId[];
   /** Match overhaul: wears a mask (and when they lost it), had their head shaved, and how they feel about hardcore matches (−1 won't, 0 will, 1 loves them). */

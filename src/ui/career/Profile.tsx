@@ -1,6 +1,7 @@
 import { payWords } from '../../career/economy';
 import { FEATURES } from '../../career/tuning';
-import { useLayoutEffect, useRef } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
+import { buyBackName } from '../../career/money';
 import { TraitChips } from './Traits';
 import { fansIn, fansTotal, findWrestler, fmtFans, getMove, titlesHeldBy } from '../../data/rtr';
 import { C, CLAUSES, moodLabel, moodOf, myBoutToday, person, promoName, type Career } from '../../career';
@@ -8,7 +9,7 @@ import { ATTR_KEYS, ATTR_LONG, CLASS_NAME, divisionName } from '../../career/cre
 import { daysBetween, fmtDay } from '../../career/dates';
 import { REGION_LABEL } from '../../career/places';
 import type { PopRegion } from '../../career/types';
-import { Head, money, Nm, Screen, useWords } from './parts';
+import { commit, Head, money, Nm, Screen, useWords } from './parts';
 import { vsLine } from '../../career/bouts';
 
 export type ProfileLink = 'contract' | 'history' | 'finances' | 'stats' | 'reputation' | 'relationships' | 'achievements' | 'week' | 'social';
@@ -21,6 +22,8 @@ const SHORT: Record<PopRegion, string> = { northAmerica: 'N AMER', southAmerica:
 export function Profile({ c, onBack, onOpen, onShowDay, onHub }: Props) {
   const { skin, w } = useWords();
   const me = findWrestler(c.player)!;
+  const [said, setSaid] = useState('');
+  const buyBack = (promo: string) => { setSaid(buyBackName(c, promo)); commit(); };
   const p = person(c, c.player);
   const k = p.contract;
   const tonight = myBoutToday(c);
@@ -78,9 +81,22 @@ export function Profile({ c, onBack, onOpen, onShowDay, onHub }: Props) {
         </div>
         <span className="c-sec">{w('Signatures & finishers')}</span>
         <div className="c-wrap">
-          {me.signatures.map((id) => <span key={id} className="c-mv msig">{getMove(id).name}</span>)}
-          {me.finishers.map((id) => <span key={id} className="c-mv mfin">{getMove(id).name}</span>)}
+          {me.signatures.map((id) => <span key={id} className="c-mv msig">{me.moveNames?.[id] ?? getMove(id).name}</span>)}
+          {me.finishers.map((id) => <span key={id} className="c-mv mfin">{me.moveNames?.[id] ?? getMove(id).name}</span>)}
         </div>
+        {(c.lostNames?.length ?? 0) > 0 && (
+          <>
+            <span className="c-sec">{w('Names they own')}</span>
+            {c.lostNames!.map((x) => (
+              <div key={x.promo + x.name} className="c-rowsb" style={{ gap: 8, alignItems: 'center' }}>
+                <span className="c-val c-grow">“{x.name}” · {promoName(x.promo)}</span>
+                <button className="c-chip" onClick={() => buyBack(x.promo)}>{w(`Buy it back · ${money(x.price)}`)}</button>
+              </div>
+            ))}
+            <span className="c-note">Buy one back and the name’s yours again, with your finishers’ names, your entrance and some of the fans who didn’t follow you. Or go back to them and it’s yours for nothing.</span>
+            {said && <span className="c-hint">{said}</span>}
+          </>
+        )}
         {c.history.length > 0 && (
           <div className="c-recent" ref={recentRef}>
             <span className="c-sec">{w('Last time out', 'Recent results')}</span>

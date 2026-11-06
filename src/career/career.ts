@@ -15,7 +15,7 @@ import { BUDGET, C, tierOf } from './clauses';
 import { aiContract, dealWith, dropDeal, promoteDeal, sideWork } from './deals';
 import { makeRookie } from './create';
 import { addDays, addMonths, type Day, daysBetween, fmtDay, weekday } from './dates';
-import { baseRegion, indieFee, isWeeklyFlagship, livingCost, matchPay, payWords, preferredPay, round5, yearlyPay } from './economy';
+import { baseRegion, indieFee, isWeeklyFlagship, livingCost, matchPay, merchShare, payWords, preferredPay, round5, yearlyPay } from './economy';
 import { REGION_KEY, REGION_LABEL } from './places';
 import { calendarExtras } from '../world/companies';
 import type { SimJob, SimOut } from './sim';
@@ -757,7 +757,7 @@ function monthly(c: Career, day: Day, rnd: Rng): void {
   const mine = c.people[c.player]!;
   const pleaser = hasTrait(findWrestler(c.player), 'crowd_pleaser') ? TRAIT_FX.crowd_pleaser.merch : 1;
   // Merch follows your fans: signed, your Merchandise Rights share of it; a free agent sells their own, at a lower rate.
-  const merch = mine.contract ? round5(fansTotal(me) * MERCH_PER_FAN_SIGNED * (MERCH_SHARE[mine.contract.clauses[C.merch] ?? 0] ?? 0) * pleaser) : round5(fansTotal(me) * MERCH_PER_FAN_FREE * pleaser);
+  const merch = round5((mine.contract ? fansTotal(me) * MERCH_PER_FAN_SIGNED * (MERCH_SHARE[mine.contract.clauses[C.merch] ?? 0] ?? 0) * pleaser : fansTotal(me) * MERCH_PER_FAN_FREE * pleaser) * merchShare(c));
   spend(c, merch, mine.contract && !(mine.contract.clauses[C.merch] ?? 0) ? 'Merch (no Merchandise Rights)' : 'Merch', 'merch');
   // Mid-contract releases at the bottom of each roster (never someone their contract protects).
   for (const p of PROMOTIONS.filter((x) => !x.indie && !x.closed && !x.closed)) {

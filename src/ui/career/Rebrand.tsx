@@ -25,11 +25,12 @@ export function Rebrand({ c, onDone }: { c: Career; onDone: () => void }) {
           <span className="c-lab">{w(`${r.from} own “${r.old}”`)}</span>
           <b className="c-sbig" style={{ fontSize: 26 }}>{w('Time for a new name')}</b>
           <span className="c-val">Your deal didn’t give you the rights to your character, so the name stays with {promoName(r.from)}. {r.lost.toLocaleString('en-GB')} fans didn’t follow you.</span>
+          {r.took?.length ? <span className="c-val">It all stays with them: {r.took.join(', ')}.</span> : null}
         </div>
         <span className="c-lab">{w('Your new ring name')}</span>
         <input className="c-fld" value={name} onChange={(e) => { setName(e.target.value); setErr(''); }} placeholder={r.old} aria-label="New ring name" maxLength={40} />
         {err && <span className="c-hint">{err}</span>}
-        <span className="c-note">Next time, negotiate Character & Image Rights: Licensed or better and the name’s yours to keep.</span>
+        <span className="c-note">It has to be properly new: not your old name with a letter changed, a “The” on the front or a different spelling. You can buy the old one back later (your profile), or go back to {promoName(r.from)} and it’s yours again. Next time, negotiate Character & Image Rights: Licensed or better and the name’s yours to keep.</span>
       </div>
       <div className="c-nav"><button className="c-b1" disabled={name.trim().length < 2} onClick={go}>{w('That’s me now ›')}</button></div>
     </Screen>

@@ -77,7 +77,7 @@ export function Create({ hasCareer, onBack, onDone }: Props) {
       id: `custom_${Date.now().toString(36)}`, wrestlerId: 0, name: name.trim(), gimmick: gimmick.trim() || 'The Newcomer', gimmickDescription: desc.trim(),
       classes: cls, gender, disposition: align, age, height: `${Math.floor(h / 12)}'${h % 12}`, weight: wt, region: regionKey, regionLabel, country,
       promotion: 'TIS', division: gender === 'MALE' ? 'MENS' : 'WOMENS', stats, fans: createdFans(region as PopRegion),
-      moves: kit.moves as string[], signatures: kit.signatures as string[], finishers: kit.finishers as string[],
+      moves: kit.moves as string[], signatures: kit.signatures as string[], finishers: kit.finishers as string[], ...(kit.names && Object.keys(kit.names).length ? { moveNames: kit.names } : {}),
       traits: [storyTrait(ans)],
     };
   };
