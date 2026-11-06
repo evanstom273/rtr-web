@@ -19,7 +19,7 @@ import {
 } from './tuning';
 import type { Career, Contract, Offer } from './types';
 
-export interface Proposal { fee: number; months: number; clauses: number[]; dates?: number; triggers?: BonusTrigger[] }
+export interface Proposal { fee: number; months: number; clauses: number[]; dates?: number; triggers?: BonusTrigger[]; /** Life: pyro and production on any show you're on (it costs them about 3% of the fee). */ entrance?: boolean }
 export type Mood = 'keen' | 'happy' | 'hesitant' | 'losing';
 
 /** Life: an agent gets you more (career/life/agent.ts plugs in). */
@@ -64,8 +64,10 @@ export function clauseCost(promo: string, base: number, i: number, tier: number)
 }
 
 export function askValue(promo: string, base: number, p: Proposal): number {
-  return p.fee + p.clauses.reduce((t, tier, i) => t + clauseCost(promo, base, i, tier), 0);
+  return p.fee + p.clauses.reduce((t, tier, i) => t + clauseCost(promo, base, i, tier), 0) + (p.entrance ? Math.round(base * ENTRANCE_TERM_COST) : 0);
 }
+/** Life: the entrance term costs them this share of what they'd pay a match. */
+export const ENTRANCE_TERM_COST = 0.03;
 
 /** Lyra's call: no gates, anything's possible at a price. Only the rules: a second deal can't be exclusive. */
 export function gate(_c: Career, o: Offer | undefined, i: number, tier: number): string | null {
@@ -117,7 +119,7 @@ export function propose(c: Career, o: Offer, p: Proposal): 'accept' | 'counter' 
   const triggers = (p.triggers ?? []).slice(0, triggerSlots(p.clauses[C.bonuses] ?? 0));
   const base = baseFor(c, o, p);
   const ask = askValue(o.promo, base, p);
-  const keep = (x: Partial<Offer>) => Object.assign(o, { months: p.months, ...(p.dates ? { dates: p.dates } : { dates: undefined }), triggers, ...x });
+  const keep = (x: Partial<Offer>) => Object.assign(o, { months: p.months, ...(p.dates ? { dates: p.dates } : { dates: undefined }), triggers, entrance: p.entrance || undefined, ...x });
   if (ask <= base * NEGO_ACCEPT) {
     keep({ fee: p.fee, clauses: [...p.clauses] });
     o.said = '“Done. We’ll draw it up.”';
@@ -183,7 +185,7 @@ export function signOffer(c: Career, o: Offer): string {
   }
   const start = p.contract && p.contract.promo !== o.promo ? o.start > c.today ? o.start : addDays(p.contract.end, 1) : c.today;
   const k: Contract = {
-    promo: o.promo, start, end: addMonths(start, o.months), fee: o.fee, clauses: [...o.clauses], ...(c.life?.agent ? { agent: true } : {}),
+    promo: o.promo, start, end: addMonths(start, o.months), fee: o.fee, clauses: [...o.clauses], ...(c.life?.agent ? { agent: true } : {}), ...(o.entrance ? { entrance: true } : {}),
     ...(o.pkg ? { pkg: o.pkg } : {}), ...(o.dates ? { dates: o.dates } : {}), ...(o.triggers?.length ? { triggers: [...o.triggers] } : {}),
     since: p.contract?.promo === o.promo ? p.contract.since ?? p.contract.start : start,
   };
@@ -239,7 +241,7 @@ function signSecond(c: Career, o: Offer): string {
   }
   const dates = Math.max(1, Math.min(SPLIT_DATES_TOTAL - 2, o.dates ?? SPLIT_DEFAULT_NEW));
   const k: Contract = {
-    promo: o.promo, start: c.today, end: addMonths(c.today, o.months), fee: o.fee, clauses: [...o.clauses], dates, since: c.today, ...(c.life?.agent ? { agent: true } : {}),
+    promo: o.promo, start: c.today, end: addMonths(c.today, o.months), fee: o.fee, clauses: [...o.clauses], dates, since: c.today, ...(c.life?.agent ? { agent: true } : {}), ...(o.entrance ? { entrance: true } : {}),
     ...(o.pkg ? { pkg: o.pkg } : {}), ...(o.triggers?.length ? { triggers: [...o.triggers] } : {}),
   };
   // Lyra's call: the month splits between them when you sign. The others share what's left.

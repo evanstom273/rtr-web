@@ -170,7 +170,7 @@ export function createState(rnd: Rng, you: Wrestler, them: Wrestler, rules: Matc
       lmsFor: null, lmsImpact: 0, quitPressure: zeros(), finisherLanded: noes(), decision: null,
     },
     phase: { name: 'opening', drama: 0, controlSwings: 0, actionsSinceChange: 0 },
-    heat: rules.title ? 45 : 35,
+    heat: (rules.title ? 45 : 35) + (rules.entrance?.heat ?? 0),
     crowd: emptyCrowd(order),
     streak: { who: null, n: 0 },
     event: ev.event,

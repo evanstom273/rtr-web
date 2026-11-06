@@ -219,6 +219,10 @@ export function myBoutToday(c: Career): { show: Show; bout: Bout; index: number 
 const freshness = (c: Career, id: string): number => 1 - (c.people[id]?.fatigue ?? 0) / FATIGUE_STAMINA_DIVISOR;
 
 /** Engine rules for a career match. */
+/** Life: your entrance (the kit you own, and pyro or a set where you're allowed them) for this match. */
+let entranceHook: ((c: Career, show: Show, bout: Bout, you: string, them: string) => MatchRulesConfig['entrance']) | null = null;
+export const setEntranceHook = (f: typeof entranceHook): void => { entranceHook = f; };
+
 export function boutRules(c: Career, show: Show, bout: Bout, you: string, them: string, nudge: boolean): Partial<MatchRulesConfig> {
   const rules: Partial<MatchRulesConfig> = {
     eventName: show.name, venueName: `${show.city}, ${show.country}`, eventPromotion: show.promo === 'TIS' ? '' : show.promo,
@@ -242,6 +246,8 @@ export function boutRules(c: Career, show: Show, bout: Bout, you: string, them: 
     const wy = wearStart(c.people[you]), wt = wearStart(c.people[them]);
     if (wy || wt) rules.wear = { ...(wy ? { you: wy } : {}), ...(wt ? { them: wt } : {}) };
   }
+  const ent = entranceHook?.(c, show, bout, you, them);
+  if (ent) rules.entrance = ent;
   // Someone booked to lose to a person they can't stand won't make it easy.
   if (rules.booked && bout.planned && !bout.sides) { const loser = bout.planned === bout.a ? bout.b : bout.a; const refuse = politics.refuse(c, loser, bout.planned); if (refuse) rules.booked = { ...rules.booked, bonus: rules.booked.bonus * (1 - refuse) }; }
   return rules;
@@ -642,7 +648,8 @@ export function endOfDay(c: Career): void {
     const p = person(c, w.id);
     if (FEATURES.days && w.id === c.player) p.fatigue = Math.max(0, p.fatigue - (worked.has(w.id) ? SLEEP_RECOVERY_AFTER_MATCH : SLEEP_RECOVERY) * mod('recovery', c, w.id));
     else if (!worked.has(w.id)) p.fatigue = Math.max(0, p.fatigue - FATIGUE_RECOVERY_PER_DAY);
-    if (FEATURES.matches && p.wear) fadeWear(p, 1);
+    // Wear fades a week at a time; a physio or a recovery kit (Life) makes it fade faster.
+    if (FEATURES.matches && p.wear) fadeWear(p, w.id === c.player ? mod('wear', c, w.id) : 1);
     if (p.injury && p.injury.until <= tomorrow) {
       p.injury = null;
       if (w.id === c.player) letter(c, { kind: 'injury', from: 'The doctor', subject: 'You’re fit again', body: ['Cleared to wrestle.'] });
@@ -987,9 +994,9 @@ type PhaseHook = (c: Career, ph: 'am' | 'pm', activity: string) => void;
  * Clause modifiers (Match Conditions, Training, Push, Touring): each multiplies. injury and fatigue per match,
  * fans won on a show, rehab days, a night's recovery, the price and the gains of training.
  */
-export type ModKind = 'injury' | 'fatigue' | 'fans' | 'rehab' | 'recovery' | 'trainPrice' | 'trainGain' | 'retire';
+export type ModKind = 'injury' | 'fatigue' | 'fans' | 'rehab' | 'recovery' | 'trainPrice' | 'trainGain' | 'retire' | 'wear';
 type Mod = (c: Career, id: string, show?: Show) => number;
-const mods: Record<ModKind, Mod[]> = { injury: [], fatigue: [], fans: [], rehab: [], recovery: [], trainPrice: [], trainGain: [], retire: [] };
+const mods: Record<ModKind, Mod[]> = { injury: [], fatigue: [], fans: [], rehab: [], recovery: [], trainPrice: [], trainGain: [], retire: [], wear: [] };
 export const mod = (k: ModKind, c: Career, id: string, show?: Show): number => mods[k].reduce((m, f) => m * f(c, id, show), 1);
 export const setMod = (k: ModKind, f: Mod): void => { mods[k].push(f); };
 

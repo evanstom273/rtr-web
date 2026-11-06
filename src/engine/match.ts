@@ -89,6 +89,8 @@ export class MatchEngine {
     // Stage 5 stipulations: whatever's tied on or hung up (nothing for the original eleven).
     setupGimmicks(ctx);
     say(ctx, LINES.intro + (rules.title && S.titleName ? LINES.titleOnLine : ''), { vars: { event: S.event, venue: S.venue, title: S.titleName } }, 'dim');
+    // Life: an entrance worth the name (only when someone's paid for one: nothing changes otherwise).
+    if (rules.entrance && S.sides[rules.entrance.side]) say(ctx, LINES.entrance, { a: rules.entrance.side, vars: { what: rules.entrance.what } }, 'hl');
     render(ctx);
     schedule(ctx, { to: 'bell' }, 900);
   }

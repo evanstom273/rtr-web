@@ -11,7 +11,7 @@ import { buyHome, homeValue, letHome, monthlyHomes, rentWeek, switchTo, weeklyHo
 import { monthlyLoans } from './loans';
 import { hireAgent, taxOn } from './money';
 import { life, liveHome } from './state';
-import { band, legHalves, tripCost } from './travel';
+import { band, legHalves, tripCost, tripFatigue } from './travel';
 import { seizeHome } from './homes';
 
 const was = FEATURES.life;
@@ -182,5 +182,59 @@ describe('Life: getting about', () => {
     expect(tripCost(c, { country: 'Japan' })).toBe(0);
     expect(tripCost(c, { country: 'USA' })).toBe(250);
     expect(c.life).toBeUndefined();
+  });
+});
+
+describe('Life stage 2: staff, medical and entrances', () => {
+  it('an entrance raises the crowd’s heat at the bell; pyro only at the top of the card or with the contract term', async () => {
+    const { boutRules } = await import('../career');
+    const { MatchEngine } = await import('../../engine/match');
+    const { buyGear, setGearUse, entranceFor } = await import('./staff');
+    const c = begin('@indie');
+    c.money = 100_000;
+    buyGear(c, 'theme'); buyGear(c, 3);
+    setGearUse(c, 'pyro', true);
+    const show = Object.values(c.shows).find((s) => s.promo === 'TIS')!;
+    const opp = Object.keys(c.people).find((id) => id !== c.player && findWrestler(id))!;
+    const top = { a: c.player, b: opp }, under = { a: c.player, b: opp };
+    show.card = [under, { a: opp, b: opp }, top];
+    expect(entranceFor(c, show, top).heat).toBe(PB.entrance.theme.heat + PB.entrance.gear[2]!.heat + PB.entrance.pyro.heat);
+    expect(entranceFor(c, show, under).heat).toBe(PB.entrance.theme.heat + PB.entrance.gear[2]!.heat);
+    const rules = boutRules(c, show, top, c.player, opp, false);
+    expect(rules.entrance?.side).toBe('you');
+    const e = new MatchEngine({ you: c.player, them: opp, seed: 3, rules });
+    const plain = new MatchEngine({ you: c.player, them: opp, seed: 3, rules: { ...rules, entrance: undefined } });
+    expect(e.state.heat - plain.state.heat).toBe(rules.entrance!.heat);
+    expect(e.state.log.some((l) => l.segs.some((x) => /The lights go down/.test(x.v)))).toBe(true);
+    expect(plain.state.log.some((l) => l.segs.some((x) => /The lights go down/.test(x.v)))).toBe(false);
+  });
+
+  it('staff cost wages on the 1st and do their jobs; a surgeon gets you back sooner', async () => {
+    const { hire, monthlyStaff, seeSurgeon, wageOf } = await import('./staff');
+    const { mod } = await import('../career');
+    const c = begin('@indie');
+    c.money = 100_000;
+    expect(mod('rehab', c, c.player)).toBe(1);
+    hire(c, 'physio'); hire(c, 'trainer');
+    expect(mod('rehab', c, c.player)).toBeCloseTo(0.8);
+    expect(mod('wear', c, c.player)).toBeCloseTo(1.5);
+    expect(mod('trainGain', c, c.player)).toBeGreaterThan(1.1);
+    const before = c.money;
+    monthlyStaff(c);
+    expect(before - c.money).toBe(wageOf(c, 'physio') + wageOf(c, 'trainer'));
+    c.people[c.player]!.injury = { what: 'a torn bicep', until: addDays(c.today, 60) };
+    expect(seeSurgeon(c)).toMatch(/sooner/);
+    expect(c.people[c.player]!.injury!.until < addDays(c.today, 60)).toBe(true);
+  });
+
+  it('with a driver, road trips cost no fatigue', () => {
+    const c = begin('@indie');
+    c.money = 100_000;
+    life(c).city = 'London'; c.base = 'UK';
+    buyVehicle(c, 'car', false);
+    const leeds = { country: 'UK', city: 'Leeds' };
+    expect(tripFatigue(c, leeds)).toBe(PB.trip.short.fatigue);
+    life(c).staff = [{ role: 'driver', name: 'Sam', since: c.today }];
+    expect(tripFatigue(c, leeds)).toBe(0);
   });
 });
