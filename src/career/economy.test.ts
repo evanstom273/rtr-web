@@ -4,7 +4,7 @@ import { activeWorld, freshWorld, raiseToFloor, setWorld } from '../world/world'
 import { acceptLetter, attributeTotal, livingCosts, matchPay, spend, trainingPrice, type Career } from './index';
 import { feeFloor } from './clauses';
 import { addDays, weekday } from './dates';
-import { contractFee, curveAt, floorFee, indieFee, isWeeklyFlagship, livingCost, monthlySalary, payScale, preferredPay, yearlyPay, yearlyWorth } from './economy';
+import { contractFee, curveAt, floorFee, indieFee, isWeeklyFlagship, livingCost, monthlySalary, payScale, perDateOf, preferredPay, splitDeal, yearlyPay, yearlyWorth } from './economy';
 import { hashSeed } from '../engine/rng';
 import { begin, day, type Runner } from './testkit';
 import { FEATURES } from './tuning';
@@ -63,6 +63,23 @@ describe('pay (Lyra’s rework: a salary curve by drawing power, PPA/Monthly/Bot
     expect(preferredPay('SSWC')).toBe('both');
     expect(preferredPay('END')).toBe('ppa');
     expect(preferredPay('TIS')).toBe('ppa');
+  });
+
+  it('on Both the salary and the fee a date are set separately (Lyra’s call), and a raise lifts both', () => {
+    begin('@indie');
+    const d = splitDeal('VWF', 'both', 100_000, 15_000);
+    const k = { promo: 'VWF', start: '', end: '', pay: 'both' as const, clauses: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], ...d };
+    expect(monthlySalary(k)).toBe(100_000);
+    expect(perDateOf(k)).toBe(15_000);
+    expect(matchPay(k, 'flagship').pay).toBe(37_500);
+    // A raise (Wage Matching, a renewal) scales the unit, and both parts with it.
+    const up = { ...k, fee: k.fee * 1.1 };
+    expect(monthlySalary(up)).toBeGreaterThanOrEqual(109_990);
+    expect(perDateOf(up)).toBeGreaterThanOrEqual(16_490);
+    // Monthly: just the salary; PPA: just the fee.
+    expect(perDateOf({ promo: 'VWF', pay: 'monthly', ...splitDeal('VWF', 'monthly', 80_000, 9_999) })).toBe(0);
+    expect(monthlySalary({ promo: 'VWF', pay: 'ppa', ...splitDeal('VWF', 'ppa', 9_999, 20_000) })).toBe(0);
+    expect(perDateOf({ promo: 'VWF', pay: 'ppa', ...splitDeal('VWF', 'ppa', 0, 20_000) })).toBe(20_000);
   });
 
   it('an opening offer never comes in under the promotion’s floor', async () => {

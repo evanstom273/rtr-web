@@ -12,9 +12,9 @@ import { fmtDay } from '../../career/dates';
 import { CONTRACT_MONTHS, SPLIT_DATES_TOTAL } from '../../career/tuning';
 import { ClauseGroups, Pips } from './Clauses';
 import { commit, Head, money, Screen, useToast, useWords } from './parts';
+import { PayBoxes } from './PayBoxes';
 
-/** The fee buttons move it by about 5% (in £50s). */
-const step = (fee: number): number => Math.max(50, Math.round((fee * 0.05) / 50) * 50);
+
 
 interface Props { c: Career; offerId: string; onBack: () => void; onDone: () => void }
 
@@ -59,7 +59,7 @@ export function Negotiate({ c, offerId, onBack, onDone }: Props) {
     o.lines = lines;
     o.pkg = pkg === 'custom' ? undefined : pkg;
     const r = propose(c, o, p);
-    if (r === 'counter') setP({ fee: o.fee, months: o.months, clauses: [...o.clauses], ...(o.dates ? { dates: o.dates } : {}), triggers: [...(o.triggers ?? [])], ...(o.entrance ? { entrance: true } : {}) });
+    if (r === 'counter') setP({ fee: o.fee, months: o.months, clauses: [...o.clauses], ...(o.dates ? { dates: o.dates } : {}), triggers: [...(o.triggers ?? [])], ...(o.entrance ? { entrance: true } : {}), pay: p.pay, ...(p.salaryMult !== undefined ? { salaryMult: p.salaryMult } : {}), ...(p.dateMult !== undefined ? { dateMult: p.dateMult } : {}) });
     commit();
   };
   const sign = () => {
@@ -92,13 +92,12 @@ export function Negotiate({ c, offerId, onBack, onDone }: Props) {
         <span className="c-lab">{w('How you’re paid')}</span>
         <div className="c-chips">
           {(['ppa', 'monthly', 'both'] as PayType[]).map((t) => (
-            <button key={t} className={`c-chip${(p.pay ?? 'ppa') === t ? ' on' : ''}`} onClick={() => setP({ ...p, pay: t })}>{PAY_LABEL[t]}{t === preferredPay(o.promo) ? ' ✓' : ''}</button>
+            <button key={t} className={`c-chip${(p.pay ?? 'ppa') === t ? ' on' : ''}`} onClick={() => { const { salaryMult: _s, dateMult: _d, ...rest } = p; setP({ ...rest, pay: t }); }}>{PAY_LABEL[t]}{t === preferredPay(o.promo) ? ' ✓' : ''}</button>
           ))}
         </div>
         <span className="c-note">{p.pay === 'monthly' ? 'A salary every month, booked or not, hurt or not.' : p.pay === 'both' ? 'A smaller salary every month, plus a smaller fee for each appearance.' : 'Paid for each appearance: more than a salary if you’re busy, less if you’re not.'}{p.pay !== preferredPay(o.promo) ? ` ${o.promo} would rather ${PAY_LABEL[preferredPay(o.promo)].toLowerCase()}: asking costs you a little in the deal.` : ''}</span>
-        <div className="c-trow"><span className="c-lab">{w('Fee')}</span><b className="c-big">{money(p.fee)} {w('a date', '/ date')}</b>
-          <button className="c-stepb" onClick={() => setP({ ...p, fee: Math.max(50, p.fee - step(p.fee)) })} aria-label="Less">−</button><button className="c-stepb" onClick={() => setP({ ...p, fee: p.fee + step(p.fee) })} aria-label="More">+</button></div>
-        <span className="c-val">{payWords({ fee: p.fee, pay: p.pay, promo: o.promo, ...(p.dates ? { dates: p.dates } : {}) })}</span>
+        <PayBoxes promo={o.promo} deal={p} onChange={(d) => { const { salaryMult: _s, dateMult: _d, ...rest } = p; setP({ ...rest, ...d }); }} />
+        <span className="c-val">{payWords({ ...p, promo: o.promo })}</span>
         <span className="c-lab">{w('Length')}</span>
         <div className="c-modes" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
           {CONTRACT_MONTHS.map((n) => <button key={n} className={p.months === n ? 'c-mode on' : 'c-mode'} style={{ minHeight: 40 }} onClick={() => setP({ ...p, months: n })}><b>{n} {w('mo')}</b></button>)}
