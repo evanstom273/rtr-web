@@ -222,6 +222,10 @@ const freshness = (c: Career, id: string): number => 1 - (c.people[id]?.fatigue 
 /** Life: your entrance (the kit you own, and pyro or a set where you're allowed them) for this match. */
 let entranceHook: ((c: Career, show: Show, bout: Bout, you: string, them: string) => MatchRulesConfig['entrance']) | null = null;
 export const setEntranceHook = (f: typeof entranceHook): void => { entranceHook = f; };
+/** A new wrestler's just come out of training (Life: which school, and what it made of them). */
+let rookieHook: ((w: import('../data/rtr').Wrestler) => void) | null = null;
+export const setRookieHook = (f: (w: import('../data/rtr').Wrestler) => void): void => { rookieHook = f; };
+export const rookieOut = (w: import('../data/rtr').Wrestler): void => rookieHook?.(w);
 
 export function boutRules(c: Career, show: Show, bout: Bout, you: string, them: string, nudge: boolean): Partial<MatchRulesConfig> {
   const rules: Partial<MatchRulesConfig> = {
@@ -661,6 +665,7 @@ export function endOfDay(c: Career): void {
   if (FEATURES.livingCosts) livingCosts(c, tomorrow);
   if (tomorrow >= c.nextRookie) {
     const rookie = makeRookie(rnd, WRESTLERS, `rookie_${tomorrow.replace(/-/g, '')}`);
+    rookieHook?.(rookie);
     WRESTLERS.push(rookie);
     addEvent(history(), { day: tomorrow, kind: 'debut', who: rookie.id, name: rookie.name, promo: 'TIS' });
     c.people[rookie.id] = newPerson(rookie.id, REP_START);

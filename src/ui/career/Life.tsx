@@ -11,12 +11,16 @@ import { COST_INDEX, PRICE_BOOK as PB } from '../../career/tuning';
 import type { Career } from '../../career/types';
 import { commit, Head, money, Screen, shortMoney, useToast, useWords } from './parts';
 import { InvestTab } from './LifeInvest';
+import { SchoolTab } from './LifeSchool';
 import { investedValue } from '../../career/life/invest';
+import { netWorth } from '../../career/life/worth';
+import { richRank } from '../../career/life/aiMoney';
+import { lifeWorld } from '../../world/lifeWorld';
 import { fansTotal, findWrestler } from '../../data/rtr';
 
 interface Props { c: Career; onBack: () => void }
 
-const TABS = ['Home', 'Getting about', 'Your team', 'Invest', 'Money'] as const;
+const TABS = ['Home', 'Getting about', 'Your team', 'Invest', 'School', 'Money'] as const;
 
 /** Every city, by country (for moving and buying). */
 function CityPick({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) {
@@ -44,7 +48,7 @@ export function Life({ c, onBack }: Props) {
   const h = liveHome(c);
   const owed = L.loans.reduce((t, l) => t + l.left, 0);
   const invested = on('invest') ? investedValue(c) : 0;
-  const worth = c.money + homesValue(c) + garageValue(c) + invested - owed;
+  const worth = netWorth(c);
   const me = findWrestler(c.player)!;
   const region = regionOfCountry(h.country);
 
@@ -63,7 +67,7 @@ export function Life({ c, onBack }: Props) {
         </div>
       </div>
       <div className="c-steps cols3" style={{ marginTop: 8 }}>
-        {TABS.filter((t) => t !== 'Invest' || on('invest')).map((t) => <button key={t} className={t === tab ? 'c-st on' : 'c-st'} style={{ border: 0 }} onClick={() => setTab(t)}>{w(t)}</button>)}
+        {TABS.filter((t) => (t !== 'Invest' || on('invest')) && (t !== 'School' || on('school'))).map((t) => <button key={t} className={t === tab ? 'c-st on' : 'c-st'} style={{ border: 0 }} onClick={() => setTab(t)}>{w(t)}</button>)}
       </div>
       <div className="c-body">
         {!on('homes') && <span className="c-note">Life is switched off.</span>}
@@ -241,6 +245,7 @@ export function Life({ c, onBack }: Props) {
         )}
 
         {tab === 'Invest' && on('invest') && <InvestTab c={c} done={done} />}
+        {tab === 'School' && on('school') && <SchoolTab c={c} done={done} />}
 
         {tab === 'Money' && (
           <>
@@ -267,6 +272,23 @@ export function Life({ c, onBack }: Props) {
                 <span className="c-chips"><button className="c-chip" onClick={() => done(payOff(c, l.id))}>Pay it off</button></span>
               </div>
             ))}
+            {on('ai') && (() => {
+              const R = lifeWorld().rich?.at(-1), now = richRank(c);
+              return (
+                <>
+                  <span className="c-sec">{w('The rich list')}{R ? ` · ${R.year}` : ''}</span>
+                  {R ? (
+                    <div className="c-kv">
+                      {R.top.map(([id, v], i) => [
+                        <span key={`${id}l`} className="c-lab">{i + 1}</span>,
+                        <span key={`${id}v`} className="c-val">{id === c.player ? <b>You</b> : findWrestler(id)?.name ?? id} · {shortMoney(v)}</span>,
+                      ])}
+                    </div>
+                  ) : <span className="c-note">The rich list comes out every January.</span>}
+                  <span className="c-note">Today you’d be number {now.rank} of {now.of.toLocaleString('en-GB')}.</span>
+                </>
+              );
+            })()}
             {on('money') && (
               <>
                 <span className="c-sec">{w('Your agent')}</span>

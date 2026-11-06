@@ -216,3 +216,61 @@ Status only when flaunted (stage 6).
 
 Homes 0.3% of their value a year, businesses 1.5%, paid monthly. It covers fire and burglary (stage 7), not a bad
 year or a business folding.
+
+## Stage 4: everyone's money and the rich list
+
+Code: `career/life/aiMoney.ts` (`world.life.wealth`: a few numbers each, about 40 bytes a wrestler).
+
+Every wrestler has money, seeded once from how long they've been at it and what they earn, then moved on the 1st of
+every month (even in a world with no one at the controls):
+
+- **In:** their deal (fee × dates a month × 12, plus about 15% in bonuses and merch), or on the indies a date and a
+  half a month plus a day job (£16,000 a year by the region's cost index). Retired: nothing.
+- **Out:** tax on the same bands as yours, 10% to an agent over £100k, their home and car, and the good life by
+  personality. Showboats and the egotistical are flash (80% of what's spare goes, plus 1.2% of their cash a month);
+  the professional, methodical and reliable are careful (20%, 0.1%, and their savings earn about 5% a year); risk
+  takers gamble their savings (it swings both ways); everyone else is in between.
+- **Moving up:** a better home on a mortgage once they've a deposit (the flash want far less in the bank first),
+  then a better car or a jet share. Once they're worth £1M, a business now and then; a mentor opens a school instead
+  (it's real: stage 5).
+- **Going broke:** past three months' earnings in the red, they sell down (the home first, then the car), and if
+  they know you, the rumour mill writes to you.
+
+What it changes: the rich retire sooner (×1.25 over £1M, ×1.6 over £3M) and the skint work on (×0.5); the rich ask
+10% more to sign (over £2M), the skint 15% less.
+
+The rich list goes out every January in the Observer (the top five, and where you are), and the top ten for ten
+years are kept (Life → Money shows the latest, and where you'd stand today).
+
+Ten years of one world (seed 7, the long run): the top worth about £5–6M, the tenth £2–2.5M; the median signed
+wrestler about £225k at the start, more as they go on; a few percent of veterans broke.
+
+## Stage 5: the school
+
+Code: `career/life/school.ts`; Life → School (`ui/career/LifeSchool.tsx`).
+
+**The world's schools are real now** (`world.life.schools`): every country's two to four, with a reputation
+(20–70 to start) and a coach or two (a local veteran). Every rookie comes out of one, the better-known ones more often,
+and a better school (and more coaches) makes a better rookie (more potential). Each quarter a school's name drifts
+towards what its graduates have made of themselves. Rich veterans who mentor open their own (named after them, with
+them coaching).
+
+**Your own:**
+
+- **Open one** in your city (£30,000 for the ring and kit; rent about £2,500 a month by the city) or **buy one**
+  (£120,000 + £6,000 a point of reputation, by the city), including the one that trained you, coaches and all.
+- **Coaches:** retired wrestlers in your part of the world (or veterans part-time), £1,500–£8,000 a month by how well
+  known they are; up to three. Better coaches mean faster progress. Coaching in your side earners counts too: each
+  class slot adds to it.
+- **Intake** every four months: more applicants and better ones as the name grows. Now and then a notable one (8%): a
+  legend's kid (a lot more potential) or an ex-athlete (stronger, fitter). Take them paying (£250–£800 a month by
+  reputation and city) or on a scholarship. Sixteen places.
+- **Training:** each month they improve towards their potential (faster with better coaching, and when they're young),
+  half of it on what you've set them to work on. You see what they could be as a range that narrows as they train:
+  you can misjudge them early.
+- **Graduation:** whenever you say. They become a real wrestler on the indies, trained at your school, with a
+  mentor's bond to you; the school's name grows with each one.
+- **School shows:** switch them on for a monthly showcase (a crowd of 60–500 by reputation, tickets £8–£18, less
+  £1,500 to put on) and a little more name.
+- **Feeder deals:** past reputation 45, a promotion may pay £20,000–£120,000 a year for two years for first call on
+  your graduates.

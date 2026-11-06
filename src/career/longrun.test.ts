@@ -8,6 +8,7 @@ import { REGION_OF } from './places';
 import { begin, day, pct } from './testkit';
 import { attributeTotal } from './economy';
 import type { Career } from './types';
+import { worthOf } from './life/aiMoney';
 
 it.skipIf(!process.env.LONG)('years of the world', async () => {
   const years = Number(process.env.YEARS ?? 3);
@@ -65,6 +66,17 @@ function bookingReport(c: Career): string[] {
     `    signed dates a month: ${f(perMonth(signed))}; none in 60 days ${idle(signed, d60)}`,
     `    indie shows a week: min ${Math.min(...wk)} · median ${pct(wk, 0.5)} · max ${Math.max(...wk)}; by region a year: ${regionShows}`,
     `    ability (attribute total): signed p10 ${pct(signed.map(attributeTotal), 0.1)} · median ${pct(signed.map(attributeTotal), 0.5)} · p90 ${pct(signed.map(attributeTotal), 0.9)}; indies median ${pct(indies.map(attributeTotal), 0.5)} · p90 ${pct(indies.map(attributeTotal), 0.9)}; age median ${pct([...signed, ...indies].map((w) => w.age), 0.5)}`,
+    ...(w0().life?.wealth ? [wealthLine(signed)] : []),
     `    fans worldwide: signed p10 ${fmtFans(pct(signed.map(fansTotal), 0.1))} · median ${fmtFans(pct(signed.map(fansTotal), 0.5))} · max ${fmtFans(Math.max(...signed.map(fansTotal)))}; indies median ${fmtFans(pct(indies.map(fansTotal), 0.5))} · p90 ${fmtFans(pct(indies.map(fansTotal), 0.9))} · max ${fmtFans(Math.max(...indies.map(fansTotal)))}`,
   ];
+}
+
+const w0 = () => activeWorld();
+/** Life stage 4: everyone's money (the rich list, the signed median, veterans who've gone broke). */
+function wealthLine(signed: typeof WRESTLERS): string {
+  const W = w0().life!.wealth!;
+  const all = Object.values(W).map(worthOf).sort((a, b) => b - a);
+  const vets = WRESTLERS.filter((x) => x.age >= 35 && W[x.id]);
+  const m = (n: number) => `£${n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : `${Math.round(n / 1000)}k`}`;
+  return `    money: top ${m(all[0] ?? 0)}, 10th ${m(all[9] ?? 0)} · signed median ${m(pct(signed.map((x) => worthOf(W[x.id])), 0.5))} · veterans broke ${Math.round((vets.filter((x) => W[x.id]!.broke).length / Math.max(1, vets.length)) * 100)}%`;
 }

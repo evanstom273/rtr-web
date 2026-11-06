@@ -70,12 +70,18 @@ export function worth(c: Career, promo: string, w: Wrestler): number {
 }
 
 /** What they'd ask for: a fee a date, a deal length and the clauses someone of their standing wants. */
+/** What someone's money does to their asking price (Life stage 4: the rich are picky, the skint aren't). */
+const demandLifts: ((c: Career, id: string, promo: string) => number)[] = [];
+export const setDemandLift = (f: (c: Career, id: string, promo: string) => number): void => { demandLifts.push(f); };
+const demandLift = (c: Career, id: string, promo: string) => demandLifts.reduce((m, f) => m * f(c, id, promo), 1);
+
 export function demand(c: Career, promo: string, w: Wrestler): Deal {
   const rnd = seededRng(hashSeed(c.seed, 'ask', promo, w.id, c.today.slice(0, 7)));
   const rank = rosterRank(w, [...rosterOf(promo), w]);
   const clauses = aiClauses(rnd, promo, aiPackage(rnd, w, rank));
   clauses[C.exclusivity] = NO_CLAUSES()[C.exclusivity] ?? 0;
-  return { fee: worth(c, promo, w), months: 12, clauses };
+  const lift = demandLift(c, w.id, promo);
+  return { fee: lift === 1 ? worth(c, promo, w) : r5(worth(c, promo, w) * lift), months: 12, clauses };
 }
 /** A deal's worth to them: the fee and every clause (exclusivity aside: signing with you means working for you). */
 export const dealValue = (promo: string, base: number, d: Deal): number => d.fee + d.clauses.reduce((t, tier, i) => t + (i === C.exclusivity ? 0 : clauseCost(promo, base, i, tier)), 0);

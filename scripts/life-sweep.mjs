@@ -45,7 +45,7 @@ for (const skin of ['broadcast', 'paper', 'building'].filter((s) => !ONLY || s =
     if (navCheck.sideways) fails.push(`${tag}: hub scrolls sideways`);
     await p.screenshot({ path: `${SP}/${skin}-${vn}-hub.png` });
     await nav.getByRole('button', { name: /^life$/i }).click(); await wait(800);
-    const sections = { home: false, about: false, team: false, invest: false, money: false };
+    const sections = { home: false, about: false, team: false, invest: false, school: false, money: false };
     sections.home = (await p.getByText(/you live in/i).count()) > 0;
     await p.screenshot({ path: `${SP}/${skin}-${vn}-life-home.png`, fullPage: true });
     // Buy a house on a mortgage.
@@ -75,7 +75,17 @@ for (const skin of ['broadcast', 'paper', 'building'].filter((s) => !ONLY || s =
     const tabsCut = await p.evaluate(() => [...document.querySelectorAll('.c-steps .c-st')].filter((x) => x.scrollWidth > x.clientWidth + 1).map((x) => x.textContent));
     if (tabsCut.length) fails.push(`${tag}: Life tabs cut ${tabsCut.join(',')}`);
     await p.screenshot({ path: `${SP}/${skin}-${vn}-life-invest.png`, fullPage: true });
+    // School: open one, take an applicant.
+    await p.getByRole('button', { name: /^school$/i }).click(); await wait(500);
+    sections.school = (await p.getByText(/your own school/i).count()) > 0;
+    await p.locator('.c-ans').filter({ hasText: /^Open one in/i }).first().click(); await wait(500);
+    await p.getByRole('button', { name: /^applicants/i }).click(); await wait(300);
+    await p.getByRole('button', { name: /^take them/i }).first().click(); await wait(300);
+    await p.getByRole('button', { name: /^students$/i }).click(); await wait(300);
+    if (!(await p.getByRole('button', { name: /^graduate$/i }).count())) fails.push(`${tag}: taking a student didn't land`);
+    await p.screenshot({ path: `${SP}/${skin}-${vn}-life-school.png`, fullPage: true });
     await p.getByRole('button', { name: /^money$/i }).click(); await wait(500);
+    if (!(await p.getByText(/the rich list/i).count())) fails.push(`${tag}: no rich list`);
     sections.money = (await p.getByText(/credit and borrowing/i).count()) > 0;
     const hire = p.locator('.c-ans').filter({ hasText: /Local agent/ }).first();
     if (await hire.count()) { await hire.click(); await wait(500); }
