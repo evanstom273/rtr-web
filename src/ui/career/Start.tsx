@@ -5,12 +5,14 @@ import { C, NO_CLAUSES, packageClauses, PACKAGES, PLAYER_PACKAGES, triggerSlots 
 import { ClauseGroups } from './Clauses';
 import { ATTR_KEYS, ATTR_SHORT, CLASS_NAME, divisionName } from '../../career/create';
 import { fmtDay } from '../../career/dates';
+import { PAY_LABEL, payWords, preferredPay } from '../../career/economy';
+import type { PayType } from '../../career/types';
 import { FEATURES } from '../../career/tuning';
 import { activeWorld } from '../../world/world';
 import { Head, Nm, Screen, useWords } from './parts';
 
 /** Your own deal (Lyra's call): any promotion, fee, length and clauses; null for a free agent. */
-export type StartDeal = { promo: string; fee: number; months: number; clauses: number[]; dates?: number; triggers?: BonusTrigger[] } | null;
+export type StartDeal = { promo: string; fee: number; months: number; clauses: number[]; dates?: number; triggers?: BonusTrigger[]; pay?: PayType } | null;
 
 interface Props {
   hasCareer: boolean;
@@ -99,7 +101,7 @@ export function Start({ hasCareer, fresh, onBack, onPick, onCreate, onHistory }:
       {picked && (
         <div className="c-live" style={{ marginTop: 8 }}>
           <div className="c-facts" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
-            <span className="c-fact"><span className="c-lab">{w('Starts')}</span><b>{deal === undefined ? (tis ? 'Free agent' : `Signed · ${promo.initials}`) : deal === null ? 'Free agent' : `${deal.promo} · £${deal.fee.toLocaleString('en-GB')}`}</b></span>
+            <span className="c-fact"><span className="c-lab">{w('Starts')}</span><b>{deal === undefined ? (tis ? 'Free agent' : `Signed · ${promo.initials}`) : deal === null ? 'Free agent' : `${deal.promo} · ${deal.pay === 'monthly' ? 'Monthly' : deal.pay === 'both' ? 'Salary + dates' : 'Per date'}`}</b></span>
             <span className="c-fact"><span className="c-lab">{w('Roster rank')}</span><b>#{ranked.indexOf(picked) + 1} of {roster.length}</b></span>
             <span className="c-fact"><span className="c-lab">{w('Overall')}</span><b>{overall(picked)}</b></span>
           </div>
@@ -141,6 +143,8 @@ function DealEditor({ who, initial, onCancel, onDone }: { who: Wrestler; initial
   const [months, setMonths] = useState(initial?.months ?? 12);
   const [clauses, setClauses] = useState<number[]>(initial?.clauses?.length === NO_CLAUSES().length ? initial.clauses : NO_CLAUSES());
   const [dates, setDates] = useState<number | undefined>(initial?.dates);
+  const [pay, setPay] = useState<PayType>(initial?.pay ?? (promo === 'TIS' ? 'ppa' : preferredPay(promo)));
+  const step = Math.max(50, Math.round((fee * 0.05) / 50) * 50);
   const free = promo === 'TIS';
   const setTier = (i: number, t: number) => setClauses(clauses.map((x, k) => (k === i ? t : x)));
   return (
@@ -151,17 +155,23 @@ function DealEditor({ who, initial, onCancel, onDone }: { who: Wrestler; initial
         <span className="c-note">No negotiating: the career starts on exactly this deal. Pick another promotion and they move there, and any belt from the one they leave is stripped.</span>
         <span className="c-sec">{w('Promotion')}</span>
         <div className="c-chips">
-          {majors.map((x) => <button key={x} className={`c-chip${x === promo ? ' on' : ''}`} onClick={() => { setPromo(x); if (fee === market) setFee(contractFee(who, x)); }}>{x}</button>)}
+          {majors.map((x) => <button key={x} className={`c-chip${x === promo ? ' on' : ''}`} onClick={() => { setPromo(x); if (fee === market) setFee(contractFee(who, x)); if (pay === preferredPay(promo)) setPay(preferredPay(x)); }}>{x}</button>)}
           <button className={`c-chip${free ? ' on' : ''}`} onClick={() => setPromo('TIS')}>{w('Free agent')}</button>
         </div>
         {!free && (
           <>
+            <span className="c-sec">{w('How you’re paid')}</span>
+            <div className="c-chips">
+              {(['ppa', 'monthly', 'both'] as PayType[]).map((t) => <button key={t} className={`c-chip${pay === t ? ' on' : ''}`} onClick={() => setPay(t)}>{w(PAY_LABEL[t])}{t === preferredPay(promo) ? ' ✓' : ''}</button>)}
+            </div>
+            <span className="c-note">{pay === 'monthly' ? 'A salary every month, booked or not, hurt or not.' : pay === 'both' ? 'A smaller salary every month, plus a smaller fee for each appearance.' : 'Paid for each appearance: more than a salary if you’re busy, less if you’re not.'} ✓ is how {promo} usually pays.</span>
             <span className="c-sec">{w('Fee an appearance')}</span>
             <div className="c-cyc">
-              <button className="c-stepb" onClick={() => setFee(Math.max(0, fee - 250))} aria-label="£250 less">−</button>
+              <button className="c-stepb" onClick={() => setFee(Math.max(0, fee - step))} aria-label="Less">−</button>
               <input className="c-fld mid" type="number" inputMode="numeric" min={0} step={50} value={fee} onChange={(e) => setFee(Math.max(0, Math.round(Number(e.target.value) || 0)))} aria-label="Fee an appearance" style={{ textAlign: 'center', fontSize: 20 }} />
-              <button className="c-stepb" onClick={() => setFee(fee + 250)} aria-label="£250 more">+</button>
+              <button className="c-stepb" onClick={() => setFee(fee + step)} aria-label="More">+</button>
             </div>
+            <span className="c-val">{payWords({ fee, pay, promo, ...(dates ? { dates } : {}) })}</span>
             <div className="c-chips">{[[1, 'Market'], [2, '×2'], [5, '×5'], [10, '×10']].map(([m, l]) => <button key={String(l)} className={`c-chip${fee === Math.round(market * Number(m)) ? ' on' : ''}`} onClick={() => setFee(Math.round(market * Number(m)))}>{w(`${l} · £${Math.round(market * Number(m)).toLocaleString('en-GB')}`)}</button>)}</div>
             <span className="c-sec">{w('Length')}</span>
             <div className="c-chips">{LENGTHS.map((m) => <button key={m} className={`c-chip${m === months ? ' on' : ''}`} onClick={() => setMonths(m)}>{m} {w('months')}</button>)}</div>
@@ -187,7 +197,7 @@ function DealEditor({ who, initial, onCancel, onDone }: { who: Wrestler; initial
       </div>
       <div className="c-nav">
         <button className="c-b2" onClick={() => onDone(undefined)}>{w('As it is')}</button>
-        <button className="c-b1" onClick={() => onDone(free ? null : { promo, fee, months, clauses, ...(dates ? { dates } : {}), triggers: (['title', 'great', 'main', 'big'] as const).slice(0, triggerSlots(clauses[C.bonuses] ?? 0)) })}>{w('Use this deal')}</button>
+        <button className="c-b1" onClick={() => onDone(free ? null : { promo, fee, months, clauses, pay, ...(dates ? { dates } : {}), triggers: (['title', 'great', 'main', 'big'] as const).slice(0, triggerSlots(clauses[C.bonuses] ?? 0)) })}>{w('Use this deal')}</button>
       </div>
     </div>
   );
