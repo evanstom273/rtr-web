@@ -6,7 +6,7 @@
 // played (promos as a minigame, brawls as a mini match: segments.ts). Your rival acts between shows by who they are and
 // how they really feel about you. It can go wrong: cold feuds die, people get hurt, real fights, the office pulls it.
 // A feud pays: better matches, fans, money, a push. Everyone else's are on the Feuds screen, and you can get involved.
-import { findWrestler, globalScore, PROMOTIONS, TITLES, WRESTLERS, hasTrait, type Wrestler } from '../data/rtr';
+import { findWrestler, globalScore, PROMOTIONS, TITLES, WRESTLERS, hasTrait, type Title, type Wrestler } from '../data/rtr';
 import { hashSeed, seededRng, type Rng } from '../engine/rng';
 import { stipulation } from '../engine/stipulations';
 import type { StipulationId } from '../engine/types';
@@ -16,7 +16,8 @@ import { bondOf, likeOf } from '../world/people';
 import { moveRelation } from './relations';
 import { letter, person, setCareerHooks, setFeudRulesHook, spend } from './career';
 import { dealWith } from './deals';
-import { setCardHook, setFeudBoutHook } from './booker';
+import { HARDCORE_STIPS, setCardHook, setFeudBoutHook, setFeudTitleHook } from './booker';
+import { tierOf } from './clauses';
 import { multiBout } from './bouts';
 import { playerRuns } from './company';
 import { rateSegment, SEG_LABEL } from './card';
@@ -79,6 +80,57 @@ const myPromo = (c: Career): string | undefined => person(c, c.player).contract?
 const ahead = (c: Career, promo: string, from = c.today) => Object.values(c.shows).filter((s) => s.promo === promo && s.date > from && !s.done).sort((a, b) => (a.date < b.date ? -1 : 1));
 const big = (s: Show) => s.kind === 'special' || s.kind === 'flagship';
 
+// ------------------------------------------------------------------ title feuds (Lyra: a feud with a champion is for the title)
+
+const T = (id?: string): Title | undefined => (id ? TITLES.find((t) => t.id === id) : undefined);
+export const titleName = (f: Feud): string | undefined => T(f.title)?.name;
+/**
+ * The title a feud's over: one of them holds a singles title in its promotion (the biggest, if both do) that no other
+ * live feud is about, and the other could hold it (the same division). The belt goes on the line at the blow-off.
+ */
+export function titleAtStake(c: Career, f: Pick<Feud, 'id' | 'a' | 'b' | 'promo'>): string | undefined {
+  const p = PROMOTIONS.find((x) => x.initials === f.promo);
+  if (!p || f.promo === 'TIS') return undefined;
+  for (const id of p.titles) {
+    const t = T(id);
+    if (!t || t.retired || t.kind === 'tag' || t.kind === 'trios' || !t.holder || (t.holder !== f.a && t.holder !== f.b)) continue;
+    if (W(t.holder === f.a ? f.b : f.a)?.gender !== t.gender) continue;
+    if (c.feuds.some((x) => !x.done && x.id !== f.id && x.title === t.id)) continue;
+    return t.id;
+  }
+  return undefined;
+}
+/** Each day: a feud whose champion lost the belt elsewhere goes back to personal; one where someone's won a belt takes it on. */
+function syncTitle(c: Career, f: Feud): void {
+  if (f.title) {
+    const t = T(f.title);
+    if (t && (t.holder === f.a || t.holder === f.b)) return;
+    delete f.title;
+    feudBeat(c, f, `The ${t?.name ?? 'title'} is out of it now: it’s just personal`, 0);
+    if (mine(c, f)) letter(c, { kind: 'news', from: office(f.promo), subject: `You and ${nameOf(rivalOf(c, f))}: the title’s off the table`, body: [`The ${t?.name ?? 'title'} isn’t part of it any more. The feud carries on: it’s just personal now.`] });
+  }
+  const id = titleAtStake(c, f);
+  if (!id) return;
+  f.title = id;
+  const t = T(id)!;
+  feudBeat(c, f, `The ${t.name} is on the line at the blow-off`, STORY.title / 2);
+  if (mine(c, f)) letter(c, { kind: 'news', from: office(f.promo), subject: `You and ${nameOf(rivalOf(c, f))}: for the ${t.name}`, body: [`${t.holder === c.player ? 'You’re the champion now, so' : `${nameOf(t.holder!)} is the champion now, so`} the ${t.name} goes on the line when it blows off.`] });
+}
+/**
+ * A title feud's blow-off (the title match the booker books): the story picks the winner, and the title's own rhythm
+ * has a say (a new champion tends to keep it, a long reign tends to end), more the story's the hotter it is.
+ * Your contract's protection for a new champion stands.
+ */
+function feudTitle(c: Career, f: Feud, show: Show, champ: string, challenger: string, retain: number): Pick<Bout, 'planned' | 'stip' | 'stakes'> | undefined {
+  if (!on()) return undefined;
+  const r = rngOf(c, 'title', f.id, show.id);
+  const w = Math.min(0.9, FEUD.titleStory + feudHeat(f) / FEUD.titleHeatDiv);
+  const keep = retain >= 0.98 ? retain : w * (blowoffWinner(c, f) === champ ? 1 : 0) + (1 - w) * retain;
+  const stip = stipFor(f, true, r);
+  const stakes = f.called?.stakes && f.called.stakes !== 'contendership' ? f.called.stakes : undefined;
+  return { planned: r() < keep ? champ : challenger, ...(stip ? { stip } : {}), ...(stakes ? { stakes: { kind: stakes } } : {}) };
+}
+
 /** Set (or move) the blow-off: the first big show at least `days` out, else any show that far out. */
 export function setPayoff(c: Career, f: Feud, days: number = FEUD.payoffWeeks * 7, why = 'Building to'): Show | undefined {
   const far = (s: Show) => daysBetween(c.today, s.date) >= days;
@@ -104,7 +156,8 @@ function advance(c: Career, f: Feud): void {
     if (!pay || daysBetween(c.today, pay.date) < 14) setPayoff(c, f, FEUD.payoffWeeks * 7, 'The blow-off: ');
     feudBeat(c, f, 'It’s personal now', 5);
     const p = f.payoff ? c.shows[f.payoff] : undefined;
-    if (mine(c, f)) letter(c, { kind: 'news', from: office(f.promo), subject: `You and ${nameOf(rivalOf(c, f))}: it’s personal now`, body: [p ? `The blow-off is set for ${p.name}. Until then: nastier matches, and anything goes.` : 'The blow-off goes on a big show as soon as there’s one far enough off.'] });
+    const tn = titleName(f);
+    if (mine(c, f)) letter(c, { kind: 'news', from: office(f.promo), subject: `You and ${nameOf(rivalOf(c, f))}: it’s personal now`, body: [p ? `The blow-off is set for ${p.name}${tn ? `, with the ${tn} on the line` : ''}. Until then: nastier matches, and anything goes.` : `The blow-off goes on a big show as soon as there’s one far enough off${tn ? `, with the ${tn} on the line` : ''}.`] });
   } else if (st === 'escalation' && pay && daysBetween(c.today, pay.date) <= 7) {
     // Too hot to end: the booker puts it back to the next big show (a couple of times at most), unless you called it.
     if (heat >= FEUD.extendAt && (f.ext ?? 0) < FEUD.extendMax && !f.called) {
@@ -146,6 +199,8 @@ export const oldFeud = (c: Career, id: string) => (activeWorld().history.feuds ?
 function makeFeud(c: Career, promo: string, rival: string, how: NonNullable<Feud['how']>, heat = 0): Feud {
   const old = oldFeud(c, rival);
   const f: Feud = { id: `f${++c.seq}`, promo, a: c.player, b: rival, start: c.today, payoff: null, matches: 0, done: false, stage: 'spark', how: old && how === 'organic' ? 'reignited' : how, moments: [], wins: {} };
+  const title = titleAtStake(c, f);
+  if (title) f.title = title;
   feudHeat(f);
   if (heat) f.heat = clampHeat(f.heat! + heat);
   if (old) feudBeat(c, f, `It started back in ${old.start.slice(0, 4)}, and it never really ended`, FEUD.reignite);
@@ -173,7 +228,8 @@ export function startFeud(c: Career, rival: string, how: StartHow): string {
     feudBeat(c, f, how === 'attack' ? `You’re going to jump ${r.name}` : `You’re taking the mic on ${r.name}`, 0);
   }
   moveRelation(c, rival, -3, 'You started a feud with them');
-  return `It’s on: you and ${r.name}.${how !== 'callout' && next ? ` ${how === 'attack' ? 'You jump them' : 'You cut the promo'} on ${next.name}.` : ''}`;
+  const tn = titleName(f);
+  return `It’s on: you and ${r.name}.${how !== 'callout' && next ? ` ${how === 'attack' ? 'You jump them' : 'You cut the promo'} on ${next.name}.` : ''}${tn ? ` The ${tn} is on the line at the blow-off.` : ''}`;
 }
 
 /** The ways a feud comes to you: the booker hands you one, one grows out of something, or a rival comes for you. */
@@ -310,17 +366,24 @@ export function bookFeudBout(c: Career, f: Feud, show: Show, free: (id: string) 
   };
 }
 setFeudBoutHook(bookFeudBout);
+setFeudTitleHook(feudTitle);
 
 /** You call the blow-off: the next big show at least two weeks off, with the stakes and stipulation you want. */
 export const CALL_STAKES: StakeKind[] = ['loser_leaves', 'hair', 'mask', 'contendership'];
-export const CALL_STIPS: StipulationId[] = ['street_fight', 'last_man_standing', 'steel_cage', 'i_quit', 'falls_count_anywhere', 'no_dq'];
+export const CALL_STIPS: StipulationId[] = ['street_fight', 'last_man_standing', 'steel_cage', 'i_quit', 'falls_count_anywhere', 'no_dq', 'iron_man', 'two_out_of_three', 'submission'];
 export function callBlowoff(c: Career, stakes?: StakeKind, stip?: StipulationId): string {
   const f = myFeud(c);
   if (!f) return 'You’re not in a feud.';
   if (stageOf(f) === 'spark') return 'It hasn’t got going yet: the crowd needs a reason to care first.';
   if (f.called) return 'You’ve called it already.';
   if (stakes === 'mask' && !(W(c.player)?.masked && W(rivalOf(c, f))?.masked)) return 'Mask against mask needs two masks.';
+  if (stakes === 'contendership' && f.title) return `The ${titleName(f) ?? 'title'}’s already on the line.`;
   const them = W(rivalOf(c, f));
+  // Match Conditions (no hardcore stipulations) in either contract rules it out.
+  if (stip && HARDCORE_STIPS.has(stip)) {
+    const no = [c.player, rivalOf(c, f)].find((id) => tierOf(dealWith(c.people[id], f.promo), 'conditions') >= 1);
+    if (no) return `${no === c.player ? 'Your' : `${nameOf(no)}’s`} contract rules out a ${stipulation(stip).name.toLowerCase()}. Pick another way to settle it.`;
+  }
   if (stip && hardcoreStip(stip) && them && willing(them) < 0) return `${them.name} won’t do a ${stipulation(stip).name.toLowerCase()}. Pick another way to settle it.`;
   f.called = { ...(stakes ? { stakes } : {}), ...(stip ? { stip } : {}) };
   const pay = setPayoff(c, f, 14, 'You called it: the blow-off at');
@@ -500,7 +563,7 @@ function blowoff(c: Career, f: Feud, show: Show, b: Bout, victor?: string): void
     const w = W(id);
     if (w?.fans) w.fans[show.region] = Math.round(w.fans[show.region] * (1 + (heat / 100) * (id === victor ? FEUD.blowoffWin : FEUD.blowoffLose)));
   }
-  feudBeat(c, f, `The blow-off at ${show.name}: ${victor ? nameOf(victor) : 'nobody'} won, ${stars}★`, 0);
+  feudBeat(c, f, `The blow-off at ${show.name}${b.title ? ` for the ${T(b.title)?.name ?? 'title'}` : ''}: ${victor ? nameOf(victor) : 'nobody'} won, ${stars}★`, 0);
   f.ended = 'blowoff'; f.done = true;
   if (!mine(c, f)) return;
   const k = dealWith(person(c, c.player), f.promo);
@@ -509,11 +572,12 @@ function blowoff(c: Career, f: Feud, show: Show, b: Bout, victor?: string): void
   const p = person(c, c.player);
   const won = victor === c.player;
   p.rep = Math.min(100, p.rep + Math.round((heat / 100) * (won ? FEUD.pushWin : FEUD.pushLose)));
-  const shot = won && heat >= FEUD.shotAt ? titleShot(c, f.promo) : undefined;
+  const tn = b.title ? T(b.title)?.name : undefined;
+  const shot = won && heat >= FEUD.shotAt && !tn ? titleShot(c, f.promo) : undefined;
   letter(c, {
     kind: 'news', from: office(f.promo), subject: `That’s the end of you and ${nameOf(rivalOf(c, f))}`,
     body: [
-      `${feudWord(heat)} by the end: the blow-off went ${stars}★. ${won ? 'You went over.' : `${nameOf(rivalOf(c, f))} went over.`}`,
+      `${feudWord(heat)} by the end: the blow-off went ${stars}★. ${won ? `You went over${tn ? `, and the ${tn} is yours` : ''}.` : `${nameOf(rivalOf(c, f))} went over${tn ? ` with the ${tn}` : ''}.`}`,
       ...(bonus ? [`There’s a feud bonus of £${bonus.toLocaleString('en-GB')} for drawing the way it did.`] : []),
       ...(shot ? [`The office wants you in the title picture: a shot at the ${shot} is coming.`] : [won && heat >= 50 ? 'You’ve moved up the card.' : '']),
     ].filter(Boolean),
@@ -649,6 +713,7 @@ setCareerHooks({
         f.how = 'booker'; f.stage ??= f.payoff ? 'building' : 'spark';
         letter(c, { kind: 'news', from: office(f.promo), subject: `A storyline: you and ${nameOf(rivalOf(c, f))}`, body: [`The office has you in a feud with ${nameOf(rivalOf(c, f))}${f.title ? ` over the ${TITLES.find((t) => t.id === f.title)?.name}` : ''}.`] });
       }
+      syncTitle(c, f);
       advance(c, f);
       if (mine(c, f)) rivalMoves(c, f);
       goingWrong(c, f);
@@ -697,7 +762,8 @@ setCalloutHook((c, id, kind) => {
 /** For the screens: your feud's rival, heat and where it pays off. */
 export function feudLine(c: Career, f: Feud): string {
   const pay = f.payoff ? c.shows[f.payoff] : undefined;
-  return `${nameOf(mine(c, f) ? rivalOf(c, f) : f.a)}${mine(c, f) ? '' : ` vs ${nameOf(f.b)}`} · ${feudWord(feudHeat(f))} (${feudHeat(f)})${pay ? ` · blow-off: ${pay.name}` : ''}`;
+  const tn = titleName(f);
+  return `${nameOf(mine(c, f) ? rivalOf(c, f) : f.a)}${mine(c, f) ? '' : ` vs ${nameOf(f.b)}`}${tn ? ` · for the ${tn}` : ''} · ${feudWord(feudHeat(f))} (${feudHeat(f)})${pay ? ` · blow-off: ${pay.name}` : ''}`;
 }
 /** Each side's record over the feud. */
 export const record = (f: Feud): string => `${nameOf(f.a)} ${f.wins?.[f.a] ?? 0}, ${nameOf(f.b)} ${f.wins?.[f.b] ?? 0}`;

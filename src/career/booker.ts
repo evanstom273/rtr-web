@@ -301,7 +301,7 @@ export function refreshFeuds(c: Career, show: Show, roster: readonly Wrestler[])
     const since = ts?.last ?? ts?.since;
     if (since && daysBetween(since, show.date) < TITLE_RHYTHM.world.target - FEUD_WEEKS[1] * 7) continue;
     const champ = findWrestler(t.holder);
-    if (!champ) continue;
+    if (!champ || (feudBoutHook && busy.has(champ.id))) continue;
     const top = contenders(c, t, pool, region, show.date).find((w) => !busy.has(w.id) && !(w.id === c.player && heated(c, show)));
     const payoff = payoffFor();
     if (!top || !payoff) continue;
@@ -354,6 +354,9 @@ export function sinceLastDefence(c: Career, titleId: string, show: Show): number
  */
 let feudBoutHook: ((c: Career, f: Feud, show: Show, free: (id: string) => boolean) => Bout | null | undefined) | null = null;
 export const setFeudBoutHook = (f: typeof feudBoutHook): void => { feudBoutHook = f; };
+/** Feuds: a title feud's blow-off (the belt on the line): who's booked to win, and its stipulation and stakes. */
+let feudTitleHook: ((c: Career, f: Feud, show: Show, champ: string, challenger: string, retain: number) => Pick<Bout, 'planned' | 'stip' | 'stakes'> | undefined) | null = null;
+export const setFeudTitleHook = (f: typeof feudTitleHook): void => { feudTitleHook = f; };
 
 /** A card's been drawn up: clauses that shape it (Creative Control's protected stars) run here. Set by creative.ts. */
 let cardHooks: ((c: Career, show: Show, card: Bout[]) => void)[] = [];
@@ -561,8 +564,10 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
     if (!challenger || !free(challenger.id) || (challenger.id !== c.player && !pool.some((w) => w.id === challenger!.id))) continue;
     if (challenger.id === c.player && !wantMe) continue;
     take(champ.id); take(challenger.id);
-    const planned = rnd() < planRetainWith(c, t.id, show, champ.id, challenger.id) ? champ.id : challenger.id;
-    card.push({ a: champ.id, b: challenger.id, title: t.id, planned, ...(feud ? { feud: feud.id } : {}) });
+    // A title feud's blow-off: the story picks the winner, the title's rhythm has a say (feuds.ts).
+    const fx = feud && feudTitleHook ? feudTitleHook(c, feud, show, champ.id, challenger.id, planRetainWith(c, t.id, show, champ.id, challenger.id)) : undefined;
+    const planned = fx?.planned ?? (rnd() < planRetainWith(c, t.id, show, champ.id, challenger.id) ? champ.id : challenger.id);
+    card.push({ a: champ.id, b: challenger.id, title: t.id, planned, ...(feud ? { feud: feud.id } : {}), ...(fx?.stip ? { stip: fx.stip } : {}), ...(fx?.stakes ? { stakes: fx.stakes } : {}) });
   }
 
   // A match the booker promised you (Requests): the opponent you asked for, or the one they offered.
@@ -579,7 +584,8 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
   }
 
   // Feuds on this promotion: their next match, if both are here.
-  for (const f of c.feuds.filter((x) => x.promo === show.promo && !x.done && !x.title)) {
+  // Title feuds too, when the feud hook books (their blow-off is the title match, above).
+  for (const f of c.feuds.filter((x) => x.promo === show.promo && !x.done && (!x.title || (!!feudBoutHook && x.payoff !== show.id)))) {
     if (card.length >= size) break;
     const here = (id: string) => free(id) && (id === c.player ? wantMe : pool.some((w) => w.id === id));
     if (!here(f.a) || !here(f.b)) continue;
@@ -589,6 +595,7 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
       if (fb === null) continue;
       if (fb) { for (const id of boutPeople(fb)) take(id); card.push(fb); continue; }
     }
+    if (f.title) continue;
     const payoff = f.payoff === show.id;
     if (!payoff && rnd() < 0.4) continue; // feuds don't wrestle every week; they build
     take(f.a); take(f.b);

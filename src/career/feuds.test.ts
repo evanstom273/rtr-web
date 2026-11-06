@@ -1,13 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { begin as kitBegin, day } from './testkit';
-import { findWrestler, WRESTLERS } from '../data/rtr';
+import { findWrestler, PROMOTIONS, TITLES, WRESTLERS } from '../data/rtr';
 import { runHeadless } from '../engine/sim/runHeadless';
 import type { MatchRulesConfig } from '../engine/types';
 import { activeWorld } from '../world/world';
 import { boutRules } from './career';
-import { bookFeudBout, callBlowoff, feudHeat, feudBeat, moment, myFeud, rivalsFor, segmentToday, stageOf, startFeud } from './feuds';
+import { bookShow } from './booker';
+import { bookFeudBout, callBlowoff, feudHeat, feudBeat, moment, myFeud, rivalsFor, segmentToday, stageOf, startFeud, titleAtStake } from './feuds';
 import { deliver, exchange, finishSegment, newBrawl, newPromo, planFor, promoOptions } from './segments';
 import { replyTo } from './mail';
+import { C } from './clauses';
 import { FEATURES } from './tuning';
 import type { Career, Show } from './types';
 
@@ -88,6 +90,13 @@ describe('feuds, rebuilt', () => {
     const f = myFeud(c)!;
     expect(callBlowoff(c, 'loser_leaves', 'last_man_standing')).toMatch(/hasn’t got going/);
     f.stage = 'building';
+    // Match Conditions (no hardcore) in a contract rules it out.
+    const mine = c.people[c.player]!.contract!.clauses;
+    mine[C.conditions] = 1;
+    expect(callBlowoff(c, 'loser_leaves', 'last_man_standing')).toMatch(/contract rules out/);
+    mine[C.conditions] = 0;
+    const theirs = c.people[f.a === c.player ? f.b : f.a]?.contract?.clauses;
+    if (theirs) theirs[C.conditions] = 0;
     expect(callBlowoff(c, 'loser_leaves', 'last_man_standing')).toMatch(/Done/);
     expect(f.called?.stip).toBe('last_man_standing');
     expect(stageOf(f)).toBe('escalation');
@@ -144,6 +153,52 @@ describe('feuds, rebuilt', () => {
     expect(f.ended).toBe('cold');
   });
 
+  it('a feud with a champion is for the title: not the matches building to it, the blow-off', async () => {
+    const c = begin('buck_stratton', 7);
+    const promo = c.people[c.player]!.contract!.promo;
+    const t = TITLES.find((x) => x.id === PROMOTIONS.find((p) => p.initials === promo)!.titles[0])!;
+    const champ = t.holder!;
+    for (const f of c.feuds) if (!f.done && (f.a === champ || f.b === champ || f.a === c.player || f.b === c.player)) f.done = true;
+    expect(startFeud(c, champ, 'callout')).toMatch(new RegExp(`${t.name} is on the line`));
+    const f = myFeud(c)!;
+    expect(f.title).toBe(t.id);
+    // The build-up: non-title.
+    f.stage = 'building';
+    const shows = Object.values(c.shows).filter((s) => s.promo === promo && s.date > c.today && !s.done).sort((a, b) => (a.date < b.date ? -1 : 1));
+    let bout: ReturnType<typeof bookFeudBout> = null;
+    for (let i = 0; i < 12 && !bout; i++) bout = bookFeudBout(c, f, { ...shows[0]!, id: `${shows[0]!.id}t${i}`, kind: 'flagship' }, () => false);
+    expect(bout?.title).toBeUndefined();
+    // The blow-off: the booker's title match, with the feud on it and the stipulation you called.
+    f.stage = 'escalation'; f.called = { stip: 'iron_man' };
+    let found: NonNullable<Show['card']>[number] | undefined;
+    for (const s of shows.slice(0, 8)) {
+      for (const x of Object.values(c.shows)) if (x.card) x.card = x.card.filter((b) => b.title !== t.id || !!b.result);
+      f.payoff = s.id;
+      found = bookShow(c, s, WRESTLERS).find((b) => b.title === t.id && b.feud === f.id);
+      if (found) break;
+    }
+    expect(found).toBeTruthy();
+    expect(found!.stip).toBe('iron_man');
+    expect([champ, c.player]).toContain(found!.planned);
+    // The champion drops the belt somewhere else: it's just personal now.
+    t.holder = WRESTLERS.find((w) => w.id !== champ && w.id !== c.player && w.gender === t.gender)!.id;
+    await day(c);
+    expect(f.title).not.toBe(t.id);
+    expect(c.letters.some((l) => /title’s off the table/.test(l.subject))).toBe(true);
+  });
+
+  it('you as champion: a feud with you is a defence at the blow-off', () => {
+    const c = begin('buck_stratton', 9);
+    const promo = c.people[c.player]!.contract!.promo;
+    const t = TITLES.find((x) => x.id === PROMOTIONS.find((p) => p.initials === promo)!.titles[0])!;
+    for (const f of c.feuds) if (!f.done && f.title === t.id) f.done = true;
+    t.holder = c.player;
+    const rival = rivalsFor(c).find((w) => w.gender === t.gender)!;
+    expect(titleAtStake(c, { id: '', a: c.player, b: rival.id, promo })).toBe(t.id);
+    startFeud(c, rival.id, 'promo');
+    expect(myFeud(c)!.title).toBe(t.id);
+  });
+
   it('a few months of the world: feuds run through their stages, wrestle more than once, end, and are remembered', async () => {
     const c = begin('jamie_mercer', 11);
     for (let i = 0; i < 150; i++) await day(c);
@@ -152,6 +207,8 @@ describe('feuds, rebuilt', () => {
     expect(log.length).toBeGreaterThan(0);
     expect(log.some((x) => x.matches >= 2)).toBe(true);
     expect(H.shows.flatMap((s) => s.segs ?? []).length).toBeGreaterThan(10);
+    // Title feuds get the full feud too: matches building to the title match.
+    expect(log.some((x) => x.title && x.matches >= 2)).toBe(true);
     void moment; void feudHeat;
   }, 300_000);
 });
