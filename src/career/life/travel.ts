@@ -74,8 +74,12 @@ export function tripFatigue(c: Career, to: Place & { id?: string }): number {
     return PB.fly[flyClass(c, to.id)].fatigue;
   }
   const v = roadVehicle(c);
+  // On the bus, or driven: you sleep through it.
+  if (v && (v.tier === 'tour_bus' || driven(c))) return 0;
   return Math.max(0, PB.trip[b].fatigue + (v ? PB.vehicles[v.tier].fatigue : 0));
 }
+/** A driver (personal staff) drives your car. */
+const driven = (c: Career): boolean => on('staff') && !!c.life?.staff?.some((s) => s.role === 'driver');
 
 /** A jet (or a chartered one) gets you there in half a day each way. */
 export const fastAbroad = (c: Career, showId?: string): boolean => !!jetOf(c) || PB.fly[flyClass(c, showId)].fast;
@@ -96,7 +100,7 @@ export function legHalves(c: Career, from: Place, to: Place, day: Day, after: bo
   return [[d, 'am'], [d, 'pm']];
 }
 
-/** On the bus (or driven), a road trip's half-days count as rest. */
-export const restOnTheRoad = (c: Career): boolean => roadVehicle(c)?.tier === 'tour_bus';
+/** On the bus (or with a driver), a road trip's half-days count as rest. */
+export const restOnTheRoad = (c: Career): boolean => { const v = roadVehicle(c); return !!v && (v.tier === 'tour_bus' || driven(c)); };
 
 export { life };

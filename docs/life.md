@@ -123,3 +123,43 @@ The flash star can't get a mansion: the deposit and the 4.5× limit stop them. G
 (stage 2) and bad luck (stage 7).
 
 Perf: unchanged (88–95 ms a simulated match; world 1.9 MB).
+
+## Stage 2: staff, medical, entrances
+
+Code: `career/life/staff.ts`; the engine's `rules.entrance` (heat at the bell and the entrance line, only when someone's
+paid for one, so the golden singles record doesn't move); the Life tab's "Your team".
+
+### Personal staff (wages on the 1st, × where you live)
+
+| Who | A month | What they do |
+|---|---|---|
+| Physio | £3,000 | Time out injured −20%; wear fades 1.5× faster |
+| Doctor | £7,500 | Injuries 15% less likely; time out −15% |
+| Personal trainer | £2,500 | Training gains +15% |
+| Nutritionist | £1,800 | Fatigue recovery +10% |
+| PA | £2,400 | Answers routine letters by your standing orders every day; a note each Monday |
+| Driver | £2,600 | Road trips cost no fatigue and count as rest (crash risk comes in stage 7) |
+| Publicist | £4,000 | Fan growth +8% |
+
+### Medical
+
+- A private surgeon (out a week or more): £8,000–£40,000 by how long you've got left; back 30% sooner.
+- A week in a rehab clinic: £2,000; back 25% sooner.
+- The recovery kit at home (cryo, hyperbaric): £45,000 and £400 a month; wear fades 1.3× faster, recovery +5%.
+
+### Entrances
+
+Your entrance sets the crowd's heat at the bell (it starts at 35, or 45 for a title), at most +15, and gets its own
+moment in the commentary ("The lights go down. The music hits, the pyro goes off, and here comes…").
+
+| Kit | Cost | Heat |
+|---|---|---|
+| Your own theme | £6,000 once | +2 |
+| Entrance video (not on the indies) | £15,000 once | +2 |
+| Gear: decent / custom / show-stopping | £800 / £3,500 / £12,000 | +1 / +2 / +3 |
+| Pyro | £3,000 a show | +4 |
+| A big set piece | £25,000 a show | +8 |
+
+Pyro only at the top of the card (the main event or a title match), or anywhere with the contract's new "Entrance &
+production" term (it costs the promotion about 3% of your fee to agree to). A set piece only on a flagship or special,
+at the top of the card. You pay for each show's pyro and set after the match.

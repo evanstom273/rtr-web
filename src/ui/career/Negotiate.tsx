@@ -25,7 +25,7 @@ export function Negotiate({ c, offerId, onBack, onDone }: Props) {
   const { skin, w } = useWords();
   const [toast, say] = useToast();
   const o = c.offers.find((x) => x.id === offerId);
-  const [p, setP] = useState<Proposal>(() => ({ fee: o?.fee ?? 0, months: o?.months ?? 12, clauses: [...(o?.clauses ?? [])], ...(o?.dates ? { dates: o.dates } : {}), triggers: [...(o?.triggers ?? [])] }));
+  const [p, setP] = useState<Proposal>(() => ({ fee: o?.fee ?? 0, months: o?.months ?? 12, clauses: [...(o?.clauses ?? [])], ...(o?.dates ? { dates: o.dates } : {}), triggers: [...(o?.triggers ?? [])], ...(o?.entrance ? { entrance: true } : {}) }));
   const [pkg, setPkg] = useState<PackageId | 'custom'>(o?.pkg ?? 'custom');
   const [lines, setLines] = useState<number[]>(() => o?.lines ?? CLAUSES.map(() => 0));
   if (!o) return null;
@@ -54,7 +54,7 @@ export function Negotiate({ c, offerId, onBack, onDone }: Props) {
     o.lines = lines;
     o.pkg = pkg === 'custom' ? undefined : pkg;
     const r = propose(c, o, p);
-    if (r === 'counter') setP({ fee: o.fee, months: o.months, clauses: [...o.clauses], ...(o.dates ? { dates: o.dates } : {}), triggers: [...(o.triggers ?? [])] });
+    if (r === 'counter') setP({ fee: o.fee, months: o.months, clauses: [...o.clauses], ...(o.dates ? { dates: o.dates } : {}), triggers: [...(o.triggers ?? [])], ...(o.entrance ? { entrance: true } : {}) });
     commit();
   };
   const sign = () => {
@@ -90,6 +90,15 @@ export function Negotiate({ c, offerId, onBack, onDone }: Props) {
         <div className="c-modes" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
           {CONTRACT_MONTHS.map((n) => <button key={n} className={p.months === n ? 'c-mode on' : 'c-mode'} style={{ minHeight: 40 }} onClick={() => setP({ ...p, months: n })}><b>{n} {w('mo')}</b></button>)}
         </div>
+        {on('staff') && (
+          <>
+            <span className="c-lab">{w('Entrance & production')}</span>
+            <div className="c-chips">
+              <button className={`c-chip${p.entrance ? ' on' : ''}`} onClick={() => setP({ ...p, entrance: !p.entrance || undefined })}>{p.entrance ? 'Pyro on any show: yes' : 'Pyro on any show: no'}</button>
+            </div>
+            <span className="c-note">Pyro and production wherever you are on the card (you pay for it; it costs them about 3% of the fee to allow). Without it, only at the top of the card.</span>
+          </>
+        )}
         {datesOn && (
           <>
             <span className="c-lab">{w('Dates a month')}</span>

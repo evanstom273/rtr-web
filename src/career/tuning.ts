@@ -732,7 +732,7 @@ export const SHIPPED_RETIRE_YOUNGER = 3;
 /** Match overhaul (tag teams, multi-mans, battle royals, Rumbles, the new stipulations): off until Lyra approves. */
 export const FEATURES = { livingCosts: true, social: true, days: true, jobs: true, skip: true, mail: true, hustles: true, history: true, phone: true, booker: true, matches: true, life: true };
 /** Life (things to buy, own, run and lose): each part switches on as it's built. `on(part)` in career/life/state.ts. */
-export const LIFE_PARTS = { homes: true, money: true, staff: false, invest: false, ai: false, school: false, status: false, family: false, risk: false, after: false };
+export const LIFE_PARTS = { homes: true, money: true, staff: true, invest: false, ai: false, school: false, status: false, family: false, risk: false, after: false };
 
 /**
  * Pay (Lyra's call: how many dates you get decides your income). A major promotion's weekly-show fee:
@@ -1424,6 +1424,27 @@ export const PRICE_BOOK = {
   credit: { start: 60, onTime: 1, missed: 5, repossessed: 30, good: 70, poor: 40 },
   /** Three missed payments in a row and it's taken, sold at this share of what it's worth. */
   repossess: { missed: 3, at: 0.8 },
+  /** Personal staff: a month's wage (× where you live) and what they do. */
+  staff: {
+    physio: { name: 'Physio', wage: 3_000, does: 'Time out injured −20%; wear on your body fades 1.5× faster' },
+    doctor: { name: 'Doctor', wage: 7_500, does: 'Injuries 15% less likely; time out −15%' },
+    trainer: { name: 'Personal trainer', wage: 2_500, does: 'Training gains +15%' },
+    nutritionist: { name: 'Nutritionist', wage: 1_800, does: 'You shake off fatigue 10% faster' },
+    pa: { name: 'PA', wage: 2_400, does: 'Answers routine letters your way (your standing orders), every day' },
+    driver: { name: 'Driver', wage: 2_600, does: 'Road trips count as rest; crash risk −60%' },
+    publicist: { name: 'Publicist', wage: 4_000, does: 'Fan growth +8%; bad press handled' },
+  },
+  /** Medical: a private surgeon (by how long you're out), a rehab clinic (a week), the recovery kit at home. */
+  medical: { surgeon: [8_000, 40_000] as [number, number], surgeonCut: 0.3, clinicWeek: 2_000, clinicCut: 0.25, kit: { price: 45_000, monthly: 400, wear: 1.3, recovery: 1.05 } },
+  /** Entrances: kit you own (heat at the bell), per-show pyro and sets; at most +15. */
+  entrance: {
+    theme: { name: 'Your own theme', price: 6_000, heat: 2 },
+    video: { name: 'Entrance video', price: 15_000, heat: 2 },
+    gear: [{ name: 'Decent gear', price: 800, heat: 1 }, { name: 'Custom gear', price: 3_500, heat: 2 }, { name: 'Show-stopping gear', price: 12_000, heat: 3 }],
+    pyro: { name: 'Pyro', cost: 3_000, heat: 4 },
+    set: { name: 'A big set piece', cost: 25_000, heat: 8 },
+    max: 15,
+  },
 } as const;
 
 /** Each city's price, on top of its region's cost index (Life: homes, rent, wages). Anywhere unlisted is 1. */

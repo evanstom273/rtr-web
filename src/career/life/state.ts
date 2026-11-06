@@ -17,6 +17,7 @@ export type VehicleTier = keyof typeof PB.vehicles;
 export type FlyClass = keyof typeof PB.fly;
 export type AgentTier = keyof typeof PB.agents;
 export type LoanKind = keyof typeof PB.loans;
+export type StaffRole = keyof typeof PB.staff;
 
 export interface Home {
   id: string;
@@ -77,6 +78,14 @@ export interface LifeState {
   bust?: Day;
   /** Take mates along in the van or on the bus (they chip in; bonds grow on the road). */
   crewOn?: boolean;
+  /** Personal staff on the payroll. */
+  staff?: { role: StaffRole; name: string; since: Day }[];
+  /** The recovery kit at home (cryo, hyperbaric). */
+  kit?: boolean;
+  /** What the PA's handled since their last note. */
+  paLog?: string[];
+  /** Entrance: the kit you own, and whether you use pyro and sets where they're allowed. */
+  gear?: { theme?: boolean; video?: boolean; gear?: 0 | 1 | 2 | 3; pyro?: boolean; set?: boolean };
   seq: number;
 }
 

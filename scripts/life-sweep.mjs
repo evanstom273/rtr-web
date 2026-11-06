@@ -44,7 +44,7 @@ for (const skin of ['broadcast', 'paper', 'building'].filter((s) => !ONLY || s =
     if (navCheck.sideways) fails.push(`${tag}: hub scrolls sideways`);
     await p.screenshot({ path: `${SP}/${skin}-${vn}-hub.png` });
     await nav.getByRole('button', { name: /^life$/i }).click(); await wait(800);
-    const sections = { home: false, about: false, money: false };
+    const sections = { home: false, about: false, team: false, money: false };
     sections.home = (await p.getByText(/you live in/i).count()) > 0;
     await p.screenshot({ path: `${SP}/${skin}-${vn}-life-home.png`, fullPage: true });
     // Buy a house on a mortgage.
@@ -57,6 +57,13 @@ for (const skin of ['broadcast', 'paper', 'building'].filter((s) => !ONLY || s =
     await p.locator('.c-ans').filter({ hasText: /^Decent car/ }).first().getByRole('button', { name: /^cash$/i }).click(); await wait(500);
     if (!(await p.getByText(/your garage/i).count())) fails.push(`${tag}: buying a car didn't land`);
     await p.screenshot({ path: `${SP}/${skin}-${vn}-life-about.png`, fullPage: true });
+    await p.getByRole('button', { name: /^your team$/i }).click(); await wait(500);
+    sections.team = (await p.getByText(/personal staff/i).count()) > 0;
+    await p.locator('.c-ans').filter({ hasText: /^Physio/ }).first().getByRole('button', { name: /^hire$/i }).click(); await wait(400);
+    if (!(await p.locator('.c-ans').filter({ hasText: /^Physio ·/ }).count())) fails.push(`${tag}: hiring a physio didn't land`);
+    await p.getByRole('button', { name: /your own theme/i }).click(); await wait(400);
+    if (!(await p.getByText(/your own theme/i).count())) fails.push(`${tag}: buying a theme didn't land`);
+    await p.screenshot({ path: `${SP}/${skin}-${vn}-life-team.png`, fullPage: true });
     await p.getByRole('button', { name: /^money$/i }).click(); await wait(500);
     sections.money = (await p.getByText(/credit and borrowing/i).count()) > 0;
     const hire = p.locator('.c-ans').filter({ hasText: /Local agent/ }).first();

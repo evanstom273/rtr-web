@@ -707,6 +707,8 @@ export interface MatchRulesConfig {
   champion?: SideKey;
   /** Lasting damage (match overhaul): each side's body-part health to start on, from the wear of matches gone by. */
   wear?: Partial<Record<SideKey, Partial<Record<BodyPart, number>>>>;
+  /** Life: someone's entrance (theme, video, gear, pyro, a set): the crowd's heat at the bell, and the moment itself. */
+  entrance?: { side: SideKey; heat: number; what: string };
   /** Tag rules: one legal man a team, the rest on the apron until tagged in (tag, handicap, elimination tag). */
   tag?: boolean;
   /** Established teams' finishers, by team index. */

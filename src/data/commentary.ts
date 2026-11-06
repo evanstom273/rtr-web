@@ -14,6 +14,7 @@ import type { SetupId } from '../engine/types';
 export const LINES = {
   bell: '<g>The bell rings.</g> {a} and {d} square up in the centre of the ring.',
   intro: '{event}, {venue}.',
+  entrance: '<g>The lights go down.</g> {what}, and here comes {a}. The place is up for it.',
   titleOnLine: ' The {title} is on the line.',
 
   clean: '{a} plants {d} with {m}.',
@@ -546,6 +547,7 @@ export const RATING = {
   },
   recap: {
     intro: '{event}, {venue}.',
+  entrance: '<g>The lights go down.</g> {what}, and here comes {a}. The place is up for it.',
     title: ' The {title} was on the line.',
     heatSeg: '{dom} took over the middle of the match{tail}.',
     heatSegLimb: ", going after {vic}'s {part}",

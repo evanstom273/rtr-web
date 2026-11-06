@@ -143,6 +143,8 @@ export interface Contract {
   end: Day;
   /** Life: signed through your agent (they take their cut of it). */
   agent?: boolean;
+  /** Life: pyro and production on any show you're on, wherever you are on the card. */
+  entrance?: boolean;
   /** Weekly-show fee; specials and flagships multiply it. */
   fee: number;
   /** Tier 0–3 for each of the 25 clauses, in CLAUSES order (clauses.ts). */
@@ -342,6 +344,8 @@ export interface Offer {
   courtesy?: string;
   /** Life: your agent has handled this one. */
   agent?: boolean;
+  /** Life: the entrance term (pyro and production on any show). */
+  entrance?: boolean;
   /** Walk-away lines: the lowest tier you'll accept on each clause. */
   lines?: number[];
 }

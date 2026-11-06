@@ -5,6 +5,7 @@ import { addGym, billsOf, BUY_TIERS, buyHome, buyPrice, cancelSale, homeName, ho
 import { canBorrow, creditWord, depositFor, monthlyFor, payOff, rateFor } from '../../career/life/loans';
 import { AGENT_TIERS, agentTakes, fireAgent, hireAgent } from '../../career/life/money';
 import { cityPrice, countryOfCity, life, liveHome, on, type FlyClass } from '../../career/life/state';
+import { buyGear, buyKit, clinicOffer, goToClinic, hire, letGo, seeSurgeon, setGearUse, STAFF_ROLES, surgeonOffer, wageOf } from '../../career/life/staff';
 import { CITIES, REGION_LABEL, regionOfCountry } from '../../career/places';
 import { COST_INDEX, PRICE_BOOK as PB } from '../../career/tuning';
 import type { Career } from '../../career/types';
@@ -13,7 +14,7 @@ import { fansTotal, findWrestler } from '../../data/rtr';
 
 interface Props { c: Career; onBack: () => void }
 
-const TABS = ['Home', 'Getting about', 'Money'] as const;
+const TABS = ['Home', 'Getting about', 'Your team', 'Money'] as const;
 
 /** Every city, by country (for moving and buying). */
 function CityPick({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) {
@@ -57,7 +58,7 @@ export function Life({ c, onBack }: Props) {
           <span className="c-fact"><span className="c-lab">{w('Owed')}</span><b className={owed ? 'c-amt neg' : ''}>{shortMoney(owed)}</b></span>
         </div>
       </div>
-      <div className="c-steps cols3" style={{ marginTop: 8 }}>
+      <div className="c-steps cols4" style={{ marginTop: 8 }}>
         {TABS.map((t, i) => <button key={t} className={i === tab ? 'c-st on' : 'c-st'} style={{ border: 0 }} onClick={() => setTab(i)}>{w(t)}</button>)}
       </div>
       <div className="c-body">
@@ -178,6 +179,60 @@ export function Life({ c, onBack }: Props) {
                 </div>
               );
             })}
+          </>
+        )}
+
+        {TABS[tab] === 'Your team' && on('staff') && (
+          <>
+            <span className="c-sec">{w('Personal staff')}</span>
+            {STAFF_ROLES.map((r) => {
+              const s = L.staff?.find((x) => x.role === r);
+              return (
+                <div key={r} className="c-ans" style={{ padding: '8px 10px' }}>
+                  <span className="c-rowsb"><b className="c-at" style={{ fontSize: 16 }}>{PB.staff[r].name}{s ? ` · ${s.name}` : ''}</b><span className="c-eff">{money(wageOf(c, r))}/month</span></span>
+                  <span className="c-ad">{PB.staff[r].does}</span>
+                  <span className="c-chips" style={{ marginTop: 6 }}>
+                    {s ? <button className="c-chip" onClick={() => done(letGo(c, r))}>Let them go</button> : <button className="c-chip" onClick={() => done(hire(c, r))}>Hire</button>}
+                  </span>
+                </div>
+              );
+            })}
+            <span className="c-sec">{w('Medical')}</span>
+            {(() => {
+              const sur = surgeonOffer(c), cl = clinicOffer(c);
+              return (
+                <div className="c-kv">
+                  <span className="c-lab">{w('Injured')}</span>
+                  <span className="c-val">{c.people[c.player]?.injury ? `${c.people[c.player]!.injury!.what}, back ${c.people[c.player]!.injury!.until}` : 'Fit'}</span>
+                  {(sur || cl) && <span className="c-lab" />}
+                  {(sur || cl) && (
+                    <span className="c-chips">
+                      {sur && <button className="c-chip" onClick={() => done(seeSurgeon(c))}>Private surgeon · {shortMoney(sur.cost)} · {sur.days} days sooner</button>}
+                      {cl && <button className="c-chip" onClick={() => done(goToClinic(c))}>Rehab clinic · {shortMoney(cl.cost)} · {cl.days} days sooner</button>}
+                    </span>
+                  )}
+                  <span className="c-lab">{w('Recovery kit')}</span>
+                  <span className="c-val">{L.kit ? `Yours · ${money(PB.medical.kit.monthly)} a month` : `Cryo and hyperbaric at home: wear fades faster, you recover quicker · ${money(PB.medical.kit.price)}`}</span>
+                  {!L.kit && <span className="c-lab" />}
+                  {!L.kit && <span className="c-chips"><button className="c-chip" onClick={() => done(buyKit(c))}>Buy it</button></span>}
+                </div>
+              );
+            })()}
+            <span className="c-sec">{w('Your entrance')}</span>
+            <span className="c-note">It sets the crowd’s heat at the bell (at most +{PB.entrance.max}). Pyro needs the top of the card or the entrance term in your contract; a set needs a big show too.</span>
+            <div className="c-chips">
+              {!L.gear?.theme && <button className="c-chip" onClick={() => done(buyGear(c, 'theme'))}>Your own theme · {shortMoney(PB.entrance.theme.price)} · +{PB.entrance.theme.heat}</button>}
+              {!L.gear?.video && <button className="c-chip" onClick={() => done(buyGear(c, 'video'))}>Entrance video · {shortMoney(PB.entrance.video.price)} · +{PB.entrance.video.heat}</button>}
+              {PB.entrance.gear.map((g, i) => ((L.gear?.gear ?? 0) <= i ? <button key={g.name} className="c-chip" onClick={() => done(buyGear(c, (i + 1) as 1 | 2 | 3))}>{g.name} · {shortMoney(g.price)} · +{g.heat}</button> : null))}
+            </div>
+            <div className="c-kv">
+              <span className="c-lab">{w('You have')}</span>
+              <span className="c-val">{[L.gear?.theme ? 'your own theme' : '', L.gear?.video ? 'a video' : '', L.gear?.gear ? PB.entrance.gear[L.gear.gear - 1]!.name.toLowerCase() : ''].filter(Boolean).join(', ') || 'Nothing yet: you walk out to whatever they play'}</span>
+              <span className="c-lab">{w('Pyro')}</span>
+              <span className="c-chips"><button className={`c-chip${L.gear?.pyro ? ' on' : ''}`} onClick={() => { setGearUse(c, 'pyro', !L.gear?.pyro); done(L.gear?.pyro ? `Pyro where you’re allowed it: ${money(PB.entrance.pyro.cost)} a show, +${PB.entrance.pyro.heat}.` : 'No pyro.'); }}>{L.gear?.pyro ? 'On' : 'Off'} · {money(PB.entrance.pyro.cost)} a show</button></span>
+              <span className="c-lab">{w('Set piece')}</span>
+              <span className="c-chips"><button className={`c-chip${L.gear?.set ? ' on' : ''}`} onClick={() => { setGearUse(c, 'set', !L.gear?.set); done(L.gear?.set ? `A set on the big shows: ${money(PB.entrance.set.cost)} a time, +${PB.entrance.set.heat}.` : 'No set.'); }}>{L.gear?.set ? 'On' : 'Off'} · {money(PB.entrance.set.cost)} a show</button></span>
+            </div>
           </>
         )}
 

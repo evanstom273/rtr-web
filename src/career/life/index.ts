@@ -9,6 +9,7 @@ import { crewTrip, monthlyGarage, roadCrew, seizeVehicle } from './garage';
 import { homeMood, homeName, homeRest, homeTrainPrice, monthlyHomes, rentWeek, seizeHome, weeklyHome } from './homes';
 import { monthlyLoans } from './loans';
 import { agentFinds, agentHandles, offIncome, pruneMonths } from './money';
+import { dailyPA, monthlyStaff, payEntrance } from './staff';
 import { life, liveHome, on } from './state';
 import { band, homeCountry, restOnTheRoad, roadVehicle } from './travel';
 import { homeCity } from './state';
@@ -40,6 +41,7 @@ setCareerHooks({
     if (!active(c)) return;
     welcome(c);
     agentHandles(c);
+    if (on('staff')) dailyPA(c);
   },
   monthly: (c) => {
     if (!active(c)) return;
@@ -49,13 +51,16 @@ setCareerHooks({
       monthlyHomes(c);
       monthlyGarage(c);
     }
+    if (on('staff')) monthlyStaff(c);
     monthlyLoans(c, (cc, loan) => (loan.kind === 'mortgage' ? seizeHome(cc, loan.on) : seizeVehicle(cc, loan.on)));
     pruneMonths(c);
     agentFinds(c);
   },
   // On the road with the crew: closer every trip.
-  mine: (c: Career, show: Show) => {
-    if (!on('homes') || c.spectator) return;
+  mine: (c: Career, show: Show, bout) => {
+    if (c.spectator) return;
+    payEntrance(c, show, bout);
+    if (!on('homes')) return;
     const v = roadVehicle(c);
     if (!v || PB.vehicles[v.tier].seats <= 4) return;
     const b = band({ country: homeCountry(c), city: homeCity(c) }, show);
