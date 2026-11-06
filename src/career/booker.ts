@@ -348,6 +348,13 @@ export function sinceLastDefence(c: Career, titleId: string, show: Show): number
   return lastOrWon ? Math.abs(daysBetween(lastOrWon, show.date)) : 999;
 }
 
+/**
+ * Feuds (feuds.ts): a feud's match on this show, or null for none tonight (undefined: the old way). `free` says
+ * whether someone else (an ally) is here and not booked yet.
+ */
+let feudBoutHook: ((c: Career, f: Feud, show: Show, free: (id: string) => boolean) => Bout | null | undefined) | null = null;
+export const setFeudBoutHook = (f: typeof feudBoutHook): void => { feudBoutHook = f; };
+
 /** A card's been drawn up: clauses that shape it (Creative Control's protected stars) run here. Set by creative.ts. */
 let cardHooks: ((c: Career, show: Show, card: Bout[]) => void)[] = [];
 /** `first`: runs before the others (the match overhaul's style booking reshapes the card before clauses look at it). */
@@ -576,6 +583,12 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
     if (card.length >= size) break;
     const here = (id: string) => free(id) && (id === c.player ? wantMe : pool.some((w) => w.id === id));
     if (!here(f.a) || !here(f.b)) continue;
+    // Feuds (when on): the feud decides whether they wrestle tonight, the stipulation, the stakes, allies, who wins.
+    if (feudBoutHook) {
+      const fb = feudBoutHook(c, f, show, (id) => !!here(id) && pool.some((w) => w.id === id));
+      if (fb === null) continue;
+      if (fb) { for (const id of boutPeople(fb)) take(id); card.push(fb); continue; }
+    }
     const payoff = f.payoff === show.id;
     if (!payoff && rnd() < 0.4) continue; // feuds don't wrestle every week; they build
     take(f.a); take(f.b);
@@ -616,7 +629,7 @@ export function bookShow(c: Career, show: Show, roster: readonly Wrestler[]): Bo
     const pop = ((wa ? regionalPop(wa, region) : 0) + (wb ? regionalPop(wb, region) : 0)) / 2;
     const titleRank = b.title ? (showTitles(show).findIndex((t) => t.id === b.title) === 0 ? 300 : 150) : 0;
     const special = b.tourney ? 200 + b.tourney.round * 150 : b.farewell ? 400 : 0;
-    return pop + titleRank + special + (b.feud ? 20 : 0);
+    return pop + titleRank + special + (b.feud ? 20 + (c.feuds.find((f) => f.id === b.feud)?.heat ?? 0) / 2 : 0);
   };
   card.sort((x, y) => weight(x) - weight(y));
   const last = card[card.length - 1];

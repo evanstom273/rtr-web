@@ -180,12 +180,16 @@ export function protectStars(c: Career, show: Show, card: Bout[]): void {
   const promos = show.promos ?? [show.promo];
   const say = (id: string): number => (id === c.player ? 0 : Math.max(0, ...promos.map((p) => tierOf(dealWith(c.people[id], p), 'creative'))));
   for (const b of card) {
-    if (b.title || b.planned || b.tourney || b.farewell || b.tryout) continue;
+    // A feud's story gives way too (Lyra: Creative Control still has its say).
+    if (b.title || (b.planned && !b.feud) || b.tourney || b.farewell || b.tryout) continue;
     // Everyone in it (a tag match, a multi-man): the biggest star, and if they've the say, their side wins.
     const ws = boutPeople(b).map((id) => findWrestler(id)).filter((w): w is NonNullable<typeof w> => !!w);
     if (ws.length < 2) continue;
     const top = ws.reduce((x, y) => (globalScore(y) > globalScore(x) ? y : x));
-    if (say(top.id) >= 1) b.planned = b.sides ? sideOf(b, top.id)?.[0] ?? top.id : top.id;
+    if (say(top.id) < 1) continue;
+    const was = b.planned;
+    b.planned = b.sides ? sideOf(b, top.id)?.[0] ?? top.id : top.id;
+    if (b.feud && was !== b.planned) delete b.finish;
   }
 }
 

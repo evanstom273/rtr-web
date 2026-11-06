@@ -107,6 +107,7 @@ describe('requests', () => {
     expect(askMore(c).said).toMatch(/patience too low/);
     // Out injured, so no matches (and no off-script or no-show) muddy the weekly recovery.
     c.people[c.player]!.injury = { until: addDays(c.today, 60), what: 'test' };
+    for (const s of Object.values(c.shows)) if (s.card) s.card = s.card.filter((b) => b.a !== c.player && b.b !== c.player);
     for (let i = 0; i < 21; i++) await day(c);
     expect(patienceOf(c, 'VWF')).toBe(26);
     (c.patience[bookerKey('VWF')] = { v: 69, log: [] });

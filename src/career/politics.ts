@@ -22,7 +22,7 @@ import { ctxFor, eventLibrary, fire, onAnswer } from './events';
 import { setSigningPull } from './scouting';
 import { registerReplies } from './mail';
 import { phoneOn, sendIn } from './phone';
-import { ANGLES, CHEM, CLIQUE, ENEMY, PAIRING, PULL, ROOM } from './tuning';
+import { ANGLES, CHEM, CLIQUE, ENEMY, EVENT_MIN_GAP, PAIRING, PULL, ROOM } from './tuning';
 import type { Bout, Career, PlayerMatch, Show } from './types';
 import { boutPeople } from './bouts';
 
@@ -197,7 +197,7 @@ function backstageTrouble(c: Career, rnd: Rng): void {
       if (!(hates(a, b) || hates(b, a))) continue;
       if (a === c.player || b === c.player) {
         const them = a === c.player ? b : a;
-        if (rnd() < ENEMY.provoke && !c.spectator) { const def = eventLibrary().find((d) => d.id === 'provoked'); if (def && (c.events?.seen.provoked ?? '0') < addDays(c.today, -30)) fire(ctxFor(c), def, { who: them }); }
+        if (rnd() < ENEMY.provoke && !c.spectator) { const def = eventLibrary().find((d) => d.id === 'provoked'); if (def && (c.events?.seen.provoked ?? '0') < addDays(c.today, -30) && !(c.events?.lastAt && daysBetween(c.events.lastAt, c.today) < EVENT_MIN_GAP)) fire(ctxFor(c), def, { who: them }); }
         continue;
       }
       const wa = findWrestler(a), wb = findWrestler(b);

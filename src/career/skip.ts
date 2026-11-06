@@ -28,6 +28,10 @@ function needs(c: Career): Set<string> {
   return new Set(c.letters.filter((l) => (l.action && !l.done ? f.decisions : l.kind === 'person' || l.kind === 'press' ? f.people : l.kind === 'booker' ? f.checkins : f.news)).map((l) => l.id));
 }
 
+/** Feuds: a segment of yours tonight that's still to do (skipping stops for it). */
+let segStop: ((c: Career) => string | null) | null = null;
+export const setSegStop = (f: typeof segStop): void => { segStop = f; };
+
 export async function skip(c: Career, target: SkipTarget, run: (jobs: SimJob[]) => Promise<SimOut[]>, o: SkipOptions = {}): Promise<{ stopped: string | null; phases: number; handled: string[] }> {
   const phases = FEATURES.days;
   const per = phases ? 2 : 1;
@@ -41,6 +45,8 @@ export async function skip(c: Career, target: SkipTarget, run: (jobs: SimJob[]) 
   for (;;) {
     if (target === 'phase' ? done >= 1 : c.today >= untilDay! && phaseOf(c) === 'am') return { stopped: null, phases: done, handled };
     if (o.cancelled?.()) return { stopped: 'Stopped', phases: done, handled };
+    // Your segment tonight (feuds): skipping stops for it, like your match.
+    if (segStop && (!phases || phaseOf(c) === 'pm')) { const why = segStop(c); if (why) return { stopped: why, phases: done, handled }; }
     // Your match tonight (the PM, or the whole day with days off).
     if (myBoutToday(c) && (!phases || phaseOf(c) === 'pm')) {
       if (!o.mine || !(await o.mine(c))) return { stopped: 'Your match is up', phases: done, handled };

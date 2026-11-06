@@ -20,6 +20,8 @@ import { Creative } from './Creative';
 import { Scouting } from './Scouting';
 import { Rebrand } from './Rebrand';
 import { Epilogue } from './Epilogue';
+import { Feuds } from './Feuds';
+import { SegmentPlay } from './SegmentPlay';
 import { carryOn } from '../../career/life/afterlife';
 import { on } from '../../career/life/state';
 import { HistoryScreen, HistorySetup } from './HistorySim';
@@ -43,8 +45,8 @@ import './career.css';
 import './career-app.css';
 
 export type CareerScreen =
-  | 'cal' | 'show' | 'profile' | 'letters' | 'contract' | 'training' | 'finances' | 'history' | 'stats' | 'records' | 'moveset' | 'start' | 'create' | 'requests' | 'relationships' | 'week' | 'social' | 'ownshow' | 'history' | 'phone' | 'office' | 'life'
-  | { negotiate: string } | { requests: number } | { phone: string } | ReqRoute;
+  | 'cal' | 'show' | 'profile' | 'letters' | 'contract' | 'training' | 'finances' | 'history' | 'stats' | 'records' | 'moveset' | 'start' | 'create' | 'requests' | 'relationships' | 'week' | 'social' | 'ownshow' | 'history' | 'phone' | 'office' | 'life' | 'feuds'
+  | { negotiate: string } | { requests: number } | { phone: string } | { segment: string } | ReqRoute;
 
 interface Props {
   initial?: CareerScreen;
@@ -234,6 +236,7 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
   if (c.rebrand) return <Rebrand c={c} onDone={() => setStack((st) => [...st])} />;
   if (typeof screen === 'object') {
     if ('phone' in screen) return <Phone c={c} onBack={back} start={screen.phone} />;
+    if ('segment' in screen) { const [sid, i] = screen.segment.split('#'); return <SegmentPlay c={c} showId={sid!} index={Number(i)} onBack={back} />; }
     if ('negotiate' in screen) return <Negotiate c={c} offerId={screen.negotiate} onBack={back} onDone={home} />;
     if ('requests' in screen) return <Requests c={c} tab={screen.requests} onBack={back} onFlow={(r) => go(r)} onNegotiate={(id) => go({ negotiate: id })} />;
     if ('req' in screen && screen.req === 'creative') return <Creative c={c} onBack={back} />;
@@ -243,7 +246,8 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
       onAnswered={() => { showAnswersNext(); setStack((st) => [...st.slice(0, -1).filter((x) => x !== 'requests' && !(typeof x === 'object' && 'requests' in x)), 'requests']); }} />;
   }
   switch (screen) {
-    case 'show': return <ShowDay c={c} onBack={home} onPlay={onPlay} />;
+    case 'show': return <ShowDay c={c} onBack={home} onPlay={onPlay} onSegment={(sid, i) => go({ segment: `${sid}#${i}` })} />;
+    case 'feuds': return <Feuds c={c} onBack={back} onPlay={(sid, i) => go({ segment: `${sid}#${i}` })} />;
     case 'profile': return <Profile c={c} onBack={back} onShowDay={() => go('show')} onHub={home} onOpen={(s: ProfileLink) => go(s === 'contract' || s === 'history' || s === 'finances' || s === 'stats' || s === 'relationships' || s === 'week' || s === 'social' ? s : 'profile')} />;
     case 'letters': return <Letters c={c} onBack={back} onNegotiate={(id) => go({ negotiate: id })} />;
     case 'contract': return <Contract c={c} onBack={back} />;
