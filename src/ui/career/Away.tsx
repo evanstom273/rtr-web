@@ -40,7 +40,7 @@ export function Away({ c }: { c: Career }) {
       {o.contracts.on && (
         <div className="c-kv">
           <span className="c-lab">{w('Paying at least')}</span>
-          <div className="c-chips">{[0, 2500, 5000, 10000].map((n) => chip(o.contracts.minFee === n, n ? `${money(n)} a match` : 'Anything', () => { o.contracts.minFee = n; }))}</div>
+          <div className="c-chips">{[0, 5000, 20000, 50000].map((n) => chip(o.contracts.minFee === n, n ? `${money(n)} an appearance` : 'Anything', () => { o.contracts.minFee = n; }))}</div>
         </div>
       )}
       <span className="c-note">Contract offers are signed as they’re offered, with no negotiating: only set this if you trust the market.</span>

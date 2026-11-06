@@ -6,7 +6,7 @@ import { seededRng, hashSeed } from '../../engine/rng';
 import { findWrestler, WRESTLERS, type Wrestler } from '../../data/rtr';
 import { lifeWorld, type Wealth } from '../../world/lifeWorld';
 import { letter, setMod } from '../career';
-import { indieFee } from '../economy';
+import { indieFee, yearlyPay } from '../economy';
 import { REGION_KEY } from '../places';
 import { setDemandLift } from '../signing';
 import { COST_INDEX, PRICE_BOOK as PB } from '../tuning';
@@ -38,12 +38,12 @@ const GROW: Record<Style, number> = { flash: 0, normal: 0.0025, risky: 0.004, ca
 /** How much of a home's price they need in the bank before they move up. */
 const NERVE: Record<Style, number> = { flash: 0.12, normal: 0.3, risky: 0.25, careful: 0.5 };
 
-/** A year's earnings now: their deal (dates a month × the fee), or the indies. */
+/** A year's earnings now: their deal (the pay rework's salary curve, however it's paid), or the indies. */
 export function yearIncome(c: Career, w: Wrestler): number {
   const p = c.people[w.id];
   if (!p || p.retired) return 0;
   const k = p.contract;
-  if (k) return k.fee * (k.dates ?? 4) * 12 * 1.15;
+  if (k) return yearlyPay(k);
   // The indies: about a date and a half a month in their home region, and a day job to pay the rent.
   const region = REGION_KEY[w.region] ?? 'europe';
   return indieFee(w, region) * 18 + PB.dayJob * (COST_INDEX[region] ?? 1);

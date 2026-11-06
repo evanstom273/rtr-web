@@ -1,6 +1,7 @@
 // The world: the one save shared by exhibition and career (Wrestling Empire style). It holds the live
 // database plus, once a career is running, everything the career tracks. Kept in IndexedDB; if that's
 // unavailable the world lives in memory for the session.
+import { rescalePay } from './payHook';
 import { PROMOTIONS, TITLES, WRESTLERS, applyDatabase, databaseChanged, fansFromPopularity, rollCount, rollTraits, shippedDatabase, shippedWrestler, type Database, type Wrestler } from '../data/rtr';
 import { BUDGET, floorFor } from '../career/clauses';
 import { freshContracts } from '../career/deals';
@@ -17,7 +18,7 @@ import { crownIndies, growIndies, populateIndies } from './populate';
 import { ensureCompanies, type Company } from './companies';
 
 /** The world save's revision: each step in `upgrade` runs once, in order, on older saves. */
-export const WORLD_REV = 11;
+export const WORLD_REV = 12;
 
 export interface World {
   v: 1;
@@ -70,6 +71,8 @@ export function setWorld(w: World): World {
   active = w;
   // Rev 9 (Lyra's call): the 25-clause contracts. Everyone's rewritten under them (it reads the live rosters, so it runs here).
   if (rev < 9) for (const c of [w.career, w.sim?.career]) if (c) freshContracts(c);
+  // Rev 12 (Lyra's pay rework): every current deal rescaled onto the salary curve (as per-appearance, what it was).
+  if (rev < 12) for (const c of [w.career, w.sim?.career]) if (c) rescalePay(c);
   return w;
 }
 

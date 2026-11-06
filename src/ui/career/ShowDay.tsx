@@ -69,7 +69,7 @@ export function ShowDay({ c, onBack, onPlay, onSegment }: Props) {
 
   const indie = show.promo === 'TIS';
   const deal = c.indie[show.id];
-  const pay = !bout ? null : indie ? { win: deal?.fee ?? 0, lose: Math.round(((deal?.fee ?? 0) * 0.75) / 5) * 5 } : k ? { win: matchPay(k, show.kind, false).pay, lose: matchPay(k, show.kind, true).pay } : null;
+  const pay = !bout ? null : indie ? { win: deal?.fee ?? 0, lose: deal?.fee ?? 0 } : k ? { win: matchPay(k, show.kind).pay, lose: matchPay(k, show.kind).pay } : null;
   const facts = bout ? [
     { l: w('Fee'), v: pay ? money(pay.win) : bout.tryout ? 'Tryout' : '—' },
     { l: w('If you lose'), v: pay ? money(pay.lose) : '—' },

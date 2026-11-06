@@ -59,7 +59,10 @@ export function worth(c: Career, promo: string, w: Wrestler): number {
   const co = companyOf(promo);
   const tier = co?.tier ?? 'national';
   const fans = fansIn(w, homeRegion(promo));
-  let fee = SIGN.floor[tier]! * Math.min(SIGN.maxFactor, Math.max(SIGN.minFactor, (Math.max(1, fans) / SIGN.ref[tier]!) ** 0.5));
+  let fee = SIGN.floor[tier]! * Math.min(SIGN.maxFactor, Math.max(SIGN.minFactor, (Math.max(1, fans) / SIGN.ref[tier]!) ** SIGN.exp));
+  // Nobody signs for less than they're on now (the pay rework: majors pay on the salary curve).
+  const now = c.people[w.id]?.contract;
+  if (now && now.promo !== promo) fee = Math.max(fee, now.fee);
   // Stepping down to a smaller promotion takes persuading; the indies come cheaper.
   if (tierAt(w.promotion) > tierAt(promo)) fee *= SIGN.stepDown;
   if (w.traits?.includes('mercenary')) fee *= SIGN.mercenary;

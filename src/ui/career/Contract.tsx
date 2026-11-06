@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { BONUS_TRIGGERS, CHARACTER, dealsOf, exitTerms, holidays, matchPay, PACKAGES, person, promoName, tierOf, type Career } from '../../career';
 import { daysBetween, fmtDay } from '../../career/dates';
-import { LOSS_CUT_BY_TIER } from '../../career/tuning';
+import { monthlySalary, PAY_LABEL, payOf, payWords, yearlyPay } from '../../career/economy';
+import { GUARANTEED_DATES } from '../../career/tuning';
 import { ClauseGroups, Pips } from './Clauses';
 import { Head, money, Screen, useWords } from './parts';
 
@@ -20,7 +21,7 @@ export function Contract({ c, onBack }: Props) {
         <Head title={skin === 'paper' ? 'Your Terms' : 'CONTRACT'} meta={w(fmtDay(c.today))} onBack={onBack} />
         <div className="c-body">
           <div className="c-start"><span className="c-lab">{w('No contract')}</span><b className="c-sbig">{w('Free agent')}</b><span className="c-val">You’re on The Indie Scene. Contract offers arrive by letter once promotions notice you.</span></div>
-          {p.next && <div className="c-start"><span className="c-lab">{w('Signed, starting soon')}</span><b className="c-sbig">{promoName(p.next.promo)}</b><span className="c-val">From {fmtDay(p.next.start, 'long')} at {money(p.next.fee)} a match.</span></div>}
+          {p.next && <div className="c-start"><span className="c-lab">{w('Signed, starting soon')}</span><b className="c-sbig">{promoName(p.next.promo)}</b><span className="c-val">From {fmtDay(p.next.start, 'long')}: {payWords(p.next)}.</span></div>}
           {p.noCompete && p.noCompete.until > c.today && <span className="c-note">Your non-compete with {p.noCompete.promo} runs to {fmtDay(p.noCompete.until, 'long')}: their region’s other majors can’t sign you till then.</span>}
         </div>
         <div className="c-nav"><button className="c-b2" onClick={onBack}>{w('‹ Back')}</button><button className="c-b1" onClick={onBack}>{w('Done')}</button></div>
@@ -30,11 +31,16 @@ export function Contract({ c, onBack }: Props) {
   const left = daysBetween(c.today, k.end);
   const exit = exitTerms(c, k.promo);
   const g = tierOf(k, 'guaranteed');
-  const tierLoss = LOSS_CUT_BY_TIER[g]!;
+  const salary = monthlySalary(k);
+  const perShow = payOf(k) !== 'monthly';
   const fees = [
-    [w('Weekly TV'), money(matchPay(k, 'weekly', false).pay)], [w('Tour'), money(matchPay(k, 'tour', false).pay)],
-    [w('Special'), money(matchPay(k, 'special', false).pay)], [w('Flagship'), money(matchPay(k, 'flagship', false).pay)],
-    [w('If you lose'), tierLoss ? `−${Math.round(tierLoss * 100)}%${g ? ' (Partial Guarantee)' : ' (no Guaranteed Pay)'}` : 'Full fee (Guaranteed Pay)'],
+    [w('How you’re paid'), PAY_LABEL[payOf(k)]],
+    [w('A year, about'), money(yearlyPay(k))],
+    ...(salary ? [[w('Salary'), `${money(salary)} a month, whatever happens`]] : []),
+    ...(perShow ? [[w('Weekly TV'), money(matchPay(k, 'weekly').pay)], [w('Tour'), money(matchPay(k, 'tour').pay)],
+      [w('Special'), money(matchPay(k, 'special').pay)], [w('Flagship'), money(matchPay(k, 'flagship').pay)]] : []),
+    [w('If you lose'), 'Nothing off: losing costs you a win bonus at most'],
+    ...(perShow && g ? [[w('Guaranteed'), `${GUARANTEED_DATES[g]} paid date${GUARANTEED_DATES[g] === 1 ? '' : 's'} a month, and paid if you’re pulled`]] : []),
     [w('Dates a month'), k.dates ? `${k.dates} agreed` : 'The booker’s call'],
   ];
   const hol = holidays(c, k.promo);
@@ -69,7 +75,7 @@ export function Contract({ c, onBack }: Props) {
           </div>
         </div>
         {ch && <span className="c-note"><b>{ch.style}.</b> {ch.blurb}</span>}
-        <span className="c-sec">{w('Your fee', 'Fee per match')}</span>
+        <span className="c-sec">{w('Your pay', 'Pay')}</span>
         <div className="c-kv">{fees.map(([a, b]) => <span key={a} style={{ display: 'contents' }}><span className="c-lab">{a}</span><span className="c-val">{b}</span></span>)}</div>
         <div className="c-rowsb"><span className="c-sec c-grow">{w('The clauses', 'Clauses')}</span><span className="c-hint">{k.clauses.filter(Boolean).length} of {k.clauses.length} in your contract</span></div>
         <ClauseGroups tiers={k.clauses} row={(cl, i) => {

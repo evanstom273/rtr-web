@@ -50,16 +50,26 @@ describe('the money clauses (Lyra’s design)', () => {
     expect(got(c, /^Profit share/)).toBeGreaterThan(0);
   });
 
-  it('Guaranteed Pay Tier 3: a monthly minimum; Merchandise Rights: a cut of their online store', async () => {
+  it('Guaranteed Pay Tier 3: guaranteed paid dates on PPA; Merchandise Rights: a cut of their online store', async () => {
     const c = begin('jamie_mercer');
+    k(c).pay = 'ppa';
     k(c).clauses[C.guaranteed] = 3;
     k(c).clauses[C.merch] = 2;
     k(c).start = addMonths(c.today, -2);
     // Keep you off their cards so the month comes in short.
     c.people[c.player]!.daysOff = Array.from({ length: 70 }, (_, i) => addDays(c.today, i));
     await days(c, 60);
-    expect(got(c, /^Monthly minimum/)).toBeGreaterThan(0);
+    expect(got(c, /^Guaranteed dates/)).toBeGreaterThan(0);
     expect(got(c, /^Online store cut/)).toBeGreaterThan(0);
+  });
+
+  it('a Monthly salary comes on the first, booked or not (Lyra’s call: always)', async () => {
+    const c = begin('jamie_mercer');
+    k(c).pay = 'monthly';
+    k(c).start = addMonths(c.today, -2);
+    c.people[c.player]!.daysOff = Array.from({ length: 70 }, (_, i) => addDays(c.today, i));
+    await days(c, 60);
+    expect(got(c, /^Salary · /)).toBeGreaterThanOrEqual(2 * k(c).fee * 1);
   });
 
   it('Wage Matching: a yearly raise; Loyalty: a bonus for years served and protection from release', async () => {

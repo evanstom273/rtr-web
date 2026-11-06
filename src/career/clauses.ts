@@ -46,11 +46,11 @@ export const CLAUSES: ClauseDef[] = [
     ['Opt Out', 'Pick Your Tours', 'Headline Tours'],
     ['Opt Out: you can skip their tours.', 'Pick Your Tours: you only tour when you opt in.', 'Headline Tours: you pick, and you headline the tours you join (more fans abroad).']),
   // --- Money ---
-  def('guaranteed', 'Guaranteed Pay', 'money', 'Not in the contract: losing cuts your fee.',
+  def('guaranteed', 'Guaranteed Pay', 'money', 'Not in the contract: no dates guaranteed, nothing if you’re pulled or let go early.',
     ['Partial Guarantee', 'Standard Guarantee', 'Premium Guarantee'],
-    ['Partial Guarantee: losing still cuts your fee, but by less. Paid half if you’re pulled from a card.',
-      'Standard Guarantee: full fee win or lose, paid in full if you’re pulled, and a small monthly minimum.',
-      'Premium Guarantee: full fee win or lose plus an appearance bonus, paid if pulled, and a bigger monthly minimum.']),
+    ['Partial Guarantee: paid in full if you’re pulled from a card, one paid date a month guaranteed, and a quarter of what’s left if they let you go early.',
+      'Standard Guarantee: paid if pulled, two paid dates a month guaranteed, and half of what’s left if they let you go early.',
+      'Premium Guarantee: paid if pulled, four paid dates a month guaranteed, an appearance bonus, and the whole of what’s left if they let you go early.']),
   def('wage', 'Wage Matching', 'money', 'Not in the contract: your fee is fixed.',
     ['Internal Parity', 'External Matching', 'Automatic Matching'],
     ['Internal Parity: pay reviews against comparable wrestlers here, and a small yearly raise.',
@@ -265,13 +265,15 @@ export function aiClauses(rnd: Rng, promo: string, pkg: PackageId): number[] {
 }
 
 /** Performance Bonuses: the achievements a deal can pay for (you pick; the tier sets how many). */
-export type BonusTrigger = 'title' | 'defence' | 'great' | 'main' | 'big' | 'streak';
+export type BonusTrigger = 'title' | 'defence' | 'great' | 'main' | 'big' | 'streak' | 'win' | 'draw';
 export const BONUS_TRIGGERS: { id: BonusTrigger; name: string; text: string }[] = [
   { id: 'title', name: 'Winning a title', text: 'Win any of their titles.' },
   { id: 'defence', name: 'Title defences', text: 'Retain one of their titles.' },
-  { id: 'great', name: 'Great matches', text: 'A 4★ match or better on their show.' },
+  { id: 'great', name: 'Great matches', text: 'A 4★ match or better on their show (5★ pays two and a half times).' },
   { id: 'main', name: 'Main events', text: 'Close one of their shows.' },
   { id: 'big', name: 'Big shows', text: 'Wrestle on one of their specials or flagships.' },
   { id: 'streak', name: 'Win streaks', text: 'Five wins in a row on their shows.' },
+  { id: 'win', name: 'Winning', text: 'Any win on their shows (this is where a loss costs you).' },
+  { id: 'draw', name: 'Drawing a crowd', text: 'Headline one of their shows that does well over its usual takings.' },
 ];
 export const triggerSlots = (tier: number): number => [0, 1, 2, 4][Math.max(0, Math.min(3, tier))]!;

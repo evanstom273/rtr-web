@@ -4,7 +4,7 @@ import { activeWorld, freshWorld, raiseToFloor, setWorld } from '../world/world'
 import { acceptLetter, attributeTotal, livingCosts, matchPay, spend, trainingPrice, type Career } from './index';
 import { feeFloor } from './clauses';
 import { addDays, weekday } from './dates';
-import { contractFee, indieFee, isWeeklyFlagship, livingCost } from './economy';
+import { contractFee, curveAt, floorFee, indieFee, isWeeklyFlagship, livingCost, monthlySalary, payScale, preferredPay, yearlyPay, yearlyWorth } from './economy';
 import { hashSeed } from '../engine/rng';
 import { begin, day, type Runner } from './testkit';
 import { FEATURES } from './tuning';
@@ -22,42 +22,72 @@ const nextMonday = (d: string) => { let x = d; while (weekday(x) !== 1) x = addD
 const DEFAULTS = { ...FEATURES };
 afterEach(() => { Object.assign(FEATURES, DEFAULTS); });
 
-describe('pay (Lyra’s calls: about £2,500 a match at the bottom; dates decide income)', () => {
-  it('every major promotion pays at least its floor, bigger promotions more, and stars far more', () => {
+describe('pay (Lyra’s rework: a salary curve by drawing power, PPA/Monthly/Both, no cut for losing)', () => {
+  it('the biggest major pays Lyra’s tiers: £250k at the bottom to £10m+ at the top, the smallest major about half', () => {
     begin('@indie');
-    const floors = PROMOTIONS.filter((p) => !p.indie).map((p) => [p.initials, feeFloor(p.initials), p.popularity!] as const).sort((a, b) => a[2] - b[2]);
-    expect(floors[0]![1]).toBeGreaterThanOrEqual(2500);
-    expect(floors[floors.length - 1]![1]).toBeGreaterThanOrEqual(3400);
-    for (let i = 1; i < floors.length; i++) expect(floors[i]![1]).toBeGreaterThanOrEqual(floors[i - 1]![1]);
-    // Below a roster's median: the floor. The biggest names: several times it, never more than eight.
+    expect(curveAt(0)).toBe(250_000);
+    expect(curveAt(0.3)).toBeCloseTo(600_000, -3);
+    expect(curveAt(0.6)).toBeCloseTo(1_500_000, -3);
+    expect(curveAt(0.8)).toBeCloseTo(3_000_000, -3);
+    expect(curveAt(0.95)).toBeCloseTo(6_000_000, -3);
+    expect(payScale('TCG')).toBeCloseTo(1, 1);
+    expect(payScale('UFC')).toBeGreaterThan(0.45);
+    expect(payScale('UFC')).toBeLessThan(0.55);
+    // Every roster: the bottom near the floor, the top in the millions (the biggest names past the curve's top).
     for (const p of PROMOTIONS.filter((x) => !x.indie)) {
-      const fees = WRESTLERS.filter((w) => w.promotion === p.initials).map((w) => contractFee(w, p.initials)).sort((a, b) => a - b);
-      expect(fees[0]).toBe(feeFloor(p.initials));
-      expect(fees[fees.length - 1]!).toBeGreaterThan(feeFloor(p.initials));
-      expect(fees[fees.length - 1]!).toBeLessThanOrEqual(feeFloor(p.initials) * 8);
+      const years = WRESTLERS.filter((w) => w.promotion === p.initials).map((w) => yearlyWorth(w, p.initials)).sort((a, b) => a - b);
+      expect(years[0]!).toBeLessThan(300_000 * payScale(p.initials) * 1.25);
+      expect(years.at(-1)!).toBeGreaterThan(5_000_000 * payScale(p.initials));
+      expect(contractFee(WRESTLERS.find((w) => w.promotion === p.initials)!, p.initials)).toBeGreaterThanOrEqual(floorFee(p.initials) * 0.8);
     }
     // The same nobody is worth more at TCG than at UFC.
     const nobody = WRESTLERS.find((w) => w.promotion === 'TIS')!;
     expect(contractFee(nobody, 'TCG')).toBeGreaterThan(contractFee(nobody, 'UFC'));
   });
 
+  it('PPA pays a date, Monthly a salary sized to the schedule, Both some of each; losing costs nothing', () => {
+    begin('@indie');
+    const base = { promo: 'VWF', start: '', end: '', fee: 20000, clauses: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] };
+    expect(matchPay({ ...base, pay: 'ppa' }, 'weekly').pay).toBe(23000);
+    expect(matchPay({ ...base, pay: 'ppa' }, 'weekly', true).pay).toBe(23000);
+    expect(matchPay({ ...base, pay: 'monthly' }, 'weekly').pay).toBe(0);
+    expect(matchPay({ ...base, pay: 'both' }, 'weekly').pay).toBe(9000);
+    expect(monthlySalary({ ...base, pay: 'monthly' })).toBe(90000);
+    expect(monthlySalary({ ...base, pay: 'both' })).toBe(54000);
+    expect(monthlySalary({ ...base, pay: 'ppa' })).toBe(0);
+    // A busy PPA year pays more than Monthly; a one-show-a-month promotion's salary is a one-show salary.
+    expect(yearlyPay({ ...base, pay: 'ppa' })).toBeGreaterThan(yearlyPay({ ...base, pay: 'monthly' }));
+    expect(monthlySalary({ ...base, promo: 'END', pay: 'monthly' })).toBeLessThan(monthlySalary({ ...base, pay: 'monthly' }));
+    // Who opens with what: the biggest majors Monthly, the others Both, the once-a-month ones PPA.
+    expect(preferredPay('TCG')).toBe('monthly');
+    expect(preferredPay('SSWC')).toBe('both');
+    expect(preferredPay('END')).toBe('ppa');
+    expect(preferredPay('TIS')).toBe('ppa');
+  });
+
   it('an opening offer never comes in under the promotion’s floor', async () => {
     const c = begin('@indie');
     const { makeOffer } = await import('./index');
     makeOffer(c, 'IVW', 'Test');
-    expect(c.offers.at(-1)!.fee).toBeGreaterThanOrEqual(feeFloor('IVW'));
+    expect(c.offers.at(-1)!.fee).toBeGreaterThanOrEqual(floorFee('IVW'));
   });
 
   it('indie fees follow your fans where the show is, the brand, a belt and the night', () => {
     begin('@indie');
     const w = WRESTLERS.find((x) => x.promotion === 'TIS' && !TITLES.some((t) => t.holder === x.id))!;
     const fee = (fans: number, show?: Partial<Show>) => { setFans(w, 'europe', fans); return indieFee(w, { region: 'europe', kind: 'indie', ...show } as Show); };
-    expect(fee(500)).toBe(50);
-    expect(fee(5000)).toBe(150);
-    expect(fee(50000)).toBe(455);
-    expect(fee(10)).toBe(30);
-    expect(fee(50_000_000)).toBe(1500);
-    expect(fee(5000, { special: { kind: 'charity', tag: 'x' } as Show['special'] })).toBe(195);
+    // Lyra's table (an ordinary brand, middling reputation): £250 at the very least, no cap.
+    expect(fee(500)).toBeGreaterThanOrEqual(250);
+    expect(fee(500)).toBeLessThanOrEqual(500);
+    expect(fee(5000)).toBeGreaterThanOrEqual(500);
+    expect(fee(5000)).toBeLessThanOrEqual(1000);
+    expect(fee(50000)).toBeGreaterThanOrEqual(1000);
+    expect(fee(50000)).toBeLessThanOrEqual(2500);
+    expect(fee(500000)).toBeGreaterThanOrEqual(2500);
+    expect(fee(500000)).toBeLessThanOrEqual(5000);
+    expect(fee(10)).toBe(250);
+    expect(fee(50_000_000)).toBeGreaterThan(10000);
+    expect(Math.abs(fee(5000, { special: { kind: 'charity', tag: 'x' } as Show['special'] }) - fee(5000) * 1.3)).toBeLessThanOrEqual(10);
     // A bigger brand pays more than a small one.
     const brands = Object.values(activeWorld().people!.brands).filter((b) => b.popularity !== undefined).sort((a, b) => a.popularity! - b.popularity!);
     expect(fee(5000, { brand: brands.at(-1)!.id })).toBeGreaterThan(fee(5000, { brand: brands[0]!.id }));
@@ -73,8 +103,9 @@ describe('pay (Lyra’s calls: about £2,500 a match at the bottom; dates decide
     const friday: Pick<Show, 'kind' | 'promo' | 'date'> = { kind: 'flagship', promo: 'SLN', date: '2026-11-06' };
     expect(isWeeklyFlagship(friday)).toBe(true);
     expect(isWeeklyFlagship({ kind: 'flagship', promo: 'VWF', date: '2026-11-06' })).toBe(false);
-    expect(matchPay(k, 'flagship', false, true).pay).toBe(3750);
-    expect(matchPay(k, 'flagship', false, false).pay).toBe(7500);
+    // PPA (the default for an old deal): × the show's size × the PPA premium.
+    expect(matchPay(k, 'flagship', false, true).pay).toBe(Math.round((3000 * 1.25 * 1.15) / 5) * 5);
+    expect(matchPay(k, 'flagship', false, false).pay).toBe(Math.round((3000 * 2.5 * 1.15) / 5) * 5);
   });
 
   it('an older save: contracts and open offers below the new floor come up to it, nothing else changes', () => {
