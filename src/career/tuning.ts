@@ -730,7 +730,20 @@ export const BACKDATE = { debut: [19, 22] as [number, number], potentialSpread: 
 /** Shipped wrestlers retire as if this many years younger (Lyra's call: the names you know stay a bit longer). */
 export const SHIPPED_RETIRE_YOUNGER = 3;
 /** Match overhaul (tag teams, multi-mans, battle royals, Rumbles, the new stipulations): off until Lyra approves. */
-export const FEATURES = { livingCosts: true, social: true, days: true, jobs: true, skip: true, mail: true, hustles: true, history: true, phone: true, booker: true, matches: true, life: true };
+export const FEATURES = { livingCosts: true, social: true, days: true, jobs: true, skip: true, mail: true, hustles: true, history: true, phone: true, booker: true, matches: true, life: true, feuds2: true };
+/**
+ * Feuds in the match (feuds stage 1): the heat between two (0–100) adds to the crowd's heat at the bell (× startHeat),
+ * makes them react harder to everything the two do (heat gains × 1 + heat/100 × react), and lifts the stars
+ * (heat/100 × stars, plus payoff on the blow-off).
+ */
+export const FEUD_MATCH = { startHeat: 0.2, react: 0.25, stars: 0.35, payoff: 0.2 };
+/**
+ * Feuds on the wrestling side (feuds stage 1): feud segments a show (TV and the big ones), the chance each feud gets
+ * one (yours more often), how far a week with nothing cools it, the blow-off's fans (× 1 + heat/100 × this, winner
+ * and loser), call-outs and beefs, asking for a promo slot (a base chance, plus reputation and heat), and how many
+ * finished feuds the world remembers.
+ */
+export const FEUD = { segsPerShow: 2, segChance: 0.45, segMine: 0.7, cool: 4, blowoffWin: 0.08, blowoffLose: 0.03, callout: 3, beef: 5, askBase: 0.35, keepLog: 600 };
 /** Life (things to buy, own, run and lose): each part switches on as it's built. `on(part)` in career/life/state.ts. */
 export const LIFE_PARTS = { homes: true, money: true, staff: true, invest: true, ai: true, school: true, status: true, family: true, risk: true, after: true };
 

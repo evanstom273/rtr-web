@@ -15,6 +15,8 @@ export const LINES = {
   bell: '<g>The bell rings.</g> {a} and {d} square up in the centre of the ring.',
   intro: '{event}, {venue}.',
   entrance: '<g>The lights go down.</g> {what}, and here comes {a}. The place is up for it.',
+  feud: 'No love lost between {a} and {d}. <g>This one’s personal.</g>',
+  feudEnd: 'Weeks of this, and <g>tonight it ends.</g> {a} and {d} can’t wait for the bell.',
   titleOnLine: ' The {title} is on the line.',
 
   clean: '{a} plants {d} with {m}.',

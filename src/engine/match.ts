@@ -91,6 +91,8 @@ export class MatchEngine {
     say(ctx, LINES.intro + (rules.title && S.titleName ? LINES.titleOnLine : ''), { vars: { event: S.event, venue: S.venue, title: S.titleName } }, 'dim');
     // Life: an entrance worth the name (only when someone's paid for one: nothing changes otherwise).
     if (rules.entrance && S.sides[rules.entrance.side]) say(ctx, LINES.entrance, { a: rules.entrance.side, vars: { what: rules.entrance.what } }, 'hl');
+    // A feud worth the name: the crowd knows (only when there is one).
+    if (rules.feud && rules.feud.heat >= 40 && S.order.length === 2) say(ctx, rules.feud.payoff ? LINES.feudEnd : LINES.feud, { a: S.order[0]!, d: S.order[1]! }, 'hl');
     render(ctx);
     schedule(ctx, { to: 'bell' }, 900);
   }
