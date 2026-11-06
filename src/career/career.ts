@@ -12,7 +12,7 @@ import { HARDCORE_STIPS, available, bookAhead, hashSeed, heated, isIndieTitle, p
 import { bondOf } from '../world/people';
 import { drawCalendar } from './calendar';
 import { BUDGET, C, tierOf } from './clauses';
-import { aiContract, dealWith, dropDeal, promoteDeal, sideWork } from './deals';
+import { addDeal, aiContract, dealWith, dropDeal, promoteDeal, sideWork } from './deals';
 import { makeRookie } from './create';
 import { addDays, addMonths, type Day, daysBetween, fmtDay, weekday } from './dates';
 import { baseRegion, indieFee, isWeeklyFlagship, livingCost, matchPay, merchShare, payWords, preferredPay, round5, yearlyPay } from './economy';
@@ -24,7 +24,7 @@ import { addEvent, type ArchivedShow, type WorldHistory } from '../world/history
 import { bookerKey, movePatience, showBooker } from './patience';
 import { remember } from './relations';
 import {
-  BOOK_AHEAD_DAYS, CIRCUIT_KEEP, CONTRACT_MONTHS, FAN_IDLE_LOSS, FATIGUE_HARDCORE_EXTRA, FATIGUE_PER_MATCH, FATIGUE_RECOVERY_PER_DAY, FATIGUE_STAMINA_DIVISOR, FEATURES, FRIEND_LOAN_REPAY, INJURY_BASE_PCT, INJURY_HARDCORE_MULT, INJURY_PER_FATIGUE, INJURY_SEVERITY, LIVING_GRACE_DAYS, MAIL_MAX, MEDICAL_BILL_COVER, MEDICAL_PAY_COVER, MEDICAL_PER_DAY, MERCH_PER_FAN_FREE, MERCH_PER_FAN_SIGNED, MERCH_SHARE, OFF_SCRIPT_TITLE_BAN_DAYS, PATIENCE_NO_SHOW, PLANNED_NUDGE, PLANNED_RETRIES, POACH_CHANCE, POP_IDLE_DAYS, RELEASE_MONTHLY_BOTTOM, RELEASE_PAYOUT, RENEW_CHANCE_REST, RENEW_CHANCE_TOP, REP_FOUR_STAR, REP_OFF_SCRIPT, REP_PER_DATE, REP_START, ROOKIE_EVERY_DAYS, ROSTER_FLOOR, ROSTER_SCOUT_DAYS, ROSTER_TARGET, SCOUT_RESULT, SLEEP_RECOVERY, SLEEP_RECOVERY_AFTER_MATCH, SOCIAL_PROMOTE_BOOST, START_CONTRACT_MONTHS_LEFT, START_MONEY_BASE, START_MONEY_CREATED, START_MONEY_PER_DECADE, TRAIT_BACKSTAGE, TRAIT_FX, TRYOUT_MIN_STARS, ROMANCE,
+  BOOK_AHEAD_DAYS, CIRCUIT_KEEP, CONTRACT_MONTHS, FAN_IDLE_LOSS, FATIGUE_HARDCORE_EXTRA, FATIGUE_PER_MATCH, FATIGUE_RECOVERY_PER_DAY, FATIGUE_STAMINA_DIVISOR, FEATURES, FRIEND_LOAN_REPAY, INJURY_BASE_PCT, INJURY_HARDCORE_MULT, INJURY_PER_FATIGUE, INJURY_SEVERITY, LIVING_GRACE_DAYS, MAIL_MAX, MAX_MAJORS, MEDICAL_BILL_COVER, MEDICAL_PAY_COVER, MEDICAL_PER_DAY, MERCH_PER_FAN_FREE, MERCH_PER_FAN_SIGNED, MERCH_SHARE, OFF_SCRIPT_TITLE_BAN_DAYS, PATIENCE_NO_SHOW, PLANNED_NUDGE, PLANNED_RETRIES, POACH_CHANCE, POP_IDLE_DAYS, RELEASE_MONTHLY_BOTTOM, RELEASE_PAYOUT, RENEW_CHANCE_REST, RENEW_CHANCE_TOP, REP_FOUR_STAR, REP_OFF_SCRIPT, REP_PER_DATE, REP_START, ROOKIE_EVERY_DAYS, ROSTER_FLOOR, ROSTER_SCOUT_DAYS, ROSTER_TARGET, SCOUT_RESULT, SLEEP_RECOVERY, SLEEP_RECOVERY_AFTER_MATCH, SOCIAL_PROMOTE_BOOST, SPLIT_DATES_TOTAL, SPLIT_DEFAULT_NEW, START_CONTRACT_MONTHS_LEFT, START_MONEY_BASE, START_MONEY_CREATED, START_MONEY_PER_DECADE, TRAIT_BACKSTAGE, TRAIT_FX, TRYOUT_MIN_STARS, ROMANCE,
 } from './tuning';
 import type { Bout, Career, Contract, Letter, Person, PlayerMatch, PopRegion, Show } from './types';
 
@@ -43,6 +43,14 @@ function newPerson(id: string, rep: number): Person {
   return { rep, fatigue: 0, injury: null, contract: null, birthday: `${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`, last: null, recent: [] };
 }
 
+/** A deal you set yourself at the start. */
+export interface StartDealSpec { promo: string; fee: number; months: number; clauses: number[]; dates?: number; triggers?: import('./clauses').BonusTrigger[]; pay?: import('./types').PayType; salaryMult?: number; dateMult?: number }
+const dealFrom = (d: StartDealSpec, today: Day): Contract => ({
+  promo: d.promo, pay: d.pay ?? preferredPay(d.promo), ...(d.salaryMult !== undefined ? { salaryMult: d.salaryMult } : {}), ...(d.dateMult !== undefined ? { dateMult: d.dateMult } : {}),
+  start: today, end: addMonths(today, d.months), fee: Math.max(0, Math.round(d.fee)), clauses: [...d.clauses], since: today,
+  ...(d.dates ? { dates: d.dates } : {}), ...(d.triggers?.length ? { triggers: [...d.triggers] } : {}),
+});
+
 export interface StartOptions {
   player: string;
   today: Day;
@@ -51,7 +59,7 @@ export interface StartOptions {
   /** Carrying on in a kept world: its show numbering and irregular schedules. */
   calendar?: { counters: Record<string, number>; nextIrregular: Record<string, Day> };
   /** Lyra's call: start on whatever deal you like, no negotiating. null: a free agent. */
-  deal?: { promo: string; fee: number; months: number; clauses: number[]; dates?: number; triggers?: import('./clauses').BonusTrigger[]; pay?: import('./types').PayType; salaryMult?: number; dateMult?: number } | null;
+  deal?: (StartDealSpec & { /** More majors at the start (Lyra's call): non-exclusive deals, the month's dates split between them. */ also?: StartDealSpec[] }) | null;
   /** A simulated history to carry on from: its calendar, contracts, title clocks, feuds and everyone's state. */
   carry?: Career;
 }
@@ -96,17 +104,29 @@ export function startCareer(o: StartOptions): Career {
     const w = findWrestler(o.player)!;
     const p = person(c, o.player);
     const was = w.promotion;
+    // Whatever extra deals they had go: these are the deals now.
+    for (const k of [...(p.deals ?? [])]) dropDeal(p, w, k.promo);
     if (o.deal === null) { w.promotion = 'TIS'; p.contract = null; } else {
       w.promotion = o.deal.promo;
-      p.contract = { promo: o.deal.promo, pay: o.deal.pay ?? preferredPay(o.deal.promo), ...(o.deal.salaryMult !== undefined ? { salaryMult: o.deal.salaryMult } : {}), ...(o.deal.dateMult !== undefined ? { dateMult: o.deal.dateMult } : {}), start: o.today, end: addMonths(o.today, o.deal.months), fee: Math.max(0, Math.round(o.deal.fee)), clauses: [...o.deal.clauses], since: o.today,
-        ...(o.deal.dates ? { dates: o.deal.dates } : {}), ...(o.deal.triggers?.length ? { triggers: [...o.deal.triggers] } : {}) };
+      p.contract = dealFrom(o.deal, o.today);
+      // More than one major (the existing rules): only non-exclusive deals, at most MAX_MAJORS, the month's dates split.
+      const also = (o.deal.also ?? []).filter((d, i, xs) => d.promo !== o.deal!.promo && d.promo !== 'TIS' && xs.findIndex((x) => x.promo === d.promo) === i).slice(0, MAX_MAJORS - 1);
+      if (also.length) {
+        p.contract.clauses[C.exclusivity] = Math.min(1, p.contract.clauses[C.exclusivity] ?? 0);
+        for (const d of also) {
+          const k2 = dealFrom({ ...d, dates: d.dates ?? SPLIT_DEFAULT_NEW }, o.today);
+          k2.clauses[C.exclusivity] = Math.min(1, k2.clauses[C.exclusivity] ?? 0);
+          addDeal(p, w, k2);
+        }
+        p.contract.dates ??= Math.max(1, SPLIT_DATES_TOTAL - also.reduce((t, d) => t + (d.dates ?? SPLIT_DEFAULT_NEW), 0));
+      }
     }
     // Lyra's call: moving strips the belt. A title from the promotion you've left is vacated (the reign closes below);
     // an indie title stays only if you're still on the indies or the new deal has Indie Bookings.
     const stripped: string[] = [];
     for (const t of TITLES.filter((x) => x.holder === o.player)) {
       const owner = PROMOTIONS.find((x) => x.titles.includes(t.id))?.initials;
-      const keep = isIndieTitle(t.id) ? w.promotion === 'TIS' || tierOf(o.deal, 'exclusivity') < 3 : owner === w.promotion || (!owner && was === w.promotion);
+      const keep = isIndieTitle(t.id) ? w.promotion === 'TIS' || tierOf(o.deal, 'exclusivity') < 3 : owner === w.promotion || (!!owner && !!w.also?.includes(owner)) || (!owner && was === w.promotion);
       if (!keep) { t.holder = null; stripped.push(t.name); }
     }
     if (k) for (const t of TITLES.filter((x) => x.holder === null)) { const open = H0().reigns[t.id]?.find((r) => r.to === null); if (open) open.to = o.today; c.titles[t.id] = { since: o.today, defences: 0, last: null }; }
