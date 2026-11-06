@@ -32,7 +32,7 @@ for (const skin of ['broadcast', 'paper', 'building']) {
       const show = Object.values(c.shows).filter((s) => s.promo === promo && s.date >= c.today).sort((x, y) => (x.date < y.date ? -1 : 1))[0];
       show.date = c.today;
       show.card = [{ a: c.player, b: roster[1].id }];
-      show.segments = [{ kind: 'promo', who: [c.player, rival.id], after: -1, feud: 'fsweep' }];
+      show.segments = [];
       c.feuds.push({ id: 'fsweep', promo, a: c.player, b: rival.id, start: c.today, payoff: null, matches: 1, done: false, heat: 62, beats: [{ day: c.today, t: 'A beat-down on TV', d: 9 }] });
       data.databaseChanged();
       await world.saveWorld();
@@ -43,19 +43,34 @@ for (const skin of ['broadcast', 'paper', 'building']) {
     const strip = p.locator('.c-feud').first();
     if (!(await strip.count())) fails.push(`${tag}: no feud strip on the hub`);
     else {
-      await strip.click(); await wait(300);
+      await strip.locator('.c-feudh').click(); await wait(300);
       if (!(await p.getByText(/A beat-down on TV/).count())) fails.push(`${tag}: the feud's beats don't open`);
+      // Ask for a segment on tonight's show, from the hub.
+      const ask = strip.getByRole('button', { name: /^beat-down$/i });
+      if (!(await ask.count())) fails.push(`${tag}: no way to ask for a segment from the hub`);
+      else { await ask.click(); await wait(400); if (!(await p.getByText(/agreed|said no/i).count())) fails.push(`${tag}: asking for a segment didn't land`); }
     }
     if (await p.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)) fails.push(`${tag}: hub scrolls sideways`);
     await p.screenshot({ path: `${SP}/${skin}-${vn}-hub-feud.png` });
+    // Make sure there's a segment tonight (the ask may have been turned down), then reload.
+    await p.evaluate(async () => {
+      const { world } = window.__rtrDev;
+      const c = world.activeWorld().career;
+      const f = c.feuds.find((x) => x.id === 'fsweep');
+      const show = Object.values(c.shows).find((s) => s.date === c.today && s.card?.some((b) => b.a === c.player || b.b === c.player));
+      if (!show.segments?.some((g) => g.who.includes(c.player))) (show.segments ??= []).push({ kind: 'promo', who: [c.player, f.b], after: -1, feud: f.id });
+      await world.saveWorld();
+    });
+    await p.goto(URL); await wait(1500);
+    await p.locator('#menu button').filter({ hasText: /^(The career|Career)/i }).first().click(); await wait(1500);
     // The morning first (travelling), then the show.
     for (let k = 0; k < 2 && !(await p.getByRole('button', { name: /to the show/i }).count()); k++) { await p.locator('.c-adv').first().click(); await wait(1500); }
     await p.getByRole('button', { name: /to the show/i }).first().click(); await wait(800);
-    const chip = p.getByRole('button', { name: /^get personal$/i });
+    const chip = p.getByRole('button', { name: /^(get personal|leave them laying)$/i }).first();
     if (!(await chip.count())) fails.push(`${tag}: no segment choices on show day`);
     else {
       await chip.click(); await wait(300);
-      if (!(await p.getByText(/real-life stuff/i).count())) fails.push(`${tag}: choosing a style didn't land`);
+      if (!(await p.getByText(/real-life stuff|heat for days/i).count())) fails.push(`${tag}: choosing a style didn't land`);
     }
     if (await p.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)) fails.push(`${tag}: show day scrolls sideways`);
     await p.screenshot({ path: `${SP}/${skin}-${vn}-showday-feud.png`, fullPage: true });

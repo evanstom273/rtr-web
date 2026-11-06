@@ -683,7 +683,10 @@ export function endOfDay(c: Career): void {
     const a = findWrestler(f.a), b = findWrestler(f.b);
     // Booker mode: a storyline you wrote runs until it pays off, goes cold or you drop it (or one of them stops working your shows).
     if (f.by === 'player') { const here = (w: typeof a) => !!w && (w.promotion === f.promo || w.promotion === 'TIS' || !!w.also?.includes(f.promo)); if (!here(a) || !here(b)) f.done = true; continue; }
-    if (!pay || pay.done || !a || !b || a.promotion !== f.promo || b.promotion !== f.promo) f.done = true;
+    // Over when its payoff's been and gone, or one of them's left. A feud with no payoff yet (a Creative Control ask
+    // before the calendar's that far out) waits for one: feuds.ts sets it once there's a show far enough ahead.
+    const works = (w: typeof a) => !!w && (w.promotion === f.promo || !!w.also?.includes(f.promo));
+    if ((f.payoff && (!pay || pay.done)) || !works(a) || !works(b) || (!f.payoff && !FEATURES.feuds2)) f.done = true;
   }
   // Booker mode: a show's judged as a whole once it's over (your shows, Lyra's call).
   for (const s of showsOn(c, day)) for (const f of hooks.show) f(c, s);

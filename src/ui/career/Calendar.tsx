@@ -9,7 +9,8 @@ import { stipulation } from '../../engine';
 import { EventPopup } from './EventCard';
 import { commit, money, Nm, Screen, useToast, useWords } from './parts';
 import { boutKind, vsLine } from '../../career/bouts';
-import { feudHeat, feudLine, myFeuds } from '../../career/feuds';
+import { feudHeat, feudLine, myFeuds, nextFeudShow } from '../../career/feuds';
+import { FeudAsk } from './FeudAsk';
 
 const nameOf = (id: string): string => findWrestler(id)?.name ?? '?';
 
@@ -179,13 +180,24 @@ export function Calendar({ c, busy, skipping, onStop, onSkip, note, awayLog, onA
         {FEATURES.skip && onSkip && <button className="c-skipb" onClick={() => setSkipSheet(true)} disabled={busy !== null} aria-label="Skip ahead"><b>»</b><span>{w('Skip')}</span></button>}
       </div>
 
-      {FEATURES.feuds2 && myFeuds(c).map((f) => (
-        <button key={f.id} className="c-feud" onClick={() => setFeudOpen(feudOpen === f.id ? null : f.id)}>
-          <span className="c-lab">{w('Feud')}</span>
-          <span className="c-n"><b>{feudLine(c, f)}</b>{feudOpen === f.id && (f.beats ?? []).slice(0, 5).map((x, i) => <span key={i}>{x.t}{x.d ? ` (${x.d > 0 ? '+' : ''}${x.d})` : ''}</span>)}</span>
-          <span className="c-heat" style={{ width: `${Math.max(4, feudHeat(f))}%` }} />
-        </button>
-      ))}
+      {FEATURES.feuds2 && myFeuds(c).map((f) => {
+        const next = nextFeudShow(c, f);
+        return (
+          <div key={f.id} className="c-feud">
+            <button className="c-feudh" onClick={() => setFeudOpen(feudOpen === f.id ? null : f.id)} aria-expanded={feudOpen === f.id}>
+              <span className="c-lab">{w('Feud')}</span>
+              <span className="c-n"><b>{feudLine(c, f)}</b>{feudOpen !== f.id && <span>{next ? `Next: ${next.name}, ${fmtDay(next.date, 'dm')} · tap to ask for a segment` : 'Tap for more'}</span>}</span>
+            </button>
+            {feudOpen === f.id && (
+              <div className="c-feudb">
+                {(f.beats ?? []).slice(0, 5).map((x, i) => <span key={i} className="c-ad">{x.t}{x.d ? ` (${x.d > 0 ? '+' : ''}${x.d})` : ''}</span>)}
+                {next ? <FeudAsk c={c} show={next} say={say} title={false} /> : <span className="c-ad">You’re not booked on any of their shows yet.</span>}
+              </div>
+            )}
+            <span className="c-heat" style={{ width: `${Math.max(4, feudHeat(f))}%` }} />
+          </div>
+        );
+      })}
 
       <div className="c-day">
         <div className="c-dayh">
@@ -248,6 +260,7 @@ export function Calendar({ c, busy, skipping, onStop, onSkip, note, awayLog, onA
                 );
               })}
             </div>
+            <FeudAsk c={c} show={sheet} say={say} />
             {(() => {
               // Requests shortcuts: your promotion's shows and indie shows beyond the drawn week.
               const promo = p.contract?.promo;

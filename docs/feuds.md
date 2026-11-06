@@ -62,3 +62,23 @@ On the payoff show, both ride the heat: the winner's fans in the region × (1 + 
 
 Once a feud's over it goes into the world's history (`history.feuds`: who, the promotion, how hot it got, how many
 matches, how it ended), the last 600, for Feud of the Year and the record books.
+
+## Asking for a segment
+
+In a feud, you can ask for a segment with your rival (a promo, an interview, a beat-down, a run-in or a contract
+signing) on any of their shows you're on, days ahead or on the night, from:
+
+- the feud strip on the hub (tap it: your next show with them, and the kinds to ask for);
+- the show's sheet on the calendar;
+- show day.
+
+The booker says yes or no straight away: about 45% (promos and interviews easier, beat-downs, run-ins and signings
+harder), plus your reputation (rep ÷ 250) and the heat (heat ÷ 400). Once a show. If the card's drawn up it goes on
+now (before your match; a run-in after theirs); if not, it goes on when it is, as long as you're on the show. On the
+night you choose how to play it.
+
+## A feud with no payoff yet
+
+A feud started before there's a show far enough ahead to pay it off (a Creative Control ask early on, say) waits for
+one: as soon as the calendar has a special or flagship (else any show) three weeks from its start, that's the payoff.
+It used to end overnight.

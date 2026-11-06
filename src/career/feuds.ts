@@ -52,14 +52,22 @@ function kindFor(f: Feud, show: Show, payoffIn: number, r: () => number): SegKin
 
 /** A card the AI's drawn: its feuds get their segments (TV and the big shows; yours only if you're on the show). */
 export function feudSegments(c: Career, show: Show, card: Bout[]): void {
-  if (!on() || show.promo === 'TIS' || playerRuns(show.promo) || !['weekly', 'flagship', 'special'].includes(show.kind)) return;
+  if (!on() || show.promo === 'TIS' || playerRuns(show.promo)) return;
+  const tv = ['weekly', 'flagship', 'special'].includes(show.kind);
   const r = seededRng(hashSeed(c.seed, 'feudseg', show.id));
   const onCard = new Set(card.flatMap((b) => [b.a, b.b, ...(b.sides?.flat() ?? [])]));
+  // One you asked for (and they agreed to): on it goes, if you're on the show.
+  const ask = c.segAsks?.[show.id];
+  if (ask?.ok) {
+    const f = myFeuds(c).find((x) => x.promo === show.promo);
+    if (f && card.some((b) => b.a === c.player || b.b === c.player || !!b.sides?.flat().includes(c.player))) placeAsk(c, show, card, f, ask.kind);
+  }
   const segs: Segment[] = [...(show.segments ?? [])];
   const feuds = liveFeuds(c).filter((f) => f.promo === show.promo && f.payoff !== show.id && f.by !== 'player')
     .sort((x, y) => feudHeat(y) - feudHeat(x));
-  for (const f of feuds) {
+  for (const f of tv ? feuds : []) {
     if (segs.filter((g) => g.feud).length >= FEUD.segsPerShow) break;
+    if (segs.some((g) => g.feud === f.id)) continue;
     const mine = f.a === c.player || f.b === c.player;
     if (mine && !onCard.has(c.player)) continue;
     if (r() > (mine ? FEUD.segMine : FEUD.segChance)) continue;
@@ -114,22 +122,58 @@ export function setSegStyle(c: Career, showId: string, i: number, style: SegStyl
 /** Your segments on a show (the index on the show's list with them). */
 export const mySegments = (c: Career, show: Show): [number, Segment][] => (show.segments ?? []).map((g, i) => [i, g] as [number, Segment]).filter(([, g]) => g.who.includes(c.player));
 
-/** Ask for a promo slot: in a feud with someone on the show, once a show; the booker may say yes. */
-export function askForPromo(c: Career, show: Show): string {
-  if (!on()) return '';
-  const f = myFeuds(c).find((x) => x.promo === show.promo);
-  if (!f) return 'You’re not in a feud here.';
-  if (mySegments(c, show).length) return 'You’ve already got a segment tonight.';
-  if (!(show.card ?? []).some((b) => b.a === c.player || b.b === c.player)) return 'You’re not on the show.';
-  const asked = ((show as Show & { asked?: string[] }).asked ??= []);
-  if (asked.includes(c.player)) return 'You’ve asked already.';
-  asked.push(c.player);
+/** What you can ask for, and what the booker makes of it (the chance on top of the base). */
+export const ASKABLE: SegKind[] = ['promo', 'interview', 'beatdown', 'runin', 'signing'];
+const ASK_EASE: Partial<Record<SegKind, number>> = { promo: 0.05, interview: 0.15, beatdown: -0.05, runin: -0.05, signing: -0.15 };
+
+/** Your next show for this feud's promotion (today or later, not played yet), with whether you're on its card yet. */
+export function nextFeudShow(c: Career, f: Feud): Show | undefined {
+  return Object.values(c.shows).filter((s) => !s.done && s.date >= c.today && (s.promos ?? [s.promo]).includes(f.promo) && s.promo !== 'TIS')
+    .filter((s) => !s.card || s.card.some((b) => b.a === c.player || b.b === c.player || !!b.sides?.flat().includes(c.player)))
+    .sort((x, y) => (x.date < y.date ? -1 : 1))[0];
+}
+
+/** Whether you can ask for a segment on a show, and why not. */
+export function canAsk(c: Career, show: Show): { f?: Feud; why?: string } {
+  if (!on()) return { why: 'Off.' };
+  if (show.done || show.date < c.today) return { why: 'That show’s been and gone.' };
+  if (playerRuns(show.promo)) return { why: 'You book this show: put the segment on the card yourself.' };
+  const f = myFeuds(c).find((x) => (show.promos ?? [show.promo]).includes(x.promo));
+  if (!f) return { why: 'You’re not in a feud with anyone here.' };
+  if (mySegments(c, show).length) return { f, why: 'You’ve got a segment on this show already.' };
+  if (c.segAsks?.[show.id]) return { f, why: c.segAsks[show.id]!.ok ? 'Agreed: it goes on when the card’s drawn up.' : 'You asked already: they said no.' };
+  if (show.card && !show.card.some((b) => b.a === c.player || b.b === c.player || !!b.sides?.flat().includes(c.player))) return { f, why: 'You’re not on this show.' };
+  return { f };
+}
+
+/**
+ * Ask for a segment with your rival on a show: a promo, an interview, a beat-down, a run-in or a contract signing.
+ * The booker says yes or no now (more likely the more they rate you and the hotter it is). If the card's drawn up it
+ * goes straight on; if not, it goes on when it is (as long as you're on the show).
+ */
+export function askForSegment(c: Career, show: Show, kind: SegKind = 'promo'): string {
+  const { f, why } = canAsk(c, show);
+  if (why || !f) return why ?? 'No.';
   const p = person(c, c.player);
-  const yes = seededRng(hashSeed(c.seed, 'askpromo', show.id))() < FEUD.askBase + p.rep / 250 + feudHeat(f) / 400;
-  if (!yes) return 'Not tonight: the show’s full.';
-  const mineIdx = (show.card ?? []).findIndex((b) => b.a === c.player || b.b === c.player);
-  (show.segments ??= []).push({ kind: 'promo', who: [c.player, rivalOf(c, f)], after: Math.max(-1, mineIdx - 1), feud: f.id });
-  return `You’ve got the mic tonight, before your match. Choose how you play it.`;
+  const yes = seededRng(hashSeed(c.seed, 'askseg', show.id, kind))() < FEUD.askBase + (ASK_EASE[kind] ?? 0) + p.rep / 250 + feudHeat(f) / 400;
+  (c.segAsks ??= {})[show.id] = { kind, ok: yes };
+  if (!yes) return `They’ve said no to a ${SEG_LABEL[kind].toLowerCase()} on ${show.name}.`;
+  if (show.card) {
+    placeAsk(c, show, show.card, f, kind);
+    return `Agreed: a ${SEG_LABEL[kind].toLowerCase()} with ${nameOf(rivalOf(c, f))} on ${show.name}. Choose how you play it on the night.`;
+  }
+  return `Agreed: a ${SEG_LABEL[kind].toLowerCase()} with ${nameOf(rivalOf(c, f))} on ${show.name}, once the card’s drawn up.`;
+}
+/** The old name (show day's button). */
+export const askForPromo = (c: Career, show: Show): string => askForSegment(c, show, 'promo');
+
+/** Put an agreed segment on the card: before your match (a run-in after theirs, if they're on it). */
+function placeAsk(c: Career, show: Show, card: Bout[], f: Feud, kind: SegKind): void {
+  const rival = rivalOf(c, f);
+  const mine = card.findIndex((b) => b.a === c.player || b.b === c.player || !!b.sides?.flat().includes(c.player));
+  const theirs = card.findIndex((b) => b.a === rival || b.b === rival);
+  const after = kind === 'runin' && theirs >= 0 ? theirs : Math.max(-1, mine - 1);
+  (show.segments ??= []).push({ kind, who: kind === 'interview' ? [c.player] : [c.player, rival], after, feud: f.id });
 }
 
 /** How a chosen style lands: a bonus and how much it can swing, what it does to the heat (and the fans). */
@@ -218,6 +262,9 @@ setCareerHooks({
   show: afterShow,
   daily: (c) => {
     if (!on()) return;
+    // A feud with no payoff yet (a Creative Control ask before the calendar reached that far): one once there's a show.
+    for (const f of liveFeuds(c)) if (!f.payoff && f.by !== 'player') setPayoff(c, f);
+    if (c.segAsks) for (const id of Object.keys(c.segAsks)) if (!c.shows[id] || c.shows[id]!.done) delete c.segAsks[id];
     if (weekday(c.today) === 1) {
       for (const f of liveFeuds(c)) {
         if (f.by === 'player') continue;
@@ -244,6 +291,16 @@ setCalloutHook((c, id, kind) => {
   const f = feudBetween(c, c.player, id);
   if (f) feudBeat(c, f, kind === 'beef' ? 'Your online beef' : 'You called them out online', kind === 'beef' ? FEUD.beef : FEUD.callout);
 });
+
+/** Its blow-off: the first big show (a special or flagship) at least three weeks out, else any show that far out. */
+export function setPayoff(c: Career, f: Feud): void {
+  const ahead = Object.values(c.shows).filter((s) => s.promo === f.promo && s.date > c.today && !s.done).sort((a, b) => (a.date < b.date ? -1 : 1));
+  const far = (s: Show) => daysBetween(f.start, s.date) >= FEUD.payoffWeeks * 7;
+  const pay = ahead.find((s) => (s.kind === 'special' || s.kind === 'flagship') && far(s)) ?? ahead.find(far);
+  if (!pay) return;
+  f.payoff = pay.id;
+  feudBeat(c, f, `Building to ${pay.name}`, 0);
+}
 
 /** For the screens: your feud's rival, heat and where it pays off. */
 export function feudLine(c: Career, f: Feud): string {

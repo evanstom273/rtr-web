@@ -4,7 +4,7 @@ import { runHeadless } from '../engine/sim/runHeadless';
 import type { MatchRulesConfig } from '../engine/types';
 import { activeWorld } from '../world/world';
 import { boutRules } from './career';
-import { askForPromo, feudHeat, feudSegments, myFeuds, setSegStyle } from './feuds';
+import { askForPromo, askForSegment, canAsk, feudHeat, feudSegments, myFeuds, setSegStyle } from './feuds';
 import { socialAct } from './social';
 import { begin as kitBegin, day } from './testkit';
 import { FEATURES } from './tuning';
@@ -38,7 +38,7 @@ describe('feuds stage 1: feuds that matter', () => {
     const show = Object.values(c.shows).find((s) => s.promo === promo && s.kind === 'weekly' && s.date > c.today)!;
     show.card = [{ a: c.player, b: WRESTLERS.find((w) => w.id !== c.player && w.id !== rival.id && w.promotion === promo)!.id }];
     show.segments = [];
-    expect(askForPromo(c, show)).toMatch(/mic|full/);
+    expect(askForPromo(c, show)).toMatch(/Agreed|said no/);
     feudSegments(c, show, show.card);
     const mine = (show.segments ?? []).findIndex((g) => g.who.includes(c.player));
     if (mine >= 0) expect(setSegStyle(c, show.id, mine, 'cold')).toMatch(/Cold/);
@@ -51,6 +51,36 @@ describe('feuds stage 1: feuds that matter', () => {
     const rules = boutRules(c, show, { a: c.player, b: rival.id }, c.player, rival.id, false);
     expect(rules.feud?.heat).toBe(feudHeat(f));
     void day; void findWrestler; void activeWorld;
+  });
+
+  it('a feud started with no payoff yet (Creative Control, early on) doesn’t vanish overnight, and gets one', async () => {
+    const c = begin('buck_stratton');
+    const promo = c.people[c.player]!.contract!.promo;
+    const rival = WRESTLERS.find((w) => w.id !== c.player && w.promotion === promo)!;
+    const f: Feud = { id: 'fcc', promo, a: c.player, b: rival.id, start: c.today, payoff: null, matches: 0, done: false };
+    c.feuds.push(f);
+    for (let i = 0; i < 5; i++) await day(c);
+    expect(f.done).toBe(false);
+    expect(myFeuds(c)).toContain(f);
+    for (let i = 0; i < 30 && !f.payoff; i++) await day(c);
+    expect(f.payoff).toBeTruthy();
+  });
+
+  it('ask for a segment days ahead: agreed now, on the card when it’s drawn up', async () => {
+    const c = begin('buck_stratton');
+    const promo = c.people[c.player]!.contract!.promo;
+    const rival = WRESTLERS.find((w) => w.id !== c.player && w.promotion === promo)!;
+    c.feuds.push({ id: 'fask', promo, a: c.player, b: rival.id, start: c.today, payoff: null, matches: 0, done: false, heat: 90 });
+    const show = Object.values(c.shows).filter((s) => s.promo === promo && !s.card && s.date > c.today).sort((a, b) => (a.date < b.date ? -1 : 1))[0]!;
+    const said = askForSegment(c, show, 'beatdown');
+    expect(said).toMatch(/Agreed|said no/);
+    c.segAsks![show.id] = { kind: 'beatdown', ok: true };
+    const other = WRESTLERS.find((w) => w.id !== c.player && w.id !== rival.id && w.promotion === promo)!;
+    const card = [{ a: c.player, b: other.id }];
+    show.card = card;
+    feudSegments(c, show, card);
+    expect(show.segments?.some((g) => g.kind === 'beatdown' && g.who.includes(c.player) && g.who.includes(rival.id))).toBe(true);
+    expect(canAsk(c, show).why).toMatch(/already/);
   });
 
   it('a year of the world: AI feuds get segments, build heat, end, and go into the history', async () => {
