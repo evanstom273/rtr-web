@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PROMOTIONS, TITLES, WRESTLERS } from '../data/rtr';
+import { PROMOTIONS, rosterOf, TITLES, WRESTLERS } from '../data/rtr';
 import { activeWorld } from '../world/world';
 import { begin, day } from './testkit';
 import { ROSTER_FLOOR, ROSTER_SCOUT_DAYS, ROSTER_TARGET } from './tuning';
@@ -42,6 +42,7 @@ describe('rosters (Lyra’s call): every major promotion aims for 38–40', () =
       }
     }
     expect(low, 'every promotion 38–40 every night').toEqual([]);
-    expect(roster('VWF')).toHaveLength(ROSTER_TARGET);
+    // The roster as the game counts it (anyone with a deal there, a second deal included).
+    expect(rosterOf('VWF')).toHaveLength(ROSTER_TARGET);
   }, 300000);
 });

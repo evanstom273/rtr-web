@@ -776,6 +776,9 @@ export const FEUD = {
   /** For anyone who won't do hardcore: nastier without the weapons. */
   cleanLadder: ['standard', 'two_out_of_three', 'submission', 'steel_cage'],
   cleanBlowoff: ['steel_cage', 'iron_man', 'two_out_of_three', 'submission'],
+  /** A title feud's blow-off: how much the story decides who leaves with the belt (plus heat / titleHeatDiv), the rest the title's rhythm. */
+  titleStory: 0.6,
+  titleHeatDiv: 500,
   blowoffStips: { hot: ['steel_cage', 'last_man_standing', 'i_quit', 'street_fight'], warm: ['street_fight', 'no_dq', 'falls_count_anywhere'], cool: ['standard'] } as Record<'hot' | 'warm' | 'cool', string[]>,
   /** At least this many days between their matches; a weekly show skips it this often; allies get involved this often. */
   matchGap: 10, weeklySkip: 0.45, allyChance: 0.3, allyLike: 50, repeatFrom: 3,

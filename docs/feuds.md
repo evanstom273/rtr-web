@@ -56,6 +56,25 @@ Heat: segments (score − 2) × 7 × how they were played; matches (stars − 2.
   +0.2 on the blow-off, and the commentary knows. Whoever won the last segment has the crowd (+1 on every roll).
 - Hot feuds go higher up the card.
 
+## Title feuds
+
+Lyra's call: a feud with a champion is for the title, no catch. Whoever starts it and however it starts (you call out
+the champion, the office hands you one, it grows, they come for you, or you're the champion), if one of you holds a
+singles title in the promotion (the biggest, if you both do) and the other could hold it, the belt goes on the line at
+the blow-off.
+
+- **Only the blow-off.** The matches building to it are non-title (beat the champion to prove a point); the blow-off is
+  the title match, with the stipulation (called or by heat) and any stakes.
+- **Who leaves with it:** the story, with the title's say. The story's pick counts for 0.6 + heat/500 (to 0.9), the
+  title's own rhythm the rest (a new champion tends to keep it, a long reign tends to end). Your contract's protection
+  for a new champion stands.
+- **Every title feud gets the full feud,** the office's AI ones too: stages, build-up matches, segments, stipulations.
+  The title isn't defended against anyone else while it runs.
+- **If the belt moves:** the champion losing it elsewhere (or it falling vacant) takes it out of the feud (it's just
+  personal now); someone in a feud winning a belt brings it in.
+- **What it pays:** the title itself, instead of the promised title shot.
+- Match Conditions (no hardcore) in either contract rules those stipulations out when you call it.
+
 ## Segments, played
 
 The AI puts its feuds' segments on TV and big shows (up to two a show); yours go on when you're on the show. You can

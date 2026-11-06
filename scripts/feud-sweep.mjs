@@ -1,6 +1,6 @@
 // The feuds UI sweep: with the dev server up (SWEEP_URL, default :5173),
 //   node scripts/feud-sweep.mjs <screenshot dir>
-// In all three skins at phone and fold widths: the hub's feud button, the Feuds screen (start a feud, the stage
+// In all three skins at phone and fold widths: the hub's feud button, the Feuds screen (a champion's title on the line, start a feud, the stage
 // track, the story, calling the blow-off, everyone else's), and on show day a promo played beat by beat on the timing
 // bar, then a brawl. Fails on page errors, sideways scrolling, and steps that don't land.
 import { createRequire } from 'node:module';
@@ -36,6 +36,17 @@ for (const skin of (process.env.SKINS ?? 'broadcast,paper,building').split(','))
     const fb = p.locator('button.c-feud').first();
     if (!(await fb.count())) { fails.push(`${tag}: no feud button on the hub`); await ctx.close(); continue; }
     await fb.click(); await wait(600);
+    // A champion in the list: the feud would be for their title.
+    const sel = p.locator('select[aria-label="Who with"]');
+    const champOpt = await sel.locator('option', { hasText: /· for the / }).first().getAttribute('value').catch(() => null);
+    if (!champOpt) fails.push(`${tag}: no champion marked in the rival list`);
+    else {
+      const first = await sel.locator('option').first().getAttribute('value');
+      await sel.selectOption(champOpt); await wait(300);
+      if (!(await p.getByText(/is on the line at the blow-off/i).count())) fails.push(`${tag}: picking a champion doesn't say the title's on the line`);
+      await p.screenshot({ path: `${SP}/${skin}-${vn}-feuds-champion.png`, fullPage: true });
+      await sel.selectOption(first); await wait(300);
+    }
     const start = p.locator('.c-ans').filter({ hasText: /call them out/i }).first();
     if (!(await start.count())) fails.push(`${tag}: no way to start a feud`);
     else { await start.click(); await wait(500); if (!(await p.getByText(/it’s on/i).count())) fails.push(`${tag}: starting a feud didn't land`); }
@@ -58,9 +69,19 @@ for (const skin of (process.env.SKINS ?? 'broadcast,paper,building').split(','))
     await p.locator('button.c-feud').first().click(); await wait(600);
     if (!(await p.getByText(/the story so far/i).count())) fails.push(`${tag}: no story on the Feuds screen`);
     if (!(await p.locator('.c-steps .c-st.on').count())) fails.push(`${tag}: no stage track`);
+    // A cage first: a contract with Match Conditions (no hardcore) rules it out, and says so; then an iron man.
     const stip = p.getByRole('button', { name: /^steel cage$/i }).first();
-    if (await stip.count()) { await stip.click(); await wait(200); await p.getByRole('button', { name: /^call it$/i }).click(); await wait(400); if (!(await p.getByText(/done:|no show far enough/i).count())) fails.push(`${tag}: calling the blow-off didn't land`); }
-    else fails.push(`${tag}: no way to call the blow-off`);
+    if (await stip.count()) {
+      await stip.click(); await wait(200); await p.getByRole('button', { name: /^call it$/i }).click(); await wait(400);
+      if (!(await p.getByText(/done:|no show far enough/i).count())) {
+        if (!(await p.getByText(/contract rules out|won’t do/i).count())) fails.push(`${tag}: calling the blow-off didn't land`);
+        else {
+          await p.getByRole('button', { name: /^iron man$/i }).first().click(); await wait(200);
+          await p.getByRole('button', { name: /^call it$/i }).click(); await wait(400);
+          if (!(await p.getByText(/done:|no show far enough/i).count())) fails.push(`${tag}: calling an iron man didn't land`);
+        }
+      }
+    } else fails.push(`${tag}: no way to call the blow-off`);
     if (await sideways(p)) fails.push(`${tag}: Feuds screen scrolls sideways`);
     await p.screenshot({ path: `${SP}/${skin}-${vn}-feuds-screen.png`, fullPage: true });
     // Show day: play the promo, beat by beat.
