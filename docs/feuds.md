@@ -81,7 +81,12 @@ The AI puts its feuds' segments on TV and big shows (up to two a show); yours go
 also ask for one (Feuds screen, the calendar's show sheet, show day): promo, face to face, beat-down, run-in, contract
 signing, backstage, interview. The booker answers straight away (about 45%, plus reputation and heat).
 
-On show day: **Play it** or **Sim it**. Skipping stops for them, like your matches.
+On show day: **Play it** or **Sim it**. Skipping stops for them, like your matches, unless you've set "Your matches and
+segments: Sim them" (the skip sheet, or the week's settings). Then a long skip sims your segments like your matches,
+the feud's letters (it's building, they're posting about you, the blow-off's set) land in your mail without stopping
+it, and a rival's call-out is answered for you by who you are: hot-heads, the aggressive, egos, showboats and anyone
+who already can't stand them bite; the professional, the methodical and the defensive ignore it; anyone else bites.
+It goes in the skip's summary.
 
 - **Promos** are built beat by beat (the open, the dig, the hook, the closer), each from four kinds of material:
   - going after them (their skill, their looks, the last time you beat them);

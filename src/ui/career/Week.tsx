@@ -97,7 +97,7 @@ export function Week({ c, onBack, onOwnShow }: Props) {
               <div className="c-chips">{[40, 50, 60, 70, 80].map((f) => chip(r.maxTrainFatigue === f, `over ${f}`, () => { r.maxTrainFatigue = f; }))}</div>
               <span className="c-lab">{w('Match days')}</span>
               <div className="c-chips">{chip(r.trainMatchDays, 'Train', () => { r.trainMatchDays = true; })}{chip(!r.trainMatchDays, 'Rest', () => { r.trainMatchDays = false; })}</div>
-              {FEATURES.skip && <><span className="c-lab">{w('Skipping')}</span><div className="c-chips">{chip(!r.simMine, 'Stop for my matches', () => { r.simMine = false; })}{chip(r.simMine, 'Sim them', () => { r.simMine = true; })}</div></>}
+              {FEATURES.skip && <><span className="c-lab">{w('Skipping')}</span><div className="c-chips">{chip(!r.simMine, 'Stop for my matches and segments', () => { r.simMine = false; })}{chip(r.simMine, 'Sim them', () => { r.simMine = true; })}</div></>}
             </div>
           </>
         )}

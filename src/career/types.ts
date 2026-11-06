@@ -310,6 +310,8 @@ export type LetterAction =
   | { type: 'event'; event: string; options: EventChoice[]; expires: Day };
 
 export interface Letter {
+  /** A storyline beat (feuds): with "Sim them" on, a skip carries on past it (Lyra's call). */
+  story?: true;
   id: string;
   day: Day;
   kind: LetterKind;

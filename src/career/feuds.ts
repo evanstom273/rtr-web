@@ -14,7 +14,7 @@ import { willing } from '../world/matchWorld';
 import { activeWorld } from '../world/world';
 import { bondOf, likeOf } from '../world/people';
 import { moveRelation } from './relations';
-import { letter, person, setCareerHooks, setFeudRulesHook, spend } from './career';
+import { letter as post, person, setCareerHooks, setFeudRulesHook, spend } from './career';
 import { dealWith } from './deals';
 import { HARDCORE_STIPS, setCardHook, setFeudBoutHook, setFeudTitleHook } from './booker';
 import { tierOf } from './clauses';
@@ -22,8 +22,11 @@ import { multiBout } from './bouts';
 import { playerRuns } from './company';
 import { rateSegment, SEG_LABEL } from './card';
 import { addDays, daysBetween, fmtDay, weekday } from './dates';
-import { registerReplies } from './mail';
-import { setSegStop } from './skip';
+import { registerReplies, replyTo } from './mail';
+import { setSegStop, setStoryAnswer } from './skip';
+import { routineOf } from './day';
+import { likeOf as likeIn } from '../world/people';
+import { playerHas } from './leans';
 import { postToFeed, setCalloutHook } from './social';
 import { STAKE_LABEL, type StakeKind } from './stakes';
 import { FEATURES, FEUD, SEGMENT, STORY } from './tuning';
@@ -34,6 +37,8 @@ export const nameOf = (id: string) => W(id)?.name ?? id;
 const clampHeat = (v: number) => Math.max(0, Math.min(100, Math.round(v)));
 const on = () => FEATURES.feuds2;
 const rngOf = (c: Career, ...k: (string | number)[]): Rng => seededRng(hashSeed(c.seed, 'feud2', ...k));
+/** Every feud letter is a storyline beat: with "Sim them" on, a skip carries on past it (Lyra's call). */
+const letter = (c: Career, l: Parameters<typeof post>[1]) => post(c, { ...l, story: true });
 
 // ------------------------------------------------------------------ heat, stages, the story so far
 
@@ -605,7 +610,29 @@ export function feudRules(c: Career, show: Show, a: string, b: string): { heat: 
   return { heat, ...(f.payoff === show.id ? { payoff: true } : {}), ...(f.edge === a ? { edge: 'you' as const } : f.edge === b ? { edge: 'them' as const } : {}) };
 }
 setFeudRulesHook(feudRules);
-setSegStop((c) => { if (!on()) return null; const t = segmentToday(c); return t ? `Your ${SEG_LABEL[t.g.kind].toLowerCase()} is up` : null; });
+setSegStop((c) => { if (!on() || routineOf(c).simMine) return null; const t = segmentToday(c); return t ? `Your ${SEG_LABEL[t.g.kind].toLowerCase()} is up` : null; });
+
+/**
+ * Skipping with "Sim them" on (Lyra's call: all of it, answers too): a rival's call-out is answered for you, by who you
+ * are. Hot-heads, the aggressive, egos and showboats bite, and so does anyone who can't stand them already; the
+ * professional, the methodical and the cowardly ignore it; anyone else bites.
+ */
+export function answerStory(c: Career): string[] {
+  if (!on()) return [];
+  const out: string[] = [];
+  for (const l of [...c.letters]) {
+    if (!l.story || l.done || l.replied || !l.replies?.some((r) => r.id === 'feud_bite')) continue;
+    const who = l.ctx?.who ?? '';
+    const P = activeWorld().people;
+    const like = P && who ? likeIn(P, c.player, who) ?? 0 : 0;
+    const bite = playerHas(c, 'hot_headed') || playerHas(c, 'aggressive') || playerHas(c, 'egotistical') || playerHas(c, 'showboat') || like <= -10
+      || !(playerHas(c, 'professional') || playerHas(c, 'methodical') || playerHas(c, 'defensive'));
+    replyTo(c, l.id, bite ? 'feud_bite' : 'feud_ignore');
+    out.push(bite ? `You bit back at ${nameOf(who)}’s call-out: it’s on.` : `You ignored ${nameOf(who)}’s call-out.`);
+  }
+  return out;
+}
+setStoryAnswer(answerStory);
 
 // ------------------------------------------------------------------ your rival, between shows
 
