@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  attitude, baseFor, BONUS_TRIGGERS, C, CHARACTER, clauseCost, dealsOf, gate, mood, PACKAGES, packageProposal, person, PLAYER_PACKAGES, promoName, propose, roundsLeft,
+  attitude, baseFor, BONUS_TRIGGERS, C, CHARACTER, clauseCost, dealsOf, gate, PACKAGES, packageProposal, person, PLAYER_PACKAGES, promoName, propose, roundsLeft,
   signOffer, triggerSlots, underLine, walkAway, type BonusTrigger, type Career, type PackageId, type Proposal,
 } from '../../career';
 import { CLAUSES } from '../../career/clauses';
@@ -18,7 +18,8 @@ import { PayBoxes } from './PayBoxes';
 
 interface Props { c: Career; offerId: string; onBack: () => void; onDone: () => void }
 
-const MOOD: Record<string, [string, string]> = { keen: ['Keen', 'c-eff up'], happy: ['Happy with it', 'c-eff up'], hesitant: ['Hesitant', 'c-eff gold'], losing: ['Losing interest', 'c-eff bad'] };
+/** A rough read on how they took your last offer (never live: Lyra's call). */
+const MOOD: Record<string, [string, string]> = { keen: ['Interested', 'c-eff up'], happy: ['They could live with it', 'c-eff up'], hesitant: ['Not keen', 'c-eff gold'], losing: ['Losing patience', 'c-eff bad'] };
 const PKG_SHORT: Record<string, string> = { star: 'Star', developmental: 'Developmental', parttime: 'Part-timer', attraction: 'Attraction', custom: 'Custom' };
 
 /**
@@ -35,7 +36,6 @@ export function Negotiate({ c, offerId, onBack, onDone }: Props) {
   const [lines, setLines] = useState<number[]>(() => o?.lines ?? CLAUSES.map(() => 0));
   if (!o) return null;
   const base = baseFor(c, o, p);
-  const m = mood(c, o, p);
   const open = o.status === 'open';
   const accepted = open && o.said.startsWith('“Done');
   const under = underLine(o) >= 0;
@@ -78,7 +78,7 @@ export function Negotiate({ c, offerId, onBack, onDone }: Props) {
       <div className="c-start" style={{ marginTop: 10 }}>
         <div className="c-rowsb"><span className="c-lab">{w(`${o.promo} said`)}</span><span className="c-hint">{open ? `${roundsLeft(o)} ${roundsLeft(o) === 1 ? 'round' : 'rounds'} left` : o.status}</span></div>
         <span className="c-val">{o.said}</span>
-        <div className="c-rowsb"><span className="c-lab">{w('How it’s going')}</span><b className={MOOD[m]![1]}>{w(MOOD[m]![0])}</b></div>
+        <div className="c-rowsb"><span className="c-lab">{w('How they took it')}</span>{o.read ? <b className={MOOD[o.read]![1]}>{w(MOOD[o.read]![0])}</b> : <span className="c-hint">Put an offer to them and see</span>}</div>
       </div>
       <div className="c-body">
         {ch && <span className="c-note"><b>{promoName(o.promo)}: {ch.style}.</b> {ch.blurb}</span>}

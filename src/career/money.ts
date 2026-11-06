@@ -7,12 +7,13 @@ import { setCardHook } from './booker';
 import { letter, person, promoName, setCareerHooks, spend } from './career';
 import { BONUS_TRIGGERS, tierOf, triggerSlots, type BonusTrigger } from './clauses';
 import { onSigned } from './contracts';
+import { registerReplies } from './mail';
 import { addDays, daysBetween, type Day } from './dates';
 import { dealsOf, dealWith } from './deals';
-import { isWeeklyFlagship, matchPay, monthlySalary, payOf, round5 } from './economy';
+import { isWeeklyFlagship, matchPay, merchShare, monthlySalary, payOf, round5 } from './economy';
 import {
   ADVANCE_FEES, ADVANCE_INTEREST, ADVANCE_REPAY_SHARE, ADVANCE_WRITE_OFF_T3, BONUS_DRAW_AT, BONUS_FEES, BONUS_FIVE_STAR, GUARANTEED_DATES, LEGEND_REP, LEGEND_YEARS, LOYALTY_FEES, LOYALTY_PROTECT_YEARS, MERCH_STORE_PER_FAN,
-  PERF_RAISE, PERF_RAISE_STARS, PROFIT_SHARE, PULLED_PAY, REBRAND_LOSS, SIGNING_BONUS_FEES, STORE_CUT, TAKINGS, YEARLY_RAISE,
+  PERF_RAISE, PERF_RAISE_STARS, REBRAND, PROFIT_SHARE, PULLED_PAY, REBRAND_LOSS, SIGNING_BONUS_FEES, STORE_CUT, TAKINGS, YEARLY_RAISE,
 } from './tuning';
 import type { Bout, Career, Contract, PlayerMatch, Show } from './types';
 
@@ -210,7 +211,7 @@ function monthly(c: Career, _rnd: Rng): void {
     // Merchandise Rights: a cut of their online store's sales of your gear.
     const cut = STORE_CUT[tierOf(k, 'merch')] ?? 0;
     if (cut) {
-      const amount = round5(fansTotal(me) * MERCH_STORE_PER_FAN * cut);
+      const amount = round5(fansTotal(me) * MERCH_STORE_PER_FAN * cut * merchShare(c));
       if (amount) spend(c, amount, `Online store cut · ${k.promo}`, 'merch');
     }
     // Wage Matching Tier 3: never paid less than anyone below you on their roster.
@@ -266,11 +267,37 @@ function leaving(c: Career, k: Contract, how: 'ended' | 'left' | 'released' | 'm
   const before = fansTotal(me);
   for (const r of Object.keys(me.fans) as (keyof typeof me.fans)[]) me.fans[r] = Math.round(me.fans[r] * (1 - share));
   const lost = before - fansTotal(me);
-  c.rebrand = { from: k.promo, old: me.name, lost };
+  // The character goes with the name (Lyra's call): the entrance you bought for it, your finishers' names, and your merch.
+  const took: string[] = [];
+  const gear = c.life?.gear;
+  const kept = { ...(gear?.theme ? { theme: true } : {}), ...(gear?.video ? { video: true } : {}) };
+  if (gear && (gear.theme || gear.video)) { delete gear.theme; delete gear.video; took.push('your entrance theme and video'); }
+  const names = me.moveNames;
+  if (names && Object.keys(names).length) { delete me.moveNames; took.push('your finishers’ and signatures’ names'); }
+  c.merchSince = c.today;
+  took.push('your merch (it builds back up as the new name does)');
+  const price = Math.max(REBRAND.buyMin, Math.round((lost * REBRAND.buyPerFan) / 1000) * 1000);
+  (c.lostNames ??= []).push({ promo: k.promo, name: me.name, lost, day: c.today, price, ...(names ? { moveNames: { ...names } } : {}), ...(Object.keys(kept).length ? { gear: kept } : {}) });
+  c.rebrand = { from: k.promo, old: me.name, lost, took };
   letter(c, { kind: 'contract', from: promoName(k.promo), subject: `“${me.name}” stays with us`, body: [
     `${k.promo} own your ring name and gimmick, so you can’t use them any more. You’ll need a new name.`,
     `Not every fan follows a new name: about ${Math.round(share * 100)}% of them (${lost.toLocaleString('en-GB')}) don’t.`,
+    `It all stays with us: ${took.join(', ')}.`,
+    `You can buy “${me.name}” back from us (${money(price)}), or come back and it’s yours again.`,
   ] });
+}
+
+/** Two names too close to call (Lyra's call: no getting round it with a capital, a space, a letter or a "The"). */
+function tooClose(a: string, b: string): boolean {
+  const norm = (s: string) => s.toLowerCase().replace(/^the\s+/, '').replace(/[^a-z]/g, '');
+  const x = norm(a), y = norm(b);
+  if (!x || !y) return false;
+  if (x === y || (y.length >= 4 && x.includes(y)) || (x.length >= 4 && y.includes(x))) return true;
+  // Edit distance: a letter or two swapped is the same name.
+  const d: number[][] = Array.from({ length: x.length + 1 }, (_, i) => [i, ...Array<number>(y.length).fill(0)]);
+  for (let j = 1; j <= y.length; j++) d[0]![j] = j;
+  for (let i = 1; i <= x.length; i++) for (let j = 1; j <= y.length; j++) d[i]![j] = Math.min(d[i - 1]![j]! + 1, d[i]![j - 1]! + 1, d[i - 1]![j - 1]! + (x[i - 1] === y[j - 1] ? 0 : 1));
+  return d[x.length]![y.length]! <= (y.length >= 8 ? 2 : 1);
 }
 
 /** Pick your new ring name after leaving a promotion that owned the old one. */
@@ -279,11 +306,53 @@ export function rebrand(c: Career, name: string): string {
   if (!c.rebrand) return '';
   if (n.length < 2) return 'That’s not a name.';
   if (WRESTLERS.some((w) => w.id !== c.player && w.name.toLowerCase() === n.toLowerCase())) return 'Someone’s already using that name.';
+  const owned = (c.lostNames ?? []).find((x) => tooClose(n, x.name));
+  if (owned) return `That’s too close to “${owned.name}”, and ${owned.promo} own it. Something properly new.`;
   const me = findWrestler(c.player)!;
   me.name = n;
   delete c.rebrand;
   return `From now on, you’re ${n}.`;
 }
+
+/** Get a name back: buy it from them, or (free) by going back there. Your name, finishers' names, entrance, some fans. */
+export function buyBackName(c: Career, promo: string, free = false): string {
+  const i = (c.lostNames ?? []).findIndex((x) => x.promo === promo);
+  const rec = i >= 0 ? c.lostNames![i]! : undefined;
+  if (!rec) return 'They don’t own a name of yours.';
+  if (c.rebrand) return 'Pick your new name first.';
+  if (WRESTLERS.some((w) => w.id !== c.player && w.name.toLowerCase() === rec.name.toLowerCase())) return `Someone else is wrestling as “${rec.name}” now.`;
+  if (!free && c.money < rec.price) return `It’s ${money(rec.price)}. You haven’t got that.`;
+  if (!free) spend(c, -rec.price, `Bought back “${rec.name}” from ${promo}`, 'event', { untaxed: true });
+  const me = findWrestler(c.player)!;
+  me.name = rec.name;
+  // Your finishers' names, where they're still your finishers and signatures.
+  const mine = new Set([...me.finishers, ...me.signatures]);
+  const names = Object.fromEntries(Object.entries(rec.moveNames ?? {}).filter(([id]) => mine.has(id)));
+  if (Object.keys(names).length) me.moveNames = { ...names, ...(me.moveNames ?? {}) };
+  if (rec.gear && c.life) Object.assign((c.life.gear ??= {}), rec.gear);
+  // Some of the fans who didn't follow the new name come back to the old one.
+  const back = Math.round(rec.lost * REBRAND.fansBack), total = Math.max(1, fansTotal(me));
+  for (const r of Object.keys(me.fans) as (keyof typeof me.fans)[]) me.fans[r] = Math.round(me.fans[r] + (back * me.fans[r]) / total);
+  delete c.merchSince;
+  c.lostNames!.splice(i, 1);
+  return `You’re “${rec.name}” again.${back ? ` About ${back.toLocaleString('en-GB')} fans are back with you.` : ''}`;
+}
+
+/** Back with a promotion that owns your old name: it's yours again if you want it (Lyra's call). */
+onSigned((c, k) => {
+  const rec = (c.lostNames ?? []).find((x) => x.promo === k.promo);
+  if (!rec || c.spectator) return;
+  letter(c, {
+    kind: 'contract', from: promoName(k.promo), subject: `“${rec.name}” is yours again, if you want it`,
+    body: [`You’re back with us, so the name’s yours to use again (the finishers, the entrance, the lot).`],
+    replies: [{ id: 'name_back', label: `Be “${rec.name}” again` }, { id: 'name_keep', label: 'Keep my new name' }],
+    ctx: { promo: k.promo },
+  });
+});
+registerReplies({
+  name_back: (c, l) => buyBackName(c, l.ctx?.promo ?? '', true),
+  name_keep: () => 'You’ll stay as you are.',
+});
 
 // ------------------------------------------------------------------ registration
 

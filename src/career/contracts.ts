@@ -9,13 +9,13 @@ import { attitude, C, CLAUSES, packageClauses, PACKAGES, type PackageId, patienc
 import { beltsOnMove, leavingHooks, letter, person, promoName, setCareerHooks, spend } from './career';
 import { addDays, addMonths, daysBetween, fmtDay } from './dates';
 import { addDeal, dealsOf, dealWith, dropDeal, openToSecond, playerPackage, promoteDeal } from './deals';
-import { contractFee, floorFee, payWords, preferredPay, round5 } from './economy';
+import { contractFee, floorFee, payWords, preferredPay, rosterStanding, round5 } from './economy';
 import { startTitlePromise } from './offers';
 import { movePatience } from './patience';
 import { activeWorld } from '../world/world';
 import { addEvent } from '../world/history';
 import {
-  PAY, ATTITUDE_MULT, BUYOUT_SHARE, CLAUSE_COST, DATES_FEE_LIFT, DATES_FULL, EXCL_ATTITUDE, EXCL_COST, FIRST_REFUSAL_BLOCK, FIRST_REFUSAL_COMP_FEES, FIRST_REFUSAL_PATIENCE, MAX_MAJORS, NEGO_ACCEPT, NEGO_COUNTER, NEGO_FORM_SWING, NEGO_REP_SWING, NEGO_RIVAL_LIFT, NEGO_WALK_PATIENCE, NONCOMPETE_DAYS, NOTICE_DAYS, RELEASE_GRANT_ABOVE_MEDIAN, RELEASE_GRANT_BELOW_MEDIAN, REP_ASK_RELEASE, SHOW_MULT, SPLIT_DATES_TOTAL, SPLIT_DEFAULT_NEW, TRAIT_BACKSTAGE, WAGE_MATCH_T2_MAX, WAGE_REVIEW_MONTHS, WAGE_REVIEW_POP_BAND,
+  PAY, NEGO_CAPS, ATTITUDE_MULT, BUYOUT_SHARE, CLAUSE_COST, DATES_FEE_LIFT, DATES_FULL, EXCL_ATTITUDE, EXCL_COST, FIRST_REFUSAL_BLOCK, FIRST_REFUSAL_COMP_FEES, FIRST_REFUSAL_PATIENCE, MAX_MAJORS, NEGO_ACCEPT, NEGO_COUNTER, NEGO_FORM_SWING, NEGO_REP_SWING, NEGO_RIVAL_LIFT, NEGO_WALK_PATIENCE, NONCOMPETE_DAYS, NOTICE_DAYS, RELEASE_GRANT_ABOVE_MEDIAN, RELEASE_GRANT_BELOW_MEDIAN, REP_ASK_RELEASE, SHOW_MULT, SPLIT_DATES_TOTAL, SPLIT_DEFAULT_NEW, TRAIT_BACKSTAGE, WAGE_MATCH_T2_MAX, WAGE_REVIEW_MONTHS, WAGE_REVIEW_POP_BAND,
 } from './tuning';
 import type { Career, Contract, Offer, PayType } from './types';
 
@@ -72,9 +72,23 @@ export const payCost = (promo: string, base: number, pay?: PayType): number => (
 /** Life: the entrance term costs them this share of what they'd pay a match. */
 export const ENTRANCE_TERM_COST = 0.03;
 
-/** Lyra's call: no gates, anything's possible at a price. Only the rules: a second deal can't be exclusive. */
-export function gate(_c: Career, o: Offer | undefined, i: number, tier: number): string | null {
+/** Your standing with a promotion (0–100): half your reputation, half where your drawing power puts you on its roster. */
+export function standing(c: Career, promo: string): number {
+  const me = findWrestler(c.player);
+  return me ? Math.round(person(c, c.player).rep * 0.5 + rosterStanding(me, promo) * 50) : 0;
+}
+/** The highest tier your standing gets you of one of the big clauses (Lyra's call: a nobody can't buy a star's deal). */
+export function clauseCap(c: Career, promo: string, i: number): number {
+  if (!NEGO_CAPS.clauses.includes(CLAUSES[i]!.id)) return 3;
+  const s = standing(c, promo);
+  return s >= NEGO_CAPS.three ? 3 : s >= NEGO_CAPS.two ? 2 : 1;
+}
+/** The rules: a second deal can't be exclusive, and your standing caps the big clauses (their own offer's tiers stand). */
+export function gate(c: Career, o: Offer | undefined, i: number, tier: number): string | null {
   if (o?.second && i === C.exclusivity && tier >= 2) return 'You’re on another major: this deal can’t be exclusive';
+  if (o && tier > Math.max(clauseCap(c, o.promo, i), o.clauses[i] ?? 0)) {
+    return `${CLAUSES[i]!.name} at that level is for ${tier >= 3 ? 'main-eventers' : 'people with a name'}. You’re not there yet`;
+  }
   return null;
 }
 
@@ -95,7 +109,7 @@ export const underLine = (o: Offer): number => (o.lines ? o.clauses.findIndex((t
 export function packageProposal(c: Career, o: Offer, pkg: PackageId | 'custom', from: Proposal): Proposal {
   if (pkg === 'custom') return { ...from, clauses: from.clauses.map(() => 0), triggers: [] };
   const def = PACKAGES[pkg];
-  const clauses = packageClauses(o.promo, pkg);
+  const clauses = packageClauses(o.promo, pkg).map((t, i) => Math.min(t, Math.max(clauseCap(c, o.promo, i), o.clauses[i] ?? 0)));
   if (o.second) clauses[C.exclusivity] = Math.min(1, clauses[C.exclusivity]!);
   const dates = def.dates ?? (o.second ? SPLIT_DEFAULT_NEW : undefined);
   const p: Proposal = { fee: 0, months: def.months, clauses, ...(dates ? { dates } : {}), triggers: defaultTriggers(clauses), pay: from.pay ?? o.pay ?? preferredPay(o.promo) };
@@ -122,6 +136,8 @@ export function propose(c: Career, o: Offer, p: Proposal): 'accept' | 'counter' 
   const triggers = (p.triggers ?? []).slice(0, triggerSlots(p.clauses[C.bonuses] ?? 0));
   const base = baseFor(c, o, p);
   const ask = askValue(o.promo, base, p);
+  // How they took it: a rough read, and only now you've put it to them (Lyra's call: no live meter to tune to).
+  o.read = mood(c, o, p);
   const keep = (x: Partial<Offer>) => Object.assign(o, { months: p.months, ...(p.dates ? { dates: p.dates } : { dates: undefined }), triggers, entrance: p.entrance || undefined, pay: p.pay ?? o.pay, salaryMult: p.salaryMult, dateMult: p.dateMult, ...x });
   if (ask <= base * NEGO_ACCEPT) {
     keep({ fee: p.fee, clauses: [...p.clauses] });

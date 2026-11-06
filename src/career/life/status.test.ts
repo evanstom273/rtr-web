@@ -33,7 +33,7 @@ describe('Life stage 6: status and family money', () => {
 
   it('a divorce takes half of everything (no prenup), selling things if the cash won’t cover it', () => {
     const c = begin('buck_stratton');
-    c.money = 300_000;
+    c.money = 1_000_000;
     buyLuxury(c, 'art', 1);
     expect(life(c).luxury?.length).toBe(1);
     c.money = 20_000;

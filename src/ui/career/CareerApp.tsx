@@ -267,8 +267,8 @@ export function CareerApp({ initial, onMenu, onPlay }: Props) {
     case 'moveset': {
       const me = WRESTLERS.find((x) => x.id === c.player)!;
       return (
-        <MovesetEditor who={me.name} classes={me.classes} kit={{ moves: me.moves, signatures: me.signatures, finishers: me.finishers }} onCancel={back}
-          onSave={(k) => { me.moves = k.moves; me.signatures = k.signatures; me.finishers = k.finishers; commit(); back(); }} />
+        <MovesetEditor who={me.name} classes={me.classes} kit={{ moves: me.moves, signatures: me.signatures, finishers: me.finishers, ...(me.moveNames ? { names: me.moveNames } : {}) }} onCancel={back}
+          onSave={(k) => { me.moves = k.moves; me.signatures = k.signatures; me.finishers = k.finishers; if (Object.keys(k.names).length) me.moveNames = k.names; else delete me.moveNames; commit(); back(); }} />
       );
     }
     default:

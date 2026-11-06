@@ -371,6 +371,8 @@ export interface Offer {
   start: Day;
   rounds: number;
   said: string;
+  /** How they took the last offer you put to them (Lyra's call: no live read, only a rough one after you ask). */
+  read?: 'keen' | 'happy' | 'hesitant' | 'losing';
   status: 'open' | 'signed' | 'walked' | 'declined' | 'blocked';
   /** A rival offer this one is matching. */
   rival?: number;
@@ -434,7 +436,11 @@ export interface Career {
   /** A world running with nobody playing (history being simulated): no letters, no offers, nothing for 'you'. */
   spectator?: boolean;
   /** Character & Image Rights: you've left a promotion that owned your name; pick a new one. */
-  rebrand?: { from: string; old: string; lost: number };
+  rebrand?: { from: string; old: string; lost: number; /** What else went with the name (Lyra's call). */ took?: string[] };
+  /** Names promotions own (you left without Character & Image Rights): buy one back, or re-sign there and it's yours. */
+  lostNames?: { promo: string; name: string; lost: number; day: Day; price: number; moveNames?: Record<string, string>; gear?: { theme?: boolean; video?: boolean } }[];
+  /** A rebrand's merch slump: your merch builds back up over a year from this day. */
+  merchSince?: Day;
   /** Training: the fraction of a point coaching and mentoring have added so far. */
   trainCarry?: number;
   /** Retirement & Legacy: the deal you announced your retirement under; and your career is over. */

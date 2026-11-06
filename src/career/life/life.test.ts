@@ -27,8 +27,8 @@ describe('Life: homes', () => {
     expect(h.own).toBe(false);
     expect(h.tier).toBe('room');
     expect(c.base).toBe(h.country);
-    // The shared room is today's living cost in an average European city (other cities by their price).
-    expect(PB.rent.room.rent + PB.rent.room.bills).toBe(220);
+    // The shared room is today's living cost in an average European city (other cities by their price): £220 × 2.5 since the pay rework.
+    expect(PB.rent.room.rent + PB.rent.room.bills).toBe(550);
     c.livingFrom = c.today;
     let monday = c.today;
     while (new Date(`${monday}T12:00:00Z`).getUTCDay() !== 1) monday = addDays(monday, 1);
@@ -43,8 +43,8 @@ describe('Life: homes', () => {
     const c = begin('@indie');
     const L = life(c);
     // A star's earnings, so the bank will lend.
-    L.months = { [c.today.slice(0, 7)]: 400_000 };
-    c.money = 200_000;
+    L.months = { [c.today.slice(0, 7)]: 1_000_000 };
+    c.money = 500_000;
     const city = L.city;
     const r = buyHome(c, city, 'house', true);
     expect(r.ok).toBe(true);
@@ -148,7 +148,7 @@ describe('Life: tax and the agent', () => {
 describe('Life: getting about', () => {
   it('a jet makes a Japan-to-UK back-to-back fit that the bus and economy can’t', () => {
     const c = begin('@indie');
-    c.money = 30_000_000;
+    c.money = 60_000_000;
     life(c).city = 'London';
     c.base = 'UK';
     const tokyo = { country: 'Japan', city: 'Tokyo' }, london = { country: 'UK', city: 'London' };
@@ -180,7 +180,7 @@ describe('Life: getting about', () => {
     (FEATURES as { life: boolean }).life = false;
     c.base = 'Japan';
     expect(tripCost(c, { country: 'Japan' })).toBe(0);
-    expect(tripCost(c, { country: 'USA' })).toBe(250);
+    expect(tripCost(c, { country: 'USA' })).toBe(625);
     expect(c.life).toBeUndefined();
   });
 });

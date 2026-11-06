@@ -114,4 +114,27 @@ describe('contracts', () => {
     const clash = Object.values(c.shows).find((s) => s.promo === 'TIS' && s.date === theirs.date);
     if (clash) expect(indieAllowed(c, clash).ok).toBe(false);
   });
+
+  it('negotiating (Lyra’s call): a nobody can’t talk their way into a star’s clauses, and you only see how they took an offer after you make it', () => {
+    const c = begin('@champ');
+    const me = findWrestler(c.player)!;
+    c.people[c.player]!.rep = 5;
+    for (const r of Object.keys(me.fans) as (keyof typeof me.fans)[]) me.fans[r] = 100;
+    makeOffer(c, 'VWF', 'Test');
+    const o = c.offers.at(-1)!;
+    o.clauses[C.creative] = 0;
+    expect(gate(c, o, C.creative, 3)).toMatch(/not there yet/);
+    expect(gate(c, o, C.creative, 2)).toMatch(/not there yet/);
+    expect(gate(c, o, C.creative, 1)).toBeNull();
+    expect(o.read).toBeUndefined();
+    const p = { fee: o.fee, months: o.months, clauses: [...o.clauses], pay: o.pay };
+    p.clauses[C.creative] = 3;
+    expect(propose(c, o, p)).toBe('counter');
+    // A star can.
+    c.people[c.player]!.rep = 95;
+    for (const r of Object.keys(me.fans) as (keyof typeof me.fans)[]) me.fans[r] = 50_000_000;
+    expect(gate(c, o, C.creative, 3)).toBeNull();
+    propose(c, o, { ...p });
+    expect(o.read).toBeDefined();
+  });
 });

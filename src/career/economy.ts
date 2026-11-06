@@ -7,7 +7,7 @@ import { C } from './clauses';
 import { isIndieTitle, promoRegion, titleClass } from './booker';
 import { regionOfCountry } from './places';
 import {
-  APPEARANCE_BONUS_T3, COST_INDEX, INDIE_FEE_BASE, INDIE_FEE_BRAND, INDIE_FEE_CHAMP, INDIE_FEE_EXP, INDIE_FEE_FANS_REF, INDIE_FEE_RANGE, INDIE_FEE_REP, INDIE_FEE_SPECIAL, LIVING_COST_EUROPE, PAY, SHOW_MULT, SHOW_MULT_WEEKLY_FLAGSHIP, TRAIN_DIVISOR, TRAIN_LEVEL_OFFSET, TRAVEL,
+  APPEARANCE_BONUS_T3, REBRAND, COST_INDEX, INDIE_FEE_BASE, INDIE_FEE_BRAND, INDIE_FEE_CHAMP, INDIE_FEE_EXP, INDIE_FEE_FANS_REF, INDIE_FEE_RANGE, INDIE_FEE_REP, INDIE_FEE_SPECIAL, LIVING_COST_EUROPE, PAY, SHOW_MULT, SHOW_MULT_WEEKLY_FLAGSHIP, TRAIN_DIVISOR, TRAIN_LEVEL_OFFSET, TRAVEL,
 } from './tuning';
 import type { Career, Contract, PayType, PopRegion, Show, ShowKind } from './types';
 
@@ -57,6 +57,14 @@ export function yearlyWorth(w: Wrestler, promo: string): number {
   if (held.some((t) => titleClass(t.id) === 'world')) year *= PAY.title.world;
   else if (held.length) year *= PAY.title.other;
   return Math.round(year * payScale(promo));
+}
+
+/** Where a wrestler's drawing power puts them on a promotion's roster: 0 the bottom, 1 the top (fans in its home region). */
+export function rosterStanding(w: Wrestler, promo: string): number {
+  const region = promoRegion(promo);
+  const mine = fansIn(w, region);
+  const others = rosterOf(promo).filter((x) => x.id !== w.id).map((x) => fansIn(x, region));
+  return others.length ? others.filter((f) => f < mine).length / others.length : 0.5;
 }
 
 /** A year's pay as the per-appearance unit every deal's priced in (`contract.fee`). */
@@ -233,3 +241,12 @@ export function rescaleDeals(c: Career): void {
   }
 }
 setRescalePay(rescaleDeals);
+
+/** After a rebrand your merch builds back up over a year (Lyra's call): this month's share of it. */
+export function merchShare(c: Career): number {
+  if (!c.merchSince) return 1;
+  const months = Math.max(0, (Date.parse(`${c.today}T12:00:00Z`) - Date.parse(`${c.merchSince}T12:00:00Z`)) / (30.44 * 864e5));
+  const share = REBRAND.merchStart + (1 - REBRAND.merchStart) * Math.min(1, months / REBRAND.merchMonths);
+  if (share >= 1) delete c.merchSince;
+  return share;
+}

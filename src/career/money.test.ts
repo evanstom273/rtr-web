@@ -3,6 +3,7 @@ import { fansTotal, findWrestler } from '../data/rtr';
 import { C } from './clauses';
 import { addDays, addMonths } from './dates';
 import { advanceAvailable, leaveContract, makeOffer, rebrand, signOffer, takeAdvance } from './index';
+import { buyBackName } from './money';
 import { begin, day } from './testkit';
 import type { Career } from './types';
 
@@ -102,5 +103,41 @@ describe('the money clauses (Lyra’s design)', () => {
     k(c2).clauses[C.exit] = 3;
     leaveContract(c2);
     expect(c2.rebrand).toBeUndefined();
+  });
+
+  it('a rebrand has to be properly new; the entrance, finishers’ names and merch go too; you can buy it back', () => {
+    const c = begin('jamie_mercer');
+    const me = findWrestler(c.player)!;
+    const name = me.name;
+    me.moveNames = { [me.finishers[0]!]: 'The Big Finish' };
+    (c.life ??= {} as never);
+    (c.life!.gear ??= {}).theme = true;
+    const promo = k(c).promo;
+    k(c).clauses[C.image] = 0;
+    k(c).clauses[C.exit] = 3;
+    k(c).since = addMonths(c.today, -24);
+    leaveContract(c);
+    const fans = fansTotal(me);
+    expect(c.rebrand?.took?.join(' ')).toMatch(/entrance/);
+    expect(me.moveNames).toBeUndefined();
+    expect(c.life!.gear!.theme).toBeUndefined();
+    expect(c.merchSince).toBe(c.today);
+    // The same name, or near enough, won't do.
+    expect(rebrand(c, name)).toMatch(/too close|already using/);
+    expect(rebrand(c, name.toUpperCase())).toMatch(/too close|already using/);
+    expect(rebrand(c, `The ${name}`)).toMatch(/too close/);
+    expect(rebrand(c, name.slice(0, -1) + (name.endsWith('x') ? 'y' : 'x'))).toMatch(/too close/);
+    expect(rebrand(c, 'Completely Different')).toMatch(/you’re/);
+    // Buy it back: the name, the finisher's name, the entrance, some of the fans.
+    const rec = c.lostNames!.find((x) => x.promo === promo)!;
+    c.money = 0;
+    expect(buyBackName(c, promo)).toMatch(/haven’t got that/);
+    c.money = rec.price;
+    expect(buyBackName(c, promo)).toMatch(/again/);
+    expect(me.name).toBe(name);
+    expect(me.moveNames?.[me.finishers[0]!]).toBe('The Big Finish');
+    expect(c.life!.gear!.theme).toBe(true);
+    expect(fansTotal(me)).toBeGreaterThan(fans);
+    expect(c.lostNames!.length).toBe(0);
   });
 });
