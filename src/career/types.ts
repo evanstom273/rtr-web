@@ -143,15 +143,20 @@ export interface BoutResult {
   elims?: { id: string; by: string | null; finish: FinishType; t: number }[];
 }
 
+/** How a deal pays (Lyra's pay rework): per appearance, a monthly salary, or a smaller salary plus a smaller fee a date. */
+export type PayType = 'ppa' | 'monthly' | 'both';
+
 export interface Contract {
   promo: string;
+  /** How it pays (unset: per appearance, every deal before the rework). */
+  pay?: PayType;
   start: Day;
   end: Day;
   /** Life: signed through your agent (they take their cut of it). */
   agent?: boolean;
   /** Life: pyro and production on any show you're on, wherever you are on the card. */
   entrance?: boolean;
-  /** Weekly-show fee; specials and flagships multiply it. */
+  /** The per-appearance unit (a year's worth ÷ 12 ÷ dates a month): PPA pays it a date (× the show's size), Monthly ×4.5 a month; every "in fees" price uses it. */
   fee: number;
   /** Tier 0–3 for each of the 25 clauses, in CLAUSES order (clauses.ts). */
   clauses: number[];
@@ -350,6 +355,8 @@ export interface Offer {
   id: string;
   promo: string;
   day: Day;
+  /** How it'd pay (Lyra's pay rework: negotiated; unset on old offers: per appearance). */
+  pay?: PayType;
   fee: number;
   months: number;
   clauses: number[];
@@ -414,6 +421,8 @@ export interface PlayerMatch {
 }
 
 export interface Career {
+  /** The pay rework: the last month each promotion's salary was paid you (YYYY-MM). */
+  salaryPaid?: Record<string, string>;
   v: 1;
   /** A world running with nobody playing (history being simulated): no letters, no offers, nothing for 'you'. */
   spectator?: boolean;

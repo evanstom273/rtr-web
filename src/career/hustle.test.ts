@@ -142,7 +142,9 @@ describe('side earners (Lyra’s calls)', () => {
     const grind = await run(true), lazy = await run(false);
     // eslint-disable-next-line no-console
     console.log(`12 weeks, 5k fans. Grinding: wrestling £${grind.wrestling}, side £${grind.side} ${grind.by} (taught ${grind.taught}, subs ${grind.subs}). Lazy: side £${lazy.side} ${lazy.by}`);
-    expect(grind.side).toBeGreaterThan(grind.wrestling * 2);
+    // The pay rework lifted indie fees (£250 at the least), so the side earnings no longer dwarf the wrestling, but a
+    // grinder's still out-earns their own matches on the side.
+    expect(grind.side).toBeGreaterThan(grind.wrestling);
     expect(lazy.side).toBeLessThan(grind.side * 0.35);
   }, 300000);
 });

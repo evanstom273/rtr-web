@@ -4,7 +4,7 @@ import { findWrestler, rosterOf, type Wrestler } from '../data/rtr';
 import { hashSeed, seededRng, type Rng } from '../engine/rng';
 import { aiClauses, aiPackage, C, CLAUSES, NCLAUSES, NO_CLAUSES, OLD_CLAUSES, packageClauses, PACKAGES, type PackageId, rosterRank, tierOf, triggerSlots } from './clauses';
 import { addMonths, type Day } from './dates';
-import { contractFee } from './economy';
+import { contractFee, preferredPay } from './economy';
 import { patienceOf } from './patience';
 import { EXCL_APPROVAL } from './tuning';
 import type { Career, Contract, Person } from './types';
@@ -40,7 +40,7 @@ export const clauseName = (i: number): string => CLAUSES[i]?.name ?? '';
 export function aiContract(rnd: Rng, w: Wrestler, promo: string, start: Day, months: number, pkg?: PackageId): Contract {
   const roster = rosterOf(promo);
   const p = pkg ?? aiPackage(rnd, w, rosterRank(w, roster.length ? roster : [w]));
-  const k: Contract = { promo, start, end: addMonths(start, months), fee: contractFee(w, promo), clauses: aiClauses(rnd, promo, p), pkg: p, since: start };
+  const k: Contract = { promo, pay: preferredPay(promo), start, end: addMonths(start, months), fee: contractFee(w, promo), clauses: aiClauses(rnd, promo, p), pkg: p, since: start };
   if (PACKAGES[p].dates) k.dates = PACKAGES[p].dates;
   const slots = triggerSlots(tierOf(k, 'bonuses'));
   if (slots) k.triggers = (['title', 'great', 'main', 'big'] as const).slice(0, slots);

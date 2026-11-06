@@ -15,7 +15,7 @@ import { BUDGET, C, tierOf } from './clauses';
 import { aiContract, dealWith, dropDeal, promoteDeal, sideWork } from './deals';
 import { makeRookie } from './create';
 import { addDays, addMonths, type Day, daysBetween, fmtDay, weekday } from './dates';
-import { baseRegion, indieFee, isWeeklyFlagship, livingCost, matchPay, round5 } from './economy';
+import { baseRegion, indieFee, isWeeklyFlagship, livingCost, matchPay, round5, yearlyPay } from './economy';
 import { REGION_KEY, REGION_LABEL } from './places';
 import { calendarExtras } from '../world/companies';
 import type { SimJob, SimOut } from './sim';
@@ -24,7 +24,7 @@ import { addEvent, type ArchivedShow, type WorldHistory } from '../world/history
 import { bookerKey, movePatience, showBooker } from './patience';
 import { remember } from './relations';
 import {
-  BOOK_AHEAD_DAYS, CIRCUIT_KEEP, CONTRACT_MONTHS, FAN_IDLE_LOSS, FATIGUE_HARDCORE_EXTRA, FATIGUE_PER_MATCH, FATIGUE_RECOVERY_PER_DAY, FATIGUE_STAMINA_DIVISOR, FEATURES, FRIEND_LOAN_REPAY, INJURY_BASE_PCT, INJURY_HARDCORE_MULT, INJURY_PER_FATIGUE, INJURY_SEVERITY, LIVING_GRACE_DAYS, LOSS_CUT_BY_TIER, MAIL_MAX, MEDICAL_BILL_COVER, MEDICAL_PAY_COVER, MEDICAL_PER_DAY, MERCH_PER_FAN_FREE, MERCH_PER_FAN_SIGNED, MERCH_SHARE, OFF_SCRIPT_TITLE_BAN_DAYS, PATIENCE_NO_SHOW, PLANNED_NUDGE, PLANNED_RETRIES, POACH_CHANCE, POP_IDLE_DAYS, RELEASE_MONTHLY_BOTTOM, RENEW_CHANCE_REST, RENEW_CHANCE_TOP, REP_FOUR_STAR, REP_OFF_SCRIPT, REP_PER_DATE, REP_START, ROOKIE_EVERY_DAYS, ROSTER_FLOOR, ROSTER_SCOUT_DAYS, ROSTER_TARGET, SCOUT_RESULT, SLEEP_RECOVERY, SLEEP_RECOVERY_AFTER_MATCH, SOCIAL_PROMOTE_BOOST, START_CONTRACT_MONTHS_LEFT, START_MONEY_BASE, START_MONEY_CREATED, START_MONEY_PER_DECADE, TRAIT_BACKSTAGE, TRAIT_FX, TRYOUT_MIN_STARS, ROMANCE,
+  BOOK_AHEAD_DAYS, CIRCUIT_KEEP, CONTRACT_MONTHS, FAN_IDLE_LOSS, FATIGUE_HARDCORE_EXTRA, FATIGUE_PER_MATCH, FATIGUE_RECOVERY_PER_DAY, FATIGUE_STAMINA_DIVISOR, FEATURES, FRIEND_LOAN_REPAY, INJURY_BASE_PCT, INJURY_HARDCORE_MULT, INJURY_PER_FATIGUE, INJURY_SEVERITY, LIVING_GRACE_DAYS, MAIL_MAX, MEDICAL_BILL_COVER, MEDICAL_PAY_COVER, MEDICAL_PER_DAY, MERCH_PER_FAN_FREE, MERCH_PER_FAN_SIGNED, MERCH_SHARE, OFF_SCRIPT_TITLE_BAN_DAYS, PATIENCE_NO_SHOW, PLANNED_NUDGE, PLANNED_RETRIES, POACH_CHANCE, POP_IDLE_DAYS, RELEASE_MONTHLY_BOTTOM, RELEASE_PAYOUT, RENEW_CHANCE_REST, RENEW_CHANCE_TOP, REP_FOUR_STAR, REP_OFF_SCRIPT, REP_PER_DATE, REP_START, ROOKIE_EVERY_DAYS, ROSTER_FLOOR, ROSTER_SCOUT_DAYS, ROSTER_TARGET, SCOUT_RESULT, SLEEP_RECOVERY, SLEEP_RECOVERY_AFTER_MATCH, SOCIAL_PROMOTE_BOOST, START_CONTRACT_MONTHS_LEFT, START_MONEY_BASE, START_MONEY_CREATED, START_MONEY_PER_DECADE, TRAIT_BACKSTAGE, TRAIT_FX, TRYOUT_MIN_STARS, ROMANCE,
 } from './tuning';
 import type { Bout, Career, Contract, Letter, Person, PlayerMatch, PopRegion, Show } from './types';
 
@@ -494,7 +494,7 @@ function settleMine(c: Career, show: Show, bout: Bout, out: SimOut, aIsYou: bool
   if (indie) {
     const deal = c.indie[show.id] ?? { fee: indieFee(findWrestler(c.player)!, show), travel: 0 };
     travel = deal.travel;
-    fee = result === 'loss' ? round5(deal.fee * (1 - LOSS_CUT_BY_TIER[0]!)) : deal.fee;
+    fee = deal.fee; // Losing costs you nothing (Lyra's call, the pay rework).
     if (deal.travel) spend(c, -deal.travel, `Travel · ${show.city}`, 'travel');
     delete c.indie[show.id];
   } else if (deal) {
@@ -776,6 +776,17 @@ function monthly(c: Career, day: Day, rnd: Rng): void {
 export function release(c: Career, w: Wrestler, how: 'released' | 'expired', from = w.promotion): void {
   addEvent(history(), { day: c.today, kind: how, who: w.id, name: w.name, promo: from });
   const p = c.people[w.id]!;
+  // Guaranteed Pay (the pay rework): cut before your deal's up, and its tier pays out a share of what's left.
+  if (w.id === c.player && how === 'released' && !c.spectator) {
+    const k = dealWith(p, from);
+    const share = k ? RELEASE_PAYOUT[tierOf(k, 'guaranteed')] ?? 0 : 0;
+    const months = k ? Math.max(0, daysBetween(c.today, k.end)) / 30.44 : 0;
+    const owed = k && share ? round5((yearlyPay(k) / 12) * months * share) : 0;
+    if (owed) {
+      spend(c, owed, `Paid out: the rest of your ${from} deal (Guaranteed Pay)`, 'fee', { contract: true });
+      letter(c, { kind: 'contract', from: promoName(from), subject: 'We’re letting you go', body: [`Your Guaranteed Pay clause pays out £${owed.toLocaleString('en-GB')} of what was left on the deal.`] });
+    }
+  }
   if (from !== w.promotion) dropDeal(p, w, from);
   else promoteDeal(p, w);
   for (const s of Object.values(c.shows)) if (!s.done && s.date > c.today && s.card && (s.promos ?? [s.promo]).includes(from)) pullFromCard(c, s, w.id, true);

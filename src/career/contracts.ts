@@ -5,21 +5,21 @@ import { leanFrom, playerHas } from './leans';
 import { findWrestler, PROMOTIONS, rosterOf } from '../data/rtr';
 import { seededRng } from '../engine/rng';
 import { hashSeed, promoRegion, regionalPop } from './booker';
-import { attitude, C, CLAUSES, feeFloor, packageClauses, PACKAGES, type PackageId, patience, tierOf, triggerSlots, type BonusTrigger } from './clauses';
+import { attitude, C, CLAUSES, packageClauses, PACKAGES, type PackageId, patience, tierOf, triggerSlots, type BonusTrigger } from './clauses';
 import { beltsOnMove, leavingHooks, letter, person, promoName, setCareerHooks, spend } from './career';
 import { addDays, addMonths, daysBetween, fmtDay } from './dates';
 import { addDeal, dealsOf, dealWith, dropDeal, openToSecond, playerPackage, promoteDeal } from './deals';
-import { contractFee, round5 } from './economy';
+import { contractFee, floorFee, payWords, preferredPay, round5 } from './economy';
 import { startTitlePromise } from './offers';
 import { movePatience } from './patience';
 import { activeWorld } from '../world/world';
 import { addEvent } from '../world/history';
 import {
-  ATTITUDE_MULT, BUYOUT_SHARE, CLAUSE_COST, DATES_FEE_LIFT, DATES_FULL, EXCL_ATTITUDE, EXCL_COST, FIRST_REFUSAL_BLOCK, FIRST_REFUSAL_COMP_FEES, FIRST_REFUSAL_PATIENCE, MAX_MAJORS, NEGO_ACCEPT, NEGO_COUNTER, NEGO_FORM_SWING, NEGO_REP_SWING, NEGO_RIVAL_LIFT, NEGO_WALK_PATIENCE, NONCOMPETE_DAYS, NOTICE_DAYS, RELEASE_GRANT_ABOVE_MEDIAN, RELEASE_GRANT_BELOW_MEDIAN, REP_ASK_RELEASE, SHOW_MULT, SPLIT_DATES_TOTAL, SPLIT_DEFAULT_NEW, TRAIT_BACKSTAGE, WAGE_MATCH_T2_MAX, WAGE_REVIEW_MONTHS, WAGE_REVIEW_POP_BAND,
+  PAY, ATTITUDE_MULT, BUYOUT_SHARE, CLAUSE_COST, DATES_FEE_LIFT, DATES_FULL, EXCL_ATTITUDE, EXCL_COST, FIRST_REFUSAL_BLOCK, FIRST_REFUSAL_COMP_FEES, FIRST_REFUSAL_PATIENCE, MAX_MAJORS, NEGO_ACCEPT, NEGO_COUNTER, NEGO_FORM_SWING, NEGO_REP_SWING, NEGO_RIVAL_LIFT, NEGO_WALK_PATIENCE, NONCOMPETE_DAYS, NOTICE_DAYS, RELEASE_GRANT_ABOVE_MEDIAN, RELEASE_GRANT_BELOW_MEDIAN, REP_ASK_RELEASE, SHOW_MULT, SPLIT_DATES_TOTAL, SPLIT_DEFAULT_NEW, TRAIT_BACKSTAGE, WAGE_MATCH_T2_MAX, WAGE_REVIEW_MONTHS, WAGE_REVIEW_POP_BAND,
 } from './tuning';
-import type { Career, Contract, Offer } from './types';
+import type { Career, Contract, Offer, PayType } from './types';
 
-export interface Proposal { fee: number; months: number; clauses: number[]; dates?: number; triggers?: BonusTrigger[]; /** Life: pyro and production on any show you're on (it costs them about 3% of the fee). */ entrance?: boolean }
+export interface Proposal { fee: number; months: number; clauses: number[]; dates?: number; triggers?: BonusTrigger[]; /** How it pays (Lyra's pay rework: PPA, Monthly or Both, negotiated). */ pay?: PayType; /** Life: pyro and production on any show you're on (it costs them about 3% of the fee). */ entrance?: boolean }
 export type Mood = 'keen' | 'happy' | 'hesitant' | 'losing';
 
 /** Life: an agent gets you more; a bankrupt gets less (career/life plugs in). */
@@ -65,8 +65,10 @@ export function clauseCost(promo: string, base: number, i: number, tier: number)
 }
 
 export function askValue(promo: string, base: number, p: Proposal): number {
-  return p.fee + p.clauses.reduce((t, tier, i) => t + clauseCost(promo, base, i, tier), 0) + (p.entrance ? Math.round(base * ENTRANCE_TERM_COST) : 0);
+  return p.fee + p.clauses.reduce((t, tier, i) => t + clauseCost(promo, base, i, tier), 0) + (p.entrance ? Math.round(base * ENTRANCE_TERM_COST) : 0) + payCost(promo, base, p.pay);
 }
+/** Asking to be paid a way they don't prefer: a term like any other (Lyra's call), it costs them a little. */
+export const payCost = (promo: string, base: number, pay?: PayType): number => (pay && pay !== preferredPay(promo) ? Math.round(base * PAY.askCost) : 0);
 /** Life: the entrance term costs them this share of what they'd pay a match. */
 export const ENTRANCE_TERM_COST = 0.03;
 
@@ -96,7 +98,7 @@ export function packageProposal(c: Career, o: Offer, pkg: PackageId | 'custom', 
   const clauses = packageClauses(o.promo, pkg);
   if (o.second) clauses[C.exclusivity] = Math.min(1, clauses[C.exclusivity]!);
   const dates = def.dates ?? (o.second ? SPLIT_DEFAULT_NEW : undefined);
-  const p: Proposal = { fee: 0, months: def.months, clauses, ...(dates ? { dates } : {}), triggers: defaultTriggers(clauses) };
+  const p: Proposal = { fee: 0, months: def.months, clauses, ...(dates ? { dates } : {}), triggers: defaultTriggers(clauses), pay: from.pay ?? o.pay ?? preferredPay(o.promo) };
   p.fee = openingFee(c, o, p);
   return p;
 }
@@ -106,7 +108,7 @@ const defaultTriggers = (clauses: number[]): BonusTrigger[] => (['title', 'great
 function openingFee(c: Career, o: Offer, p: Proposal): number {
   const base = baseFor(c, o, p);
   // Never under the promotion's floor (Lyra's call: about £2,500 at the bottom).
-  return round5(Math.max(feeFloor(o.promo), base * 0.5, base - askValue(o.promo, base, { ...p, fee: 0 })));
+  return round5(Math.max(floorFee(o.promo), base * 0.5, base - askValue(o.promo, base, { ...p, fee: 0 })));
 }
 
 /** Put your terms to them: they accept, counter, or walk. */
@@ -120,7 +122,7 @@ export function propose(c: Career, o: Offer, p: Proposal): 'accept' | 'counter' 
   const triggers = (p.triggers ?? []).slice(0, triggerSlots(p.clauses[C.bonuses] ?? 0));
   const base = baseFor(c, o, p);
   const ask = askValue(o.promo, base, p);
-  const keep = (x: Partial<Offer>) => Object.assign(o, { months: p.months, ...(p.dates ? { dates: p.dates } : { dates: undefined }), triggers, entrance: p.entrance || undefined, ...x });
+  const keep = (x: Partial<Offer>) => Object.assign(o, { months: p.months, ...(p.dates ? { dates: p.dates } : { dates: undefined }), triggers, entrance: p.entrance || undefined, pay: p.pay ?? o.pay, ...x });
   if (ask <= base * NEGO_ACCEPT) {
     keep({ fee: p.fee, clauses: [...p.clauses] });
     o.said = '“Done. We’ll draw it up.”';
@@ -145,9 +147,9 @@ export function propose(c: Career, o: Offer, p: Proposal): 'accept' | 'counter' 
   const dropped = clauses.findIndex((t, i) => t < p.clauses[i]!);
   const raised = clauses[C.exclusivity]! > p.clauses[C.exclusivity]!;
   o.said = dropped >= 0
-    ? `“Too rich. We’ll do £${o.fee.toLocaleString('en-GB')} if ${CLAUSES[dropped]!.name} comes down a tier${raised ? ' and you’re exclusive to us' : ''}.”`
-    : raised ? `“Too rich. £${o.fee.toLocaleString('en-GB')} a match, if you’re exclusive to us.”`
-      : `“Too rich. We can do £${o.fee.toLocaleString('en-GB')} a match with those terms.”`;
+    ? `“Too rich. We’ll do ${payWords({ ...o, pay: p.pay ?? o.pay })} if ${CLAUSES[dropped]!.name} comes down a tier${raised ? ' and you’re exclusive to us' : ''}.”`
+    : raised ? `“Too rich. ${payWords({ ...o, pay: p.pay ?? o.pay })}, if you’re exclusive to us.”`
+      : `“Too rich. We can do ${payWords({ ...o, pay: p.pay ?? o.pay })} with those terms.”`;
   const line = underLine(o);
   if (line >= 0) o.said += ` That’s under your line on ${CLAUSES[line]!.name}: you can walk away and they won’t mind.`;
   return 'counter';
@@ -186,7 +188,7 @@ export function signOffer(c: Career, o: Offer): string {
   }
   const start = p.contract && p.contract.promo !== o.promo ? o.start > c.today ? o.start : addDays(p.contract.end, 1) : c.today;
   const k: Contract = {
-    promo: o.promo, start, end: addMonths(start, o.months), fee: o.fee, clauses: [...o.clauses], ...(c.life?.agent ? { agent: true } : {}), ...(o.entrance ? { entrance: true } : {}),
+    promo: o.promo, pay: o.pay ?? preferredPay(o.promo), start, end: addMonths(start, o.months), fee: o.fee, clauses: [...o.clauses], ...(c.life?.agent ? { agent: true } : {}), ...(o.entrance ? { entrance: true } : {}),
     ...(o.pkg ? { pkg: o.pkg } : {}), ...(o.dates ? { dates: o.dates } : {}), ...(o.triggers?.length ? { triggers: [...o.triggers] } : {}),
     since: p.contract?.promo === o.promo ? p.contract.since ?? p.contract.start : start,
   };
@@ -206,11 +208,11 @@ export function signOffer(c: Career, o: Offer): string {
     for (const s of Object.values(c.shows)) if (!s.done && s.date > c.today && s.promo === o.promo) s.card = null;
     startTitlePromise(c);
     beltsOnMove(c, c.today);
-    letter(c, { kind: 'contract', from: promoName(o.promo), subject: `Signed: ${promoName(o.promo)}`, body: [`${o.months} months at £${o.fee.toLocaleString('en-GB')} a match, starting today. Welcome aboard.`] });
+    letter(c, { kind: 'contract', from: promoName(o.promo), subject: `Signed: ${promoName(o.promo)}`, body: [`${o.months} months, ${payWords(o)}, starting today. Welcome aboard.`] });
     return `Signed with ${o.promo}.`;
   }
   p.next = k;
-  letter(c, { kind: 'contract', from: promoName(o.promo), subject: `Signed: ${promoName(o.promo)}`, body: [`${o.months} months at £${o.fee.toLocaleString('en-GB')} a match, starting ${fmtDay(start, 'long')}.`] });
+  letter(c, { kind: 'contract', from: promoName(o.promo), subject: `Signed: ${promoName(o.promo)}`, body: [`${o.months} months, ${payWords(o)}, starting ${fmtDay(start, 'long')}.`] });
   return `Signed with ${o.promo}, from ${fmtDay(start, 'dm')}.`;
 }
 
@@ -242,7 +244,7 @@ function signSecond(c: Career, o: Offer): string {
   }
   const dates = Math.max(1, Math.min(SPLIT_DATES_TOTAL - 2, o.dates ?? SPLIT_DEFAULT_NEW));
   const k: Contract = {
-    promo: o.promo, start: c.today, end: addMonths(c.today, o.months), fee: o.fee, clauses: [...o.clauses], dates, since: c.today, ...(c.life?.agent ? { agent: true } : {}), ...(o.entrance ? { entrance: true } : {}),
+    promo: o.promo, pay: o.pay ?? preferredPay(o.promo), start: c.today, end: addMonths(c.today, o.months), fee: o.fee, clauses: [...o.clauses], dates, since: c.today, ...(c.life?.agent ? { agent: true } : {}), ...(o.entrance ? { entrance: true } : {}),
     ...(o.pkg ? { pkg: o.pkg } : {}), ...(o.triggers?.length ? { triggers: [...o.triggers] } : {}),
   };
   // Lyra's call: the month splits between them when you sign. The others share what's left.
@@ -255,7 +257,7 @@ function signSecond(c: Career, o: Offer): string {
   addEvent(activeWorld().history, { day: c.today, kind: 'signed', who: me.id, name: me.name, promo: o.promo, from: me.promotion });
   for (const s of Object.values(c.shows)) if (!s.done && s.date > c.today && s.promo === o.promo) s.card = null;
   letter(c, { kind: 'contract', from: promoName(o.promo), subject: `Signed: ${promoName(o.promo)} (alongside ${others.map((x) => x.promo).join(' and ')})`,
-    body: [`${o.months} months at £${o.fee.toLocaleString('en-GB')} a match, ${dates} date${dates === 1 ? '' : 's'} a month. ${others.map((x) => `${x.promo} get ${x.dates}`).join(', ')}.`] });
+    body: [`${o.months} months, ${payWords(o)}, ${dates} date${dates === 1 ? '' : 's'} a month. ${others.map((x) => `${x.promo} get ${x.dates}`).join(', ')}.`] });
   return `Signed with ${o.promo} as well: ${dates} dates a month with them.`;
 }
 
@@ -269,7 +271,7 @@ function courtesyCall(c: Career, o: Offer): string | null {
   }
   const pkg = playerPackage(c, k.promo);
   const id = `o${++c.seq}`;
-  const offer: Offer = { id, promo: k.promo, day: c.today, fee: round5(Math.max(o.fee * 1.05, own)), months: Math.max(12, o.months), clauses: packageClauses(k.promo, pkg), pkg, start: addDays(k.end, 1), rounds: 0, said: '“Stay. We’ll beat it.”', status: 'open' };
+  const offer: Offer = { id, promo: k.promo, pay: k.pay ?? preferredPay(k.promo), day: c.today, fee: round5(Math.max(o.fee * 1.05, own)), months: Math.max(12, o.months), clauses: packageClauses(k.promo, pkg), pkg, start: addDays(k.end, 1), rounds: 0, said: '“Stay. We’ll beat it.”', status: 'open' };
   offer.start = offer.start > c.today ? c.today : offer.start;
   c.offers.push(offer);
   letter(c, {
@@ -296,19 +298,19 @@ export function offerDeal(c: Career, promo: string, why: string, want?: PackageI
   const pkg: PackageId = second ? 'attraction' : want ?? playerPackage(c, promo);
   const start = mine && !second ? addDays(mine.end, 1) : c.today;
   const id = `o${++c.seq}`;
-  const o: Offer = { id, promo, day: c.today, fee: 0, months: PACKAGES[pkg].months, clauses: [], start, rounds: 0, said: '', status: 'open', pkg, ...(second ? { second: true } : {}) };
+  const o: Offer = { id, promo, pay: preferredPay(promo), day: c.today, fee: 0, months: PACKAGES[pkg].months, clauses: [], start, rounds: 0, said: '', status: 'open', pkg, ...(second ? { second: true } : {}) };
   const prop = packageProposal(c, o, pkg, { fee: 0, months: 12, clauses: [] });
   Object.assign(o, { fee: prop.fee, months: prop.months, clauses: prop.clauses, ...(prop.dates ? { dates: prop.dates } : {}), triggers: prop.triggers });
-  o.said = `£${o.fee.toLocaleString('en-GB')} a match for ${o.months} months: our ${PACKAGES[pkg].name.toLowerCase()}.`;
+  o.said = `${payWords(o)} for ${o.months} months: our ${PACKAGES[pkg].name.toLowerCase()}.`;
   c.offers.push(o);
   letter(c, {
     kind: 'offer', from: promoName(promo), subject: second ? `${promo} want you too` : `${promo} want to sign you`,
     body: [
-      second ? `${why}: your deal with ${mine!.promo} isn’t exclusive, so we’d like you on our shows as well: ${o.dates ?? SPLIT_DEFAULT_NEW} dates a month at £${o.fee.toLocaleString('en-GB')} a match.`
-        : `${why}: we’d like to bring you to ${promoName(promo)} on our ${PACKAGES[pkg].name.toLowerCase()}, ${o.months} months at £${o.fee.toLocaleString('en-GB')} a match.`,
+      second ? `${why}: your deal with ${mine!.promo} isn’t exclusive, so we’d like you on our shows as well: ${o.dates ?? SPLIT_DEFAULT_NEW} dates a month, ${payWords(o)}.`
+        : `${why}: we’d like to bring you to ${promoName(promo)} on our ${PACKAGES[pkg].name.toLowerCase()}, ${o.months} months, ${payWords(o)}.`,
       second ? PACKAGES[pkg].blurb : mine ? `Your current deal runs to ${fmtDay(mine.end, 'long')}, so this would start the day after.` : `${PACKAGES[pkg].blurb} It would start straight away. The terms are open to negotiation.`,
     ],
-    terms: [['Fee', `£${o.fee.toLocaleString('en-GB')} a match`], ['Length', `${o.months} months`], ['Deal', PACKAGES[pkg].name], ['Starts', fmtDay(start, 'dm')]],
+    terms: [['Pay', payWords(o)], ['Length', `${o.months} months`], ['Deal', PACKAGES[pkg].name], ['Starts', fmtDay(start, 'dm')]],
     action: { type: 'negotiate', offer: id },
   });
 }

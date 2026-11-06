@@ -6,8 +6,8 @@ import type { ClauseId } from './clauses';
 // --- Money (£) ---------------------------------------------------------------------------------
 /** A contracted match pays the weekly-show fee (section 16: MAJOR_FEE_*) × the size of the show. */
 export const SHOW_MULT: Record<ShowKind, number> = { weekly: 1, tour: 0.8, special: 1.5, flagship: 2.5, indie: 1 };
-/** Share of the fee lost for losing (Guaranteed Pay tiers below change it). */
-export const LOSS_CUT = 0.25;
+/** Losing doesn't cost you any pay (Lyra's call, the pay rework): the booker decides who goes over. Kept at 0 for old callers. */
+export const LOSS_CUT = 0;
 /** Travel to an indie show: same country, same region, different region. */
 export const TRAVEL = { country: 0, region: 60, abroad: 250 };
 /** A created wrestler's savings (someone you pick: START_MONEY_BASE in section 16). */
@@ -158,13 +158,17 @@ export const REIGN_PROTECT_DAYS = [0, 0, 30, 60];
 export const PUSH_MULT = [1, 1.15, 1.3, 1.5];
 // International Touring: headlining a tour (Tier 3) wins this many times the fans.
 export const TOUR_HEADLINE_FANS = 1.5;
-// Guaranteed Pay: paid this share of the fee when pulled from a card; a month's minimum, in weekly fees.
+// Guaranteed Pay (the pay rework): full pay for a date you're pulled from, paid dates a month guaranteed on PPA (and the
+// per-show part of Both), and if they release you early, this share of what's left of the deal paid out.
 export const MEDICAL_BILL_COVER = [0, 0.5, 1, 1];
 export const MEDICAL_PAY_COVER = [0, 0, 0.5, 1];
-export const LOSS_CUT_BY_TIER = [LOSS_CUT, 0.1, 0, 0];
+export const LOSS_CUT_BY_TIER = [0, 0, 0, 0];
 export const APPEARANCE_BONUS_T3 = 0.1;
-export const PULLED_PAY = [0, 0.5, 1, 1];
-export const MONTHLY_MIN_FEES = [0, 0, 2, 4];
+export const PULLED_PAY = [0, 1, 1, 1];
+export const GUARANTEED_DATES = [0, 1, 2, 4];
+export const RELEASE_PAYOUT = [0, 0.25, 0.5, 1];
+/** Old saves only (before the rework): a month's minimum, in fees. */
+export const MONTHLY_MIN_FEES = [0, 0, 0, 0];
 // Wage Matching: reviews, matching, a raise on each anniversary, a raise after a title win or a great year (Tier 2+), and parity with anyone below you (Tier 3).
 export const WAGE_REVIEW_MONTHS = 6;
 export const WAGE_REVIEW_POP_BAND = 5;
@@ -173,7 +177,11 @@ export const YEARLY_RAISE = [0, 0.02, 0.04, 0.06];
 export const PERF_RAISE = 0.05;
 export const PERF_RAISE_STARS = 3.5;
 // Performance Bonuses: each trigger pays this many weekly fees.
-export const BONUS_FEES = { title: 5, defence: 1, great: 1, main: 0.5, big: 0.5, streak: 2 };
+export const BONUS_FEES = { title: 5, defence: 1, great: 1, main: 0.5, big: 0.5, streak: 2, win: 0.25, draw: 1 };
+/** A 5★ match pays the great-match bonus this many times over. */
+export const BONUS_FIVE_STAR = 2.5;
+/** A show you headline "draws big" when its takings beat the promotion's usual by this much. */
+export const BONUS_DRAW_AT = 1.25;
 // Merchandise Rights: your share of their merch; a cut of their online store (fans × rate a month × share); your own table at their shows from Tier 2.
 export const MERCH_SHARE = [0, 0.1, 0.25, 0.6];
 export const MERCH_STORE_PER_FAN = 0.003;
@@ -795,7 +803,38 @@ export const FEUD = {
 export const LIFE_PARTS = { homes: true, money: true, staff: true, invest: true, ai: true, school: true, status: true, family: true, risk: true, after: true };
 
 /**
- * Pay (Lyra's call: how many dates you get decides your income). A major promotion's weekly-show fee:
+ * Pay (Lyra's rework): a yearly salary curve by drawing power, three ways to be paid, no cut for losing.
+ *
+ * - The curve (the biggest major): where you stand on its roster by fans in its home region (0 the bottom, 1 the top),
+ *   log-interpolated through the anchors: lower card £250k–600k, midcard £600k–1.5m, upper midcard £1.5m–3m, main
+ *   event £3m–6m, megastars £6m–12m. Past the roster's top, an exceptional draw keeps going (× their fans over the
+ *   next best's, to `beyondExp`). Reputation moves it ×0.85–1.2; a world title ×1.2, any other ×1.08.
+ * - Each promotion pays its own scale by popularity: the biggest major (80) ×1, the smallest (46) ×0.5, below the
+ *   majors falling away fast (regional and local companies in booker mode).
+ * - The per-appearance unit (`contract.fee`): a year ÷ (12 × `datesPerMonth`). Everything priced "in fees" (signing
+ *   bonuses, pensions, fines, bonuses) is in these units.
+ * - PPA: each appearance pays the unit × the show's size × `ppaPremium` (more than Monthly if you're busy, less if not).
+ *   Monthly: the unit × `datesPerMonth` every month, always (injured, suspended, not booked). Both: `bothBase` of the
+ *   monthly salary plus `bothShow` of the unit × the show's size per appearance.
+ */
+export const PAY = {
+  curve: [[0, 250_000], [0.3, 600_000], [0.6, 1_500_000], [0.8, 3_000_000], [0.95, 6_000_000], [1, 10_000_000]] as [number, number][],
+  beyondExp: 0.35,
+  rep: [0.85, 1.2] as [number, number],
+  title: { world: 1.2, other: 1.08 },
+  scale: { topPop: 80, bottomPop: 46, bottom: 0.5, floorPop: 10, belowExp: 1.5 },
+  datesPerMonth: 4.5,
+  ppaPremium: 1.15,
+  bothBase: 0.6,
+  bothShow: 0.45,
+  /** Which way each promotion opens with, by popularity: the biggest majors Monthly, the rest of the majors Both, smaller ones PPA. */
+  prefers: { monthly: 65, both: 46, dates: 3 },
+  /** Asking for a way they don't prefer costs them this share of a date (a term in the negotiation). */
+  askCost: 0.06,
+};
+
+/**
+ * Old pay (before the rework): a major promotion's weekly-show fee:
  * its floor (£2,500 at popularity 46, about £3,500 at 80) × your fans in its home region against its
  * roster's median, to the power 0.5, capped at ×8. Opening offers start at the floor at least.
  */
@@ -808,17 +847,19 @@ export const MAJOR_FEE_FAN_CAP = 8;
 /** SLN-style weekly flagships pay like a big weekly show, not a pay-per-view. */
 export const SHOW_MULT_WEEKLY_FLAGSHIP = 1.25;
 /**
- * An indie fee: £50 × brand (0.8 at popularity 5 to 1.3 at 30) × (your fans in that region ÷ 500)^0.48,
- * × 1.5 as an indie champion, × 1.3 on a special or cup night; £30–£1,500. 500 fans £50 · 5k £150 ·
- * 50k £455 · 500k £1,375.
+ * An indie fee (Lyra's table): £300 × brand (0.85 a skint local outfit to 1.25 a well-off one) × reputation
+ * (0.9–1.15) × (your fans in that region ÷ 500)^0.40, × 1.5 as an indie champion, × 1.3 on a special or cup night.
+ * £250 is the floor; there's no cap. About: 500 fans £300 · 5k £750 · 50k £1.9k · 500k £4.7k · 1m £6.3k · 5m £12k.
  */
-export const INDIE_FEE_BASE = 50;
+export const INDIE_FEE_BASE = 300;
 export const INDIE_FEE_FANS_REF = 500;
-export const INDIE_FEE_EXP = 0.48;
-export const INDIE_FEE_BRAND: [number, number] = [0.8, 1.3];
+export const INDIE_FEE_EXP = 0.4;
+export const INDIE_FEE_BRAND: [number, number] = [0.85, 1.25];
+export const INDIE_FEE_REP: [number, number] = [0.9, 1.15];
 export const INDIE_FEE_CHAMP = 1.5;
 export const INDIE_FEE_SPECIAL = 1.3;
-export const INDIE_FEE_RANGE: [number, number] = [30, 1500];
+/** The floor (Lyra's call: nobody works an indie show for less than £250), and no ceiling. */
+export const INDIE_FEE_RANGE: [number, number] = [250, Infinity];
 /** Merch a month: worldwide fans × this (× your Merchandise Rights share when signed). */
 export const MERCH_PER_FAN_SIGNED = 0.006;
 export const MERCH_PER_FAN_FREE = 0.002;
@@ -1314,6 +1355,13 @@ export const BELTS = { max: { local: 2, regional: 4, national: 6, global: 8 } as
  * home, insurance, staff. Run out past the overdraft for long enough and it's over.
  */
 export const BIZ = {
+  /** The pay rework (Lyra's call: everything scales): takings (tickets, merch, TV, pay-per-view, sponsors) × this, by tier. */
+  takings: { local: 4, regional: 2.5, national: 1, global: 1 } as Record<string, number>,
+  /**
+   * ...and the new money in the business (TV rights, sponsors) comes to each company in line with what its roster's
+   * worth on the salary curve (not what it actually pays them: overpaying still costs you): this share of that a month.
+   */
+  talentCover: 0.8,
   ticket: { local: 12, regional: 20, national: 30, global: 40 } as Record<string, number>,
   merchPerHead: { local: 1.5, regional: 3, national: 4, global: 6 } as Record<string, number>,
   drawBase: { local: 10, regional: 150, national: 800, global: 2000 } as Record<string, number>,
@@ -1362,9 +1410,9 @@ export const BIZ = {
  * for what's left of their deal, ×1.5. Releasing someone: what's left, up to three months.
  */
 export const SIGN = {
-  floor: { local: 60, regional: 250, national: 1500, global: 2500 } as Record<string, number>,
+  floor: { local: 250, regional: 600, national: 2300, global: 4000 } as Record<string, number>,
   ref: { local: 2000, regional: 20000, national: 100000, global: 300000 } as Record<string, number>,
-  minFactor: 0.5, maxFactor: 8, minFee: 30,
+  minFactor: 0.5, maxFactor: 40, minFee: 250, exp: 0.75,
   stepDown: 1.3, mercenary: 1.2, loyal: 1.15, likeEffect: 0.003,
   rounds: 3, walkBelow: 0.6, insult: 0.4, insultLike: -6, counterGap: 0.25, longerPerMonth: 0.01, shortDeal: 1.1,
   rivalFrom: 60, rivalChance: 0.35, rivalLift: 1.15, buyout: 1.5, releaseMonths: 3,

@@ -156,10 +156,10 @@ function DealEditor({ who, initial, onCancel, onDone }: { who: Wrestler; initial
         </div>
         {!free && (
           <>
-            <span className="c-sec">{w('Fee a match')}</span>
+            <span className="c-sec">{w('Fee an appearance')}</span>
             <div className="c-cyc">
               <button className="c-stepb" onClick={() => setFee(Math.max(0, fee - 250))} aria-label="£250 less">−</button>
-              <input className="c-fld mid" type="number" inputMode="numeric" min={0} step={50} value={fee} onChange={(e) => setFee(Math.max(0, Math.round(Number(e.target.value) || 0)))} aria-label="Fee a match" style={{ textAlign: 'center', fontSize: 20 }} />
+              <input className="c-fld mid" type="number" inputMode="numeric" min={0} step={50} value={fee} onChange={(e) => setFee(Math.max(0, Math.round(Number(e.target.value) || 0)))} aria-label="Fee an appearance" style={{ textAlign: 'center', fontSize: 20 }} />
               <button className="c-stepb" onClick={() => setFee(fee + 250)} aria-label="£250 more">+</button>
             </div>
             <div className="c-chips">{[[1, 'Market'], [2, '×2'], [5, '×5'], [10, '×10']].map(([m, l]) => <button key={String(l)} className={`c-chip${fee === Math.round(market * Number(m)) ? ' on' : ''}`} onClick={() => setFee(Math.round(market * Number(m)))}>{w(`${l} · £${Math.round(market * Number(m)).toLocaleString('en-GB')}`)}</button>)}</div>

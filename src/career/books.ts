@@ -13,9 +13,11 @@ import { letter, promoName, release, setCareerHooks, spend } from './career';
 import { companies, companyOf, leaveRole, playerRuns, roleIn } from './company';
 import { addDays, monthOf, MONTHS } from './dates';
 import { hireFee } from './hustle';
+import { isWeeklyFlagship, matchPay, monthlySalary, promoDates, yearlyWorth } from './economy';
+import { PAY } from './tuning';
 import { registerReplies } from './mail';
 import { regionOfCountry } from './places';
-import { BIZ, FEATURES, SHOW_MULT, STAFF, WAR } from './tuning';
+import { BIZ, FEATURES, STAFF, WAR } from './tuning';
 import type { Career, Show } from './types';
 import { boutPeople } from './bouts';
 
@@ -73,14 +75,17 @@ export function settleShow(c: Career, show: Show): void {
   const draw = showDraw(co, show, onShow(show)) * (1 - BIZ.swing + rnd() * 2 * BIZ.swing) * Math.max(0.6, 1 - WAR.counter * rivals);
   const v = venueFor(co, draw);
   const sold = Math.round(Math.min(v.cap, draw));
-  const gate = sold * ticketPrice(co), merch = sold * BIZ.merchPerHead[co.tier]!;
+  // The pay rework: takings raised with the wage bills (Lyra's call), by tier.
+  const up = BIZ.takings[co.tier] ?? 1;
+  const gate = sold * ticketPrice(co) * up, merch = sold * BIZ.merchPerHead[co.tier]! * up;
   let wages = 0, fees = 0;
   for (const id of ids) {
     const w = W(id);
     if (!w) continue;
     const k = c.people[id]?.contract;
     const deal = k?.promo === show.promo ? k : c.people[id]?.deals?.find((d) => d.promo === show.promo);
-    if (deal) wages += deal.fee * (SHOW_MULT[show.kind] ?? 1);
+    // On the night: PPA deals' fees and Both's per-show part (salaries go out at the end of the month).
+    if (deal) wages += matchPay(deal, show.kind, false, isWeeklyFlagship(show)).pay;
     else fees += hireFee(w, show.region);
   }
   const home = co.home?.country ?? undefined;
@@ -88,9 +93,9 @@ export function settleShow(c: Career, show: Show): void {
   // A producer gets more out of the TV deal.
   const producer = (co as { staff?: { role: string; id: string }[] }).staff?.find((h) => h.role === 'producer');
   const prodQ = producer ? (activeWorld().people?.staff[producer.id]?.rep ?? 50) / 100 : 0;
-  const tv = co.tv && show.kind === 'weekly' && show.date <= co.tv.until ? Math.round(co.tv.fee * (1 + prodQ * STAFF.producerTv)) : !playerRuns(show.promo) && show.kind === 'weekly' ? aiTv(co) : 0;
+  const tv = (co.tv && show.kind === 'weekly' && show.date <= co.tv.until ? Math.round(co.tv.fee * (1 + prodQ * STAFF.producerTv)) : !playerRuns(show.promo) && show.kind === 'weekly' ? aiTv(co) : 0) * up;
   const big = show.kind === 'special' || show.kind === 'flagship';
-  const ppv = big ? Math.round(sold * BIZ.ppv[co.tier]! * Math.max(0.5, (show.rating?.score ?? co.rep ?? 3) / 3) * BIZ.ppvPrice * Math.min(1, BIZ.ppvPerMonth / bigNights(show))) : 0;
+  const ppv = big ? Math.round(sold * BIZ.ppv[co.tier]! * Math.max(0.5, (show.rating?.score ?? co.rep ?? 3) / 3) * BIZ.ppvPrice * Math.min(1, BIZ.ppvPerMonth / bigNights(show)) * up) : 0;
   const prod = BIZ.production[co.tier]! * (BIZ.productionKind[show.kind] ?? 1);
   post(co, 'gate', gate); post(co, 'merch', merch); post(co, 'tv', tv); post(co, 'ppv', ppv);
   post(co, 'wages', wages); post(co, 'fees', fees); post(co, 'venue', v.cost); post(co, 'production', prod); post(co, 'travel', away);
@@ -216,13 +221,22 @@ function monthEnd(c: Career): void {
   if (!FEATURES.booker) return;
   // The monthly round runs on the last night of the month.
   const last = c.today.slice(0, 7);
+  const payroll = new Map<string, number>();
+  for (const p of Object.values(c.people)) for (const k of [p.contract, ...(p.deals ?? [])]) if (k && k.start <= c.today) { const m = monthlySalary(k); if (m) payroll.set(k.promo, (payroll.get(k.promo) ?? 0) + m); }
   for (const co of Object.values(companies())) {
     if (co.closed) continue;
     const mine = roleIn(c, co.promo);
     const pop = promotion(co.promo)?.popularity ?? 10;
     // Sponsors: yours are deals you've signed; the AI's come with its size.
+    const up = BIZ.takings[co.tier] ?? 1;
     if (playerRuns(co.promo)) for (const s of (co.sponsors ?? []).filter((x) => x.until >= c.today)) post(co, 'sponsors', s.monthly);
-    else post(co, 'sponsors', BIZ.sponsors[co.tier]! * (pop / 50));
+    else post(co, 'sponsors', BIZ.sponsors[co.tier]! * (pop / 50) * up);
+    // Salaries (the pay rework): everyone on a Monthly deal, and Both's base, every month whatever happened.
+    const salaries = payroll.get(co.promo) ?? 0;
+    if (salaries) post(co, 'wages', salaries);
+    // The bigger money in the business: TV rights and sponsors in line with what the roster's worth (the salary curve).
+    const worth = rosterOf(co.promo).reduce((t, w) => t + yearlyWorth(w, co.promo), 0) / 12 * (promoDates(co.promo) / PAY.datesPerMonth);
+    if (worth > 0) post(co, 'tv', Math.round(worth * BIZ.talentCover));
     co.sponsors = (co.sponsors ?? []).filter((x) => x.until >= c.today);
     post(co, 'insurance', rosterOf(co.promo).length * BIZ.insurance[co.tier]!);
     for (const h of co.staff ?? []) post(co, 'staff', h.wage);

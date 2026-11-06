@@ -9,10 +9,10 @@ import { BONUS_TRIGGERS, tierOf, triggerSlots, type BonusTrigger } from './claus
 import { onSigned } from './contracts';
 import { addDays, daysBetween, type Day } from './dates';
 import { dealsOf, dealWith } from './deals';
-import { round5 } from './economy';
+import { isWeeklyFlagship, matchPay, monthlySalary, payOf, round5 } from './economy';
 import {
-  ADVANCE_FEES, ADVANCE_INTEREST, ADVANCE_REPAY_SHARE, ADVANCE_WRITE_OFF_T3, BONUS_FEES, LEGEND_REP, LEGEND_YEARS, LOYALTY_FEES, LOYALTY_PROTECT_YEARS, MERCH_STORE_PER_FAN,
-  MONTHLY_MIN_FEES, PERF_RAISE, PERF_RAISE_STARS, PROFIT_SHARE, PULLED_PAY, REBRAND_LOSS, SIGNING_BONUS_FEES, STORE_CUT, TAKINGS, YEARLY_RAISE,
+  ADVANCE_FEES, ADVANCE_INTEREST, ADVANCE_REPAY_SHARE, ADVANCE_WRITE_OFF_T3, BONUS_DRAW_AT, BONUS_FEES, BONUS_FIVE_STAR, GUARANTEED_DATES, LEGEND_REP, LEGEND_YEARS, LOYALTY_FEES, LOYALTY_PROTECT_YEARS, MERCH_STORE_PER_FAN,
+  PERF_RAISE, PERF_RAISE_STARS, PROFIT_SHARE, PULLED_PAY, REBRAND_LOSS, SIGNING_BONUS_FEES, STORE_CUT, TAKINGS, YEARLY_RAISE,
 } from './tuning';
 import type { Bout, Career, Contract, PlayerMatch, Show } from './types';
 
@@ -53,17 +53,35 @@ export function takeAdvance(c: Career, promo?: string): string {
 
 // ------------------------------------------------------------------ after each of your matches
 
+/** An advance comes back out of what they pay you. */
+function repay(c: Career, k: Contract, paid: number): void {
+  if (!k.advance) return;
+  const back = Math.min(k.advance, round5(paid * ADVANCE_REPAY_SHARE));
+  k.advance = Math.max(0, k.advance - back);
+  if (!k.advance) delete k.advance;
+  if (back) spend(c, -back, `Advance repayment · ${k.promo}`, 'bonus');
+}
+/** A show's usual takings for its promotion and kind (its recent ones), so a big draw stands out. */
+function usualTakings(c: Career, show: Show): number {
+  const xs = Object.values(c.shows).filter((h) => h.promo === show.promo && h.kind === show.kind && h.id !== show.id && (h.books?.in ?? 0) > 0).map((h) => h.books!.in);
+  return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0;
+}
+/** Performance Bonuses' "drawing a crowd": the morning after, once the night's takings are in. */
+function drewBig(c: Career, show: Show, k: Contract): void {
+  if (!(k.triggers ?? []).slice(0, triggerSlots(tierOf(k, 'bonuses'))).includes('draw')) return;
+  const last = show.card?.at(-1);
+  if (!last || (last.a !== c.player && last.b !== c.player && !last.sides?.some((x) => x.includes(c.player)))) return;
+  const gate = show.books?.in ?? 0, usual = usualTakings(c, show);
+  if (!(gate > 0 && usual > 0 && gate >= usual * BONUS_DRAW_AT)) return;
+  spend(c, round5(k.fee * BONUS_FEES.draw), `Bonus · Drawing a crowd · ${show.name}`, 'bonus', { contract: true });
+}
+
 function afterMatch(c: Career, show: Show, bout: Bout, m: PlayerMatch): void {
   if (show.promo === 'TIS') return;
   const k = (show.promos ?? [show.promo]).map((x) => dealWith(person(c, c.player), x)).find(Boolean);
   if (!k) return;
-  // Advances come back out of your fees.
-  if (k.advance && m.fee > 0) {
-    const back = Math.min(k.advance, round5(m.fee * ADVANCE_REPAY_SHARE));
-    k.advance = Math.max(0, k.advance - back);
-    if (!k.advance) delete k.advance;
-    if (back) spend(c, -back, `Advance repayment · ${k.promo}`, 'bonus');
-  }
+  // Advances come back out of your fees (on a salary, out of each month's: see payday).
+  if (m.fee > 0) repay(c, k, m.fee);
   // Performance Bonuses: the triggers you picked, as many as your tier allows.
   const triggers = (k.triggers ?? []).slice(0, triggerSlots(tierOf(k, 'bonuses')));
   const hit = (t: BonusTrigger): boolean => {
@@ -74,13 +92,16 @@ function afterMatch(c: Career, show: Show, bout: Bout, m: PlayerMatch): void {
       case 'main': return show.card?.at(-1) === bout;
       case 'big': return show.kind === 'special' || show.kind === 'flagship';
       case 'streak': return false;
+      case 'win': return m.result === 'win';
+      // Headlining a show that drew big: the next morning, once the takings are in (drewBig).
+      case 'draw': return false;
     }
   };
   k.streak = m.result === 'win' ? (k.streak ?? 0) + 1 : 0;
   for (const t of triggers) {
     const ok = t === 'streak' ? k.streak > 0 && k.streak % 5 === 0 : hit(t);
     if (!ok) continue;
-    const amount = round5(k.fee * BONUS_FEES[t]);
+    const amount = round5(k.fee * BONUS_FEES[t] * (t === 'great' && m.stars >= 5 ? BONUS_FIVE_STAR : 1));
     spend(c, amount, `Bonus · ${BONUS_TRIGGERS.find((x) => x.id === t)!.name} · ${k.promo}`, 'bonus', { contract: true });
   }
   // Wage Matching Tier 2+: a raise for winning one of their titles.
@@ -114,6 +135,7 @@ function daily(c: Career): void {
     for (const promo of show.promos ?? [show.promo]) {
       const k = deals.find((x) => x.promo === promo);
       if (!k) continue;
+      drewBig(c, show, k);
       // Profit Share: their flagships (Tier 1+) and specials (Tier 2+), whether you're on them or not.
       const t = tierOf(k, 'profit');
       if ((show.kind === 'flagship' && t >= 1) || (show.kind === 'special' && t >= 2)) profitCut(c, k, show);
@@ -121,12 +143,22 @@ function daily(c: Career): void {
       if (c.drawnMe?.[show.id] && !show.card?.some((b) => b.a === c.player || b.b === c.player)) {
         const share = PULLED_PAY[tierOf(k, 'guaranteed')] ?? 0;
         const mine = p!.injury && p!.injury.until > yesterday || p!.daysOff?.includes(yesterday) || (p!.suspendedUntil && p!.suspendedUntil > yesterday) || p!.noShows?.includes(yesterday);
-        if (share && !mine) spend(c, round5(k.fee * share), `Pulled from ${show.name} (Guaranteed Pay)`, 'fee', { contract: true });
+        const was = matchPay(k, show.kind, false, isWeeklyFlagship(show)).pay;
+        if (share && was && !mine) spend(c, round5(was * share), `Pulled from ${show.name} (Guaranteed Pay)`, 'fee', { contract: true });
       }
     }
   }
   if (c.drawnMe) for (const id of Object.keys(c.drawnMe)) if (!c.shows[id] || c.shows[id]!.date < yesterday) delete c.drawnMe[id];
   for (const k of deals) anniversaries(c, k);
+  // Salaries (Monthly, or Both's base): each month's on its first day, whatever's happened (Lyra's call: always); a deal
+  // (or a career) starting part-way through a month gets the rest of that month's, there and then.
+  const month = c.today.slice(0, 7);
+  const paid = (c.salaryPaid ??= {});
+  for (const k of deals) {
+    if (k.start > c.today || !monthlySalary(k) || paid[k.promo] === month) continue;
+    payday(c, k, c.today.endsWith('-01') ? 1 : daysLeftInMonth(c.today));
+    paid[k.promo] = month;
+  }
 }
 
 /** A contract year comes round (Wage Matching's yearly raise) and a year of service (Loyalty & Tenure). */
@@ -168,11 +200,12 @@ function monthly(c: Career, _rnd: Rng): void {
   if (!me) return;
   const last = addDays(c.today, -1).slice(0, 7);
   for (const k of dealsOf(c.people[c.player])) {
-    // Guaranteed Pay Tier 2+: last month's fees from them topped up to a minimum.
-    const min = round5(k.fee * (MONTHLY_MIN_FEES[tierOf(k, 'guaranteed')] ?? 0));
-    if (min && k.start.slice(0, 7) < last) {
-      const got = c.history.filter((m) => m.promo === k.promo && m.day.startsWith(last)).reduce((t, m) => t + m.fee, 0);
-      if (got < min) spend(c, min - got, `Monthly minimum · ${k.promo} (Guaranteed Pay)`, 'fee', { contract: true });
+    // Guaranteed Pay: last month's dates (PPA, or Both's per-show part) topped up to the guaranteed number.
+    const want = GUARANTEED_DATES[tierOf(k, 'guaranteed')] ?? 0;
+    const per = matchPay(k, 'weekly').pay;
+    if (want && per && k.start.slice(0, 7) < last) {
+      const got = c.history.filter((m) => m.promo === k.promo && m.day.startsWith(last)).length;
+      if (got < want) spend(c, round5(per * (want - got)), `Guaranteed dates · ${k.promo} (${want - got} short)`, 'fee', { contract: true });
     }
     // Merchandise Rights: a cut of their online store's sales of your gear.
     const cut = STORE_CUT[tierOf(k, 'merch')] ?? 0;
@@ -190,6 +223,20 @@ function monthly(c: Career, _rnd: Rng): void {
       }
     }
   }
+}
+
+/** The share of a month left from today (today included). */
+function daysLeftInMonth(day: Day): number {
+  const [y, m, d] = day.split('-').map(Number) as [number, number, number];
+  const days = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return (days - d + 1) / days;
+}
+/** Payday: a salary (or a share of one), and an advance comes back out of it. */
+function payday(c: Career, k: Contract, share: number): void {
+  const amount = round5(monthlySalary(k) * share);
+  if (!amount) return;
+  spend(c, amount, `Salary · ${k.promo}${payOf(k) === 'both' ? ' (base)' : ''}`, 'fee', { contract: true });
+  repay(c, k, amount);
 }
 
 // ------------------------------------------------------------------ leaving

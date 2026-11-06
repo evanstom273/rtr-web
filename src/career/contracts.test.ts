@@ -54,12 +54,11 @@ describe('contracts', () => {
     expect(order.indexOf(mood(c, o, { fee, months: 12, clauses: creative }))).toBeGreaterThanOrEqual(order.indexOf(mood(c, o, { fee, months: 12, clauses: wage })));
   });
 
-  it('Guaranteed Pay changes what a loss costs', () => {
+  it('a loss costs nothing (Lyra’s pay rework), whatever the Guaranteed Pay; Tier 3 adds an appearance bonus', () => {
     const k = { promo: 'VWF', start: '2026-11-03', end: '2027-11-03', fee: 1000, clauses: NO_CLAUSES() };
-    expect(matchPay(k, 'weekly', true).pay).toBe(750);
-    k.clauses[C.guaranteed] = 1; expect(matchPay(k, 'weekly', true).pay).toBe(900);
-    k.clauses[C.guaranteed] = 2; expect(matchPay(k, 'weekly', true).pay).toBe(1000);
-    k.clauses[C.guaranteed] = 3; expect(matchPay(k, 'flagship', true)).toEqual({ pay: 2500, bonus: 250 });
+    expect(matchPay(k, 'weekly', true).pay).toBe(matchPay(k, 'weekly', false).pay);
+    expect(matchPay(k, 'weekly', true).pay).toBe(1150);
+    k.clauses[C.guaranteed] = 3; expect(matchPay(k, 'flagship', true)).toEqual({ pay: 2875, bonus: 250 });
   });
 
   it('signing as a free agent starts today; Contract Exit tiers decide how you leave', () => {

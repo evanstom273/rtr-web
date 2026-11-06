@@ -1,3 +1,4 @@
+import { payWords } from '../../career/economy';
 import { useMemo, useState, type ReactNode } from 'react';
 import { fansIn, fansTotal, findWrestler, fmtFans, globalScore, TITLES, WRESTLERS, rosterOf, worksFor, holds } from '../../data/rtr';
 import {
@@ -542,7 +543,7 @@ export function RequestFlow({ c, route, onBack, onNegotiate, onAnswered }: FlowP
     title = w('A Rival Offer', 'Rival offer'); who = w(`Asking ${k.promo}`);
     const offers = c.offers.filter((o) => o.status === 'open' && o.promo !== k.promo);
     const cur = sel ?? offers[0]?.id ?? null;
-    pv = { hard: null, chance: 0, nag: 0, stand: [['You’re on', `${money(k.fee)} a match`]], weigh: [{ t: 'Wage Matching T2', s: 1 }] };
+    pv = { hard: null, chance: 0, nag: 0, stand: [['You’re on', payWords(k)]], weigh: [{ t: 'Wage Matching T2', s: 1 }] };
     if (cur) ask = () => askRival(c, cur);
     body = (<><span className="c-sec">{w('Pick the offer')}</span>{offers.map((o) => (
       <button key={o.id} className={cur === o.id ? 'c-ans on' : 'c-ans'} onClick={() => setSel(o.id)} style={{ padding: '7px 10px' }}>
