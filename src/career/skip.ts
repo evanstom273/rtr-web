@@ -1,6 +1,8 @@
 // Time skipping (Lyra's call, Football Manager style): move on a phase, a day, a number of days, to a
 // date or to your next booking, doing everything a normal advance does, and stop when something needs
-// you: your match, a letter that needs an answer, an injury, a contract starting or ending, work.
+// you: your match, a letter that needs an answer, an injury, a contract starting or ending, work. With "Sim them"
+// on, your matches and feud segments are simmed and feud storyline beats don't stop it (a rival's call-out is
+// answered for you).
 import { findWrestler } from '../data/rtr';
 import { myBoutToday } from './career';
 import { addDays, type Day } from './dates';
@@ -23,14 +25,20 @@ export interface SkipOptions {
 export const stopsFor = (c: Career) => routineOf(c).stopFor ?? { decisions: true, people: true, checkins: true, news: true };
 /** Letters that stop a skip. Mail off: events and choices, offers and counters, tryouts (not indie offers). */
 function needs(c: Career): Set<string> {
-  if (!FEATURES.mail) return new Set(c.letters.filter((l) => !l.done && l.action && l.action.type !== 'indie').map((l) => l.id));
+  // Storyline beats (feuds) don't stop a skip when you've said to sim your nights (Lyra's call).
+  const story = (l: Career['letters'][number]) => !!l.story && !!routineOf(c).simMine;
+  if (!FEATURES.mail) return new Set(c.letters.filter((l) => !l.done && l.action && l.action.type !== 'indie' && !story(l)).map((l) => l.id));
   const f = stopsFor(c);
-  return new Set(c.letters.filter((l) => (l.action && !l.done ? f.decisions : l.kind === 'person' || l.kind === 'press' ? f.people : l.kind === 'booker' ? f.checkins : f.news)).map((l) => l.id));
+  return new Set(c.letters.filter((l) => !story(l) && (l.action && !l.done ? f.decisions : l.kind === 'person' || l.kind === 'press' ? f.people : l.kind === 'booker' ? f.checkins : f.news)).map((l) => l.id));
 }
 
-/** Feuds: a segment of yours tonight that's still to do (skipping stops for it). */
+/** Feuds: a segment of yours tonight that's still to do (skipping stops for it, unless you sim your nights). */
 let segStop: ((c: Career) => string | null) | null = null;
 export const setSegStop = (f: typeof segStop): void => { segStop = f; };
+/** Feuds: with "Sim them" on, a rival's call-out is answered for you mid-skip (lines for the away log). */
+let storyAnswer: ((c: Career) => string[]) | null = null;
+export const setStoryAnswer = (f: typeof storyAnswer): void => { storyAnswer = f; };
+const answerStory = (c: Career): string[] => (routineOf(c).simMine && storyAnswer ? storyAnswer(c) : []);
 
 export async function skip(c: Career, target: SkipTarget, run: (jobs: SimJob[]) => Promise<SimOut[]>, o: SkipOptions = {}): Promise<{ stopped: string | null; phases: number; handled: string[] }> {
   const phases = FEATURES.days;
@@ -41,11 +49,11 @@ export async function skip(c: Career, target: SkipTarget, run: (jobs: SimJob[]) 
   const total = target === 'phase' ? 1 : Math.max(1, Math.round((new Date(`${untilDay}T12:00:00Z`).getTime() - new Date(`${c.today}T12:00:00Z`).getTime()) / 864e5) * per);
   let done = 0;
   // While you're away (Lyra's call): your character answers mail by your standing orders, summed up at the end.
-  const handled: string[] = [...answerForMe(c)];
+  const handled: string[] = [...answerForMe(c), ...answerStory(c)];
   for (;;) {
     if (target === 'phase' ? done >= 1 : c.today >= untilDay! && phaseOf(c) === 'am') return { stopped: null, phases: done, handled };
     if (o.cancelled?.()) return { stopped: 'Stopped', phases: done, handled };
-    // Your segment tonight (feuds): skipping stops for it, like your match.
+    // Your segment tonight (feuds): skipping stops for it, like your match (and sims it, like your match, with "Sim them" on).
     if (segStop && (!phases || phaseOf(c) === 'pm')) { const why = segStop(c); if (why) return { stopped: why, phases: done, handled }; }
     // Your match tonight (the PM, or the whole day with days off).
     if (myBoutToday(c) && (!phases || phaseOf(c) === 'pm')) {
@@ -55,7 +63,7 @@ export async function skip(c: Career, target: SkipTarget, run: (jobs: SimJob[]) 
     await advancePhase(c, run);
     done++;
     await o.onPhase?.(c, done, total);
-    handled.push(...answerForMe(c));
+    handled.push(...answerForMe(c), ...answerStory(c));
     const after = needs(c);
     const fresh = [...after].find((id) => !before.letters.has(id));
     if (fresh) return { stopped: FEATURES.mail ? `New mail: ${c.letters.find((l) => l.id === fresh)?.subject ?? ''}` : 'A letter needs an answer', phases: done, handled };

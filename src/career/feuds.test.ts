@@ -144,6 +144,33 @@ describe('feuds, rebuilt', () => {
     expect(myFeud(c)?.how).toBe('rival');
   });
 
+  it('a long skip with “Sim them” on carries on through your segments and the feud’s letters, and answers a call-out for you', async () => {
+    const { skip } = await import('./skip');
+    const { routineOf } = await import('./day');
+    const { c, rival, show } = setup();
+    const f = myFeud(c)!;
+    f.stage = 'building';
+    show.segments = [{ kind: 'promo', who: [c.player, rival], after: -1, feud: f.id }];
+    show.card = [{ a: c.player, b: WRESTLERS.find((w) => w.id !== c.player && w.id !== rival)!.id }];
+    const quick: Parameters<typeof skip>[2] = async (jobs) => jobs.map((j) => ({ key: j.key, winner: 'you', finish: 'PINFALL', t: 600, stars: 3, stats: { you: {} as never, them: {} as never } }) as never);
+    const mine = async (x: Career) => { const { myBoutToday, applyBout } = await import('./career'); const m = myBoutToday(x)!; const [o] = await quick([{ key: 'mine', seed: 1, you: m.bout.a, them: m.bout.b, rules: {} }]); applyBout(x, m.show, m.index, o!, true, 'simmed'); return true; };
+    // Off: it stops for the promo.
+    routineOf(c).simMine = false;
+    routineOf(c).stopFor = { decisions: false, people: false, checkins: false, news: false };
+    const stop = await skip(c, { days: 3 }, quick, { mine });
+    if (show.date === c.today) expect(stop.stopped ?? '').toMatch(/promo is up/);
+    // On: a call-out arrives mid-skip and the promo comes round; neither stops it.
+    routineOf(c).simMine = true;
+    routineOf(c).stopFor = { decisions: true, people: true, checkins: true, news: true };
+    const other = rivalsFor(c).find((w) => w.id !== rival)!;
+    c.letters.push({ id: 'Lcall', day: c.today, read: false, kind: 'news', story: true, from: other.name, subject: 'You and me', body: [''], replies: [{ id: 'feud_bite', label: 'Bite' }, { id: 'feud_ignore', label: 'Ignore' }], ctx: { who: other.id, promo: c.people[c.player]!.contract!.promo } } as never);
+    const r = await skip(c, { days: 20 }, quick, { mine });
+    expect(r.stopped === null || !/promo is up|segment|You and me/i.test(r.stopped)).toBe(true);
+    expect(c.letters.find((l) => l.id === 'Lcall')!.replied).toBeTruthy();
+    expect(r.handled.some((h) => /call-out/.test(h))).toBe(true);
+    expect(show.segments![0]!.score).toBeDefined();
+  }, 120000);
+
   it('it can go wrong: a cold feud gets pulled', async () => {
     const { c } = setup();
     const f = myFeud(c)!;

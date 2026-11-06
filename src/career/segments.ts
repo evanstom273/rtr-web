@@ -11,12 +11,15 @@ import { activeWorld } from '../world/world';
 import { bondsOf, likeOf } from '../world/people';
 import { wrestlerHistory } from '../world/history';
 import { lifeWorld } from '../world/lifeWorld';
-import { letter, person } from './career';
+import { letter as post, person } from './career';
 import { segmentDone, nameOf, rivalOf, setSimMine, stageOf } from './feuds';
 import { moveRelation } from './relations';
 import { postToFeed } from './social';
 import { FEUD_PLAY as FP } from './tuning';
 import type { Career, Feud, SegKind, Segment, Show } from './types';
+
+/** A storyline beat (Lyra's call: a skip with "Sim them" on carries on past it). */
+const letter = (c: Career, l: Parameters<typeof post>[1]) => post(c, { ...l, story: true });
 
 const W = (id: string): Wrestler | undefined => findWrestler(id);
 const first = (id: string) => nameOf(id).split(' ').slice(-1)[0]!;

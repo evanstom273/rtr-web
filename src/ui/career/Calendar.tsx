@@ -307,7 +307,7 @@ export function Calendar({ c, busy, skipping, onStop, onSkip, note, awayLog, onA
                 <button key={String(l)} className={`c-chip${ordersOf(c).on === v ? ' on' : ''}`} onClick={() => { ordersOf(c).on = v as boolean; commit(); }}>{w(l as string)}</button>
               ))}
             </div>
-            <span className="c-lab" style={{ marginTop: 4 }}>{w('Your matches')}</span>
+            <span className="c-lab" style={{ marginTop: 4 }}>{w('Your matches and segments')}</span>
             <div className="c-chips">
               {[[false, 'Stop for them'], [true, 'Sim them']].map(([v, l]) => (
                 <button key={String(l)} className={`c-chip${routineOf(c).simMine === v ? ' on' : ''}`} onClick={() => { routineOf(c).simMine = v as boolean; commit(); }}>{w(l as string)}</button>
