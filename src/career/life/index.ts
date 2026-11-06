@@ -10,6 +10,7 @@ import { homeMood, homeName, homeRest, homeTrainPrice, monthlyHomes, rentWeek, s
 import { monthlyLoans } from './loans';
 import { agentFinds, agentHandles, offIncome, pruneMonths } from './money';
 import { dailyPA, monthlyStaff, payEntrance } from './staff';
+import { monthlyFunds, monthlyInsurance, monthlyLuxury, monthlyStakes, monthlyVentures, seizeVenture } from './invest';
 import { life, liveHome, on } from './state';
 import { band, homeCountry, restOnTheRoad, roadVehicle } from './travel';
 import { homeCity } from './state';
@@ -52,7 +53,15 @@ setCareerHooks({
       monthlyGarage(c);
     }
     if (on('staff')) monthlyStaff(c);
-    monthlyLoans(c, (cc, loan) => (loan.kind === 'mortgage' ? seizeHome(cc, loan.on) : seizeVehicle(cc, loan.on)));
+    if (on('invest')) {
+      const month = addDays(c.today, 1).slice(0, 7);
+      monthlyVentures(c, month);
+      monthlyFunds(c, month);
+      monthlyStakes(c);
+      monthlyLuxury(c, month);
+      monthlyInsurance(c);
+    }
+    monthlyLoans(c, (cc, loan) => (loan.kind === 'mortgage' ? seizeHome(cc, loan.on) : loan.kind === 'business' ? seizeVenture(cc, loan.on) : seizeVehicle(cc, loan.on)));
     pruneMonths(c);
     agentFinds(c);
   },

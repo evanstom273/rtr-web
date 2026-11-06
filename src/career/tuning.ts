@@ -732,7 +732,7 @@ export const SHIPPED_RETIRE_YOUNGER = 3;
 /** Match overhaul (tag teams, multi-mans, battle royals, Rumbles, the new stipulations): off until Lyra approves. */
 export const FEATURES = { livingCosts: true, social: true, days: true, jobs: true, skip: true, mail: true, hustles: true, history: true, phone: true, booker: true, matches: true, life: true };
 /** Life (things to buy, own, run and lose): each part switches on as it's built. `on(part)` in career/life/state.ts. */
-export const LIFE_PARTS = { homes: true, money: true, staff: true, invest: false, ai: false, school: false, status: false, family: false, risk: false, after: false };
+export const LIFE_PARTS = { homes: true, money: true, staff: true, invest: true, ai: false, school: false, status: false, family: false, risk: false, after: false };
 
 /**
  * Pay (Lyra's call: how many dates you get decides your income). A major promotion's weekly-show fee:
@@ -1445,6 +1445,33 @@ export const PRICE_BOOK = {
     set: { name: 'A big set piece', cost: 25_000, heat: 8 },
     max: 15,
   },
+  /** Businesses (passive): buy in, a yearly yield that wobbles, and a chance a year it folds. Gyms and bars by city. */
+  business: {
+    gym: { name: 'Gym', price: 250_000, yield: 0.07, wobble: 0.06, fold: 0.02, local: true, fans: false },
+    bar: { name: 'Bar or restaurant', price: 400_000, yield: 0.08, wobble: 0.12, fold: 0.06, local: true, fans: false },
+    merch: { name: 'Merch company', price: 150_000, yield: 0.1, wobble: 0.18, fold: 0.05, local: false, fans: true },
+    media: { name: 'Media (podcast, channel, site)', price: 60_000, yield: 0.12, wobble: 0.25, fold: 0.08, local: false, fans: true },
+  },
+  /** A second site (or a bigger one) costs this many times as much, and earns as much more. */
+  bigger: 3,
+  /** Funds: a year's average, its wobble, and what a crash takes (about once every eight years, for everyone). */
+  funds: {
+    safe: { name: 'Safe fund', mean: 0.03, wobble: 0.02, crash: 0.05 },
+    balanced: { name: 'Balanced fund', mean: 0.06, wobble: 0.1, crash: 0.2 },
+    risky: { name: 'Risky fund', mean: 0.1, wobble: 0.22, crash: 0.45 },
+  },
+  crashYear: 1 / 8,
+  /** Promotion stakes: a share of what it's worth (a little over), half its monthly profit paid out; 25% gets you a say. */
+  stake: { premium: 1.1, payout: 0.5, say: 25, max: 49 },
+  /** Luxury: three prices each, how their value drifts a year (and wobbles), and upkeep a year. */
+  luxury: {
+    watch: { name: 'Watch', tiers: [5_000, 25_000, 250_000], drift: -0.02, wobble: 0.03, upkeep: 0 },
+    art: { name: 'Art', tiers: [15_000, 250_000, 5_000_000], drift: 0.04, wobble: 0.15, upkeep: 0.01 },
+    classic: { name: 'Classic car', tiers: [40_000, 300_000, 2_000_000], drift: 0.03, wobble: 0.1, upkeep: 0.02 },
+    boat: { name: 'Boat', tiers: [250_000, 2_000_000, 15_000_000], drift: -0.08, wobble: 0.03, upkeep: 0.1 },
+  },
+  /** Insurance a year: homes and businesses, as a share of what they're worth. */
+  insurance: { home: 0.003, business: 0.015 },
 } as const;
 
 /** Each city's price, on top of its region's cost index (Life: homes, rent, wages). Anywhere unlisted is 1. */

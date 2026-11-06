@@ -10,11 +10,13 @@ import { CITIES, REGION_LABEL, regionOfCountry } from '../../career/places';
 import { COST_INDEX, PRICE_BOOK as PB } from '../../career/tuning';
 import type { Career } from '../../career/types';
 import { commit, Head, money, Screen, shortMoney, useToast, useWords } from './parts';
+import { InvestTab } from './LifeInvest';
+import { investedValue } from '../../career/life/invest';
 import { fansTotal, findWrestler } from '../../data/rtr';
 
 interface Props { c: Career; onBack: () => void }
 
-const TABS = ['Home', 'Getting about', 'Your team', 'Money'] as const;
+const TABS = ['Home', 'Getting about', 'Your team', 'Invest', 'Money'] as const;
 
 /** Every city, by country (for moving and buying). */
 function CityPick({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) {
@@ -32,7 +34,7 @@ function CityPick({ value, onChange, label }: { value: string; onChange: (v: str
 /** Career → Life: where you live and what you own, how you get about, and the money side (tax, credit, the agent). */
 export function Life({ c, onBack }: Props) {
   const { skin, w } = useWords();
-  const [tab, setTab] = useState(0);
+  const [tab, setTab] = useState<(typeof TABS)[number]>('Home');
   const [toast, say] = useToast();
   const [, bump] = useState(0);
   const L = life(c);
@@ -41,7 +43,8 @@ export function Life({ c, onBack }: Props) {
   const done = (s: string) => { say(s); commit(); bump((n) => n + 1); };
   const h = liveHome(c);
   const owed = L.loans.reduce((t, l) => t + l.left, 0);
-  const worth = c.money + homesValue(c) + garageValue(c) - owed;
+  const invested = on('invest') ? investedValue(c) : 0;
+  const worth = c.money + homesValue(c) + garageValue(c) + invested - owed;
   const me = findWrestler(c.player)!;
   const region = regionOfCountry(h.country);
 
@@ -51,20 +54,21 @@ export function Life({ c, onBack }: Props) {
       <div className="c-start">
         <span className="c-lab">{w('What you’re worth')}</span>
         <b className="c-sbig" style={{ fontSize: 32 }}>{money(worth)}</b>
-        <div className="c-facts" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
+        <div className="c-facts" style={{ gridTemplateColumns: `repeat(${invested ? 5 : 4}, minmax(0, 1fr))` }}>
           <span className="c-fact"><span className="c-lab">{w('Bank')}</span><b>{shortMoney(c.money)}</b></span>
           <span className="c-fact"><span className="c-lab">{w('Homes')}</span><b>{shortMoney(homesValue(c))}</b></span>
           <span className="c-fact"><span className="c-lab">{w('Garage')}</span><b>{shortMoney(garageValue(c))}</b></span>
+          {invested > 0 && <span className="c-fact"><span className="c-lab">{w('Invested')}</span><b>{shortMoney(invested)}</b></span>}
           <span className="c-fact"><span className="c-lab">{w('Owed')}</span><b className={owed ? 'c-amt neg' : ''}>{shortMoney(owed)}</b></span>
         </div>
       </div>
-      <div className="c-steps cols4" style={{ marginTop: 8 }}>
-        {TABS.map((t, i) => <button key={t} className={i === tab ? 'c-st on' : 'c-st'} style={{ border: 0 }} onClick={() => setTab(i)}>{w(t)}</button>)}
+      <div className="c-steps cols3" style={{ marginTop: 8 }}>
+        {TABS.filter((t) => t !== 'Invest' || on('invest')).map((t) => <button key={t} className={t === tab ? 'c-st on' : 'c-st'} style={{ border: 0 }} onClick={() => setTab(t)}>{w(t)}</button>)}
       </div>
       <div className="c-body">
         {!on('homes') && <span className="c-note">Life is switched off.</span>}
 
-        {TABS[tab] === 'Home' && on('homes') && (
+        {tab === 'Home' && on('homes') && (
           <>
             <div className="c-start">
               <span className="c-lab">{w('You live in')}</span>
@@ -133,7 +137,7 @@ export function Life({ c, onBack }: Props) {
           </>
         )}
 
-        {TABS[tab] === 'Getting about' && on('homes') && (
+        {tab === 'Getting about' && on('homes') && (
           <>
             {L.cars.length > 0 && <span className="c-sec">{w('Your garage')}</span>}
             {L.cars.map((v) => {
@@ -182,7 +186,7 @@ export function Life({ c, onBack }: Props) {
           </>
         )}
 
-        {TABS[tab] === 'Your team' && on('staff') && (
+        {tab === 'Your team' && on('staff') && (
           <>
             <span className="c-sec">{w('Personal staff')}</span>
             {STAFF_ROLES.map((r) => {
@@ -236,7 +240,9 @@ export function Life({ c, onBack }: Props) {
           </>
         )}
 
-        {TABS[tab] === 'Money' && (
+        {tab === 'Invest' && on('invest') && <InvestTab c={c} done={done} />}
+
+        {tab === 'Money' && (
           <>
             {on('money') && (
               <>

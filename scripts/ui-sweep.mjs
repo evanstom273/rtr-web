@@ -6,6 +6,7 @@
 import { createRequire } from 'node:module';
 const { chromium } = createRequire(import.meta.url)('playwright');
 const SP = process.argv[2];
+const URL = process.env.SWEEP_URL ?? 'http://localhost:5173/';
 const ONLY = process.argv[3]; // optional skin
 const VIEWS = { phone: { width: 412, height: 915 }, fold: { width: 945, height: 980 } };
 const KINDS = ['Singles', 'Tag team', 'Tornado tag', 'Handicap', 'Elimination tag', 'Triple threat', 'Fatal four-way', 'Multi-man', 'Battle royal', 'Rumble', 'Gauntlet'];
@@ -18,11 +19,11 @@ for (const skin of ['broadcast', 'paper', 'building'].filter((s) => !ONLY || s =
     const p = await ctx.newPage();
     const errs = []; p.on('pageerror', (e) => errs.push(e.message));
     const wait = (ms) => p.waitForTimeout(ms);
-    await p.goto('http://localhost:5173/'); await wait(1500);
+    await p.goto(URL); await wait(1500);
     await p.evaluate((s) => localStorage.setItem('rtr-skin', JSON.stringify(s)), skin);
     for (const kind of KINDS) {
       const tag = `${skin}/${vn}/${kind}`;
-      await p.goto('http://localhost:5173/'); await wait(1500);
+      await p.goto(URL); await wait(1500);
       await p.getByRole('button', { name: /play a match|make a match/i }).first().click(); await wait(900);
       if (!(await p.locator('select').filter({ has: p.locator('option', { hasText: 'Rumble' }) }).count())) { await p.locator('.bd-sum').first().click(); await wait(300); }
       const type = p.locator('select').filter({ has: p.locator('option', { hasText: 'Rumble' }) }).first();

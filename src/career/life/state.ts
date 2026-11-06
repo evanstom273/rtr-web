@@ -18,6 +18,11 @@ export type FlyClass = keyof typeof PB.fly;
 export type AgentTier = keyof typeof PB.agents;
 export type LoanKind = keyof typeof PB.loans;
 export type StaffRole = keyof typeof PB.staff;
+export type VentureKind = keyof typeof PB.business;
+export type FundKind = keyof typeof PB.funds;
+export type LuxuryKind = keyof typeof PB.luxury;
+export interface Venture { id: string; kind: VentureKind; city: string; paid: number; v: number; size: 1 | 2; since: Day }
+export interface Luxury { id: string; kind: LuxuryKind; tier: 0 | 1 | 2; paid: number; v: number; since: Day }
 
 export interface Home {
   id: string;
@@ -84,6 +89,15 @@ export interface LifeState {
   kit?: boolean;
   /** What the PA's handled since their last note. */
   paLog?: string[];
+  /** Businesses you own (passive): what you paid, what they're worth, and a second site. */
+  ventures?: Venture[];
+  /** Money in funds (what each is worth now) and what you've put in. */
+  funds?: Partial<Record<FundKind, { v: number; put: number }>>;
+  /** Stakes in promotions (percent) and what you paid. */
+  stakes?: { promo: string; pct: number; paid: number }[];
+  luxury?: Luxury[];
+  /** Insurance on your homes and businesses. */
+  insure?: { home?: boolean; business?: boolean };
   /** Entrance: the kit you own, and whether you use pyro and sets where they're allowed. */
   gear?: { theme?: boolean; video?: boolean; gear?: 0 | 1 | 2 | 3; pyro?: boolean; set?: boolean };
   seq: number;

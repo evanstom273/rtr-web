@@ -12,6 +12,8 @@ export interface LifeWorld {
   markets: Record<string, Market>;
   /** The month the markets last moved (YYYY-MM). */
   moved?: string;
+  /** The month of the last crash (funds fall, for everyone). */
+  crash?: string;
 }
 
 /** The world's Life, made the first time: every market at 1, each city with its own lean. */
@@ -26,6 +28,9 @@ export function lifeWorld(w: World = activeWorld()): LifeWorld {
   return w.life;
 }
 
+/** Did the markets crash this month? */
+export const crashedIn = (month: string): boolean => lifeWorld().crash === month;
+
 /** A city's price index (1 for anywhere not on the map). */
 export const marketIdx = (city: string): number => lifeWorld().markets[city]?.i ?? 1;
 
@@ -35,6 +40,8 @@ export function moveMarkets(month: string, w: World = activeWorld()): string[] {
   if (L.moved === month) return [];
   L.moved = month;
   const slumped: string[] = [];
+  // About once every eight years, the markets crash (funds, for everyone).
+  if (seededRng(hashSeed(w.seed, 'crash', month))() < PB.crashYear / 12) L.crash = month;
   for (const [city, m] of Object.entries(L.markets)) {
     const r = seededRng(hashSeed(w.seed, 'market', city, month));
     if (m.slump && m.slump > 0) m.slump--;
