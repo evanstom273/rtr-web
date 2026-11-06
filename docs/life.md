@@ -274,3 +274,81 @@ them coaching).
   £1,500 to put on) and a little more name.
 - **Feeder deals:** past reputation 45, a promotion may pay £20,000–£120,000 a year for two years for first call on
   your graduates.
+
+## Stage 6: status and family money
+
+Code: `career/life/status.ts`, `career/life/family.ts`; Life → Home (Show it off) and Life → Money (Family).
+
+### Showing off (only when you choose to)
+
+Once a week you can post the house (a house or better that you own), post the luxury car, turn up in the jet, show
+off your luxuries, or throw a party (£8,000 by the region's cost index). It goes in your feed, and:
+
+- **The fans:** a heel gets heat for it (4% of your social reach in new fans, half as much again for the jet or a
+  party, inside the week's social cap). A face has an even chance of looking out of touch (a few fans lost, and a
+  point of reputation).
+- **The locker room:** about a third of your roster mates who know you notice. Those far poorer than you (worth under
+  a quarter of you, by stage 4's money) are mostly envious (−3); the rest are impressed (+2). Someone skint may ask to
+  borrow £1,000–£5,000 (the phone's usual lend-or-don't).
+- **The office:** showing off now and then (twice in 90 days or less) helps (+1 reputation). Every week while you're
+  losing reads as lost hunger (−2).
+- **The humble megastar:** worth £5M+ and not shown off in a year, each June the locker room notices (+2 with up to
+  twelve roster mates, +2 reputation, and a letter).
+
+Your partner has views on your home whatever you post: living together or married, a home below what your money
+says you should have (a room past £150k, a flat past £750k, a house past £3M) costs you with them each month; a house
+or better keeps them happy.
+
+### Family money
+
+- **Married:** your partner chips in each month: a wrestler about 35% of their monthly earnings (out of their own
+  stage-4 money), anyone else their job (£1,600 a month by the region).
+- **Kids** cost money until they're 22: £700 a month under five, £450 at school, £900 at university (by the region).
+  At 18 they can apply to your school (a notable applicant, with a little extra potential).
+- **Divorce** (a marriage ending, either way): they get half of everything you're worth, no prenup. The cash goes
+  first; if it won't cover it, things are sold in the fall's order (luxuries, funds, stakes, businesses, cars, the
+  places you let, then your home) at 70% of their value.
+
+## Stage 7: bad luck and the fall
+
+Code: `career/life/risk.ts`, `career/life/fall.ts`. All on their own dice, once a month.
+
+### Bad luck (chances a year)
+
+- **A car crash:** only if you drive yourself (a car or van and no driver). 5% a year × the vehicle's own crash
+  factor (a used car 1, a decent car 0.7, a luxury car 0.6, a van 0.8), worse the more tired you are (doubled at
+  fatigue 50). 15% of crashes hurt you (3–12 weeks out, and the car's written off), 30% write the car off (insurance
+  on your homes covers 80% of it), the rest are a bump (repairs, or the £500 excess if you're insured). The finance on a
+  written-off car is still yours. A driver, the tour bus or flying means no risk.
+- **Burglary:** 2% a year for each home you own and live in. They take a watch or a painting if you have one, else
+  £2,000–£15,000 of cash and kit. Insured: paid back less the excess.
+- **Fire:** 0.4% a year for each home and business you own: 15–65% of its value in damage. Insured (homes, or
+  businesses), paid less the excess.
+- **Scams:** with £100,000+ in the bank, about one "sure thing" a year: put in a fifth of your money (up to
+  £250,000) to double it in a year. One in ten is real; the rest vanish after four months. An established or super
+  agent warns you off.
+- **Market shocks** are stage 3's: fund crashes, city slumps, businesses folding.
+
+### The fall
+
+- **The overdraft:** the bank stands you a quarter of a year's earnings in the red (£5,000 at least). Past it on the
+  1st, things are sold until you're back inside it, in order: luxuries, funds, stakes, businesses, cars, the places you
+  let, and last your home (each at 70% of its value; any loan on it is cleared from the sale).
+- **Bankruptcy:** past the overdraft with nothing left to sell. Your debts are wiped (the overdraft and every loan),
+  your credit goes to 0, and no one lends to you for six years. You lose 15 reputation, your partner takes it hard
+  (−15), the Observer runs it, and promoters pay you 15% less until you're discharged (a letter says when).
+
+## Stage 8: after you retire
+
+Code: `career/life/afterlife.ts`; the Epilogue's "Carry on", and the Retired section at the top of Life → Home.
+
+When you retire, the Epilogue shows once, as before, but with "Carry on". Carry on and the career goes on in retired
+mode: the days keep going and nobody books you, but everything you own is still yours to run (homes, businesses,
+investments, your school), the Office if you book or own a promotion, and the mail.
+
+- **Wrestlers hire you as a personal trainer.** About once every three months (30% a month) a younger wrestler from
+  your part of the world, less famous than you, asks: three months at £500–£6,000 a month (by your name), up to three
+  at once. Each month they gain two points towards their potential, and their bond with you grows (a mentor's).
+- **Comebacks** (up to 58): one night only (you're taking bookings again, and you retire again after your next
+  match) or a short run (six months; then a letter asks whether you'll do six more or call it a day). A send-off
+  purse and pension aren't paid twice.

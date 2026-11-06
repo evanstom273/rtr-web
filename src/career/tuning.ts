@@ -732,7 +732,7 @@ export const SHIPPED_RETIRE_YOUNGER = 3;
 /** Match overhaul (tag teams, multi-mans, battle royals, Rumbles, the new stipulations): off until Lyra approves. */
 export const FEATURES = { livingCosts: true, social: true, days: true, jobs: true, skip: true, mail: true, hustles: true, history: true, phone: true, booker: true, matches: true, life: true };
 /** Life (things to buy, own, run and lose): each part switches on as it's built. `on(part)` in career/life/state.ts. */
-export const LIFE_PARTS = { homes: true, money: true, staff: true, invest: true, ai: true, school: true, status: false, family: false, risk: false, after: false };
+export const LIFE_PARTS = { homes: true, money: true, staff: true, invest: true, ai: true, school: true, status: true, family: true, risk: true, after: true };
 
 /**
  * Pay (Lyra's call: how many dates you get decides your income). A major promotion's weekly-show fee:
@@ -1481,6 +1481,27 @@ export const PRICE_BOOK = {
     notable: 0.08, buyBase: 120_000, buyPerRep: 6_000, crowd: [60, 500] as [number, number], ticket: [8, 18] as [number, number], production: 1_500,
     feederRep: 45, feeder: [20_000, 120_000] as [number, number],
   },
+  /**
+   * Status (stage 6): a party (by the region's cost index); a heel's heat (a share of reach in fans) and a face's
+   * chance of looking out of touch; the share of the locker room that's envious (if they're far poorer) rather than
+   * impressed; the chance someone asks to borrow; and the worth at which never showing off earns respect.
+   */
+  status: { party: 8_000, heelFans: 0.04, faceLoss: 0.5, envy: 0.6, ask: 0.35, humbleAt: 5_000_000 },
+  /** Family money (stage 6): a child a month (under 5, at school, at university, by the region), and a partner's job a month. */
+  family: { kid: [700, 450, 900] as [number, number, number], job: 1_600 },
+  /** The fall (stage 7): the least overdraft the bank stands, what a forced sale fetches, years bankrupt, the hit to reputation and your partner. */
+  fall: { overdraft: 5_000, fireSale: 0.7, years: 6, rep: 15, partner: -15 },
+  /**
+   * Bad luck (stage 7), chances a year: a crash if you drive yourself (× the vehicle's own crash factor, worse tired),
+   * and how it goes (hurt, written off, else a bump); burglary per home you live in (what goes if not a luxury); fire
+   * per property; a scam once you've money about, and the rare one that's real; the insurance excess.
+   */
+  risk: { crash: 0.05, crashHurt: 0.15, crashWriteOff: 0.3, burglary: 0.02, burgle: [2_000, 15_000] as [number, number], fire: 0.004, scam: 0.2, scamFrom: 100_000, scamReal: 0.1, excess: 500, bustDeals: 0.85 },
+  /**
+   * After you retire (stage 8): what a wrestler pays you a month to train them (by your name), the points a month they
+   * gain, how many at once, the chance a month someone asks, and the age past which comebacks are off.
+   */
+  after: { fee: [500, 6_000] as [number, number], gain: 2, max: 3, ask: 0.3, maxAge: 58 },
   /** The AI's money (stage 4): what a day job pays a year on the indies (by the region's cost index). */
   dayJob: 16_000,
   /** Insurance a year: homes and businesses, as a share of what they're worth. */

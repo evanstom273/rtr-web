@@ -159,8 +159,9 @@ describe('career events', () => {
     };
     const { c, maxOpen } = await run(7);
     const log = [...c.events!.log].reverse();
-    // Invitations to one-offs (stage 4) arrive when the show's announced, and trait offers when you've earned one: both outside the random pacing.
-    const outside = (l: (typeof c.letters)[number]) => l.action?.type === 'event' && (l.action.event.startsWith('invite_') || l.action.event === 'trait_offer');
+    // Invitations to one-offs (stage 4) arrive when the show's announced, trait offers when you've earned one, and a
+    // fundraiser when you're badly hurt: all outside the random pacing.
+    const outside = (l: (typeof c.letters)[number]) => l.action?.type === 'event' && (l.action.event.startsWith('invite_') || l.action.event === 'trait_offer' || l.action.event === 'fundraiser');
     const fired = c.letters.filter((l) => l.kind === 'event' && !outside(l));
     expect(maxOpen).toBeLessThanOrEqual(EVENT_MAX_OPEN);
     expect(fired.length).toBeGreaterThanOrEqual(20);

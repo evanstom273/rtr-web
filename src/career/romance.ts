@@ -168,9 +168,15 @@ registerTopics(
   },
 );
 
+/** A couple has split (Life: a divorce splits what you own). */
+let splitHook: ((c: Career, a: string, b: string, was: LoveStage) => void) | null = null;
+export const setSplitHook = (f: (c: Career, a: string, b: string, was: LoveStage) => void): void => { splitHook = f; };
+
 /** It's over: they're exes, it hurts, and whoever moved in moves out. */
 function breakUp(c: Career, a: string, b: string, why: string): void {
+  const was = bondOf(P(), a, b)?.love?.st;
   const x = setStage(c, a, b, 'ex');
+  if (was) splitHook?.(c, a, b, was);
   x.la = Math.max(-100, x.la + ROMANCE.split.like); x.lb = Math.max(-100, x.lb + ROMANCE.split.like);
   (x.log ??= []).unshift({ day: c.today, t: why });
   shock(a, 'heartbreak', c); shock(b, 'heartbreak', c);

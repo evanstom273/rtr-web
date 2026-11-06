@@ -153,6 +153,16 @@ function intake(c: Career): void {
   const r = seededRng(hashSeed(c.seed, 'intake', s.id, c.today));
   const n = 4 + Math.round(s.rep / 12) + Math.floor(r() * 4);
   S.applicants = Array.from({ length: n }, (_, i) => applicant(c, s, r, i));
+  // Your own kids, once they're 18 (and haven't already been through): they want to learn from you.
+  const folk = activeWorld().people?.folk ?? {};
+  for (const f of Object.values(folk)) {
+    if (f.kind !== 'family' || f.of !== c.player || (f.rel !== 'son' && f.rel !== 'daughter') || !f.born) continue;
+    const age = Number(c.today.slice(0, 4)) - Number(f.born.slice(0, 4));
+    const id = `kid_${f.id}`;
+    if (age < 18 || age > 26 || S.students.some((x) => x.id === id) || WRESTLERS.some((w) => w.name === f.name)) continue;
+    const kid = applicant(c, s, r, 99);
+    S.applicants.unshift({ ...kid, id, name: f.name, gender: f.gender === 'FEMALE' ? 'FEMALE' : 'MALE', age, potential: Math.min(560, kid.potential + 50), note: f.rel === 'son' ? 'Your son' : 'Your daughter' });
+  }
   S.nextIntake = addMonths(c.today, 4);
 }
 function applicant(c: Career, s: SchoolRec, r: Rng, i: number): Student {

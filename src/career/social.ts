@@ -106,6 +106,11 @@ export function publicSay(c: Career, share: number, backfire: number, salt: stri
   s.weekFans += fans;
   return { fans, backfired: false };
 }
+/** A post of yours in the feed that isn't one of the usual kinds (Life: showing off). */
+export function postToFeed(c: Career, text: string): void {
+  const s = state(c);
+  s.feed = [{ id: `sp${c.today}x${s.feed.length}`, day: c.today, who: c.player, kind: 'post' as const, text }, ...s.feed].slice(0, SOCIAL_FEED_MAX);
+}
 /** Social Media Policy's fines (conduct.ts plugs in here, so social doesn't depend on it). */
 let socialFineHook: ((c: Career, kind: 'callout' | 'beef', target: string) => string | null) | null = null;
 export const setSocialFine = (f: typeof socialFineHook): void => { socialFineHook = f; };

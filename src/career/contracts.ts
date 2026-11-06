@@ -22,9 +22,10 @@ import type { Career, Contract, Offer } from './types';
 export interface Proposal { fee: number; months: number; clauses: number[]; dates?: number; triggers?: BonusTrigger[]; /** Life: pyro and production on any show you're on (it costs them about 3% of the fee). */ entrance?: boolean }
 export type Mood = 'keen' | 'happy' | 'hesitant' | 'losing';
 
-/** Life: an agent gets you more (career/life/agent.ts plugs in). */
-let agentLift: (c: Career) => number = () => 1;
-export const setAgentLift = (f: (c: Career) => number): void => { agentLift = f; };
+/** Life: an agent gets you more; a bankrupt gets less (career/life plugs in). */
+const agentLifts: ((c: Career) => number)[] = [];
+export const setAgentLift = (f: (c: Career) => number): void => { agentLifts.push(f); };
+const agentLift = (c: Career): number => agentLifts.reduce((m, f) => m * f(c), 1);
 
 /** What a promotion will pay you a weekly-show match on a standard (Major Exclusive) deal, before any other clauses. */
 export function willingness(c: Career, promo: string, excludeOffer?: string): number {

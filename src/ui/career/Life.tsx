@@ -14,12 +14,17 @@ import { InvestTab } from './LifeInvest';
 import { SchoolTab } from './LifeSchool';
 import { investedValue } from '../../career/life/invest';
 import { netWorth } from '../../career/life/worth';
+import { flaunt, FLAUNTS, flauntWhat, type FlauntKind } from '../../career/life/status';
+import { kidCost, kidsOf, partnerIn } from '../../career/life/family';
+import { isBust, overdraftOf } from '../../career/life/fall';
+import { comeback, isRetired } from '../../career/life/afterlife';
 import { richRank } from '../../career/life/aiMoney';
 import { lifeWorld } from '../../world/lifeWorld';
 import { fansTotal, findWrestler } from '../../data/rtr';
 
 interface Props { c: Career; onBack: () => void }
 
+const FLAUNT_LABEL: Record<FlauntKind, string> = { home: 'Post the house', car: 'Post the car', jet: 'Turn up in the jet', luxury: 'Show off the good stuff', party: 'Throw a party' };
 const TABS = ['Home', 'Getting about', 'Your team', 'Invest', 'School', 'Money'] as const;
 
 /** Every city, by country (for moving and buying). */
@@ -83,6 +88,33 @@ export function Life({ c, onBack }: Props) {
               </span>
               {c.moving && <span className="c-val c-hot">Moving to {c.moving.city ?? c.moving.to}: there on {c.moving.until}.</span>}
             </div>
+
+            {on('after') && isRetired(c) && (
+              <>
+                <span className="c-sec">{w('Retired')}</span>
+                <span className="c-note">All of this is still yours to run: your homes and businesses, your school, the Office if you book. Wrestlers will ask you to train them. Or there’s one more time…</span>
+                {(L.clients ?? []).length > 0 && (
+                  <div className="c-kv">
+                    {(L.clients ?? []).map((k) => [<span key={`${k.id}l`} className="c-lab">{w('Training')}</span>, <span key={`${k.id}v`} className="c-val">{findWrestler(k.id)?.name ?? k.id} · {money(k.fee)} a month until {k.until}</span>])}
+                  </div>
+                )}
+                <div className="c-chips">
+                  <button className="c-chip" onClick={() => done(comeback(c, 'one'))}>Come back: one night only</button>
+                  <button className="c-chip" onClick={() => done(comeback(c, 'run'))}>Come back: a short run</button>
+                </div>
+              </>
+            )}
+            {L.comeback && <span className="c-note">{L.comeback.kind === 'one' ? 'Back for one night only: you retire again after your next match.' : `Back for a run, until ${L.comeback.until}.`}</span>}
+            {on('status') && (() => {
+              const can = FLAUNTS.filter((k) => flauntWhat(c, k));
+              return (
+                <>
+                  <span className="c-sec">{w('Show it off')}</span>
+                  <span className="c-note">It only counts if people see it. A heel gets heat for it, a face can look out of touch, and the locker room notices either way. Once a week.</span>
+                  {can.length ? <div className="c-chips">{can.map((k) => <button key={k} className="c-chip" onClick={() => done(flaunt(c, k))}>{FLAUNT_LABEL[k]}</button>)}</div> : <span className="c-note">Nothing worth showing off yet.</span>}
+                </>
+              );
+            })()}
 
             {L.homes.some((x) => x.own) && <span className="c-sec">{w('What you own')}</span>}
             {L.homes.filter((x) => x.own).map((x) => {
@@ -263,6 +295,8 @@ export function Life({ c, onBack }: Props) {
             <div className="c-kv">
               <span className="c-lab">{w('Credit')}</span><span className="c-val">{L.credit} · {creditWord(c)}</span>
               <span className="c-lab">{w('Can borrow')}</span><span className="c-val">{money(canBorrow(c))}</span>
+              {on('risk') && <><span className="c-lab">{w('Overdraft')}</span><span className="c-val">Down to −{money(overdraftOf(c))}; past that, the bank makes you sell things</span></>}
+              {on('risk') && isBust(c) && <><span className="c-lab">{w('Bankrupt')}</span><span className="c-val c-hot">Until {L.bust}: no borrowing, and deals are worse</span></>}
             </div>
             {L.loans.map((l) => (
               <div key={l.id} className="c-kv">
@@ -272,6 +306,19 @@ export function Life({ c, onBack }: Props) {
                 <span className="c-chips"><button className="c-chip" onClick={() => done(payOff(c, l.id))}>Pay it off</button></span>
               </div>
             ))}
+            {on('family') && (() => {
+              const kids = kidsOf(c), inn = partnerIn(c);
+              if (!inn && !kids.length) return null;
+              return (
+                <>
+                  <span className="c-sec">{w('Family')}</span>
+                  <div className="c-kv">
+                    {inn > 0 && [<span key="pl" className="c-lab">{w('Your partner')}</span>, <span key="pv" className="c-val">Puts in {money(inn)} a month. Married, what’s yours is theirs: a divorce splits it down the middle.</span>]}
+                    {kids.map((k) => [<span key={`${k.id}l`} className="c-lab">{k.name.split(' ')[0]}</span>, <span key={`${k.id}v`} className="c-val">{k.age} · {kidCost(c, k.age) ? `${money(kidCost(c, k.age))} a month` : 'grown up'}</span>])}
+                  </div>
+                </>
+              );
+            })()}
             {on('ai') && (() => {
               const R = lifeWorld().rich?.at(-1), now = richRank(c);
               return (
