@@ -73,7 +73,8 @@ describe('Creative Control (Lyra’s design)', () => {
     for (const s of Object.values(c.shows)) {
       if (s.promo === 'TIS' || !s.card) continue;
       for (const b of s.card) {
-        if (b.title || b.tourney || b.farewell || b.tryout || inBout(b, c.player)) continue;
+        // Cards still to come: once a show's been, fans have moved (segments, matches) and the top name can change.
+        if (b.title || b.tourney || b.farewell || b.tryout || b.result || inBout(b, c.player)) continue;
         // Everyone in it (a tag match or a multi-man too): the biggest star, and their side's booked to win.
         const ws = boutPeople(b).map((id) => findWrestler(id)!);
         const top = ws.reduce((x, y) => (globalScore(y) > globalScore(x) ? y : x));

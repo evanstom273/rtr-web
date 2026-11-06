@@ -10,7 +10,8 @@ import { boutKind, boutLabel, boutPeople, boutWinners } from '../../career/bouts
 import { STAKE_LABEL } from '../../career/stakes';
 import { Fragment } from 'react';
 import { commit, Head, money, Nm, Screen, stars, useToast, useWords } from './parts';
-import { askForPromo, feudLine, myFeuds, mySegments, setSegStyle, STYLE_HINT, STYLE_LABEL, STYLES } from '../../career/feuds';
+import { feudLine, myFeuds, mySegments, setSegStyle, STYLE_HINT, STYLE_LABEL, STYLES } from '../../career/feuds';
+import { FeudAsk } from './FeudAsk';
 import { SEG_LABEL } from '../../career/card';
 import { FEATURES } from '../../career/tuning';
 
@@ -143,7 +144,7 @@ export function ShowDay({ c, onBack, onPlay }: Props) {
                   )}
               </div>
             ))}
-            {!segs.length && feud && <span className="c-chips" style={{ marginTop: 6 }}><button className="c-chip" onClick={() => { say(askForPromo(c, show)); commit(); bump((n) => n + 1); }}>{w('Ask for a promo slot')}</button></span>}
+            {!segs.length && feud && <FeudAsk c={c} show={show} say={(t) => { say(t); bump((n) => n + 1); }} title={false} />}
           </div>
         );
       })()}

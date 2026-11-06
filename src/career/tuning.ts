@@ -743,7 +743,7 @@ export const FEUD_MATCH = { startHeat: 0.2, react: 0.25, stars: 0.35, payoff: 0.
  * and loser), call-outs and beefs, asking for a promo slot (a base chance, plus reputation and heat), and how many
  * finished feuds the world remembers.
  */
-export const FEUD = { segsPerShow: 2, segChance: 0.45, segMine: 0.7, cool: 4, blowoffWin: 0.08, blowoffLose: 0.03, callout: 3, beef: 5, askBase: 0.35, keepLog: 600 };
+export const FEUD = { segsPerShow: 2, segChance: 0.45, segMine: 0.7, cool: 4, blowoffWin: 0.08, blowoffLose: 0.03, callout: 3, beef: 5, askBase: 0.45, keepLog: 600, payoffWeeks: 3 };
 /** Life (things to buy, own, run and lose): each part switches on as it's built. `on(part)` in career/life/state.ts. */
 export const LIFE_PARTS = { homes: true, money: true, staff: true, invest: true, ai: true, school: true, status: true, family: true, risk: true, after: true };
 
