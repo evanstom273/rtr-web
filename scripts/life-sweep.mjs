@@ -6,6 +6,7 @@
 import { createRequire } from 'node:module';
 const { chromium } = createRequire(import.meta.url)('playwright');
 const SP = process.argv[2];
+const URL = process.env.SWEEP_URL ?? 'http://localhost:5173/';
 const ONLY = process.argv[3];
 const VIEWS = { phone: { width: 412, height: 915 }, fold: { width: 945, height: 980 } };
 const fails = [];
@@ -17,7 +18,7 @@ for (const skin of ['broadcast', 'paper', 'building'].filter((s) => !ONLY || s =
     const p = await ctx.newPage();
     const errs = []; p.on('pageerror', (e) => errs.push(e.message));
     const wait = (ms) => p.waitForTimeout(ms);
-    await p.goto('http://localhost:5173/'); await wait(1500);
+    await p.goto(URL); await wait(1500);
     await p.evaluate((s) => localStorage.setItem('rtr-skin', JSON.stringify(s)), skin);
     await p.waitForFunction(() => !!window.__rtrDev, null, { timeout: 15000 });
     await p.evaluate(async () => {
@@ -31,7 +32,7 @@ for (const skin of ['broadcast', 'paper', 'building'].filter((s) => !ONLY || s =
       data.databaseChanged();
       await world.saveWorld();
     });
-    await p.goto('http://localhost:5173/'); await wait(1500);
+    await p.goto(URL); await wait(1500);
     await p.locator('#menu button').filter({ hasText: /^(The career|Career)/i }).first().click(); await wait(1500);
     const nav = p.locator('nav.c-tabs4');
     if (!(await nav.count())) { fails.push(`${tag}: no hub nav`); await ctx.close(); continue; }
@@ -44,7 +45,7 @@ for (const skin of ['broadcast', 'paper', 'building'].filter((s) => !ONLY || s =
     if (navCheck.sideways) fails.push(`${tag}: hub scrolls sideways`);
     await p.screenshot({ path: `${SP}/${skin}-${vn}-hub.png` });
     await nav.getByRole('button', { name: /^life$/i }).click(); await wait(800);
-    const sections = { home: false, about: false, team: false, money: false };
+    const sections = { home: false, about: false, team: false, invest: false, money: false };
     sections.home = (await p.getByText(/you live in/i).count()) > 0;
     await p.screenshot({ path: `${SP}/${skin}-${vn}-life-home.png`, fullPage: true });
     // Buy a house on a mortgage.
@@ -64,6 +65,16 @@ for (const skin of ['broadcast', 'paper', 'building'].filter((s) => !ONLY || s =
     await p.getByRole('button', { name: /your own theme/i }).click(); await wait(400);
     if (!(await p.getByText(/your own theme/i).count())) fails.push(`${tag}: buying a theme didn't land`);
     await p.screenshot({ path: `${SP}/${skin}-${vn}-life-team.png`, fullPage: true });
+    // Invest: a gym for cash, money into the safe fund.
+    await p.getByRole('button', { name: /^invest$/i }).click(); await wait(500);
+    sections.invest = (await p.getByText(/stakes in promotions/i).count()) > 0;
+    await p.locator('.c-ans').filter({ hasText: /^Gym in/i }).first().getByRole('button', { name: /^cash$/i }).click(); await wait(400);
+    if (!(await p.getByRole('button', { name: /a second site/i }).count())) fails.push(`${tag}: buying a gym didn't land`);
+    await p.locator('.c-kv').filter({ hasText: /safe fund/i }).first().getByRole('button', { name: /^put in/i }).click(); await wait(400);
+    if (!(await p.getByText(/you put in/i).count())) fails.push(`${tag}: putting money in a fund didn't land`);
+    const tabsCut = await p.evaluate(() => [...document.querySelectorAll('.c-steps .c-st')].filter((x) => x.scrollWidth > x.clientWidth + 1).map((x) => x.textContent));
+    if (tabsCut.length) fails.push(`${tag}: Life tabs cut ${tabsCut.join(',')}`);
+    await p.screenshot({ path: `${SP}/${skin}-${vn}-life-invest.png`, fullPage: true });
     await p.getByRole('button', { name: /^money$/i }).click(); await wait(500);
     sections.money = (await p.getByText(/credit and borrowing/i).count()) > 0;
     const hire = p.locator('.c-ans').filter({ hasText: /Local agent/ }).first();

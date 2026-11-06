@@ -163,3 +163,56 @@ moment in the commentary ("The lights go down. The music hits, the pyro goes off
 Pyro only at the top of the card (the main event or a title match), or anywhere with the contract's new "Entrance &
 production" term (it costs the promotion about 3% of your fee to agree to). A set piece only on a flagship or special,
 at the top of the card. You pay for each show's pyro and set after the match.
+
+## Stage 3: businesses, funds, stakes, luxury, insurance
+
+Code: `career/life/invest.ts`; the Life tab's Invest section (`ui/career/LifeInvest.tsx`).
+
+### Businesses (passive)
+
+Buy in (cash, or a business loan: 8% over ten years, 25% down) and collect the takings on the 1st: the yearly yield,
+wobbling month to month, taxed as income. Each can fold: what's left is a tenth of its value, and any loan on it is
+still yours. A second site costs three times as much again and earns as much more. Sell for 90% of what it's worth.
+
+| Business | Buy in | A year | Wobble | Folds |
+|---|---|---|---|---|
+| Gym (your city's prices) | £250,000 | 7% | ±6% | 2% of years |
+| Bar or restaurant (your city's prices) | £400,000 | 8% | ±12% | 6% |
+| Merch company | £150,000 | 10% | ±18% | 5% |
+| Media (podcast, channel, site) | £60,000 | 12% | ±25% | 8% |
+
+Merch and media do better the more fans you have (×0.5 to ×2: (fans ÷ 200,000)^0.35).
+
+### Funds
+
+Put money in and take it out any time; they move on the 1st. A crash comes about once every eight years and hits
+everyone at once (`world.life.crash`). Taking money out: what you put in comes back untaxed; the gain is income.
+
+| Fund | A year | Wobble | In a crash |
+|---|---|---|---|
+| Safe | 3% | ±2% | −5% |
+| Balanced | 6% | ±10% | −20% |
+| Risky | 10% | ±22% | −45% |
+
+### Stakes in promotions
+
+A slice of any major (5%, 10% or 25% at a time) costs that share of what booker mode values it at, plus 10%. Half
+of its last month's profit is paid out by share on the 1st. With 25% you've a seat at the table: they won't release
+you. They won't sell past 49%: for more you buy the lot (the owner's price, less what your stake's worth), and then it's
+yours in booker mode.
+
+### Luxury
+
+| Kind | Prices | Value a year | Upkeep a year |
+|---|---|---|---|
+| Watch | £5k / £25k / £250k | −2% ±3% | – |
+| Art | £15k / £250k / £5M | +4% ±15% | 1% |
+| Classic car | £40k / £300k / £2M | +3% ±10% | 2% |
+| Boat | £250k / £2M / £15M | −8% ±3% | 10% |
+
+Status only when flaunted (stage 6).
+
+### Insurance
+
+Homes 0.3% of their value a year, businesses 1.5%, paid monthly. It covers fire and burglary (stage 7), not a bad
+year or a business folding.

@@ -12,6 +12,7 @@ interface Props { c: Career; onBack: () => void }
 const KINDS: [Entry['kind'][], string][] = [
   [['fee', 'bonus'], 'Match fees'], [['merch'], 'Merch'], [['event'], 'Appearances and events'], [['wage'], 'Wages'], [['travel'], 'Travel'], [['training'], 'Training'],
   [['medical'], 'Medical'], [['living'], 'Living costs'], [['rent'], 'Rent'], [['home'], 'Homes'], [['transport'], 'Getting about'], [['loan'], 'Repayments'],
+  [['staff'], 'Your team'], [['business'], 'Businesses'], [['invest'], 'Investments'], [['luxury'], 'Luxury'], [['insurance'], 'Insurance'], [['school'], 'Your school'], [['family'], 'Family'],
   [['tax'], 'Tax'], [['agent'], 'Your agent'], [['relocation'], 'Moving'], [['company'], 'Your promotion'], [['buyout'], 'Buyouts'], [['start'], 'Starting money'],
 ];
 
