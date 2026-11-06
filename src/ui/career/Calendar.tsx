@@ -9,6 +9,7 @@ import { stipulation } from '../../engine';
 import { EventPopup } from './EventCard';
 import { commit, money, Nm, Screen, useToast, useWords } from './parts';
 import { boutKind, vsLine } from '../../career/bouts';
+import { feudHeat, feudLine, myFeuds } from '../../career/feuds';
 
 const nameOf = (id: string): string => findWrestler(id)?.name ?? '?';
 
@@ -59,6 +60,7 @@ export function Calendar({ c, busy, skipping, onStop, onSkip, note, awayLog, onA
   const [open, setOpen] = useState<string | null>(null);
   const [toast, say] = useToast();
   const [skipSheet, setSkipSheet] = useState(false);
+  const [feudOpen, setFeudOpen] = useState<string | null>(null);
   // Skip a number of days of your choosing (1–365).
   // What's typed (so the box can be cleared mid-edit) and the number it means: 0 while it's empty.
   const [nText, setNText] = useState('14');
@@ -176,6 +178,14 @@ export function Calendar({ c, busy, skipping, onStop, onSkip, note, awayLog, onA
         </button>
         {FEATURES.skip && onSkip && <button className="c-skipb" onClick={() => setSkipSheet(true)} disabled={busy !== null} aria-label="Skip ahead"><b>»</b><span>{w('Skip')}</span></button>}
       </div>
+
+      {FEATURES.feuds2 && myFeuds(c).map((f) => (
+        <button key={f.id} className="c-feud" onClick={() => setFeudOpen(feudOpen === f.id ? null : f.id)}>
+          <span className="c-lab">{w('Feud')}</span>
+          <span className="c-n"><b>{feudLine(c, f)}</b>{feudOpen === f.id && (f.beats ?? []).slice(0, 5).map((x, i) => <span key={i}>{x.t}{x.d ? ` (${x.d > 0 ? '+' : ''}${x.d})` : ''}</span>)}</span>
+          <span className="c-heat" style={{ width: `${Math.max(4, feudHeat(f))}%` }} />
+        </button>
+      ))}
 
       <div className="c-day">
         <div className="c-dayh">

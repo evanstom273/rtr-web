@@ -222,6 +222,9 @@ const freshness = (c: Career, id: string): number => 1 - (c.people[id]?.fatigue 
 /** Life: your entrance (the kit you own, and pyro or a set where you're allowed them) for this match. */
 let entranceHook: ((c: Career, show: Show, bout: Bout, you: string, them: string) => MatchRulesConfig['entrance']) | null = null;
 export const setEntranceHook = (f: typeof entranceHook): void => { entranceHook = f; };
+/** Feuds: the heat between the two in a match (feuds.ts plugs in). */
+let feudHook: ((c: Career, show: Show, a: string, b: string) => MatchRulesConfig['feud']) | null = null;
+export const setFeudRulesHook = (f: typeof feudHook): void => { feudHook = f; };
 /** A new wrestler's just come out of training (Life: which school, and what it made of them). */
 let rookieHook: ((w: import('../data/rtr').Wrestler) => void) | null = null;
 export const setRookieHook = (f: (w: import('../data/rtr').Wrestler) => void): void => { rookieHook = f; };
@@ -252,6 +255,8 @@ export function boutRules(c: Career, show: Show, bout: Bout, you: string, them: 
   }
   const ent = entranceHook?.(c, show, bout, you, them);
   if (ent) rules.entrance = ent;
+  const feud = bout.sides ? undefined : feudHook?.(c, show, you, them);
+  if (feud) rules.feud = feud;
   // Someone booked to lose to a person they can't stand won't make it easy.
   if (rules.booked && bout.planned && !bout.sides) { const loser = bout.planned === bout.a ? bout.b : bout.a; const refuse = politics.refuse(c, loser, bout.planned); if (refuse) rules.booked = { ...rules.booked, bonus: rules.booked.bonus * (1 - refuse) }; }
   return rules;

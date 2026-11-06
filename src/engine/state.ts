@@ -1,4 +1,5 @@
 import { HEAT_WORDS, PHASES } from '../data/commentary';
+import { FEUD_MATCH } from '../career/tuning';
 import { rollForm } from './traits';
 import { TITLES, getPromotion, type Wrestler } from '../data/rtr';
 import { format } from './commentary';
@@ -170,7 +171,7 @@ export function createState(rnd: Rng, you: Wrestler, them: Wrestler, rules: Matc
       lmsFor: null, lmsImpact: 0, quitPressure: zeros(), finisherLanded: noes(), decision: null,
     },
     phase: { name: 'opening', drama: 0, controlSwings: 0, actionsSinceChange: 0 },
-    heat: (rules.title ? 45 : 35) + (rules.entrance?.heat ?? 0),
+    heat: (rules.title ? 45 : 35) + (rules.entrance?.heat ?? 0) + (rules.feud ? Math.round(rules.feud.heat * FEUD_MATCH.startHeat) : 0),
     crowd: emptyCrowd(order),
     streak: { who: null, n: 0 },
     event: ev.event,

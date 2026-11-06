@@ -709,6 +709,8 @@ export interface MatchRulesConfig {
   wear?: Partial<Record<SideKey, Partial<Record<BodyPart, number>>>>;
   /** Life: someone's entrance (theme, video, gear, pyro, a set): the crowd's heat at the bell, and the moment itself. */
   entrance?: { side: SideKey; heat: number; what: string };
+  /** Feuds: the heat between the two (0–100) and whether tonight's the blow-off. Hotter: a louder crowd, more stars. */
+  feud?: { heat: number; payoff?: boolean };
   /** Tag rules: one legal man a team, the rest on the apron until tagged in (tag, handicap, elimination tag). */
   tag?: boolean;
   /** Established teams' finishers, by team index. */

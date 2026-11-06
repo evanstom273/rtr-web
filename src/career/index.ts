@@ -11,6 +11,7 @@ import './personality';
 import './staff';
 import './promoPopularity';
 import './social';
+import './feuds';
 import './day';
 import './exclusive';
 import './creative';

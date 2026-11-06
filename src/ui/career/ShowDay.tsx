@@ -10,6 +10,9 @@ import { boutKind, boutLabel, boutPeople, boutWinners } from '../../career/bouts
 import { STAKE_LABEL } from '../../career/stakes';
 import { Fragment } from 'react';
 import { commit, Head, money, Nm, Screen, stars, useToast, useWords } from './parts';
+import { askForPromo, feudLine, myFeuds, mySegments, setSegStyle, STYLE_HINT, STYLE_LABEL, STYLES } from '../../career/feuds';
+import { SEG_LABEL } from '../../career/card';
+import { FEATURES } from '../../career/tuning';
 
 interface Props {
   c: Career;
@@ -109,7 +112,41 @@ export function ShowDay({ c, onBack, onPlay }: Props) {
             </div>
           );
         })}
+        {(show.segments ?? []).length > 0 && (
+          <>
+            <span className="c-sec">{w('Segments')}</span>
+            {(show.segments ?? []).map((g, i) => (
+              <span key={i} className="c-ad">{SEG_LABEL[g.kind]}: {g.who.map(nameOf).join(' and ')}{g.score !== undefined ? ` · ${g.score}★ · ${g.note}` : ''}</span>
+            ))}
+          </>
+        )}
       </div>
+      {FEATURES.feuds2 && (() => {
+        const segs = mySegments(c, show);
+        const feud = myFeuds(c).find((f) => f.promo === show.promo);
+        if (!segs.length && !(feud && bout && !bout.result)) return null;
+        return (
+          <div className="c-live" style={{ marginTop: 8 }}>
+            <span className="c-lab">{w('Your feud')}{feud ? ` · ${feudLine(c, feud)}` : ''}</span>
+            {segs.map(([i, g]) => (
+              <div key={i} style={{ marginTop: 6 }}>
+                <b style={{ display: 'block' }}>{SEG_LABEL[g.kind]}{g.who.length > 1 ? ` with ${g.who.filter((x) => x !== c.player).map(nameOf).join(', ')}` : ''}</b>
+                {g.score !== undefined
+                  ? <span className="c-ad">{g.score}★ · {g.note}{g.heat ? ` · heat ${g.heat > 0 ? '+' : ''}${g.heat}` : ''}</span>
+                  : (
+                    <>
+                      <span className="c-ad">{g.style ? STYLE_HINT[g.style as keyof typeof STYLE_HINT] : 'How do you play it?'}</span>
+                      <span className="c-chips" style={{ marginTop: 4 }}>
+                        {STYLES[g.kind].map((st) => <button key={st} className={`c-chip${g.style === st ? ' on' : ''}`} onClick={() => { say(setSegStyle(c, show.id, i, st)); commit(); bump((n) => n + 1); }}>{STYLE_LABEL[st]}</button>)}
+                      </span>
+                    </>
+                  )}
+              </div>
+            ))}
+            {!segs.length && feud && <span className="c-chips" style={{ marginTop: 6 }}><button className="c-chip" onClick={() => { say(askForPromo(c, show)); commit(); bump((n) => n + 1); }}>{w('Ask for a promo slot')}</button></span>}
+          </div>
+        );
+      })()}
       {bout && (
         <>
           {planText && (

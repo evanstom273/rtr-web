@@ -47,6 +47,8 @@ export function begin(player: string, seed = 7, today = '2026-11-03'): Career {
   // LIFE_ON=1 / LIFE_OFF=1: the suite with Life on or off, whatever the default.
   if (process.env.LIFE_ON) (FEATURES as { life: boolean }).life = true;
   if (process.env.LIFE_OFF) (FEATURES as { life: boolean }).life = false;
+  // FEUDS_OFF=1: the suite with feuds (stage 1) off.
+  if (process.env.FEUDS_OFF) (FEATURES as { feuds2: boolean }).feuds2 = false;
   const w = setWorld(freshWorld(seed));
   const c = startCareer({ player: who(player), today, seed });
   w.career = c;

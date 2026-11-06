@@ -1,6 +1,6 @@
 // Match of the Night's crowd: heat, heat segments, comebacks, chants and the stats the star rating
 // reads. The RtR engine reports what happened (story events); this layer decides how loud it was.
-import { TRAIT_FX as FX } from '../career/tuning';
+import { FEUD_MATCH, TRAIT_FX as FX } from '../career/tuning';
 import { has, heatMult } from './traits';
 import { CHANTS, LINES } from '../data/commentary';
 import { chant, foe, say } from './commentary';
@@ -10,6 +10,8 @@ import type { Move, SideKey } from './types';
 
 export function heat(ctx: Ctx, d: number): void {
   const S = ctx.S;
+  // A feud: they react harder to everything the two of them do (only when there is one).
+  if (d > 0 && S.rules.feud) d = Math.round(d * (1 + (S.rules.feud.heat / 100) * FEUD_MATCH.react));
   S.heat = clamp(S.heat + d, 0, 100);
   S.crowd.heatPeak = Math.max(S.crowd.heatPeak, S.heat);
   if (d >= 8) S.events.push({ id: ++S.seq, type: 'heatSpike', amount: d });

@@ -51,6 +51,10 @@ export interface Segment {
   /** Scored when the show's done: 0–5, and a line about it. */
   score?: number;
   note?: string;
+  /** Feuds: the feud it's part of, how you chose to play it (if it's yours), and what it did to the heat. */
+  feud?: string;
+  style?: string;
+  heat?: number;
 }
 /** A whole show judged (Lyra's call): 0–5, what made it, and what the crowd made of it. */
 export interface ShowRating { score: number; parts: [string, number][]; notes: string[] }
@@ -266,6 +270,9 @@ export interface Feud {
   title?: string;
   matches: number;
   done: boolean;
+  /** Feuds stage 1: the hottest it got, and whether it's gone into the world's history yet. */
+  peak?: number;
+  logged?: boolean;
 }
 
 export type LetterKind = 'offer' | 'result' | 'news' | 'injury' | 'contract' | 'event' | 'person' | 'booker' | 'digest' | 'press';

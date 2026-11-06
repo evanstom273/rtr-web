@@ -1,5 +1,7 @@
 // Match of the Night's star rating, fed by the RtR engine's crowd stats.
-import { RATING_CURVE, RATING_STIP, RATING_TITLE_BONUS, RATING_TYPE, RATING_WEIGHTS, TRAIT_FX as FX } from '../career/tuning';
+import { FEUD_MATCH, RATING_CURVE, RATING_STIP, RATING_TITLE_BONUS, RATING_TYPE, RATING_WEIGHTS, TRAIT_FX as FX } from '../career/tuning';
+/** A feud: the heat between them lifts the stars, and a proper blow-off more (nothing without one). */
+const feudStars = (S: MatchState): number => (S.rules.feud ? (S.rules.feud.heat / 100) * FEUD_MATCH.stars + (S.rules.feud.payoff ? FEUD_MATCH.payoff : 0) : 0);
 import { has } from './traits';
 import { PART_LABEL, RATING } from '../data/commentary';
 import { fmtClock, format, foe } from './commentary';
@@ -189,7 +191,7 @@ export interface LiveRating {
  */
 export function rateSoFar(S: MatchState): LiveRating {
   const d = ratingDims(matchFeatures(S), true);
-  const stars = quarter(ratingCurve(ratingComposite(d)) + (S.rules.title ? RATING_TITLE_BONUS : 0) + (S.rules.chemistry ?? 0));
+  const stars = quarter(ratingCurve(ratingComposite(d)) + (S.rules.title ? RATING_TITLE_BONUS : 0) + (S.rules.chemistry ?? 0) + feudStars(S));
   const c = S.crowd;
   const missing = !c.heatSeg ? 'Nobody has taken over yet'
     : !c.comeback ? 'Waiting on a comeback'
@@ -210,7 +212,7 @@ export function rate(S: MatchState): Rating {
   const d = ratingDims(f);
   const how = f.how;
   const bigMatch = f.big ? FX.big_match.stars : 0;
-  let raw = ratingCurve(ratingComposite(d)) + (S.rules.title ? RATING_TITLE_BONUS : 0) + bigMatch + (S.rules.chemistry ?? 0);
+  let raw = ratingCurve(ratingComposite(d)) + (S.rules.title ? RATING_TITLE_BONUS : 0) + bigMatch + (S.rules.chemistry ?? 0) + feudStars(S);
   // The overhaul's stipulations: each on its own terms (see RATING_STIP).
   const stipAdj = RATING_STIP[S.rules.stipulation];
   if (stipAdj) raw = Math.max(0.25, raw + stipAdj);

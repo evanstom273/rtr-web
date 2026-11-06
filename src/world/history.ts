@@ -108,7 +108,10 @@ export interface WorldHistory {
   shows: ArchivedShow[];
   reigns: Record<string, Reign[]>;
   events: WorldEvent[];
+  /** Feuds once they're over (feuds stage 1): who, how hot it got, how long, how it ended (for Feud of the Year). */
+  feuds?: FeudLog[];
 }
+export interface FeudLog { id: string; promo: string; a: string; b: string; an: string; bn: string; start: string; end: string; peak: number; matches: number; ended?: string; title?: string }
 
 export const emptyHistory = (): WorldHistory => ({ shows: [], reigns: {}, events: [] });
 

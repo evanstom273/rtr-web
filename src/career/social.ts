@@ -106,6 +106,9 @@ export function publicSay(c: Career, share: number, backfire: number, salt: stri
   s.weekFans += fans;
   return { fans, backfired: false };
 }
+/** Calling someone out or starting a beef (feuds: it stokes one you're in). */
+let calloutHook: ((c: Career, id: string, kind: 'callout' | 'beef') => void) | null = null;
+export const setCalloutHook = (f: typeof calloutHook): void => { calloutHook = f; };
 /** A post of yours in the feed that isn't one of the usual kinds (Life: showing off). */
 export function postToFeed(c: Career, text: string): void {
   const s = state(c);
@@ -154,6 +157,7 @@ export function socialAct(c: Career, kind: SocialKind, target?: string): { fans:
     moveRelation(c, them.id, SOCIAL_REL.beef, 'Your online beef', 'rival');
     leanTo(c, 'hot_headed', 8); leanTo(c, 'egotistical', 4);
   }
+  if (them && (kind === 'callout' || kind === 'beef')) calloutHook?.(c, them.id, kind);
   const text = writePost(kind, them, nextMatch(c), rnd);
   s.feed = [{ id: `sp${c.today}${kind}`, day: c.today, who: me.id, kind, text, ...(them ? { target: them.id } : {}) }, ...s.feed].slice(0, SOCIAL_FEED_MAX);
   // Social Media Policy: going after their roster can cost you (conduct.ts, set at load).

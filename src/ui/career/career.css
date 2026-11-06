@@ -395,3 +395,8 @@
 [data-skin=building] .cr .c-statc{background:#0b0a06;border:2px solid #1c1a12;border-radius:3px}
 [data-skin=building] .cr .c-fact b{font-family:'Big Shoulders Display',Impact,sans-serif;font-weight:900;font-size:18px;color:#ffd27a}
 [data-skin=building] .cr .c-plus{min-width:40px;min-height:36px;border:0;border-radius:10px;background:#ffb12e;color:#1a1205;box-shadow:inset 0 -4px 0 rgba(0,0,0,.3);font-family:'Big Shoulders Display',Impact,sans-serif;font-weight:900;font-size:16px}
+/* Feuds: a strip on the hub, with the heat as a bar along the bottom. */
+.cr .c-feud{position:relative;display:flex;gap:10px;align-items:baseline;width:100%;text-align:left;margin-top:8px;padding:8px 10px 10px;border:1px solid var(--cr-line,#444);background:var(--cr-card,transparent);color:inherit;font:inherit;cursor:pointer;overflow:hidden}
+.cr .c-feud .c-n{display:flex;flex-direction:column;gap:2px;min-width:0}
+.cr .c-feud .c-n span{font-size:12px;opacity:.8}
+.cr .c-feud .c-heat{position:absolute;left:0;bottom:0;height:3px;background:var(--cr-heel,#c33)}
