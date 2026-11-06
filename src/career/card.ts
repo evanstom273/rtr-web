@@ -23,9 +23,9 @@ import type { BookedFinish, Bout, Career, SegKind, Segment, Show, ShowRating } f
 import { archivedPeople } from '../world/history';
 
 export const FINISH_LABEL: Record<BookedFinish, string> = { clean: 'Clean', cheat: 'Cheats to win', dq: 'Disqualification', countout: 'Count-out', nocontest: 'No contest' };
-export const SEG_LABEL: Record<SegKind, string> = { promo: 'Promo', runin: 'Run-in', beatdown: 'Beat-down', signing: 'Contract signing', debut: 'Debut', celebration: 'Celebration', interview: 'Interview', betrayal: 'Betrayal' };
+export const SEG_LABEL: Record<SegKind, string> = { promo: 'Promo', runin: 'Run-in', beatdown: 'Beat-down', signing: 'Contract signing', debut: 'Debut', celebration: 'Celebration', interview: 'Interview', betrayal: 'Betrayal', faceoff: 'Face to face', backstage: 'Backstage' };
 /** How many people each segment takes: [fewest, most]. */
-export const SEG_WHO: Record<SegKind, [number, number]> = { promo: [1, 2], runin: [1, 2], beatdown: [2, 2], signing: [2, 2], debut: [1, 1], celebration: [1, 1], interview: [1, 1], betrayal: [2, 2] };
+export const SEG_WHO: Record<SegKind, [number, number]> = { promo: [1, 2], runin: [1, 2], beatdown: [2, 2], signing: [2, 2], debut: [1, 1], celebration: [1, 1], interview: [1, 1], betrayal: [2, 2] , faceoff: [2, 2], backstage: [2, 2] };
 export const STIPS: StipulationId[] = ['standard', 'no_dq', 'falls_count_anywhere', 'tables', 'ladder', 'steel_cage', 'last_man_standing', 'i_quit', 'submission', 'two_out_of_three', 'iron_man'];
 export const CARD_MAX = { matches: 12, segments: 8 };
 

@@ -21,6 +21,7 @@ import { trust, trustLabel } from './relations';
 import {
   ASK_COUNTER_BAND, ASK_FORM_PER_RESULT, ASK_PATIENCE_DIVISOR, ASK_REP_DIVISOR, ASK_SPOT_BASE_PCT, ASK_SPOT_MAX_PCT, ASK_TRUST_DIVISOR, BOOK_AHEAD_DAYS, CAUGHT_CHANCE, CAUGHT_CHANCE_SAME_REGION, CAUGHT_DAYS, CHALLENGE_BASE, CHALLENGE_CHAMPION, CHALLENGE_IN_FEUD, CHALLENGE_PER_POP_ABOVE, COOLDOWN_CHALLENGE, COOLDOWN_MORE, COOLDOWN_PROMOTION, COOLDOWN_TITLE, CREATIVE_T1_CHANGE, CREATIVE_T2_COOLDOWN_DAYS, INDIE_CH_ALLOWED, INDIE_CH_PROMOTION, INDIE_PROMISE_ROLLS, MORE_BASE, MORE_MIN_DATES, PATIENCE_BOTCHED, PATIENCE_CAUGHT, PATIENCE_DECLINE_COUNTER, PATIENCE_FLOOR, PATIENCE_FOLLOWED_PLAN, PATIENCE_GOOD_MATCH, PATIENCE_GOOD_MATCH_STARS, PATIENCE_NAG, PATIENCE_OFF_SCRIPT, PATIENCE_START, PATIENCE_TOOK_COUNTER, REGIONAL_ELIGIBLE_DATES, REGIONAL_WINDOW_DAYS, REP_NAG, SHOW_ASK_BONUS, SHOW_ASK_FLAGSHIP, SHOW_ASK_SPECIAL, SOCIAL_CALLOUT_CHALLENGE, SOCIAL_CALLOUT_DAYS, TITLE_ASK_BY_RANK, TITLE_ASK_CLAUSE, TRAIT_BACKSTAGE,
 } from './tuning';
+import { setPromiseShot } from './feuds';
 import type { Ask, AskKind, Bout, Career, CounterKind, PlayerMatch, Pledge, Show } from './types';
 import { tripCost } from './life/travel';
 
@@ -90,6 +91,13 @@ function nag(c: Career, key: string, days: number, booker: string): boolean {
   p.rep = Math.max(0, p.rep + REP_NAG);
   return true;
 }
+
+/** Feuds: a hot blow-off won earns a shot (the next big show far enough off). */
+setPromiseShot((c, promo, title) => {
+  if (c.pledges?.some((p) => p.status === 'open' && p.kind === 'title' && p.title === title)) return false;
+  pledge(c, { promo, kind: 'title', title, from: addDays(c.today, 14) });
+  return true;
+});
 
 function pledge(c: Career, p: Omit<Pledge, 'id'>): Pledge {
   // Who promised it: the promoter of that show, or the promotion's booker.

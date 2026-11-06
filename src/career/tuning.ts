@@ -743,7 +743,51 @@ export const FEUD_MATCH = { startHeat: 0.2, react: 0.25, stars: 0.35, payoff: 0.
  * and loser), call-outs and beefs, asking for a promo slot (a base chance, plus reputation and heat), and how many
  * finished feuds the world remembers.
  */
-export const FEUD = { segsPerShow: 2, segChance: 0.45, segMine: 0.7, cool: 4, blowoffWin: 0.08, blowoffLose: 0.03, callout: 3, beef: 5, askBase: 0.45, keepLog: 600, payoffWeeks: 3 };
+/**
+ * Feud segments, played (feuds rebuilt). A promo beat moves the crowd meter (0–100, from 50) by the line's worth ×
+ * `beat` × (1 + its risk) when nailed (×0.4 close; fluffed it loses 0.6 + risk of that), plus (charisma − 50) ÷
+ * `charismaPer`; repeating a kind of material is worth × `repeat`; a rival's comeback takes `comeback` (+ their
+ * charisma). The timing bar's sweet spot: `zone.base` + (charisma − 50)/100 × `perCharisma`, × (1 − risk × `zone.risk`);
+ * `close` either side is half marks. A brawl starts at `victim` (jumped) or `attacker`, four exchanges; the right move
+ * against theirs is worth `beats`; each won exchange swings `swing` (+ the margin). Under `botch` it's botched, over
+ * `great` it's great; real life is worth × `realHeat` heat and `realLike` with them; a botch costs `botchRep`; great
+ * or botched goes round online `viral` of the time (fans ± `viralFans`).
+ */
+export const FEUD_PLAY = {
+  repeat: 0.8, beat: 9, charismaPer: 12, comeback: 3,
+  zone: { base: 0.16, perCharisma: 0.14, risk: 0.45, close: 0.07 },
+  brawl: { victim: 35, attacker: 62, beats: 4, swing: 8, rounds: 4, max: 4.5, samey: 0.5 },
+  botch: 1.75, great: 3.75, realHeat: 1.3, realLike: -6, botchRep: 2, viral: 0.4, viralFans: 0.02,
+};
+export const FEUD = {
+  segsPerShow: 2, segChance: 0.45, segMine: 0.75, cool: 4, blowoffWin: 0.08, blowoffLose: 0.03, callout: 3, beef: 5, askBase: 0.45, keepLog: 600, payoffWeeks: 3,
+  /** Heat an old rivalry starts with on top; how many beats of the story are kept. */
+  reignite: 15, keepBeats: 14,
+  /** Stages: heat to build (or a moment, or days in the spark), heat to escalate (or an attack, a stipulation agreed, a betrayal; or this many days and 35 heat). */
+  stage: { build: 30, escalate: 60, sparkDays: 10, buildDays: 35 },
+  /** Too hot to end: at this heat a week out, the blow-off moves to the next big show, this many times at most. */
+  extendAt: 75, extendMax: 2,
+  /** Starting one yourself: the heat each way starts it with. */
+  startHeat: { callout: 5, attack: 12, promo: 8 } as Record<'callout' | 'attack' | 'promo', number>,
+  /** Coming to you, a day's chance when you're not in one: the booker hands you one; a rival comes for you. */
+  assignDaily: 0.035, rivalComesDaily: 0.012,
+  /** The matches: the stipulation ladder (one step a match, more when hot or escalated), the blow-off's by heat. */
+  ladder: ['standard', 'no_dq', 'street_fight', 'falls_count_anywhere', 'last_man_standing', 'steel_cage'],
+  /** For anyone who won't do hardcore: nastier without the weapons. */
+  cleanLadder: ['standard', 'two_out_of_three', 'submission', 'steel_cage'],
+  cleanBlowoff: ['steel_cage', 'iron_man', 'two_out_of_three', 'submission'],
+  blowoffStips: { hot: ['steel_cage', 'last_man_standing', 'i_quit', 'street_fight'], warm: ['street_fight', 'no_dq', 'falls_count_anywhere'], cool: ['standard'] } as Record<'hot' | 'warm' | 'cool', string[]>,
+  /** At least this many days between their matches; a weekly show skips it this often; allies get involved this often. */
+  matchGap: 10, weeklySkip: 0.45, allyChance: 0.3, allyLike: 50, repeatFrom: 3,
+  /** Yours at the blow-off: a bonus (× your fee × heat/100), reputation (× heat/100, win or lose), a title shot at this heat. */
+  bonus: 2, pushWin: 8, pushLose: 3, shotAt: 70,
+  /** Your rival between shows: a day's chance (× 0.4 + heat/100); how they feel decides whether an attack hurts. */
+  rivalDaily: 0.06, enemyLike: -30, friendLike: 40, attackHurt: 0.35,
+  /** Going wrong: cold at or under this for three weeks, an injury this long, segments averaging under this, a real fight. */
+  coldAt: 8, injuryEnds: 30, bombAt: 1.75, realFightAt: 80, realFightLike: -50, realFightDaily: 0.01,
+  /** Growing on its own: a loss to someone who can't stand you, or a beef online. */
+  grudgeLike: -20, growChance: 0.3, beefGrows: 0.3,
+};
 /** Life (things to buy, own, run and lose): each part switches on as it's built. `on(part)` in career/life/state.ts. */
 export const LIFE_PARTS = { homes: true, money: true, staff: true, invest: true, ai: true, school: true, status: true, family: true, risk: true, after: true };
 
@@ -1226,7 +1270,7 @@ export const FOUND = { minCapital: 2_000, startPop: 6, initials: [2, 5] as [numb
  */
 export const SEGMENT = {
   base: 1.6, perCharisma: 0.03, heat: 0.7, crowdPerDecade: 0.25, crowdFrom: 1000, crowdMax: 0.6, luck: 0.4,
-  kind: { promo: 0, interview: -0.2, runin: 0.3, beatdown: 0.2, signing: 0.1, debut: 0.4, celebration: 0.3, betrayal: 0.6 } as Record<string, number>,
+  kind: { promo: 0, interview: -0.2, runin: 0.3, beatdown: 0.2, signing: 0.1, debut: 0.4, celebration: 0.3, betrayal: 0.6, faceoff: 0.25, backstage: 0 } as Record<string, number>,
   /** Fans for who's in it: × (1 + (score − 2.5) × this) in the show's region. */
   fans: 0.004,
 };

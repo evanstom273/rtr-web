@@ -75,6 +75,8 @@ function careerSide(s: Side, rules: MatchRulesConfig, rnd: Rng): Side {
   s.form = rollForm(s, rnd);
   const mood = rules.mood?.[s.key];
   if (mood) s.mood = mood;
+  // Feuds: whoever won the crowd over in the last segment has the edge (only when there's a feud).
+  if (rules.feud?.edge === s.key) s.mood = (s.mood ?? 0) + 1;
   // Lasting damage: the worn parts start the match below full.
   const wear = rules.wear?.[s.key];
   if (wear) for (const [part, hp] of Object.entries(wear)) if (hp !== undefined) s.hp[part as keyof Side['hp']] = Math.max(1, Math.min(100, hp));

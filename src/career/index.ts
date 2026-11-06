@@ -12,6 +12,7 @@ import './staff';
 import './promoPopularity';
 import './social';
 import './feuds';
+import './segments';
 import './day';
 import './exclusive';
 import './creative';

@@ -42,7 +42,7 @@ export interface Show {
 
 /** Booker mode: how a booked match ends (Lyra's call: clean, cheating, DQ, count-out or no contest). */
 export type BookedFinish = 'clean' | 'cheat' | 'dq' | 'countout' | 'nocontest';
-export type SegKind = 'promo' | 'runin' | 'beatdown' | 'signing' | 'debut' | 'celebration' | 'interview' | 'betrayal';
+export type SegKind = 'promo' | 'runin' | 'beatdown' | 'signing' | 'debut' | 'celebration' | 'interview' | 'betrayal' | 'faceoff' | 'backstage';
 /** Something on the show that isn't a match: a promo, a run-in, a contract signing. `after` is the match it follows (-1: opens the show). */
 export interface Segment {
   kind: SegKind;
@@ -123,6 +123,8 @@ export interface Bout {
   tag?: boolean;
   stakes?: import('./stakes').Stakes;
   cashIn?: boolean;
+  /** Feuds: someone who's run in on it (you, getting involved in someone else's feud). */
+  runIn?: string;
   result?: BoutResult;
 }
 
@@ -273,6 +275,22 @@ export interface Feud {
   /** Feuds stage 1: the hottest it got, and whether it's gone into the world's history yet. */
   peak?: number;
   logged?: boolean;
+  /**
+   * Feuds, rebuilt: where it's at (the spark, building, escalation, the blow-off), how it started, the moments that
+   * moved it on, each one's wins over the run, the stipulations so far, when they last wrestled, the blow-off you've
+   * called (stakes, a stipulation), times the booker's put it back because it was too hot to end, your segments'
+   * scores (the office watches), and who has the crowd after a promo (the edge, till their next match).
+   */
+  stage?: 'spark' | 'building' | 'escalation' | 'blowoff';
+  how?: 'player' | 'booker' | 'organic' | 'rival' | 'reignited';
+  moments?: string[];
+  wins?: Record<string, number>;
+  stips?: string[];
+  lastMatch?: Day;
+  called?: { stakes?: import('./stakes').StakeKind; stip?: import('../engine/types').StipulationId };
+  ext?: number;
+  segs?: number[];
+  edge?: string;
 }
 
 export type LetterKind = 'offer' | 'result' | 'news' | 'injury' | 'contract' | 'event' | 'person' | 'booker' | 'digest' | 'press';

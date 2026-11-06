@@ -9,7 +9,7 @@ import { stipulation } from '../../engine';
 import { EventPopup } from './EventCard';
 import { commit, money, Nm, Screen, useToast, useWords } from './parts';
 import { boutKind, vsLine } from '../../career/bouts';
-import { feudHeat, feudLine, myFeuds, nextFeudShow } from '../../career/feuds';
+import { feudHeat, feudLine, myFeud, STAGE_LABEL, stageOf } from '../../career/feuds';
 import { FeudAsk } from './FeudAsk';
 
 const nameOf = (id: string): string => findWrestler(id)?.name ?? '?';
@@ -28,7 +28,7 @@ interface Props {
   onAwayDone?: () => void;
   onAdvance: () => void;
   onShowDay: () => void;
-  onOpen: (screen: 'letters' | 'profile' | 'training' | 'records' | 'requests' | 'phone' | 'office' | 'life') => void;
+  onOpen: (screen: 'letters' | 'profile' | 'training' | 'records' | 'requests' | 'phone' | 'office' | 'life' | 'feuds') => void;
   onAsk: (r: ReqRoute) => void;
   onNegotiate: (offerId: string) => void;
 }
@@ -61,7 +61,6 @@ export function Calendar({ c, busy, skipping, onStop, onSkip, note, awayLog, onA
   const [open, setOpen] = useState<string | null>(null);
   const [toast, say] = useToast();
   const [skipSheet, setSkipSheet] = useState(false);
-  const [feudOpen, setFeudOpen] = useState<string | null>(null);
   // Skip a number of days of your choosing (1–365).
   // What's typed (so the box can be cleared mid-edit) and the number it means: 0 while it's empty.
   const [nText, setNText] = useState('14');
@@ -180,24 +179,19 @@ export function Calendar({ c, busy, skipping, onStop, onSkip, note, awayLog, onA
         {FEATURES.skip && onSkip && <button className="c-skipb" onClick={() => setSkipSheet(true)} disabled={busy !== null} aria-label="Skip ahead"><b>»</b><span>{w('Skip')}</span></button>}
       </div>
 
-      {FEATURES.feuds2 && myFeuds(c).map((f) => {
-        const next = nextFeudShow(c, f);
+      {FEATURES.feuds2 && (() => {
+        const f = myFeud(c);
         return (
-          <div key={f.id} className="c-feud">
-            <button className="c-feudh" onClick={() => setFeudOpen(feudOpen === f.id ? null : f.id)} aria-expanded={feudOpen === f.id}>
-              <span className="c-lab">{w('Feud')}</span>
-              <span className="c-n"><b>{feudLine(c, f)}</b>{feudOpen !== f.id && <span>{next ? `Next: ${next.name}, ${fmtDay(next.date, 'dm')} · tap to ask for a segment` : 'Tap for more'}</span>}</span>
-            </button>
-            {feudOpen === f.id && (
-              <div className="c-feudb">
-                {(f.beats ?? []).slice(0, 5).map((x, i) => <span key={i} className="c-ad">{x.t}{x.d ? ` (${x.d > 0 ? '+' : ''}${x.d})` : ''}</span>)}
-                {next ? <FeudAsk c={c} show={next} say={say} title={false} /> : <span className="c-ad">You’re not booked on any of their shows yet.</span>}
-              </div>
-            )}
-            <span className="c-heat" style={{ width: `${Math.max(4, feudHeat(f))}%` }} />
-          </div>
+          <button className="c-feud c-feudh" onClick={() => onOpen('feuds')}>
+            <span className="c-lab">{w('Feud')}</span>
+            <span className="c-n">
+              <b>{f ? feudLine(c, f) : 'No feud'}</b>
+              <span>{f ? `${STAGE_LABEL[stageOf(f)]} · tap for the story, segments and the blow-off` : 'Start one, or see everyone else’s ›'}</span>
+            </span>
+            {f && <span className="c-heat" style={{ width: `${Math.max(4, feudHeat(f))}%` }} />}
+          </button>
         );
-      })}
+      })()}
 
       <div className="c-day">
         <div className="c-dayh">

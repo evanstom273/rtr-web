@@ -1,84 +1,113 @@
 # Feuds
 
-Lyra's call: booker mode's segments come over to the wrestling side, and feuds become an actual thing, with heat and
-popularity that help match ratings. Code: `career/feuds.ts`, the engine's `rules.feud` (`engine/state.ts`,
-`engine/crowd.ts`, `engine/rating.ts`). Switch: `FEATURES.feuds2` (on).
+Lyra's design (five rounds of questions, after the first version was rubbish). Code: `career/feuds.ts` (the story),
+`career/segments.ts` (segments, played), the engine's `rules.feud`; the screens `ui/career/Feuds.tsx` and
+`ui/career/SegmentPlay.tsx`. Switch: `FEATURES.feuds2` (on). Numbers: `FEUD`, `FEUD_PLAY`, `FEUD_MATCH` in tuning.
 
-## Heat for every feud
+## One at a time, four ways in
 
-Every feud has heat (0–100) now, not just the storylines you write as a booker. It starts at 20, plus 10 for a title
-feud, plus 20 for real bad blood (an angle from real life).
+You're in one feud at a time (everyone else has theirs; you can watch them and get involved).
 
-- **Segments** between the two move it: (the segment's score − 2) × 7, times how you played it.
-- **Matches** between them move it: (stars − 2.5) × 5. After two, the same match wears it out (−6 each time).
-- **A week with nothing** cools it by 4 (each Monday).
-- **Calling them out online** adds 3; a beef adds 5.
+- **You start it** (Feuds screen, from the hub's feud button): pick a rival from your promotion who isn't tied up, and
+  call them out (online, +5 heat), jump them (a beat-down on the next show, +12) or cut a promo on them (the next
+  show, +8). An old rival reignites (+15).
+- **The office hands you one** (about one a month when you're not in one, 3.5% a day): you're in it, no choice.
+  Title feuds the booker sets up with you in them count too.
+- **It grows on its own:** a loss to someone who can't stand you (30%), a beef online (30%), or costing someone a
+  match when you run in.
+- **A rival comes for you:** a hot-head, an ego or a showboat runs their mouth about you (1.2% a day): bite (+10, it's
+  on) or ignore them (−1 reputation; they tell everyone you're scared).
 
-The hub shows your feud as a strip: who, how hot (Cold, Simmering, Warm, Hot, White hot), where it pays off, and a
-bar for the heat. Tap it for what's happened lately.
+## Stages
 
-## Segments on the card
+**The spark → building → escalation → the blow-off.** What moves it on: heat, key moments, time, and the booker's date.
 
-When the AI draws up a TV show or a big show, its feuds get segments: up to two a show, each feud about half the time
-(yours 70%, and only when you're on the show). What it is depends on where the feud's at:
+| From | To | When |
+|---|---|---|
+| The spark | Building | heat 30, or anything happens (a segment, a call-out), or 10 days |
+| Building | Escalation | heat 60, or an attack, a stipulation agreed or a betrayal, or 35 days at 35+ heat |
+| Escalation | The blow-off | the blow-off's week |
 
-- early on: a promo or an interview;
-- then: a promo, a beat-down, a run-in (after the other one's match) or an interview;
-- in the last two weeks before a payoff on TV or a big show: sometimes a contract signing.
+The blow-off gets its date when it turns personal (escalation): the first big show (a special or flagship) at least
+three weeks off. It isn't the next show: feuds run weeks to months. **As long as it's hot:** at 75+ heat a week out,
+the booker puts the blow-off back to the next big show (twice at most) unless you called it. **You can call it**
+yourself once it's building: the next big show at least two weeks off, with the stipulation (street fight, last man
+standing, steel cage, I quit, falls count anywhere, no DQ) and stakes (loser leaves town, hair, mask, a title shot) you
+want. Old feuds are remembered and can reignite.
 
-They're scored with booker mode's segment scoring (charisma, fans in the region, real heat between them, the kind of
-segment, a little luck) and pay fans the same way. Booker mode's own shows are untouched: you write those.
+Heat: segments (score − 2) × 7 × how they were played; matches (stars − 2.5) × 5, worn after three; a week with nothing
+−4; call-outs +3, beefs +5; attacks and moments as below.
 
-### Yours: how you play it
+## The matches: a story
 
-On show day, your segment is under "Your feud", with a choice:
+- None in the spark. After that, at least 10 days apart; weekly TV less often, the big shows more.
+- **Who wins:** the story. They trade wins (the heel first, by cheating), whoever's behind goes over next, and at the
+  blow-off the face goes over the heel (else the bigger star). Creative Control still has its say: yours over your
+  own, and an AI star with it protects themselves against anyone below them, feud or not.
+- **Stipulations escalate:** standard → no DQ → street fight → falls count anywhere → last man standing → steel cage,
+  a step per match (one more when it's hot or escalated). The blow-off's by heat (80+: cage, last man standing, I
+  quit, street fight; 55+: street fight, no DQ, falls count anywhere), or the one you called. Anyone who won't do
+  hardcore gets a clean ladder instead (two out of three falls → submission → steel cage; the blow-off a cage, an iron
+  man, two out of three or a submission match), and can't be called into a weapons match.
+- **Allies:** from escalation, 30% of the time friends get involved: a tag match (both have a close friend free) or
+  two on one (one has). Only with the match overhaul on (`FEATURES.matches`).
+- **Stakes** on the blow-off: what you called; at 85+ heat sometimes loser leaves town.
+- The heat goes into the match (`rules.feud`): a hotter crowd at the bell, bigger reactions, +heat/100 × 0.35 stars,
+  +0.2 on the blow-off, and the commentary knows. Whoever won the last segment has the crowd (+1 on every roll).
+- Hot feuds go higher up the card.
 
-| Segment | Choices |
-|---|---|
-| Promo, interview | Fiery (big if you've the charisma, ugly if not), Cold and calm (safe), Get personal (the most heat, the biggest swing, and they won't forget it), Make them laugh (plays as a face, wins fans, less heat) |
-| Beat-down, run-in | Leave them laying (heat for days; if it flops the office thinks it went too far), In and out |
-| Contract signing | Sign and leave (a tease), Sign, then attack, Flip the table |
+## Segments, played
 
-No choice: it's played straight. In a feud with no segment tonight, you can **ask for a promo slot** (once a show):
-about 35%, more with reputation and heat.
+The AI puts its feuds' segments on TV and big shows (up to two a show); yours go on when you're on the show. You can
+also ask for one (Feuds screen, the calendar's show sheet, show day): promo, face to face, beat-down, run-in, contract
+signing, backstage, interview. The booker answers straight away (about 45%, plus reputation and heat).
 
-## The heat in the match
+On show day: **Play it** or **Sim it**. Skipping stops for them, like your matches.
 
-A match between two who are feuding carries `rules.feud = { heat, payoff }` into the engine:
+- **Promos** are built beat by beat (the open, the dig, the hook, the closer), each from four kinds of material:
+  - going after them (their skill, their looks, the last time you beat them);
+  - hyping yourself (your titles, your wins);
+  - **real life**, from what actually happened in the game: their ex, the bank taking their house, a losing run, a
+    lost title, the last time you beat them, how the locker room sees them (risky: the most heat, and they don't forget);
+  - working the crowd (a heel's cheap heat, a face's pandering).
 
-- the crowd starts hotter (heat × 0.2: up to +20 at the bell);
-- they react harder to everything the two of them do (heat gains × 1 + heat/100 × 0.25);
-- the stars go up by heat/100 × 0.35, and another 0.2 on the blow-off;
-- the commentary knows ("No love lost… this one's personal", or "tonight it ends").
+  Heels get more from going after them and the crowd, faces from themselves; the same kind twice running is worth
+  less. Each beat is **delivered on the timing bar**: stop the marker in the gold (charisma widens it, risky lines
+  narrow it; close is half marks; fluffing loses the crowd). Your rival comes back at you after the dig and the closer.
+  The crowd meter (from 50) is the score (÷ 20).
+- **Face to face and backstage:** a short promo, then go for them or walk away.
+- **Contract signings:** sign and leave (a tease), sign then attack, or flip the table (both a brawl).
+- **Beat-downs and run-ins:** a brawl. A mini match: up to four exchanges on the dice, your move against theirs (strike
+  beats a grapple, a grapple beats a weapon, a weapon beats a strike; they choose by personality), each won exchange
+  swinging the upper hand. Someone's left laying. The same move every time is dull TV.
+- **How it lands:** great (3.75+), you've the crowd (the edge in your next match with them); botched (under 1.75, or
+  fluffing twice), the crowd turns, your rival wins the exchange, the office notices (−2 reputation). Either can go round
+  online (40%: fans ±, a letter, the locker room). Real life: ×1.3 heat, and −6 with them.
 
-Without a feud nothing changes (the golden test is untouched).
+## Your rival, between shows
 
-## The blow-off
+By who they are: hot-heads and the aggressive jump you (+8, fatigue; real enemies can really hurt you, friends pull it),
+showboats and egos post about you or cost you a match (they run in on your next one), the methodical want you face to
+face. More often the hotter it is.
 
-On the payoff show, both ride the heat: the winner's fans in the region × (1 + heat/100 × 0.08), the loser's
-× (1 + heat/100 × 0.03). If it's yours, a letter says how it ended.
+## It can go wrong
 
-## Remembered
+- Cold (8 or less after three weeks): the office pulls it.
+- Either of you out for a month or more: dropped.
+- Your last three segments averaging under 1.75: dropped.
+- A real fight backstage (80+ heat and you genuinely can't stand each other): fines, maybe an injury, more heat.
 
-Once a feud's over it goes into the world's history (`history.feuds`: who, the promotion, how hot it got, how many
-matches, how it ended), the last 600, for Feud of the Year and the record books.
+## What it pays
 
-## Asking for a segment
+- Better matches (the heat in the stars), fans (each segment; the blow-off: the winner × 1 + heat/100 × 0.08, the
+  loser 0.03).
+- **Money:** a feud bonus at the blow-off, your fee × heat/100 × 2.
+- **A push:** reputation (heat/100 × 8 if you win, × 3 if not), higher on the card, and a title shot (the secondary
+  title) if you win a blow-off at 70+.
 
-In a feud, you can ask for a segment with your rival (a promo, an interview, a beat-down, a run-in or a contract
-signing) on any of their shows you're on, days ahead or on the night, from:
+## Everyone else's
 
-- the feud strip on the hub (tap it: your next show with them, and the kinds to ask for);
-- the show's sheet on the calendar;
-- show day.
+The Feuds screen lists the promotion's other storylines (heat, stage, record, blow-off). On a show you're on with their
+match: **run in** for one of them. They win; the one you cost remembers (and, if you're free, it's a feud).
 
-The booker says yes or no straight away: about 45% (promos and interviews easier, beat-downs, run-ins and signings
-harder), plus your reputation (rep ÷ 250) and the heat (heat ÷ 400). Once a show. If the card's drawn up it goes on
-now (before your match; a run-in after theirs); if not, it goes on when it is, as long as you're on the show. On the
-night you choose how to play it.
-
-## A feud with no payoff yet
-
-A feud started before there's a show far enough ahead to pay it off (a Creative Control ask early on, say) waits for
-one: as soon as the calendar has a special or flagship (else any show) three weeks from its start, that's the payoff.
-It used to end overnight.
+Finished feuds go into the world's history (`history.feuds`), the last 600.

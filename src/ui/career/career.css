@@ -402,3 +402,15 @@
 .cr .c-feudh .c-n span{font-size:12px;opacity:.8}
 .cr .c-feudb{display:flex;flex-direction:column;gap:2px;padding:0 10px 8px}
 .cr .c-feud .c-heat{position:absolute;left:0;bottom:0;height:3px;background:var(--cr-heel,#c33)}
+/* Feud segments: the timing bar (stop the marker in the gold) and the meters. */
+.cr .c-timing{margin-top:8px}
+.cr .c-tbar{position:relative;height:22px;border:1px solid currentColor;opacity:.95;overflow:hidden}
+.cr .c-tzone{position:absolute;top:0;bottom:0;background:var(--cr-gold,#d4a52a);opacity:.85}
+.cr .c-tmark{position:absolute;top:-2px;bottom:-2px;width:4px;margin-left:-2px;background:currentColor}
+.cr .c-tmark.hit{background:#2e9e4f}
+.cr .c-tmark.miss{background:#c33}
+.cr .c-meter{margin:6px 0}
+.cr .c-mbar{height:8px;border:1px solid currentColor;margin-top:3px;overflow:hidden}
+.cr .c-mbar span{display:block;height:100%;background:var(--cr-gold,#d4a52a)}
+.cr .c-meter{display:flex;flex-direction:column;align-items:stretch;width:100%}
+.cr .c-meter .c-mbar{width:100%}
