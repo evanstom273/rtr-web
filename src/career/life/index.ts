@@ -10,6 +10,9 @@ import { homeMood, homeName, homeRest, homeTrainPrice, monthlyHomes, rentWeek, s
 import { monthlyLoans } from './loans';
 import { agentFinds, agentHandles, offIncome, pruneMonths } from './money';
 import { dailyPA, monthlyStaff, payEntrance } from './staff';
+import { monthlyWealth, richList } from './aiMoney';
+import { monthlySchool, monthlyWorldSchools } from './school';
+import { netWorth } from './worth';
 import { monthlyFunds, monthlyInsurance, monthlyLuxury, monthlyStakes, monthlyVentures, seizeVenture } from './invest';
 import { life, liveHome, on } from './state';
 import { band, homeCountry, restOnTheRoad, roadVehicle } from './travel';
@@ -45,6 +48,14 @@ setCareerHooks({
     if (on('staff')) dailyPA(c);
   },
   monthly: (c) => {
+    // Everyone's money, even with no one at the controls; the rich list every January.
+    if (on('ai')) {
+      const month = addDays(c.today, 1).slice(0, 7);
+      monthlyWealth(c, month);
+      if (month.endsWith('-01')) richList(c, month.slice(0, 4), c.spectator ? 0 : netWorth(c));
+    }
+    // The schools' names follow their graduates (every quarter).
+    if (on('school') && /-(01|04|07|10)$/.test(addDays(c.today, 1).slice(0, 7))) monthlyWorldSchools();
     if (!active(c)) return;
     life(c);
     if (on('homes')) {
@@ -53,6 +64,7 @@ setCareerHooks({
       monthlyGarage(c);
     }
     if (on('staff')) monthlyStaff(c);
+    if (on('school')) monthlySchool(c);
     if (on('invest')) {
       const month = addDays(c.today, 1).slice(0, 7);
       monthlyVentures(c, month);

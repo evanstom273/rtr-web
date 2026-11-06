@@ -6,7 +6,7 @@ import { hashSeed, seededRng } from '../engine/rng';
 import { activeWorld } from '../world/world';
 import { addEvent } from '../world/history';
 import { makeIndie } from '../world/populate';
-import { person, setCareerHooks } from './career';
+import { person, rookieOut, setCareerHooks } from './career';
 import { daysBetween } from './dates';
 import { INDIE_IDLE_LEAVE_DAYS, INDIE_IDLE_LEAVE_MONTHLY, INDIE_IDLE_LEAVE_POP, INDIE_POOL_MAX, INDIE_POOL_MIN } from './tuning';
 import type { Career } from './types';
@@ -42,6 +42,7 @@ function monthly(c: Career): void {
       const id = `ind_${c.today.replace(/-/g, '')}_${i}`;
       if (WRESTLERS.some((w) => w.id === id)) continue;
       const w = makeIndie(rnd, WRESTLERS, id);
+      rookieOut(w);
       WRESTLERS.push(w);
       person(c, id);
       addEvent(H, { day: c.today, kind: 'debut', who: id, name: w.name, promo: 'TIS' });

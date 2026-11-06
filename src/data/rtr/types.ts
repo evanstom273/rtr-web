@@ -125,6 +125,8 @@ export interface Wrestler {
   unmasked?: string;
   shaved?: string;
   hardcore?: -1 | 0 | 1;
+  /** Life stage 5: the school they trained at (its id in world.life.schools). */
+  school?: string;
   /** Hidden (never shown): the attribute total they can grow to, the age they peak, and a running fraction of a point. */
   potential?: number;
   peak?: number;

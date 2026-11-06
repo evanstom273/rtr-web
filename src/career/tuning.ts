@@ -732,7 +732,7 @@ export const SHIPPED_RETIRE_YOUNGER = 3;
 /** Match overhaul (tag teams, multi-mans, battle royals, Rumbles, the new stipulations): off until Lyra approves. */
 export const FEATURES = { livingCosts: true, social: true, days: true, jobs: true, skip: true, mail: true, hustles: true, history: true, phone: true, booker: true, matches: true, life: true };
 /** Life (things to buy, own, run and lose): each part switches on as it's built. `on(part)` in career/life/state.ts. */
-export const LIFE_PARTS = { homes: true, money: true, staff: true, invest: true, ai: false, school: false, status: false, family: false, risk: false, after: false };
+export const LIFE_PARTS = { homes: true, money: true, staff: true, invest: true, ai: true, school: true, status: false, family: false, risk: false, after: false };
 
 /**
  * Pay (Lyra's call: how many dates you get decides your income). A major promotion's weekly-show fee:
@@ -1470,6 +1470,19 @@ export const PRICE_BOOK = {
     classic: { name: 'Classic car', tiers: [40_000, 300_000, 2_000_000], drift: 0.03, wobble: 0.1, upkeep: 0.02 },
     boat: { name: 'Boat', tiers: [250_000, 2_000_000, 15_000_000], drift: -0.08, wobble: 0.03, upkeep: 0.1 },
   },
+  /**
+   * The school (stage 5). Opening one: the ring and kit; then rent a month (by the city) and your coaches' wages
+   * (by how well known they are). Fees a month per student (by the school's reputation and the city), the places, how
+   * often a notable applicant turns up, buying a school (by its reputation), the monthly show (crowd and tickets by
+   * reputation, less production), and feeder deals once the name's big enough (a year, by reputation).
+   */
+  school: {
+    kit: 30_000, rent: 2_500, coach: [1_500, 8_000] as [number, number], fee: [250, 800] as [number, number], places: 16,
+    notable: 0.08, buyBase: 120_000, buyPerRep: 6_000, crowd: [60, 500] as [number, number], ticket: [8, 18] as [number, number], production: 1_500,
+    feederRep: 45, feeder: [20_000, 120_000] as [number, number],
+  },
+  /** The AI's money (stage 4): what a day job pays a year on the indies (by the region's cost index). */
+  dayJob: 16_000,
   /** Insurance a year: homes and businesses, as a share of what they're worth. */
   insurance: { home: 0.003, business: 0.015 },
 } as const;

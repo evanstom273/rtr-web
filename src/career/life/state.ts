@@ -96,6 +96,8 @@ export interface LifeState {
   /** Stakes in promotions (percent) and what you paid. */
   stakes?: { promo: string; pct: number; paid: number }[];
   luxury?: Luxury[];
+  /** Your school (stage 5): students, applicants, the next intake, shows and a feeder deal. */
+  school?: import('./school').PlayerSchool;
   /** Insurance on your homes and businesses. */
   insure?: { home?: boolean; business?: boolean };
   /** Entrance: the kit you own, and whether you use pyro and sets where they're allowed. */
