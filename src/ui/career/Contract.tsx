@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { BONUS_TRIGGERS, CHARACTER, dealsOf, exitTerms, holidays, matchPay, PACKAGES, person, promoName, tierOf, type Career } from '../../career';
 import { daysBetween, fmtDay } from '../../career/dates';
+import { CLAUSES, clauseOn } from '../../career/clauses';
 import { monthlySalary, PAY_LABEL, payOf, payWords, yearlyPay } from '../../career/economy';
 import { GUARANTEED_DATES } from '../../career/tuning';
 import { ClauseGroups, Pips } from './Clauses';
@@ -77,7 +78,7 @@ export function Contract({ c, onBack }: Props) {
         {ch && <span className="c-note"><b>{ch.style}.</b> {ch.blurb}</span>}
         <span className="c-sec">{w('Your pay', 'Pay')}</span>
         <div className="c-kv">{fees.map(([a, b]) => <span key={a} style={{ display: 'contents' }}><span className="c-lab">{a}</span><span className="c-val">{b}</span></span>)}</div>
-        <div className="c-rowsb"><span className="c-sec c-grow">{w('The clauses', 'Clauses')}</span><span className="c-hint">{k.clauses.filter(Boolean).length} of {k.clauses.length} in your contract</span></div>
+        <div className="c-rowsb"><span className="c-sec c-grow">{w('The clauses', 'Clauses')}</span><span className="c-hint">{CLAUSES.filter((cl) => clauseOn(cl.id) && tierOf(k, cl.id)).length} of {CLAUSES.filter((cl) => clauseOn(cl.id)).length} in your contract</span></div>
         <ClauseGroups tiers={k.clauses} row={(cl, i) => {
           const t = k.clauses[i] ?? 0;
           return (

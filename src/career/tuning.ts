@@ -800,6 +800,11 @@ export const FEUD = {
   grudgeLike: -20, growChance: 0.3, beefGrows: 0.3,
 };
 /** Life (things to buy, own, run and lose): each part switches on as it's built. `on(part)` in career/life/state.ts. */
+/**
+ * Clauses cut (Lyra's call, the big cut): hidden from every contract screen, worth nothing in a negotiation, and read
+ * as "not in the contract" everywhere. Take one out of this list to bring it back.
+ */
+export const CUT_CLAUSES: string[] = ['booking', 'touring', 'wage', 'signing', 'loyalty', 'training', 'schedule', 'travel', 'renewal', 'mentorship', 'social'];
 export const LIFE_PARTS = { homes: true, money: true, staff: true, invest: true, ai: true, school: true, status: true, family: true, risk: true, after: true };
 
 /**

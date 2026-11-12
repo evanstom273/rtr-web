@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { CLAUSES, GROUPS, type ClauseGroup } from '../../career/clauses';
+import { CLAUSES, clauseOn, GROUPS, type ClauseGroup } from '../../career/clauses';
 import type { ClauseDef } from '../../career/clauses';
 import { useWords } from './parts';
 
@@ -19,7 +19,8 @@ export function ClauseGroups({ tiers, row, summary, open: start }: {
   return (
     <>
       {GROUPS.map((g) => {
-        const idx = CLAUSES.map((cl, i) => [cl, i] as const).filter(([cl]) => cl.group === g.id);
+        const idx = CLAUSES.map((cl, i) => [cl, i] as const).filter(([cl]) => cl.group === g.id && clauseOn(cl.id));
+        if (!idx.length) return null;
         const inDeal = idx.filter(([, i]) => (tiers[i] ?? 0) > 0).length;
         const isOpen = open.has(g.id);
         const listed = idx.filter(([, i]) => (tiers[i] ?? 0) > 0).map(([cl, i]) => `${cl.name} T${tiers[i]}`).join(' · ');

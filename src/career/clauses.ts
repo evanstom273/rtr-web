@@ -1,7 +1,7 @@
 // The twenty-five contract clauses (Lyra's design), each promotion's character across them, and the deal packages.
 import { getPromotion, globalScore, type Wrestler } from '../data/rtr';
 import type { Rng } from '../engine/rng';
-import { MAJOR_FEE_FLOOR, MAJOR_FEE_FLOOR_AT, MAJOR_FEE_MIN, MAJOR_FEE_PER_POINT, PACKAGE_RULES } from './tuning';
+import { MAJOR_FEE_FLOOR, MAJOR_FEE_FLOOR_AT, MAJOR_FEE_MIN, MAJOR_FEE_PER_POINT, CUT_CLAUSES, PACKAGE_RULES } from './tuning';
 
 export type ClauseGroup = 'card' | 'money' | 'body' | 'image' | 'future';
 export interface ClauseDef { id: ClauseId; name: string; group: ClauseGroup; tiers: [string, string, string]; none: string; short: [string, string, string] }
@@ -137,7 +137,10 @@ export const NCLAUSES = CLAUSES.length;
 export const NO_CLAUSES = (): number[] => CLAUSES.map(() => 0);
 
 /** A clause's tier in a contract (0 when there's no contract). */
-export const tierOf = (k: { clauses: number[] } | null | undefined, id: ClauseId): number => k?.clauses[C[id]] ?? 0;
+/** Whether a clause is in the game (Lyra's big cut hid some: CUT_CLAUSES). */
+export const clauseOn = (id: string): boolean => !CUT_CLAUSES.includes(id);
+/** A deal's tier of a clause (a cut clause is never in a contract). */
+export const tierOf = (k: { clauses: number[] } | null | undefined, id: ClauseId): number => (clauseOn(id) ? k?.clauses[C[id]] ?? 0 : 0);
 
 /** The ten clauses from before the overhaul, in their old order (for converting saves). */
 export const OLD_CLAUSES = ['creative', 'indie', 'medical', 'guaranteed', 'wage', 'title', 'schedule', 'exit', 'merch', 'outside'] as const;

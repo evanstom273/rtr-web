@@ -6,7 +6,7 @@ import { seededRng } from '../engine/rng';
 import { activeWorld } from '../world/world';
 import { available, hashSeed, regionalPop } from './booker';
 import { letter, person, promoName, setCareerHooks, spend } from './career';
-import { C } from './clauses';
+import { C, tierOf } from './clauses';
 import { approves, dealsOf, sideWork } from './deals';
 import { setTryoutLetter } from './scouting';
 import { addDays, addMonths, fmtDay, weekday, type Day } from './dates';
@@ -201,7 +201,7 @@ function daily(c: Career, rnd: Rng): void {
     k.end = addDays(c.today, -1);
   }
   // Wage Matching Tier 3: a rival offer above your fee raises it straight away.
-  if (k && (k.clauses[C.wage] ?? 0) >= 3) {
+  if (k && tierOf(k, 'wage') >= 3) {
     const rival = c.offers.filter((o) => o.status === 'open' && o.promo !== k.promo).reduce((m, o) => Math.max(m, o.fee), 0);
     if (rival > k.fee) {
       k.fee = rival;
@@ -232,7 +232,7 @@ export function startTitlePromise(c: Career): void {
 export function dayOff(c: Career, day: Day): string {
   const p = person(c, c.player);
   const k = p.contract;
-  const tier = k?.clauses[C.schedule] ?? 0;
+  const tier = tierOf(k, 'schedule');
   if (!k || tier === 0) return 'Your contract has no Schedule Flexibility.';
   if (day <= c.today) return 'Too late for that.';
   const booked = Object.values(c.shows).find((s) => s.date === day && s.card?.some((b) => b.a === c.player || b.b === c.player));

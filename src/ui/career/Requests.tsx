@@ -1,8 +1,9 @@
+import { clauseOn } from '../../career/clauses';
 import { payWords } from '../../career/economy';
 import { useMemo, useState, type ReactNode } from 'react';
 import { fansIn, fansTotal, findWrestler, fmtFans, globalScore, TITLES, WRESTLERS, rosterOf, worksFor, holds } from '../../data/rtr';
 import {
-  C, PATIENCE_FLOOR, PATIENCE_START, answerCounter, askApproach, askChallenge, askDayOff, askIndieChallenge, askMore, askRelease, askReview,
+  PATIENCE_FLOOR, PATIENCE_START, answerCounter, askApproach, askChallenge, askDayOff, askIndieChallenge, askMore, askRelease, askReview,
   askRival, askShow, askSpot, askTitleShot, askTryout, askIndieTitleShot, askableIndieShows, askableIndieTitles, askableShows, askableTitles, caughtChance, cooldownLeft, counterLabel,
   announceRetirement, bookHoliday, holidays, leaveContract, setPartTime, setTours, setWalk, takeOption, tierOf,
   bookerName, countersWaiting, creativeTier, exitTerms, firstAskable, myPromo, otherPromotions, patienceOf, person, previewChallenge, previewIndieChallenge,
@@ -161,17 +162,17 @@ export function Requests({ c, tab: start, onBack, onFlow, onNegotiate }: ReqProp
       { t: 'Ask to be on a show', d: `Any ${k.promo} show from ${fmtDay(firstAskable(c), 'dm')}. The next seven days’ cards are set.`, go: () => onFlow({ req: 'book', tab: 0 }) },
       { t: 'Ask for more matches', d: 'A yes means a minimum number of dates next month.', go: () => onFlow({ req: 'book', tab: 1 }), tag: asked('more', COOLDOWN_MORE), tc: 'c-eff bad' },
       { t: 'Creative Control', d: 'Finishes either way, opponents, the main event, feuds and turns.', go: () => onFlow({ req: 'creative' }), tag: creativeTier(c, k.promo) ? null : 'Needs Creative Control' },
-      { t: 'Ask for a day off', d: (k.clauses[C.schedule] ?? 0) >= 3 ? 'Or refuse a date you’re booked on.' : 'On a day your promotion has a show.', go: (k.clauses[C.schedule] ?? 0) ? () => onFlow({ req: 'dayoff' }) : undefined, tag: (k.clauses[C.schedule] ?? 0) ? null : 'Needs Schedule Flexibility' },
+      ...(clauseOn('schedule') ? [{ t: 'Ask for a day off', d: tierOf(k, 'schedule') >= 3 ? 'Or refuse a date you’re booked on.' : 'On a day your promotion has a show.', go: tierOf(k, 'schedule') ? () => onFlow({ req: 'dayoff' }) : undefined, tag: tierOf(k, 'schedule') ? null : 'Needs Schedule Flexibility' }] : []),
     ] });
     groups.push({ t: w('Your contract'), items: [
-      { t: 'Pay review', d: 'Against wrestlers of your standing here.', go: (k.clauses[C.wage] ?? 0) >= 1 ? () => run(() => askReview(c)) : undefined, tag: (k.clauses[C.wage] ?? 0) >= 1 ? null : 'Needs Wage Matching' },
-      { t: 'Show them a rival offer', d: rivals.length ? `${rivals.length} open: ${rivals.map((o) => o.promo).join(', ')}.` : 'They can match it, up to a point.', go: (k.clauses[C.wage] ?? 0) >= 2 && rivals.length ? () => onFlow({ req: 'rival' }) : undefined, tag: (k.clauses[C.wage] ?? 0) >= 2 ? (rivals.length ? null : 'No rival offers') : 'Needs Wage Matching T2' },
+      ...(clauseOn('wage') ? [{ t: 'Pay review', d: 'Against wrestlers of your standing here.', go: tierOf(k, 'wage') >= 1 ? () => run(() => askReview(c)) : undefined, tag: tierOf(k, 'wage') >= 1 ? null : 'Needs Wage Matching' }] : []),
+      ...(clauseOn('wage') ? [{ t: 'Show them a rival offer', d: rivals.length ? `${rivals.length} open: ${rivals.map((o) => o.promo).join(', ')}.` : 'They can match it, up to a point.', go: tierOf(k, 'wage') >= 2 && rivals.length ? () => onFlow({ req: 'rival' }) : undefined, tag: tierOf(k, 'wage') >= 2 ? (rivals.length ? null : 'No rival offers') : 'Needs Wage Matching T2' }] : []),
       { t: exit.free ? 'Walk away (they broke their promises)' : exit.tier === 3 ? 'Leave now' : exit.tier === 2 ? 'Give notice' : exit.tier === 1 ? 'Buy yourself out' : 'Ask for your release', d: exit.text, go: k.leaving ? undefined : () => setConfirm(true), tag: k.leaving ? `Leaving ${fmtDay(k.leaving, 'dm')}` : null },
       ...((p.deals ?? []).map((x): Item => ({ t: `Leave ${x.promo}`, d: exitTerms(c, x.promo).text, go: () => act(() => leaveContract(c, x.promo)) }))),
-      { t: 'Book a holiday week', d: hol.allowed ? `${hol.allowed - hol.used} of ${hol.allowed} left this contract year. No bookings that week, no penalty.` : 'Agreed weeks off.', go: hol.allowed > hol.used ? () => act(() => bookHoliday(c, addDays(c.today, 8))) : undefined, tag: hol.allowed ? null : 'Needs Schedule Flexibility' },
-      { t: k.dates && (p.deals ?? []).length === 0 ? 'Go back full-time' : 'Go part-time', d: `A few dates a month (${k.dates ? `now ${k.dates}` : 'the booker’s call now'}).`, go: tierOf(k, 'schedule') >= 2 ? () => act(() => setPartTime(c, !(k.dates && (p.deals ?? []).length === 0))) : undefined, tag: tierOf(k, 'schedule') >= 2 ? null : 'Needs Schedule Flexibility T2' },
-      { t: k.tours ? 'Come off their tours' : 'Join their tours', d: 'Tour dates abroad: fans in other regions, weeks away.', go: tierOf(k, 'touring') >= 2 ? () => act(() => setTours(c, !k.tours)) : undefined, tag: tierOf(k, 'touring') >= 2 ? (k.tours ? 'On' : 'Off') : 'Needs International Touring T2' },
-      { t: 'Take up your option year', d: `Another 12 months on the same terms (from six months before ${fmtDay(k.end, 'dm')}).`, go: tierOf(k, 'renewal') >= 1 && !k.optioned ? () => act(() => takeOption(c)) : undefined, tag: tierOf(k, 'renewal') >= 1 ? (k.optioned ? 'Taken' : null) : 'Their option, not yours' },
+      ...(clauseOn('schedule') ? [{ t: 'Book a holiday week', d: hol.allowed ? `${hol.allowed - hol.used} of ${hol.allowed} left this contract year. No bookings that week, no penalty.` : 'Agreed weeks off.', go: hol.allowed > hol.used ? () => act(() => bookHoliday(c, addDays(c.today, 8))) : undefined, tag: hol.allowed ? null : 'Needs Schedule Flexibility' }] : []),
+      ...(clauseOn('schedule') ? [{ t: k.dates && (p.deals ?? []).length === 0 ? 'Go back full-time' : 'Go part-time', d: `A few dates a month (${k.dates ? `now ${k.dates}` : 'the booker’s call now'}).`, go: tierOf(k, 'schedule') >= 2 ? () => act(() => setPartTime(c, !(k.dates && (p.deals ?? []).length === 0))) : undefined, tag: tierOf(k, 'schedule') >= 2 ? null : 'Needs Schedule Flexibility T2' }] : []),
+      ...(clauseOn('touring') ? [{ t: k.tours ? 'Come off their tours' : 'Join their tours', d: 'Tour dates abroad: fans in other regions, weeks away.', go: tierOf(k, 'touring') >= 2 ? () => act(() => setTours(c, !k.tours)) : undefined, tag: tierOf(k, 'touring') >= 2 ? (k.tours ? 'On' : 'Off') : 'Needs International Touring T2' }] : []),
+      ...(clauseOn('renewal') ? [{ t: 'Take up your option year', d: `Another 12 months on the same terms (from six months before ${fmtDay(k.end, 'dm')}).`, go: tierOf(k, 'renewal') >= 1 && !k.optioned ? () => act(() => takeOption(c)) : undefined, tag: tierOf(k, 'renewal') >= 1 ? (k.optioned ? 'Taken' : null) : 'Their option, not yours' }] : []),
       ...(tierOf(k, 'renewal') >= 3 ? [{ t: k.walk ? 'Let it renew' : 'Let it run out', d: k.walk ? 'It renews itself with a raise.' : `You’ll leave on ${fmtDay(k.end, 'dm')} instead of renewing.`, go: () => act(() => setWalk(c, !k.walk)) } as Item] : []),
       { t: 'Announce your retirement', d: tierOf(k, 'retirement') ? `Your contract guarantees a farewell${tierOf(k, 'retirement') >= 2 ? ', a night in your honour' : ''}${tierOf(k, 'retirement') >= 3 ? ' and a pension' : ''}.` : 'Your last day would be a month away. No farewell guaranteed.', go: p.retiring ? undefined : () => setRetireAsk(true), tag: p.retiring ? `Last day ${fmtDay(p.retiring, 'dm')}` : null, tc: 'c-eff bad' },
     ] });
@@ -523,7 +524,7 @@ export function RequestFlow({ c, route, onBack, onNegotiate, onAnswered }: FlowP
 
   if (route.req === 'dayoff' && k) {
     title = w('Day Off', 'Day off'); who = w(`Asking ${k.promo}’s booker`);
-    const tier = k.clauses[C.schedule] ?? 0;
+    const tier = tierOf(k, 'schedule');
     const shows = Object.values(c.shows).filter((s) => !s.done && s.date > c.today && s.date <= addDays(c.today, 35) && (s.promos ?? [s.promo]).includes(k.promo) && s.promo !== 'TIS').sort((a, b) => (a.date < b.date ? -1 : 1));
     const cur = sel ?? shows[0]?.id ?? null;
     const s = cur ? c.shows[cur] : undefined;
