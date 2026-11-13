@@ -1,3 +1,4 @@
+// The big cut (docs/cut.md) hid playing segments: switch FEATURES.playSegments back on before running this.
 // The feuds UI sweep: with the dev server up (SWEEP_URL, default :5173),
 //   node scripts/feud-sweep.mjs <screenshot dir>
 // In all three skins at phone and fold widths: the hub's feud button, the Feuds screen (a champion's title on the line, start a feud, the stage

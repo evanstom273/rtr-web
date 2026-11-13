@@ -1,3 +1,4 @@
+// The big cut (docs/cut.md) hid most of Life: switch LIFE_PARTS back on before running this (scripts/cut-sweep.mjs checks Life as it is now).
 // The Life UI sweep (run before calling Life work done): with the dev server on :5173,
 //   node scripts/life-sweep.mjs <screenshot dir> [skin]
 // A star's career with money in the bank, in all three skins at phone and fold widths: the hub nav (seven tabs on two
