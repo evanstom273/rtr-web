@@ -31,6 +31,13 @@ function welcome(c: Career): void {
   const fresh = !c.life;
   const L = life(c);
   if (!fresh) return;
+  if (!on('homes')) {
+    letter(c, {
+      kind: 'news', from: 'Life', subject: 'Your money',
+      body: ['Life is in the hub: tax comes off what you earn as it comes in, and an agent can get you better deals for a cut. Your entrance and the school are there too.'],
+    });
+    return;
+  }
   const h = liveHome(c);
   letter(c, {
     kind: 'news', from: 'Home', subject: `Your ${homeName(h).toLowerCase()}`,

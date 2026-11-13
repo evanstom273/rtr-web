@@ -1,6 +1,7 @@
 // Match overhaul, stage 9: more than two people in the career — the real engine on tag matches and a Rumble, the
 // booker's plan by team, booker mode's card with any kind of match, and a tag cup.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { bringBack } from './cut.testkit';
 import { findWrestler, TITLES, WRESTLERS } from '../data/rtr';
 import { activeWorld } from '../world/world';
 import { activeTeams, ensureMatchWorld, teamOf } from '../world/matchWorld';
@@ -12,6 +13,11 @@ import { simOne, type SimOut } from './sim';
 import { begin } from './testkit';
 import { FEATURES } from './tuning';
 import type { Career, Show } from './types';
+
+// The big cut hid this; the tests bring it back so the code keeps working.
+let putBack = (): void => {};
+beforeEach(() => { putBack = bringBack(); });
+afterEach(() => putBack());
 
 const flags = FEATURES as { matches: boolean; booker: boolean };
 let was = { m: false, b: false };

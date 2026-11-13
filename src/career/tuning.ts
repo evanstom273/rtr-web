@@ -738,7 +738,15 @@ export const BACKDATE = { debut: [19, 22] as [number, number], potentialSpread: 
 /** Shipped wrestlers retire as if this many years younger (Lyra's call: the names you know stay a bit longer). */
 export const SHIPPED_RETIRE_YOUNGER = 3;
 /** Match overhaul (tag teams, multi-mans, battle royals, Rumbles, the new stipulations): off until Lyra approves. */
-export const FEATURES = { livingCosts: true, social: true, days: true, jobs: true, skip: true, mail: true, hustles: true, history: true, phone: true, booker: true, matches: true, life: true, feuds2: true };
+export const FEATURES = {
+  livingCosts: true, social: false, days: true, jobs: false, skip: true, mail: true, hustles: true, history: true, phone: false, booker: true, matches: true, life: true, feuds2: true,
+  /**
+   * The big cut (Lyra's call): hidden, the code kept; flip back to true to bring one back. `social` is social media,
+   * `phone` the phone, `jobs` day jobs. `booker` stays on (it runs every AI company's business); `bookerMode` is you
+   * booking or owning a promotion.
+   */
+  bookerMode: false, romance: false, politics: false, checkIns: false, press: false, playSegments: false,
+};
 /**
  * Feuds in the match (feuds stage 1): the heat between two (0–100) adds to the crowd's heat at the bell (× startHeat),
  * makes them react harder to everything the two do (heat gains × 1 + heat/100 × react), and lifts the stars
@@ -800,7 +808,13 @@ export const FEUD = {
   grudgeLike: -20, growChance: 0.3, beefGrows: 0.3,
 };
 /** Life (things to buy, own, run and lose): each part switches on as it's built. `on(part)` in career/life/state.ts. */
-export const LIFE_PARTS = { homes: true, money: true, staff: true, invest: true, ai: true, school: true, status: true, family: true, risk: true, after: true };
+/**
+ * Clauses cut (Lyra's call, the big cut): hidden from every contract screen, worth nothing in a negotiation, and read
+ * as "not in the contract" everywhere. Take one out of this list to bring it back.
+ */
+export const CUT_CLAUSES: string[] = ['booking', 'touring', 'wage', 'signing', 'loyalty', 'training', 'schedule', 'travel', 'renewal', 'mentorship', 'social'];
+/** Life's parts (the big cut, Lyra's call: only the money side, the school and entrances stay). */
+export const LIFE_PARTS = { homes: false, money: true, staff: false, entrance: true, invest: false, ai: false, school: true, status: false, family: false, risk: false, after: false };
 
 /**
  * Pay (Lyra's rework): a yearly salary curve by drawing power, three ways to be paid, no cut for losing.

@@ -1,6 +1,7 @@
 // Booker mode, stage 3 (Lyra's design): storylines you write and the game keeps score of; turns, alliances and
 // betrayals; full control of your titles; tournaments.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { bringBack } from './cut.testkit';
 import { PROMOTIONS, TITLES, WRESTLERS, type Wrestler } from '../data/rtr';
 import { createTitle, cupsOf, renameTitle, retireTitle, roundBouts, setDivision, startCup, titlesOf, unifyTitles, vacateTitle } from './belts';
 import { bookerPool, setCard } from './card';
@@ -11,6 +12,11 @@ import { formAlliance, setPayoff, startStory, storiesOf, turn, turnsOf } from '.
 import { begin, day, quick } from './testkit';
 import { BELTS, FEATURES, STORY } from './tuning';
 import type { Career, Show } from './types';
+
+// The big cut hid this; the tests bring it back so the code keeps working.
+let putBack = (): void => {};
+beforeEach(() => { putBack = bringBack(); });
+afterEach(() => putBack());
 
 let was = false;
 beforeEach(() => { was = FEATURES.booker; FEATURES.booker = true; });

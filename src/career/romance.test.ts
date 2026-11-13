@@ -1,6 +1,7 @@
 // Romance and family (Lyra's relationships redesign, stage 4): attraction, couples in a lived-in world, your love life
 // from first date to wedding (and break-ups), neglect and cheating, the rest of the world in love, and life and death.
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { bringBack } from './cut.testkit';
 import { TITLES, WRESTLERS, type Wrestler } from '../data/rtr';
 import { seededRng } from '../engine/rng';
 import { activeWorld } from '../world/world';
@@ -14,6 +15,11 @@ import { moodTarget } from './socialLife';
 import { begin, day, quick } from './testkit';
 import { ROMANCE } from './tuning';
 import type { Career } from './types';
+
+// The big cut hid this; the tests bring it back so the code keeps working.
+let putBack = (): void => {};
+beforeEach(() => { putBack = bringBack(); });
+afterEach(() => putBack());
 
 const P = () => activeWorld().people!;
 /** Someone for you: the right sort for each other, set to how they feel. */

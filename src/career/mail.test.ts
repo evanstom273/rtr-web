@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { bringBack } from './cut.testkit';
 import { findWrestler, fansTotal } from '../data/rtr';
 import { simMyMatch } from '../ui/career/simMine';
 import { advancePhase, myBoutToday, replyTo, skip } from './index';
@@ -9,6 +10,11 @@ import { patienceOf } from './patience';
 import { begin, quick } from './testkit';
 import { FEATURES } from './tuning';
 import type { Career } from './types';
+
+// The big cut hid this; the tests bring it back so the code keeps working.
+let putBack = (): void => {};
+beforeEach(() => { putBack = bringBack(); });
+afterEach(() => putBack());
 
 const DEFAULTS = { ...FEATURES };
 afterEach(() => { Object.assign(FEATURES, DEFAULTS); });

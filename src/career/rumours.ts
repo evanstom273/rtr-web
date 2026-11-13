@@ -18,7 +18,7 @@ import { registerReplies } from './mail';
 import { phoneOn, pvoice, registerTopics, sendIn } from './phone';
 import { pickLine } from './phoneLines';
 import { moveRelation } from './relations';
-import { ANGLES, RUMOURS } from './tuning';
+import { ANGLES, FEATURES, RUMOURS } from './tuning';
 import { voiceOf } from './voice';
 import type { Career } from './types';
 
@@ -231,7 +231,7 @@ registerTopics({
 
 setAngles(
   (c, ids, rnd) => {
-    if (rnd() >= ANGLES.chance) return null;
+    if (!FEATURES.politics || rnd() >= ANGLES.chance) return null;
     const set = new Set(ids);
     let best: [string, string] | null = null, worst = 0;
     for (const id of ids) for (const { other, bond } of bondsOf(P(), id)) {
@@ -255,7 +255,8 @@ setAngles(
 // ------------------------------------------------------------------ hooks
 
 function daily(c: Career): void {
-  if (weekday(c.today) !== 3) return; // Wednesdays: the week's gossip.
+  // The big cut (Lyra's call): gossip goes with locker-room politics.
+  if (!FEATURES.politics || weekday(c.today) !== 3) return; // Wednesdays: the week's gossip.
   const rnd = seededRng(hashSeed(c.seed, 'rumours', c.today));
   arise(c, rnd);
   spread(c, rnd);

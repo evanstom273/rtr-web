@@ -370,7 +370,7 @@ Noise is about ±2 points. Aggressive and Defensive got gentler downsides afterw
 - Each change is recorded in history.
 - Veterans with Mentor bring on a young wrestler near them: +1 a month to their weakest attribute, up to +4, and a mentor bond.
 
-## Social media (on)
+## Social media (hidden: the big cut, `docs/cut.md`)
 
 Optional and light, between matches (`career/social.ts`, `FEATURES.social`). There's no follower count, and posting takes no time.
 
@@ -603,7 +603,7 @@ Budgets for the expansion:
 - main-thread work 50 ms or less a day;
 - saving 60 ms or less.
 
-## Days, travel, day jobs and skipping (on)
+## Days, travel, day jobs and skipping (on; day jobs hidden: the big cut, `docs/cut.md`)
 
 `career/day.ts`, `career/skip.ts`, `FEATURES.days` / `jobs` / `skip`.
 
@@ -699,7 +699,7 @@ Every switch on: days, jobs, skipping, social, living costs.
 - That's about 1 s a day on one thread, with the main thread taking 5–7 ms a day.
 - In the browser the pool of up to 4 workers shares that out. A 30-day skip should take roughly 8–12 s on a 4-core phone (target 15 s). This is worked out from the per-day figures, not measured in a browser.
 
-## Mail (on)
+## Mail (on; check-ins and the press hidden: the big cut, `docs/cut.md`)
 
 Lyra's calls: everything in a result letter, wrestlers writing, weekly check-ins, a weekly digest, the press, tabs by type, replies on anything, bundled volume, in-character voices, world news from everywhere, ignoring sometimes matters, every kind of mail can stop a skip, a year kept. `career/mail.ts`, `career/voice.ts`, `FEATURES.mail`.
 
@@ -876,7 +876,7 @@ Lyra's call: during a skip, your character answers mail by standing orders, set 
 
 The skip sheet also takes **a number of days** (1–365) as well as tomorrow, a week, a month and your next booking.
 
-## Contracts: the 25 clauses (on)
+## Contracts: the 25 clauses (on; 11 hidden by the big cut, `docs/cut.md`)
 
 Lyra's design, built across stages 1–8: `clauses.ts` (the clauses, groups, promotion characters, packages), `deals.ts` (everyone's deals, exclusivity rules, AI deals, rewriting old contracts), `contracts.ts` (negotiation and signing), `exclusive.ts`, `creative.ts`, `money.ts`, `body.ts`, `shape.ts` and `conduct.ts` (what each clause does), and the screens `Negotiate.tsx`, `Contract.tsx`, `Creative.tsx`, `Rebrand.tsx` and `Epilogue.tsx`. Every number is in `tuning.ts` under *Clauses* and is a **proposal**, waiting on Lyra's approval.
 
@@ -1174,7 +1174,7 @@ Most of the people without a friend are indie wrestlers, who seldom share a card
 
 **Next stages:** the phone (messages, topics and tones), plans and activities, romance and family, politics (booking, chemistry, the locker room, cliques, enemies), and gossip and angles.
 
-## Relationships and social life, stage 2: the phone (on)
+## Relationships and social life, stage 2: the phone (hidden: the big cut, `docs/cut.md`)
 
 The engine is in `career/phone.ts`, the words in `career/phoneLines.ts` and the screen in `ui/career/Phone.tsx`. `FEATURES.phone` is on (Lyra approved the screens). Every number is in `tuning.ts` under *The phone*, and all of them are **proposals**.
 
@@ -1217,7 +1217,7 @@ Replies to them move feelings by the `PHONE_REPLY` numbers. Ignoring family or a
 
 **Tone of the writing** (Lyra's call): grown-up and sweary where it fits the person.
 
-## Relationships and social life, stage 3: plans and activities (on)
+## Relationships and social life, stage 3: plans and activities (hidden with the phone: the big cut)
 
 `career/plans.ts` (with words in `phoneLines.ts`). Every number is in `tuning.ts` under *Plans and activities*, and all of them are **proposals**.
 
@@ -1284,7 +1284,7 @@ Lending is always yours to decide.
   - They pay you back in 4–8 weeks if they're the sort: 80% usually, 95% if reliable, 60% if mercenary.
   - If they don't, you can chase it with *Ask for your money back*. They might pay up; if not, −2.
 
-## Relationships and social life, stage 4: romance and family (on)
+## Relationships and social life, stage 4: romance and family (hidden: the big cut; the world's deaths still run)
 
 `career/romance.ts`, with attraction and couple seeding in `world/social.ts` and the words in `phoneLines.ts`. Every number is in `tuning.ts` under *Romance and family*, and all of them are **proposals**. Romance fades to black.
 
@@ -1338,7 +1338,7 @@ Lending is always yours to decide.
 - **Deaths:** no deaths in that year, as intended (about one every few years).
 - **Speed and size:** a day's time is about the same.
 
-## Relationships and social life, stage 5: politics (on)
+## Relationships and social life, stage 5: politics (hidden: the big cut, `docs/cut.md`)
 
 `career/politics.ts`, with hooks into the match engine (`rules.chemistry`), booking (`setPairBias`), signings (`setSigningPull`), contender pushes, patience and fines. Every number is in `tuning.ts` under *Politics*, and all of them are **proposals**.
 
@@ -1387,7 +1387,7 @@ and away from enemies (−3 each), as points on the signing grade.
 - **Relationships:** your standing in each locker room, its leaders, and your clique.
 - **A wrestler's file:** their clique (and whether they lead it).
 
-## Relationships and social life, stage 6: gossip and angles (on)
+## Relationships and social life, stage 6: gossip and angles (hidden with politics: the big cut)
 
 `career/rumours.ts`, with the real-heat hook in `booker.ts` (`setAngles`). Every number is in `tuning.ts` under *Gossip and angles*, and all of them are **proposals**. All six stages' numbers are on one page in `docs/relationships-numbers.md`, generated from `tuning.ts`.
 

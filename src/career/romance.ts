@@ -22,7 +22,7 @@ import { LOVE_ANSWER, LOVE_SAY, LOVE_SENT, FAMILY_SENT, pickLine, type Tone } fr
 import { freeSlots, makeMeet, onMeet, slotLabel, type Meet } from './plans';
 import { moveRelation, readOf, relationOf } from './relations';
 import { handover } from './staff';
-import { COST_INDEX, LIFE, ROMANCE, SOCIAL_NEWS_MAX } from './tuning';
+import { COST_INDEX, FEATURES, LIFE, ROMANCE, SOCIAL_NEWS_MAX } from './tuning';
 import type { Career } from './types';
 import { CITIES } from './places';
 
@@ -364,7 +364,7 @@ function lifeEvents(c: Career, rnd: Rng): void {
     const age = Math.floor(daysBetween(s.born, c.today) / 365.25);
     if (rnd() < L.death.base + Math.max(0, age - L.death.from) * L.death.perYear) die(c, s.id, rnd);
   }
-  familyOf(c, rnd);
+  if (FEATURES.romance) familyOf(c, rnd);
 }
 
 /** Someone close tells you their news (a baby, a parent ill, a death in the family). */
@@ -457,7 +457,8 @@ export function die(c: Career, id: string, rnd: Rng): void {
 function daily(c: Career): void {
   // A lived-in world's couples (once): for a world made before romance existed, today.
   if (!P().loves) seedCouplesSync(c, activeWorld().seed);
-  yourLife(c, seededRng(hashSeed(c.seed, 'love', c.today)));
+  // The big cut (Lyra's call): romance and family are hidden; the world still lives and dies.
+  if (FEATURES.romance) yourLife(c, seededRng(hashSeed(c.seed, 'love', c.today)));
 }
 function seedCouplesSync(c: Career, s: number): void {
   seedCouples({ seed: s, day: c.today, wrestlers: WRESTLERS, people: P(), out: (id) => id.startsWith('__') || !!c.people[id]?.retired, orient: (id) => orient(c, id), age: (id) => ageOf(c, id) });
@@ -466,7 +467,7 @@ function seedCouplesSync(c: Career, s: number): void {
 function monthly(c: Career): void {
   newsThisMonth = 0;
   const rnd = seededRng(hashSeed(c.seed, 'love-month', c.today));
-  worldInLove(c, rnd);
+  if (FEATURES.romance) worldInLove(c, rnd);
   lifeEvents(c, rnd);
   // Old shocks fade out of the record.
   for (const L of Object.values(P().lives ?? {})) if (L.shocks) { L.shocks = L.shocks.filter((s) => s.until > c.today); if (!L.shocks.length) delete L.shocks; }

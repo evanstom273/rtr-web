@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { bringBack } from '../cut.testkit';
 import { findWrestler } from '../../data/rtr';
 import { marketIdx } from '../../world/lifeWorld';
 import { spend } from '../career';
@@ -13,6 +14,11 @@ import { hireAgent, taxOn } from './money';
 import { life, liveHome } from './state';
 import { band, legHalves, tripCost, tripFatigue } from './travel';
 import { seizeHome } from './homes';
+
+// The big cut hid this; the tests bring it back so the code keeps working.
+let putBack = (): void => {};
+beforeEach(() => { putBack = bringBack(); });
+afterEach(() => putBack());
 
 const was = FEATURES.life;
 /** A career with Life on, whatever LIFE_ON / LIFE_OFF say. */

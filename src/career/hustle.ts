@@ -267,8 +267,8 @@ const SPONSOR_OFFER: EventDef = {
 };
 function sponsorMonth(c: Career): void {
   const h = hustleOf(c);
-  // Ending: renewed at more if you've kept posting, otherwise gone.
-  const posted = c.social?.last && daysBetween(c.social.last, c.today) <= SPONSOR.postedDays;
+  // Ending: renewed at more if you've kept posting (with social media hidden, kept wrestling), otherwise gone.
+  const posted = FEATURES.social ? c.social?.last && daysBetween(c.social.last, c.today) <= SPONSOR.postedDays : !!c.history[0] && daysBetween(c.history[0].day, c.today) <= SPONSOR.postedDays;
   for (const s of h.sponsors.filter((x) => x.until <= c.today)) {
     if (posted && !blocked(c, 'sponsor')) {
       s.monthly = r5(s.monthly * SPONSOR.renew); s.until = addDays(c.today, SPONSOR.months[1] * 30); s.renewed = true;

@@ -22,7 +22,7 @@ import { ctxFor, eventLibrary, fire, onAnswer } from './events';
 import { setSigningPull } from './scouting';
 import { registerReplies } from './mail';
 import { phoneOn, sendIn } from './phone';
-import { ANGLES, CHEM, CLIQUE, ENEMY, EVENT_MIN_GAP, PAIRING, PULL, ROOM } from './tuning';
+import { ANGLES, CHEM, CLIQUE, ENEMY, EVENT_MIN_GAP, FEATURES, PAIRING, PULL, ROOM } from './tuning';
 import type { Bout, Career, PlayerMatch, Show } from './types';
 import { boutPeople } from './bouts';
 
@@ -43,13 +43,17 @@ function chemistry(c: Career, a: string, b: string): number {
   return Math.round(Math.max(CHEM.min, Math.min(CHEM.max, v)) * 100) / 100;
 }
 
+// The big cut (Lyra's call): locker-room politics is hidden; with it off, none of it touches the game.
+const off = () => !FEATURES.politics;
+
 setPolitics({
-  chem: chemistry,
-  stiff: (_c, victim, other) => (hates(other, victim) ? CHEM.stiffInjury : 1),
-  refuse: (_c, loser, winner) => (hates(loser, winner) ? CHEM.refuseNudge : 0),
+  chem: (c, a, b) => (off() ? 0 : chemistry(c, a, b)),
+  stiff: (_c, victim, other) => (!off() && hates(other, victim) ? CHEM.stiffInjury : 1),
+  refuse: (_c, loser, winner) => (!off() && hates(loser, winner) ? CHEM.refuseNudge : 0),
 });
 
 setPairBias((a, b) => {
+  if (off()) return 1;
   const x = bondOf(P(), a, b);
   if (!x) return 1;
   const k = kindOf(x);
@@ -222,6 +226,7 @@ export function foughtBack(c: Career, who: string): string {
 
 /** A signing leans towards friends and a partner on the roster, away from enemies there (points on their grade). */
 export function pull(_c: Career, w: Wrestler, promo: string): number {
+  if (off()) return 0;
   let friends = 0, v = 0;
   for (const { other, bond } of bondsOf(P(), w.id)) {
     const o = findWrestler(other);
@@ -240,8 +245,8 @@ setSigningPull(pull);
 onAnswer((c, ev, opt) => { if (ev !== 'provoked' || opt !== 'bite') return; const l = c.letters.find((x) => x.action?.type === 'event' && x.action.event === 'provoked' && x.picked); if (l?.fromId) foughtBack(c, l.fromId); });
 
 setCareerHooks({
-  mine: afterMine,
-  daily: (c) => backstageTrouble(c, seededRng(hashSeed(c.seed, 'politics', c.today))),
-  monthly: (c) => { const rnd = seededRng(hashSeed(c.seed, 'politics-month', c.today)); roomMonth(c); cliqueMonth(c, rnd); badmouthing(c); },
+  mine: (c, show, b, m) => { if (!off()) afterMine(c, show, b, m); },
+  daily: (c) => { if (!off()) backstageTrouble(c, seededRng(hashSeed(c.seed, 'politics', c.today))); },
+  monthly: (c) => { if (off()) return; const rnd = seededRng(hashSeed(c.seed, 'politics-month', c.today)); roomMonth(c); cliqueMonth(c, rnd); badmouthing(c); },
 });
 

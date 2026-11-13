@@ -140,7 +140,7 @@ export function ShowDay({ c, onBack, onPlay, onSegment }: Props) {
                   ? <span className="c-ad">{g.score}★ · {g.note}{g.heat ? ` · heat ${g.heat > 0 ? '+' : ''}${g.heat}` : ''}</span>
                   : (
                     <span className="c-chips" style={{ marginTop: 4 }}>
-                      <button className="c-chip on" onClick={() => onSegment?.(show.id, i)}>{w('Play it')}</button>
+                      {FEATURES.playSegments && <button className="c-chip on" onClick={() => onSegment?.(show.id, i)}>{w('Play it')}</button>}
                       <button className="c-chip" onClick={() => { const r = simSegment(c, show, i); say(r.lines[0] ?? 'Done.'); commit(); bump((n) => n + 1); }}>{w('Sim it')}</button>
                     </span>
                   )}

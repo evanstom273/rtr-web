@@ -1,6 +1,7 @@
 // Gossip and angles (Lyra's relationships redesign, stage 6): rumours arise and spread, believing one moves feelings,
 // you're told and can answer, you can start one (and be found out), and bookers turn real heat into storylines.
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { bringBack } from './cut.testkit';
 import { rosterOf, WRESTLERS, type Wrestler } from '../data/rtr';
 import { activeWorld } from '../world/world';
 import { ensureBond, likeOf } from '../world/people';
@@ -10,6 +11,11 @@ import { rumoursOf } from './rumours';
 import { begin, day, quick } from './testkit';
 import { ANGLES, RUMOURS } from './tuning';
 import type { Career } from './types';
+
+// The big cut hid this; the tests bring it back so the code keeps working.
+let putBack = (): void => {};
+beforeEach(() => { putBack = bringBack(); });
+afterEach(() => putBack());
 
 const P = () => activeWorld().people!;
 const set = (c: Career, a: string, b: string, la: number, lb: number, f = 60) => {

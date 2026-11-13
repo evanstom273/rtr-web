@@ -1,6 +1,7 @@
 // Booker mode, stage 6 (Lyra's design): the ways in (offered, applying, buying, handed one), owners (goals, meddling,
 // the sack), selling up, and the war (poaching, startups).
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { bringBack } from './cut.testkit';
 import { PROMOTIONS, WRESTLERS } from '../data/rtr';
 import { activeWorld } from '../world/world';
 import { feelPair, likeOf } from '../world/people';
@@ -11,6 +12,11 @@ import { approach, contractWith, offer, type Approach } from './signing';
 import { begin, day, quick } from './testkit';
 import { FEATURES, OWNER, WAR } from './tuning';
 import type { Career } from './types';
+
+// The big cut hid this; the tests bring it back so the code keeps working.
+let putBack = (): void => {};
+beforeEach(() => { putBack = bringBack(); });
+afterEach(() => putBack());
 
 let was = false;
 beforeEach(() => { was = FEATURES.booker; FEATURES.booker = true; });

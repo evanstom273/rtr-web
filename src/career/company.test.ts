@@ -1,6 +1,7 @@
 // Booker mode, stage 1 (Lyra's design): every promotion's a company with an owner; you can found your own, take one
 // on (one major and one indie at most), set its schedule, and booking takes office hours out of your week.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { bringBack } from './cut.testkit';
 import { PROMOTIONS, rosterOf, WRESTLERS } from '../data/rtr';
 import { activeWorld } from '../world/world';
 import { bookerOf } from '../world/people';
@@ -9,6 +10,11 @@ import { canRun, companyOf, foundPromotion, leaveRole, nightRule, officeNeed, of
 import { addDays, weekday } from './dates';
 import { begin, day, quick } from './testkit';
 import { FEATURES, FOUND } from './tuning';
+
+// The big cut hid this; the tests bring it back so the code keeps working.
+let putBack = (): void => {};
+beforeEach(() => { putBack = bringBack(); });
+afterEach(() => putBack());
 
 let was = false;
 beforeEach(() => { was = FEATURES.booker; FEATURES.booker = true; });

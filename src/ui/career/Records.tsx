@@ -7,6 +7,7 @@ import { bondsOf, kindOf } from '../../world/people';
 import { homeOf, schoolOf } from '../../world/social';
 import { ATTR_KEYS, ATTR_LONG, CLASS_NAME, divisionName } from '../../career/create';
 import { daysBetween, fmtDay } from '../../career/dates';
+import { FEATURES } from '../../career/tuning';
 import { stipulation } from '../../engine';
 import { activeWorld } from '../../world/world';
 import { archivedLabel, archivedName, archivedWinner, archivedWon, promotionStory, reignsOf, titleLineage, wrestlerHistory, type ArchivedShow, type WorldEvent } from '../../world/history';
@@ -355,8 +356,8 @@ function Life({ c, id }: { c: Career; id: string }) {
         <span className="c-lab">{w('Trained at')}</span><span className="c-val">{school.name}</span>
         {goal && <><span className="c-lab">{w('After')}</span><span className="c-val">{GOAL_TEXT[goal.kind]}{goal.kind === 'even' && goal.on ? `: ${nameOf(goal.on)}` : ''}</span></>}
         <span className="c-lab">{w(me ? 'Wellbeing' : 'Seems')}</span><span className="c-val">{read === 'none' ? 'Hard to say: you don’t know them well enough' : moodLabel(moodOf(id))}</span>
-        {cliqueOf(c, id) && <><span className="c-lab">{w('In')}</span><span className="c-val">{cliqueOf(c, id)!.name}{cliqueOf(c, id)!.leader === id ? ' (leads it)' : ''}</span></>}
-        {lover && <><span className="c-lab">{w('With')}</span><span className="c-val">{nameOf(lover.other)} · {LOVE_LABEL[lover.bond.love!.st].toLowerCase()}{P?.folk?.[lover.other] ? ' (not in the business)' : ''}</span></>}
+        {FEATURES.politics && cliqueOf(c, id) && <><span className="c-lab">{w('In')}</span><span className="c-val">{cliqueOf(c, id)!.name}{cliqueOf(c, id)!.leader === id ? ' (leads it)' : ''}</span></>}
+        {FEATURES.romance && lover && <><span className="c-lab">{w('With')}</span><span className="c-val">{nameOf(lover.other)} · {LOVE_LABEL[lover.bond.love!.st].toLowerCase()}{P?.folk?.[lover.other] ? ' (not in the business)' : ''}</span></>}
         {life?.died && <><span className="c-lab">{w('Died')}</span><span className="c-val">{fmtDay(life.died, 'long')}</span></>}
         {close.length > 0 && <><span className="c-lab">{w('Close to')}</span><span className="c-val">{close.join(', ')}</span></>}
         {rivals.length > 0 && <><span className="c-lab">{w('Rivals')}</span><span className="c-val">{rivals.join(', ')}</span></>}

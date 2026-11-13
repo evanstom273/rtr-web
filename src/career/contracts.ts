@@ -5,7 +5,7 @@ import { leanFrom, playerHas } from './leans';
 import { findWrestler, PROMOTIONS, rosterOf } from '../data/rtr';
 import { seededRng } from '../engine/rng';
 import { hashSeed, promoRegion, regionalPop } from './booker';
-import { attitude, C, CLAUSES, packageClauses, PACKAGES, type PackageId, patience, tierOf, triggerSlots, type BonusTrigger } from './clauses';
+import { attitude, C, CLAUSES, clauseOn, packageClauses, PACKAGES, type PackageId, patience, tierOf, triggerSlots, type BonusTrigger } from './clauses';
 import { beltsOnMove, leavingHooks, letter, person, promoName, setCareerHooks, spend } from './career';
 import { addDays, addMonths, daysBetween, fmtDay } from './dates';
 import { addDeal, dealsOf, dealWith, dropDeal, openToSecond, playerPackage, promoteDeal } from './deals';
@@ -61,6 +61,7 @@ export function clauseCost(promo: string, base: number, i: number, tier: number)
   if (i === C.exclusivity) return round5(base * EXCL_COST[tier]! * EXCL_ATTITUDE[attitude(promo, i)]);
   if (!tier) return 0;
   const id = CLAUSES[i]!.id;
+  if (!clauseOn(id)) return 0;
   return round5(base * CLAUSE_COST[id][tier - 1]! * ATTITUDE_MULT[attitude(promo, i)]);
 }
 
@@ -335,7 +336,7 @@ setCareerHooks({ offer: offerDeal });
 /** Wage Matching Tier 1: ask for a review against comparable wrestlers on the roster. */
 export function payReview(c: Career): string {
   const k = person(c, c.player).contract;
-  if (!k || (k.clauses[C.wage] ?? 0) < 1) return 'Your contract has no Wage Matching.';
+  if (!k || tierOf(k, 'wage') < 1) return 'Your contract has no Wage Matching.';
   if (k.lastReview && daysBetween(k.lastReview, c.today) < WAGE_REVIEW_MONTHS * 30) return `You can ask again after ${fmtDay(addMonths(k.lastReview, WAGE_REVIEW_MONTHS), 'dm')}.`;
   k.lastReview = c.today;
   const me = findWrestler(c.player)!;
@@ -354,7 +355,7 @@ export function payReview(c: Career): string {
 export function matchRival(c: Career, offerId: string): string {
   const k = person(c, c.player).contract;
   const o = c.offers.find((x) => x.id === offerId);
-  if (!k || !o || (k.clauses[C.wage] ?? 0) < 2) return 'Your contract doesn’t let you do that.';
+  if (!k || !o || tierOf(k, 'wage') < 2) return 'Your contract doesn’t let you do that.';
   if (o.fee > k.fee * WAGE_MATCH_T2_MAX) return `${k.promo} won’t go that high.`;
   k.fee = Math.max(k.fee, o.fee);
   o.status = 'declined';

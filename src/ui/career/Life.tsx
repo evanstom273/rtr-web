@@ -26,6 +26,11 @@ interface Props { c: Career; onBack: () => void }
 
 const FLAUNT_LABEL: Record<FlauntKind, string> = { home: 'Post the house', car: 'Post the car', jet: 'Turn up in the jet', luxury: 'Show off the good stuff', party: 'Throw a party' };
 const TABS = ['Home', 'Getting about', 'Your team', 'Invest', 'School', 'Money'] as const;
+type Tab = (typeof TABS)[number];
+/** The tabs still in the game (the big cut hid homes, getting about, staff and investing). */
+const tabOn = (t: Tab): boolean =>
+  t === 'Home' || t === 'Getting about' ? on('homes') : t === 'Your team' ? on('staff') || on('entrance') : t === 'Invest' ? on('invest') : t === 'School' ? on('school') : true;
+const tabName = (t: Tab): string => (t === 'Your team' && !on('staff') ? 'Your entrance' : t);
 
 /** Every city, by country (for moving and buying). */
 function CityPick({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) {
@@ -43,7 +48,8 @@ function CityPick({ value, onChange, label }: { value: string; onChange: (v: str
 /** Career → Life: where you live and what you own, how you get about, and the money side (tax, credit, the agent). */
 export function Life({ c, onBack }: Props) {
   const { skin, w } = useWords();
-  const [tab, setTab] = useState<(typeof TABS)[number]>('Home');
+  const shown = TABS.filter(tabOn);
+  const [tab, setTab] = useState<Tab>(shown[0] ?? 'Money');
   const [toast, say] = useToast();
   const [, bump] = useState(0);
   const L = life(c);
@@ -63,19 +69,18 @@ export function Life({ c, onBack }: Props) {
       <div className="c-start">
         <span className="c-lab">{w('What you’re worth')}</span>
         <b className="c-sbig" style={{ fontSize: 32 }}>{money(worth)}</b>
-        <div className="c-facts" style={{ gridTemplateColumns: `repeat(${invested ? 5 : 4}, minmax(0, 1fr))` }}>
+        <div className="c-facts" style={{ gridTemplateColumns: `repeat(${2 + (on('homes') ? 2 : 0) + (invested ? 1 : 0)}, minmax(0, 1fr))` }}>
           <span className="c-fact"><span className="c-lab">{w('Bank')}</span><b>{shortMoney(c.money)}</b></span>
-          <span className="c-fact"><span className="c-lab">{w('Homes')}</span><b>{shortMoney(homesValue(c))}</b></span>
-          <span className="c-fact"><span className="c-lab">{w('Garage')}</span><b>{shortMoney(garageValue(c))}</b></span>
+          {on('homes') && <span className="c-fact"><span className="c-lab">{w('Homes')}</span><b>{shortMoney(homesValue(c))}</b></span>}
+          {on('homes') && <span className="c-fact"><span className="c-lab">{w('Garage')}</span><b>{shortMoney(garageValue(c))}</b></span>}
           {invested > 0 && <span className="c-fact"><span className="c-lab">{w('Invested')}</span><b>{shortMoney(invested)}</b></span>}
           <span className="c-fact"><span className="c-lab">{w('Owed')}</span><b className={owed ? 'c-amt neg' : ''}>{shortMoney(owed)}</b></span>
         </div>
       </div>
       <div className="c-steps cols3" style={{ marginTop: 8 }}>
-        {TABS.filter((t) => (t !== 'Invest' || on('invest')) && (t !== 'School' || on('school'))).map((t) => <button key={t} className={t === tab ? 'c-st on' : 'c-st'} style={{ border: 0 }} onClick={() => setTab(t)}>{w(t)}</button>)}
+        {shown.map((t) => <button key={t} className={t === tab ? 'c-st on' : 'c-st'} style={{ border: 0 }} onClick={() => setTab(t)}>{w(tabName(t))}</button>)}
       </div>
       <div className="c-body">
-        {!on('homes') && <span className="c-note">Life is switched off.</span>}
 
         {tab === 'Home' && on('homes') && (
           <>
@@ -258,6 +263,10 @@ export function Life({ c, onBack }: Props) {
                 </div>
               );
             })()}
+          </>
+        )}
+        {tab === 'Your team' && on('entrance') && (
+          <>
             <span className="c-sec">{w('Your entrance')}</span>
             <span className="c-note">It sets the crowd’s heat at the bell (at most +{PB.entrance.max}). Pyro needs the top of the card or the entrance term in your contract; a set needs a big show too.</span>
             <div className="c-chips">
@@ -291,13 +300,13 @@ export function Life({ c, onBack }: Props) {
                 </div>
               </>
             )}
-            <span className="c-sec">{w('Credit and borrowing')}</span>
-            <div className="c-kv">
+            {(on('homes') || on('invest') || L.loans.length > 0) && <span className="c-sec">{w('Credit and borrowing')}</span>}
+            {(on('homes') || on('invest') || L.loans.length > 0) && <div className="c-kv">
               <span className="c-lab">{w('Credit')}</span><span className="c-val">{L.credit} · {creditWord(c)}</span>
               <span className="c-lab">{w('Can borrow')}</span><span className="c-val">{money(canBorrow(c))}</span>
               {on('risk') && <><span className="c-lab">{w('Overdraft')}</span><span className="c-val">Down to −{money(overdraftOf(c))}; past that, the bank makes you sell things</span></>}
               {on('risk') && isBust(c) && <><span className="c-lab">{w('Bankrupt')}</span><span className="c-val c-hot">Until {L.bust}: no borrowing, and deals are worse</span></>}
-            </div>
+            </div>}
             {L.loans.map((l) => (
               <div key={l.id} className="c-kv">
                 <span className="c-lab">{w(l.what)}</span>

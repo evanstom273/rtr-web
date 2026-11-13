@@ -2,6 +2,8 @@ import { useState, type KeyboardEvent } from 'react';
 import { findWrestler, type Staffer } from '../../data/rtr';
 import { bookerName, cliqueOf, dealsOf, leadersOf, memoryLine, memoryOf, MOOD_WHY, moodLabel, moodOf, patienceOf, person, phoneOn, roomLabel, standingOf, promoName, readOf, relLabel, relationsList, trust, trustLabel, type Career } from '../../career';
 import { daysBetween, fmtDay } from '../../career/dates';
+import { FEATURES } from '../../career/tuning';
+import { askTeamUp, splitOffer, splitWith, teamUpOffer } from '../../career/teamPhone';
 import { activeWorld } from '../../world/world';
 import { bookerOf, jobLabel, likeOf, type Orientation } from '../../world/people';
 import { homeOf, schoolOf } from '../../world/social';
@@ -35,6 +37,9 @@ export function Relationships({ c, onBack, onMessage }: Props) {
   const [tab, setTab] = useState(0);
   const [file, setFile] = useState<string | null>(null);
   const [, redraw] = useState(0);
+  const [said, setSaid] = useState<Record<string, string>>({});
+  // With the phone hidden (the big cut), teaming up is asked from here.
+  const team = (id: string, f: typeof askTeamUp) => { const r = f(c, id); setSaid((s) => ({ ...s, [id]: `“${r.reply}” ${r.note}` })); commit(); redraw((n) => n + 1); };
   const me = findWrestler(c.player)!;
   const P = activeWorld().people;
   const seed = activeWorld().seed;
@@ -66,12 +71,12 @@ export function Relationships({ c, onBack, onMessage }: Props) {
         <span className="c-val">{(life?.why ?? []).map((x) => MOOD_WHY[x.slice(1)] ?? x).join(' · ') || 'Wellbeing: how your life’s going, in and out of the ring.'}</span>
         <span className="c-hint">{summary}</span>
         <span className="c-hint">{home ? `${home}, ` : ''}{c.base ?? me.country} · trained at {school.name}</span>
-        {dealsOf(person(c, c.player)).map((k) => {
+        {FEATURES.politics && dealsOf(person(c, c.player)).map((k) => {
           const v = standingOf(c, k.promo);
           const leaders = leadersOf(c, k.promo).map((id) => findWrestler(id)?.name).filter(Boolean);
           return <span key={k.promo} className="c-hint">{k.promo} locker room: <b>{roomLabel(v)}</b> ({Math.round(v)}){leaders.length ? ` · leaders ${leaders.join(', ')}` : ''}</span>;
         })}
-        {cliqueOf(c, c.player) && <span className="c-hint">You’re in {cliqueOf(c, c.player)!.name} (led by {findWrestler(cliqueOf(c, c.player)!.leader)?.name ?? '?'})</span>}
+        {FEATURES.politics && cliqueOf(c, c.player) && <span className="c-hint">You’re in {cliqueOf(c, c.player)!.name} (led by {findWrestler(cliqueOf(c, c.player)!.leader)?.name ?? '?'})</span>}
       </div>
       <div className="c-steps cols2" style={{ marginTop: 8 }}>
         {['People', 'Bookers'].map((t, i) => <button key={t} className={i === tab ? 'c-st on' : 'c-st'} style={{ border: 0 }} onClick={() => setTab(i)}>{w(t)}</button>)}
@@ -97,10 +102,17 @@ export function Relationships({ c, onBack, onMessage }: Props) {
                 </>
               )}
               <span className="c-ad">{knowsLabel(r.fam ?? 0)}{why ? ` · ${fmtDay(why.day, 'dm')}: ${why.t}` : ` · met ${fmtDay(r.met, 'dm')}`}</span>
+              {!phoneOn() && (() => {
+                const up = teamUpOffer(c, id), split = splitOffer(c, id);
+                if (said[id]) return <span className="c-val">{said[id]}</span>;
+                if (split) return <span className="c-chips"><button className="c-chip" onClick={() => team(id, splitWith)}>{split.label}</button></span>;
+                if (!up || up.blocked) return null;
+                return <span className="c-chips"><button className="c-chip" onClick={() => team(id, askTeamUp)}>{up.label}</button></span>;
+              })()}
             </div>
           );
         }) : <span className="c-note">Nobody yet. The people on the card with you, matches, favours and run-ins backstage build relationships.</span>)}
-        {tab === 0 && (
+        {tab === 0 && FEATURES.romance && (
           <>
             <span className="c-sec">{w('You')}</span>
             <span className="c-hint">{w('Your orientation (yours to set; everyone else has their own, which you learn by getting to know them).')}</span>

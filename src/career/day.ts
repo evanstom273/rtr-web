@@ -346,8 +346,9 @@ const TROUBLE: EventDef = {
   from: () => 'Your bank', subject: () => 'You’re well overdrawn',
   body: (x) => [`You’re £${Math.round(-x.c.money).toLocaleString('en-GB')} overdrawn and the rent keeps coming.`, 'Something has to give.'],
   options: [
-    { id: 'gig', label: 'Sign up for gig work', detail: (x) => `£${shiftPay(x.c, 'gig')} a shift, six mornings a week, drop it whenever`, run: (x) => `${takeJob(x.c, 'gig')}: you start today.` },
-    { id: 'job', label: 'Take a job off the board', detail: (x) => JOBS[jobBoard(x.c)[0]!].name, run: (x) => `${takeJob(x.c, jobBoard(x.c)[0]!)}: you start next Monday.` },
+    // Day jobs are hidden (the big cut, Lyra's call): then it's a friend or riding it out.
+    { id: 'gig', label: 'Sign up for gig work', hidden: () => !FEATURES.jobs, detail: (x) => `£${shiftPay(x.c, 'gig')} a shift, six mornings a week, drop it whenever`, run: (x) => `${takeJob(x.c, 'gig')}: you start today.` },
+    { id: 'job', label: 'Take a job off the board', hidden: () => !FEATURES.jobs, detail: (x) => JOBS[jobBoard(x.c)[0]!].name, run: (x) => `${takeJob(x.c, jobBoard(x.c)[0]!)}: you start next Monday.` },
     {
       id: 'loan', label: 'Borrow from a friend', detail: () => `£${FRIEND_LOAN.toLocaleString('en-GB')}, paid back from your fees`,
       hidden: (x) => !friend(x.c),
@@ -382,7 +383,7 @@ function daily(c: Career): void {
       if (l) c.events!.seen.move_offer = k.start;
     }
   }
-  if (FEATURES.jobs && !c.job && c.money <= MONEY_TROUBLE_AT && (!c.moneyTroubleAt || daysBetween(c.moneyTroubleAt, c.today) >= MONEY_TROUBLE_EVERY)) {
+  if (!(FEATURES.jobs && c.job) && c.money <= MONEY_TROUBLE_AT && (!c.moneyTroubleAt || daysBetween(c.moneyTroubleAt, c.today) >= MONEY_TROUBLE_EVERY)) {
     if (!Object.values(c.events?.open ?? {}).some((o) => o.id === 'money_trouble') && fire(ctxFor(c), TROUBLE, {})) c.moneyTroubleAt = c.today;
   }
   if (c.job && new Date(`${c.today}T12:00:00Z`).getUTCDay() === 1 && c.today.slice(5) === '01-01') c.job.holiday = JOB_HOLIDAY;

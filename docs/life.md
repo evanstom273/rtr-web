@@ -5,7 +5,9 @@ nothing to spend it on). Life gives money somewhere to go, at every level: a ban
 megastar. Everything has upkeep, some of it earns back, and the risk is real. The numbers are the price book Lyra
 approved (`PRICE_BOOK` and `CITY_PRICE` in `career/tuning.ts`).
 
-Switches: `FEATURES.life` (on) and `LIFE_PARTS` (each part on as it's built). `on(part)` in `career/life/state.ts`.
+Switches: `FEATURES.life` (on) and `LIFE_PARTS`. `on(part)` in `career/life/state.ts`. **The big cut (`docs/cut.md`)
+hid everything but the money side (tax, the agent), the school and your entrance (`LIFE_PARTS.entrance`, split out of
+staff).**
 Tests: `LIFE_ON=1` / `LIFE_OFF=1` run the suite either way; `life.test.ts`; `ECON=1` has a careful and a flash star;
 `scripts/life-sweep.mjs` checks the screens (three skins, phone and fold).
 

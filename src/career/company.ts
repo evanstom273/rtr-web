@@ -60,7 +60,7 @@ const history = () => activeWorld().history;
 
 /** Why you can't take on a promotion (null: you can). */
 export function canRun(c: Career, promo: string): string | null {
-  if (!FEATURES.booker) return 'Booker mode isn’t switched on yet.';
+  if (!FEATURES.booker || !FEATURES.bookerMode) return 'Booker mode isn’t switched on.';
   const co = companyOf(promo);
   if (!co || co.closed) return 'There’s no such promotion.';
   if (roleIn(c, promo)) return 'You already run it.';
@@ -124,7 +124,7 @@ export interface Founding {
 
 /** Why a founding wouldn't work (null: it would). */
 export function foundingProblem(c: Career, f: Founding): string | null {
-  if (!FEATURES.booker) return 'Booker mode isn’t switched on yet.';
+  if (!FEATURES.booker || !FEATURES.bookerMode) return 'Booker mode isn’t switched on.';
   const name = f.name.trim(), ini = f.initials.trim().toUpperCase();
   if (!name) return 'Give it a name.';
   if (name.length > FOUND.nameMax) return 'That name’s too long.';

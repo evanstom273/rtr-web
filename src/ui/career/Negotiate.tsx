@@ -102,7 +102,7 @@ export function Negotiate({ c, offerId, onBack, onDone }: Props) {
         <div className="c-modes" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
           {CONTRACT_MONTHS.map((n) => <button key={n} className={p.months === n ? 'c-mode on' : 'c-mode'} style={{ minHeight: 40 }} onClick={() => setP({ ...p, months: n })}><b>{n} {w('mo')}</b></button>)}
         </div>
-        {on('staff') && (
+        {on('entrance') && (
           <>
             <span className="c-lab">{w('Entrance & production')}</span>
             <div className="c-chips">

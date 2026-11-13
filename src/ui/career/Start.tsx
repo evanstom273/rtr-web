@@ -112,7 +112,7 @@ export function Start({ hasCareer, fresh, onBack, onPick, onCreate, onHistory }:
           </button>
         </div>
       )}
-      {picked && FEATURES.booker && (
+      {picked && FEATURES.booker && FEATURES.bookerMode && (
         <div className="c-chips">
           <button className={`c-chip${!booking ? ' on' : ''}`} onClick={() => setBooking('')}>{w('Just wrestle')}</button>
           <button className={`c-chip${booking === 'found' ? ' on' : ''}`} onClick={() => setBooking('found')}>{w('+ Found a promotion')}</button>
