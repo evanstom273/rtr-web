@@ -52,12 +52,12 @@ export function Finances({ c, onBack }: Props) {
               : <span className="c-val">You owe {adv.k.promo} {money(adv.owed)}: it comes out of your fees.</span>}
           </div>
         )}
-        {(FEATURES.livingCosts || c.job) && (
+        {(FEATURES.livingCosts || (FEATURES.jobs && c.job)) && (
           <div className="c-kv">
             {FEATURES.livingCosts && (on('homes')
               ? <><span className="c-lab">{w('Home')}</span><span className="c-val">{homeName(liveHome(c))} · {money(liveHome(c).own ? billsOf(liveHome(c)) : rentWeek(liveHome(c).tier as 'room', liveHome(c).city))} a week, every Monday</span></>
               : <><span className="c-lab">{w('Living costs')}</span><span className="c-val">{money(livingCost(baseRegion(c)))} a week in {REGION_LABEL[baseRegion(c)]}, every Monday</span></>)}
-            {c.job && <><span className="c-lab">{w('Day job')}</span><span className="c-val">{JOBS[c.job.id].name} · {money(shiftPay(c, c.job.id))} a shift, paid Fridays</span></>}
+            {FEATURES.jobs && c.job && <><span className="c-lab">{w('Day job')}</span><span className="c-val">{JOBS[c.job.id].name} · {money(shiftPay(c, c.job.id))} a shift, paid Fridays</span></>}
           </div>
         )}
         <span className="c-sec">{w('Since you started', 'Since day one')}</span>

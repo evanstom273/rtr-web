@@ -610,7 +610,8 @@ export function feudRules(c: Career, show: Show, a: string, b: string): { heat: 
   return { heat, ...(f.payoff === show.id ? { payoff: true } : {}), ...(f.edge === a ? { edge: 'you' as const } : f.edge === b ? { edge: 'them' as const } : {}) };
 }
 setFeudRulesHook(feudRules);
-setSegStop((c) => { if (!on() || routineOf(c).simMine) return null; const t = segmentToday(c); return t ? `Your ${SEG_LABEL[t.g.kind].toLowerCase()} is up` : null; });
+// Playing segments went in the big cut (Lyra's call): then they're always simmed, and a skip never stops for one.
+setSegStop((c) => { if (!on() || !FEATURES.playSegments || routineOf(c).simMine) return null; const t = segmentToday(c); return t ? `Your ${SEG_LABEL[t.g.kind].toLowerCase()} is up` : null; });
 
 /**
  * Skipping with "Sim them" on (Lyra's call: all of it, answers too): a rival's call-out is answered for you, by who you

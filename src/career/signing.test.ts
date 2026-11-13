@@ -1,5 +1,6 @@
 // Booker mode, stage 5 (Lyra's design): signing from the other side, your roster's feelings about you, and staff.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { bringBack } from './cut.testkit';
 import { fansIn, rosterOf, TITLES, WRESTLERS, type Wrestler } from '../data/rtr';
 import { activeWorld } from '../world/world';
 import { bondOf, feelPair, likeOf } from '../world/people';
@@ -14,6 +15,11 @@ import { approach, contractWith, homeRegion, offer, releaseFrom, worth, type App
 import { begin, day, quick } from './testkit';
 import { FEATURES, MORALE, SIGN, STAFF } from './tuning';
 import type { Career } from './types';
+
+// The big cut hid this; the tests bring it back so the code keeps working.
+let putBack = (): void => {};
+beforeEach(() => { putBack = bringBack(); });
+afterEach(() => putBack());
 
 let was = false;
 beforeEach(() => { was = FEATURES.booker; FEATURES.booker = true; });

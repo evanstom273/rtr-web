@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { bringBack } from '../cut.testkit';
 import { begin as kitBegin } from '../testkit';
 import { FEATURES } from '../tuning';
 import { fansTotal, findWrestler } from '../../data/rtr';
@@ -9,6 +10,11 @@ import { flaunt, flauntWhat } from './status';
 import { divorce, kidsOf, monthlyFamily } from './family';
 import { netWorth } from './worth';
 import { life } from './state';
+
+// The big cut hid this; the tests bring it back so the code keeps working.
+let putBack = (): void => {};
+beforeEach(() => { putBack = bringBack(); });
+afterEach(() => putBack());
 
 const was = FEATURES.life;
 const begin = (who: string, seed?: number) => { const c = kitBegin(who, seed); (FEATURES as { life: boolean }).life = true; return c; };

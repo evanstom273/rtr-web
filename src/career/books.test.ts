@@ -1,6 +1,7 @@
 // Booker mode, stage 4 (Lyra's design): full books for every company; your money and the company's; tiers moving;
 // TV and sponsors; going bust.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { bringBack } from './cut.testkit';
 import { PROMOTIONS, rosterOf, WRESTLERS } from '../data/rtr';
 import { activeWorld } from '../world/world';
 import { borrow, closeCompany, invest, setWage, withdraw } from './books';
@@ -9,6 +10,11 @@ import { replyTo } from './mail';
 import { begin, day, quick } from './testkit';
 import { BIZ, FEATURES } from './tuning';
 import type { Career, Show } from './types';
+
+// The big cut hid this; the tests bring it back so the code keeps working.
+let putBack = (): void => {};
+beforeEach(() => { putBack = bringBack(); });
+afterEach(() => putBack());
 
 let was = false;
 beforeEach(() => { was = FEATURES.booker; FEATURES.booker = true; });

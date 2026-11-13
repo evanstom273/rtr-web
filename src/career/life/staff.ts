@@ -149,7 +149,7 @@ export function entranceFor(c: Career, show: Show, bout: Bout): { heat: number; 
 }
 
 setEntranceHook((c, show, bout, you, them): MatchRulesConfig['entrance'] => {
-  if (!on('staff') || c.spectator || !c.life?.gear) return undefined;
+  if (!on('entrance') || c.spectator || !c.life?.gear) return undefined;
   const side = you === c.player ? 'you' : them === c.player ? 'them' : null;
   if (!side) return undefined;
   const e = entranceFor(c, show, bout);
@@ -160,7 +160,7 @@ setEntranceHook((c, show, bout, you, them): MatchRulesConfig['entrance'] => {
 
 /** After your match: pay for the pyro and the set. */
 export function payEntrance(c: Career, show: Show, bout: Bout): void {
-  if (!on('staff')) return;
+  if (!on('entrance')) return;
   const e = entranceFor(c, show, bout);
   if (e.cost) spend(c, -e.cost, `Entrance · ${show.name}`, 'event', { untaxed: true });
 }

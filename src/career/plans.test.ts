@@ -1,6 +1,7 @@
 // Plans and activities (Lyra's relationships redesign, stage 3): making plans from the phone, the half-day they take,
 // going (or being stood up), cancelling, gifts, borrowing and lending, sharing the drive, invitations, standing orders.
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { bringBack } from './cut.testkit';
 import { WRESTLERS } from '../data/rtr';
 import { activeWorld } from '../world/world';
 import { bondOf, ensureBond, likeOf } from '../world/people';
@@ -14,6 +15,11 @@ import { send, threadOf, topicsFor } from './phone';
 import { addDays } from './dates';
 import { begin, day, quick } from './testkit';
 import type { Career } from './types';
+
+// The big cut hid this; the tests bring it back so the code keeps working.
+let putBack = (): void => {};
+beforeEach(() => { putBack = bringBack(); });
+afterEach(() => putBack());
 
 const P = () => activeWorld().people!;
 function friend(c: Career, like = 80, fam = 70): string {

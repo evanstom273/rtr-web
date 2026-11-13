@@ -1,6 +1,7 @@
 // Politics (Lyra's relationships redesign, stage 5): chemistry in the ring, enemies who won't put you over, the locker
 // room and its leaders, cliques, badmouthing, signings pulled by friends and partners, bookers who like you.
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { bringBack } from './cut.testkit';
 import { rosterOf, WRESTLERS, type Wrestler } from '../data/rtr';
 import { activeWorld } from '../world/world';
 import { bondOf, bookerOf, ensureBond } from '../world/people';
@@ -12,6 +13,11 @@ import type { SimOut } from './sim';
 import { begin, day, quick } from './testkit';
 import { CHEM, ROOM } from './tuning';
 import type { Career, Show } from './types';
+
+// The big cut hid this; the tests bring it back so the code keeps working.
+let putBack = (): void => {};
+beforeEach(() => { putBack = bringBack(); });
+afterEach(() => putBack());
 
 const P = () => activeWorld().people!;
 const set = (c: Career, a: string, b: string, la: number, lb: number, ra = 0, rb = 0, f = 50) => {

@@ -1,6 +1,7 @@
 // Booker mode, stage 2 (Lyra's design): the card you book, finishes, segments, the whole show judged, watching a
 // match, your staff booking what you leave, and booking yourself.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { bringBack } from './cut.testkit';
 import { rosterOf, TITLES, WRESTLERS } from '../data/rtr';
 import { activeWorld } from '../world/world';
 import { bondOf } from '../world/people';
@@ -13,6 +14,11 @@ import type { SimOut } from './sim';
 import { begin, day, quick } from './testkit';
 import { FEATURES } from './tuning';
 import type { Career, Show } from './types';
+
+// The big cut hid this; the tests bring it back so the code keeps working.
+let putBack = (): void => {};
+beforeEach(() => { putBack = bringBack(); });
+afterEach(() => putBack());
 
 let was = false;
 beforeEach(() => { was = FEATURES.booker; FEATURES.booker = true; });

@@ -101,6 +101,8 @@ export function Calendar({ c, busy, skipping, onStop, onSkip, note, awayLog, onA
   ].join(' · ');
   const waiting = countersWaiting(c).length;
   const unread = c.letters.filter((l) => !l.read && !isPhoneLetter(l)).length;
+  // The big cut (Lyra's call): booker mode's hidden; a save that already books keeps its Office.
+  const office = FEATURES.booker && (FEATURES.bookerMode || !!c.office?.roles.length);
   const texts = phoneUnread(c);
   const next = useMemo(() => {
     for (let i = 1; i < 60; i++) {
@@ -213,14 +215,14 @@ export function Calendar({ c, busy, skipping, onStop, onSkip, note, awayLog, onA
         </div>
       </div>
 
-      <nav className={`c-tabs4 ${['four', 'five', 'six', 'seven'][3 + (FEATURES.booker ? 1 : 0) + (FEATURES.life ? 1 : 0) - 2]}`}>
+      <nav className={`c-tabs4 ${['four', 'five', 'six', 'seven'][3 + (office ? 1 : 0) + (FEATURES.life ? 1 : 0) - 2]}`}>
         <button onClick={() => onOpen('letters')}>{skin === 'paper' ? 'Letters' : 'Mail'}{unread > 0 && <span className="c-badge">{unread}</span>}</button>
         <button onClick={() => onOpen('profile')}>{w('Career')}</button>
         <button onClick={() => onOpen('training')}>{w('Training')}</button>
         <button onClick={() => onOpen('records')}>{skin === 'paper' ? 'Records' : 'DATABASE'}</button>
         <button onClick={() => onOpen('requests')}>{w('Requests')}{waiting > 0 && <span className="c-badge">{waiting}</span>}</button>
         {FEATURES.life && <button onClick={() => onOpen('life')}>{w('Life')}</button>}
-        {FEATURES.booker && <button onClick={() => onOpen('office')}>{w('Office')}</button>}
+        {office && <button onClick={() => onOpen('office')}>{w('Office')}</button>}
       </nav>
 
       {sheet && (
@@ -307,7 +309,7 @@ export function Calendar({ c, busy, skipping, onStop, onSkip, note, awayLog, onA
                 <button key={String(l)} className={`c-chip${ordersOf(c).on === v ? ' on' : ''}`} onClick={() => { ordersOf(c).on = v as boolean; commit(); }}>{w(l as string)}</button>
               ))}
             </div>
-            <span className="c-lab" style={{ marginTop: 4 }}>{w('Your matches and segments')}</span>
+            <span className="c-lab" style={{ marginTop: 4 }}>{w(FEATURES.playSegments ? 'Your matches and segments' : 'Your matches')}</span>
             <div className="c-chips">
               {[[false, 'Stop for them'], [true, 'Sim them']].map(([v, l]) => (
                 <button key={String(l)} className={`c-chip${routineOf(c).simMine === v ? ' on' : ''}`} onClick={() => { routineOf(c).simMine = v as boolean; commit(); }}>{w(l as string)}</button>
@@ -317,7 +319,7 @@ export function Calendar({ c, busy, skipping, onStop, onSkip, note, awayLog, onA
               <>
                 <span className="c-lab" style={{ marginTop: 4 }}>{w('Stop for mail')}</span>
                 <div className="c-chips">
-                  {([['decisions', 'Decisions'], ['people', 'People'], ['checkins', 'Check-ins'], ['news', 'News & results']] as const).map(([k, label]) => {
+                  {([['decisions', 'Decisions'], ['people', 'People'], ...(FEATURES.checkIns ? [['checkins', 'Check-ins']] as const : []), ['news', 'News & results']] as const).map(([k, label]) => {
                     const f = routineOf(c).stopFor ?? { decisions: true, people: true, checkins: true, news: true };
                     return <button key={k} className={`c-chip${f[k] ? ' on' : ''}`} onClick={() => { routineOf(c).stopFor = { ...f, [k]: !f[k] }; commit(); }}>{w(label)}</button>;
                   })}

@@ -81,6 +81,10 @@ The AI puts its feuds' segments on TV and big shows (up to two a show); yours go
 also ask for one (Feuds screen, the calendar's show sheet, show day): promo, face to face, beat-down, run-in, contract
 signing, backstage, interview. The booker answers straight away (about 45%, plus reputation and heat).
 
+**The big cut (`docs/cut.md`, `FEATURES.playSegments` off): segments aren't played any more.** Yours are simmed (Sim
+it on show day, or after the show), and a skip never stops for one. What follows is how playing them works, kept for if
+it comes back.
+
 On show day: **Play it** or **Sim it**. Skipping stops for them, like your matches, unless you've set "Your matches and
 segments: Sim them" (the skip sheet, or the week's settings). Then a long skip sims your segments like your matches,
 the feud's letters (it's building, they're posting about you, the blow-off's set) land in your mail without stopping

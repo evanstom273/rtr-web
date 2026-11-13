@@ -6,6 +6,7 @@ import {
   STAGES, stageOf, START_HINT, START_LABEL, startFeud, titleAtStake, titleName, type StartHow,
 } from '../../career/feuds';
 import { STAKE_LABEL, type StakeKind } from '../../career/stakes';
+import { FEATURES } from '../../career/tuning';
 import type { Career, Feud } from '../../career/types';
 import { fmtFans, fansTotal, findWrestler, TITLES } from '../../data/rtr';
 import { stipulation } from '../../engine';
@@ -71,7 +72,7 @@ export function Feuds({ c, onBack, onPlay }: { c: Career; onBack: () => void; on
                 {f.edge && <><span className="c-lab">{w('The crowd')}</span><span className="c-val">{f.edge === c.player ? 'With you, going into your next match with them' : `With ${nameOf(f.edge)}, going into your next match`}</span></>}
                 {next && <><span className="c-lab">{w('Next')}</span><span className="c-val">{next.name}, {fmtDay(next.date, 'dm')}{segs.length ? ` · your ${segs.map(([, g]) => SEG_LABEL[g.kind].toLowerCase()).join(', ')}` : ''}</span></>}
               </div>
-              {next && segs.filter(([, g]) => g.score === undefined && next.date === c.today).map(([i, g]) => (
+              {next && FEATURES.playSegments && segs.filter(([, g]) => g.score === undefined && next.date === c.today).map(([i, g]) => (
                 <button key={i} className="c-b1" style={{ marginTop: 6, width: '100%' }} onClick={() => onPlay(next.id, i)}>{w(`Play your ${SEG_LABEL[g.kind].toLowerCase()}`)}</button>
               ))}
               {next && !segs.length && <FeudAsk c={c} show={next} say={done} title={false} />}

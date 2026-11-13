@@ -1,10 +1,16 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { bringBack } from './cut.testkit';
 import { findWrestler } from '../data/rtr';
 import { freshWorld, setWorld } from '../world/world';
 import { C, CLAUSES, NO_CLAUSES } from './clauses';
 import { askForSpot, indieAllowed, dayOff, exitTerms, gate, leaveContract, makeOffer, matchPay, mood, propose, signOffer, startCareer, willingness } from './index';
 import type { Career } from './types';
 import { who } from './testkit';
+
+// The big cut hid this; the tests bring it back so the code keeps working.
+let putBack = (): void => {};
+beforeEach(() => { putBack = bringBack(); });
+afterEach(() => putBack());
 
 function begin(player = 'jamie_mercer'): Career {
   const w = setWorld(freshWorld(5));

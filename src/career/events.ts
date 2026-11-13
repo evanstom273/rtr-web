@@ -20,8 +20,10 @@ import { movePatience, showBooker } from './patience';
 import { moveRelation, remember } from './relations';
 import {
   EVENT_BLOCKED_MULT, EVENT_BUSY_MULT, EVENT_CHAMP_MULT, EVENT_DAILY_BASE, EVENT_EXPIRES_DAYS, EVENT_FREE_AGENT_MULT, EVENT_MAX_OPEN, EVENT_MIN_GAP, EVENT_QUIET_MULT,
-  EVENT_STAR_MULT, EVENT_UNKNOWN_MULT,
+  EVENT_STAR_MULT, EVENT_UNKNOWN_MULT, FEATURES,
 } from './tuning';
+/** Journalists' events: hidden with the press (the big cut, Lyra's call). */
+const PRESS_EVENTS = ['podcast', 'journalist_finish', 'newspaper_profile', 'contract_question'];
 import type { Career, Contract, EventChoice, Letter, Person, PopRegion, RelKind, Show } from './types';
 
 export type EventCat = 'training' | 'community' | 'media' | 'backstage' | 'career' | 'personal' | 'fun';
@@ -205,6 +207,7 @@ export function eligible(x: EvCtx): { d: EventDef; w: number }[] {
   const ev = x.c.events ?? blankEvents();
   const lastCats = ev.log.slice(0, 2).map((l) => LIBRARY.find((d) => d.id === l.id)?.cat);
   return LIBRARY.filter((d) => {
+    if (!FEATURES.press && PRESS_EVENTS.includes(d.id)) return false;
     const seen = ev.seen[d.id];
     if (seen && daysBetween(seen, x.day) < d.cooldown) return false;
     return d.when(x);

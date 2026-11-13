@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { bringBack } from './cut.testkit';
 import { fansTotal, findWrestler } from '../data/rtr';
 import { C } from './clauses';
 import { addDays, addMonths } from './dates';
@@ -6,6 +7,11 @@ import { advanceAvailable, leaveContract, makeOffer, rebrand, signOffer, takeAdv
 import { buyBackName } from './money';
 import { begin, day } from './testkit';
 import type { Career } from './types';
+
+// The big cut hid this; the tests bring it back so the code keeps working.
+let putBack = (): void => {};
+beforeEach(() => { putBack = bringBack(); });
+afterEach(() => putBack());
 
 const k = (c: Career) => c.people[c.player]!.contract!;
 // Before tax and the agent (Life): what was paid, not what reached the bank.

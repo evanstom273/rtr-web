@@ -95,6 +95,8 @@ export function resultLetter(c: Career, show: Show, bout: Bout, m: PlayerMatch, 
   const vars = { you: me.name, opp: opp.name, show: show.name, city: show.city, stars: stars(m.stars), winner, title: TITLES.find((t) => t.id === m.title)?.name ?? '' };
   const bank = m.stars >= 4 ? FAN_POSTS.great : m.stars >= 3 ? FAN_POSTS.good : m.stars >= 2 ? FAN_POSTS.meh : FAN_POSTS.poor;
   const posts: MatchReport['posts'] = [];
+  // The big cut (Lyra's call): with social media hidden, no reaction online.
+  if (FEATURES.social) {
   if (m.wonTitle || (m.title && m.result === 'loss' && bout.result?.newChamp)) posts.push({ who: fanHandle(rnd), text: fill(pick(rnd, FAN_POSTS.title), vars) });
   if (m.planned === 'upset' || m.planned === 'off-script') posts.push({ who: fanHandle(rnd), text: pick(rnd, FAN_POSTS.upset) });
   if (m.stars >= 3.5 || rnd() < 0.5) posts.push({ who: opp.name, id: opp.id, text: line(voiceOf(opp.id), 'post_after', rnd, vars) });
@@ -106,6 +108,7 @@ export function resultLetter(c: Career, show: Show, bout: Bout, m: PlayerMatch, 
     if (used.has(t) && used.size < bank.length) continue;
     used.add(t);
     posts.push({ who: fanHandle(rnd), text: fill(t, vars) });
+  }
   }
 
   const outcome = m.result === 'win' ? 'You beat' : m.result === 'loss' ? 'You lost to' : 'A draw with';
@@ -128,7 +131,8 @@ export function resultLetter(c: Career, show: Show, bout: Bout, m: PlayerMatch, 
 
 /** After your match: maybe a word from your opponent, and from a friend if it was big. */
 export function afterMatchMail(c: Career, show: Show, m: PlayerMatch): void {
-  if (!FEATURES.mail) return;
+  // People writing just to chat went in the big cut (Lyra's call).
+  if (!FEATURES.mail || !FEATURES.checkIns) return;
   const rnd = seededRng(hashSeed(c.seed, 'mail-people', show.id));
   const me = findWrestler(c.player)!, opp = findWrestler(m.opp);
   if (opp && rnd() < MAIL_OPP_CHANCE) {
@@ -416,12 +420,14 @@ function mentorNote(c: Career): void {
 function daily(c: Career): void {
   if (!FEATURES.mail || c.spectator) return;
   lapse(c);
+  // The big cut (Lyra's call): check-ins (the booker's, a mentor's) and the press (journalists, the weekly digest) are
+  // hidden. Without the digest, the week's world news stays in the Records, not the mail.
   if (weekday(c.today) === 1) {
-    if (c.digestAt !== c.today) { c.digestAt = c.today; digest(c); }
-    if (c.checkinAt !== c.today) { c.checkinAt = c.today; checkIn(c); }
-    mentorNote(c);
+    if (c.digestAt !== c.today) { c.digestAt = c.today; if (FEATURES.press) digest(c); else delete c.mailBox; }
+    if (FEATURES.checkIns && c.checkinAt !== c.today) { c.checkinAt = c.today; checkIn(c); }
+    if (FEATURES.checkIns) mentorNote(c);
   }
-  press(c);
+  if (FEATURES.press) press(c);
   keep(c);
 }
 

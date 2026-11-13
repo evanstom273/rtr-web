@@ -1,5 +1,6 @@
 import { ordersOf, type Career } from '../../career';
 import type { AwayOrders } from '../../career/types';
+import { FEATURES } from '../../career/tuning';
 import { commit, money, useWords } from './parts';
 
 /** My week › Away: standing orders for answering mail while you skip (Lyra's call). */
@@ -29,11 +30,11 @@ export function Away({ c }: { c: Career }) {
       <span className="c-sec">{w('Career events')}</span>
       <div className="c-chips">{chip(o.events === 'yes', 'Say yes', () => { o.events = 'yes'; })}{chip(o.events === 'no', 'Say no', () => { o.events = 'no'; })}{chip(o.events === 'leave', 'Ask me', () => { o.events = 'leave'; })}</div>
 
-      <span className="c-sec">{w('People and press')}</span>
+      <span className="c-sec">{w(FEATURES.press ? 'People and press' : 'People')}</span>
       <div className="c-chips">{chip(o.people === 'gracious', 'Gracious', () => { o.people = 'gracious'; })}{chip(o.people === 'cocky', 'Cocky', () => { o.people = 'cocky'; })}{chip(o.people === 'fiery', 'Fiery', () => { o.people = 'fiery'; })}{chip(o.people === 'leave', 'Ask me', () => { o.people = 'leave'; })}</div>
 
-      <span className="c-sec">{w('Invitations')}</span>
-      <div className="c-chips">{chip((o.invites ?? 'close') === 'close', 'Yes to people I’m close to', () => { o.invites = 'close'; })}{chip(o.invites === 'no', 'Say no', () => { o.invites = 'no'; })}{chip(o.invites === 'leave', 'Ask me', () => { o.invites = 'leave'; })}</div>
+      {FEATURES.phone && <span className="c-sec">{w('Invitations')}</span>}
+      {FEATURES.phone && <div className="c-chips">{chip((o.invites ?? 'close') === 'close', 'Yes to people I’m close to', () => { o.invites = 'close'; })}{chip(o.invites === 'no', 'Say no', () => { o.invites = 'no'; })}{chip(o.invites === 'leave', 'Ask me', () => { o.invites = 'leave'; })}</div>}
 
       <span className="c-sec">{w('Contract offers')}</span>
       <div className="c-chips">{chip(!o.contracts.on, 'Ask me', () => { o.contracts.on = false; })}{chip(o.contracts.on && o.contracts.same, 'Re-sign only', () => { o.contracts.on = true; o.contracts.same = true; })}{chip(o.contracts.on && !o.contracts.same, 'Any promotion', () => { o.contracts.on = true; o.contracts.same = false; })}</div>

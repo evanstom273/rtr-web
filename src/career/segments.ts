@@ -15,7 +15,7 @@ import { letter as post, person } from './career';
 import { segmentDone, nameOf, rivalOf, setSimMine, stageOf } from './feuds';
 import { moveRelation } from './relations';
 import { postToFeed } from './social';
-import { FEUD_PLAY as FP } from './tuning';
+import { FEATURES, FEUD_PLAY as FP } from './tuning';
 import type { Career, Feud, SegKind, Segment, Show } from './types';
 
 /** A storyline beat (Lyra's call: a skip with "Sim them" on carries on past it). */
@@ -267,9 +267,9 @@ export function finishSegment(c: Career, show: Show, i: number, o: { promo?: Pro
   }
   if (o.brawl?.over === 'laid' && rival) lines.push(`${first(rival)} left you laying.`);
   if (o.brawl?.over === 'standing') lines.push('You’re the one left standing.');
-  // Going round online: a great line or an awful one.
+  // Going round online: a great line or an awful one (social media; the big cut hid it).
   const r = seededRng(hashSeed(c.seed, 'viral', show.id, i));
-  if ((great || botched) && r() < FP.viral) {
+  if (FEATURES.social && (great || botched) && r() < FP.viral) {
     const me = W(c.player)!;
     const mult = great ? 1 + FP.viralFans : 1 - FP.viralFans / 2;
     for (const reg of FAN_REGIONS) me.fans[reg] = Math.max(0, Math.round(me.fans[reg] * mult));

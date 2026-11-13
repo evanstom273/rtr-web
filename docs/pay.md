@@ -92,8 +92,8 @@ for Monthly or Both at renewal. Open offers too.
   could live with it, Not keen, Losing patience.
 - **Your standing caps the big clauses.** Standing is half your reputation and half where your drawing power puts
   you on their roster (0–100). Under 35 you can ask for Tier 1 at most of Creative Control, Guaranteed Pay, Merch,
-  Profit Share, Championship Opportunities, Push, Booking Commitments, Wage Matching, Signing Bonus and Image Rights;
-  under 60, Tier 2. Whatever they offered themselves stands (`NEGO_CAPS`, `clauseCap` in `contracts.ts`).
+  Profit Share, Championship Opportunities, Push and Image Rights (and Booking Commitments, Wage Matching and Signing
+  Bonus, hidden by the big cut); under 60, Tier 2. Whatever they offered themselves stands (`NEGO_CAPS`, `clauseCap` in `contracts.ts`).
 
 ## Leaving without your Character & Image Rights
 
