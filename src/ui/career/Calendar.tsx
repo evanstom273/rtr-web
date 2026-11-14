@@ -4,7 +4,7 @@ import { findWrestler, TITLES } from '../../data/rtr';
 import { activityAt, dropGig, isPhoneLetter, ordersOf, phoneOn, phoneUnread, hustleOf, showWorkPay, workShow, countersWaiting, cupLabel, firstAskable, myBoutToday, phaseOf, promoName, roundName, routineOf, showsOn, type Activity, type Career, type Show, type SkipTarget } from '../../career';
 import { FEATURES } from '../../career/tuning';
 import type { ReqRoute } from './Requests';
-import { addDays, dateOf, dayOf, daysInMonth, fmtDay, MONTHS, monthOf, weekday, yearOf } from '../../career/dates';
+import { addWeeks, fmtDay, MONTHS, monthOf, weekIn, weekOf, yearOf } from '../../career/dates';
 import { stipulation } from '../../engine';
 import { EventPopup } from './EventCard';
 import { commit, money, Nm, Screen, useToast, useWords } from './parts';
@@ -33,7 +33,6 @@ interface Props {
   onNegotiate: (offerId: string) => void;
 }
 
-const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const DOING: Record<Activity, string> = { show: 'wrestling', travel: 'travelling', moving: 'moving house', work: 'at work', train: 'training', rest: 'resting', hustle: 'on a side gig', content: 'making content', social: 'seeing people', office: 'in the office' };
 
 function mineOn(c: Career, day: string): { show: Show; indie: boolean } | null {
@@ -61,13 +60,13 @@ export function Calendar({ c, busy, skipping, onStop, onSkip, note, awayLog, onA
   const [open, setOpen] = useState<string | null>(null);
   const [toast, say] = useToast();
   const [skipSheet, setSkipSheet] = useState(false);
-  // Skip a number of days of your choosing (1–365).
+  // Skip a number of weeks of your choosing (1–48).
   // What's typed (so the box can be cleared mid-edit) and the number it means: 0 while it's empty.
-  const [nText, setNText] = useState('14');
-  const nDays = Math.min(365, Number(nText) || 0);
-  const setNDays = (n: number) => setNText(String(Math.max(1, Math.min(365, n))));
+  const [nText, setNText] = useState('4');
+  const nWeeks = Math.min(48, Number(nText) || 0);
+  const setNWeeks = (n: number) => setNText(String(Math.max(1, Math.min(48, n))));
   useEffect(() => { if (note) say(note.text); }, [note, say]);
-  // When the day moves on, the calendar follows it.
+  // When the week moves on, the calendar follows it.
   useEffect(() => {
     setSel(c.today);
     setView({ y: yearOf(c.today), m: monthOf(c.today) });
@@ -75,19 +74,14 @@ export function Calendar({ c, busy, skipping, onStop, onSkip, note, awayLog, onA
   const me = findWrestler(c.player)!;
   const p = c.people[c.player]!;
   const mine = myBoutToday(c);
-  // Days on: an AM and a PM. Your match is the PM; the morning is yours.
+  // A week has an AM and a PM (Lyra's call): the AM is yours, the PM is show night.
   const days = FEATURES.days;
   const ph = phaseOf(c);
   const toShow = !!mine && (!days || ph === 'pm');
   const doing = days ? DOING[activityAt(c, c.today, ph)] : '';
 
-  const cells = useMemo(() => {
-    const first = dayOf(view.y, view.m, 1);
-    const lead = (weekday(first) + 6) % 7;
-    const start = addDays(first, -lead);
-    const n = Math.ceil((lead + daysInMonth(view.y, view.m)) / 7) * 7;
-    return Array.from({ length: n }, (_, i) => addDays(start, i));
-  }, [view]);
+  // Four weeks a month.
+  const cells = useMemo(() => [1, 2, 3, 4].map((wk) => weekIn(view.y, view.m, wk)), [view]);
 
   const shows = showsOn(c, sel).sort((a, b) => {
     const am = mineOn(c, sel)?.show.id === a.id ? -1 : 0, bm = mineOn(c, sel)?.show.id === b.id ? -1 : 0;
@@ -105,8 +99,8 @@ export function Calendar({ c, busy, skipping, onStop, onSkip, note, awayLog, onA
   const office = FEATURES.booker && (FEATURES.bookerMode || !!c.office?.roles.length);
   const texts = phoneUnread(c);
   const next = useMemo(() => {
-    for (let i = 1; i < 60; i++) {
-      const d = addDays(c.today, i);
+    for (let i = 1; i <= 12; i++) {
+      const d = addWeeks(c.today, i);
       const m = mineOn(c, d);
       if (m) return `${fmtDay(d, 'dm')}: ${m.show.name}`;
     }
@@ -139,8 +133,8 @@ export function Calendar({ c, busy, skipping, onStop, onSkip, note, awayLog, onA
         </button>
         {phoneOn() && <button className="c-phoneb" onClick={() => onOpen('phone')} aria-label={`Phone${texts ? `, ${texts} unread` : ''}`}>{w('Phone')}{texts > 0 && <span className="c-badge">{texts}</span>}</button>}
         <div className="c-date">
-          <span>{fmtDay(c.today).split(' ')[0]!.toUpperCase().replace(',', '')}{days ? ` · ${ph.toUpperCase()}` : ''}</span>
-          <b>{dateOf(c.today)} {MONTHS[monthOf(c.today)]!.slice(0, 3).toUpperCase()}</b>
+          <span>{MONTHS[monthOf(c.today)]!.slice(0, 3).toUpperCase()} {yearOf(c.today)}{days ? ` · ${ph.toUpperCase()}` : ''}</span>
+          <b>{w('WEEK', 'Week')} {weekOf(c.today)}</b>
         </div>
       </div>
 
@@ -150,16 +144,15 @@ export function Calendar({ c, busy, skipping, onStop, onSkip, note, awayLog, onA
         <button aria-label="Next month" onClick={() => setView((v) => (v.m === 11 ? { y: v.y + 1, m: 0 } : { y: v.y, m: v.m + 1 }))}>›</button>
       </div>
 
-      <div className="c-grid">
-        {DOW.map((d, i) => <span key={i} className="c-dow">{d}</span>)}
+      <div className="c-grid weeks">
         {cells.map((d) => {
-          const out = monthOf(d) !== view.m;
+          const out = false;
           const m = mineOn(c, d);
           const n = showsOn(c, d).length;
           const cls = ['c-dcell', out && 'out', d < c.today && 'past', d === sel && 'sel', d === c.today && 'today', p.injury && d >= c.today && d < p.injury.until && 'hurt'].filter(Boolean).join(' ');
           return (
             <button key={d} className={cls} onClick={() => { setSel(d); if (out) setView({ y: yearOf(d), m: monthOf(d) }); }} aria-label={`${fmtDay(d, 'long')}: ${n} shows${m ? ', you’re booked' : ''}`}>
-              <b>{dateOf(d)}</b>
+              <b>{w('WK', 'Week')} {weekOf(d)}</b>
               <span className="c-tags">
                 {m && <span className={`c-mine${m.indie ? ' indie' : ''}`}>{m.indie ? 'INDIE' : m.show.promo}</span>}
                 {n > 0 && <span className="c-more">{n}</span>}
@@ -172,9 +165,9 @@ export function Calendar({ c, busy, skipping, onStop, onSkip, note, awayLog, onA
       <div className="c-advrow">
         <button className="c-adv" onClick={toShow ? onShowDay : onAdvance} disabled={busy !== null}>
           <span>
-            <b>{toShow ? w('To the show', 'To the show') : days ? (ph === 'am' ? w('On to the evening', 'To PM') : w('On to tomorrow', 'Next day')) : w('Next day', 'Advance day')}</b>
-            <span>{mine ? `${days && !toShow ? `This morning: ${doing} · tonight ` : ''}${mine.show.name} · ${vsLine(mine.bout, c.player, nameOf)}`
-              : `${days ? `This ${ph === 'am' ? 'morning' : 'evening'}: ${doing} · ` : ''}${next ? `Next booking: ${next}` : 'Nothing booked yet'}`}</span>
+            <b>{toShow ? w('To the show', 'To the show') : days ? (ph === 'am' ? w('On to show night', 'To PM') : w('On to next week', 'Next week')) : w('Next week', 'Advance week')}</b>
+            <span>{mine ? `${days && !toShow ? `This week: ${doing} · show night: ` : ''}${mine.show.name} · ${vsLine(mine.bout, c.player, nameOf)}`
+              : `${days ? `${ph === 'am' ? 'This week' : 'Show night'}: ${doing} · ` : ''}${next ? `Next booking: ${next}` : 'Nothing booked yet'}`}</span>
           </span>
           <i>›</i>
         </button>
@@ -197,11 +190,11 @@ export function Calendar({ c, busy, skipping, onStop, onSkip, note, awayLog, onA
 
       <div className="c-day">
         <div className="c-dayh">
-          <b>{sel === c.today ? w('Today', 'Today') : w(fmtDay(sel, 'long'), fmtDay(sel))}</b>
+          <b>{sel === c.today ? w('This week', 'This week') : w(fmtDay(sel, 'long'), fmtDay(sel))}</b>
           <span>{shows.length} {shows.length === 1 ? 'show' : 'shows'}</span>
         </div>
         <div className="c-shows">
-          {shows.length === 0 && <span className="c-empty">No shows anywhere this day.</span>}
+          {shows.length === 0 && <span className="c-empty">No shows anywhere this week.</span>}
           {shows.map((s) => {
             const st = status(s);
             return (
@@ -269,7 +262,7 @@ export function Calendar({ c, busy, skipping, onStop, onSkip, note, awayLog, onA
                   ? <div className="c-rowsb" style={{ marginTop: 6 }}><span className="c-val">{w('You’re working this show')}</span><button className="c-chip" onClick={() => { dropGig(c, `work|${sheet.id}`); commit(); say('Cancelled.'); }}>{w('Cancel')}</button></div>
                   : <div className="c-chips" style={{ marginTop: 6 }}>{(['ref', 'crew', 'commentary'] as const).map((r) => <button key={r} className="c-chip" onClick={() => { say(workShow(c, sheet, r)); commit(); }}>{w(`${r === 'ref' ? 'Referee' : r === 'crew' ? 'Ring crew' : 'Commentary'} · ${money(showWorkPay(c, r, sheet))}`)}</button>)}</div>
               ) : null;
-              if (sheet.date < firstAskable(c)) return <>{work}{sheet.date >= c.today ? <span className="c-note">{w('Cards for the next seven days are set.', 'Cards for the next 7 days are set')}</span> : null}</>;
+              if (sheet.date < firstAskable(c)) return <>{work}{sheet.date >= c.today ? <span className="c-note">{w('Cards for next week are set.', 'Next week’s cards are set')}</span> : null}</>;
               return <>{work}<button className="c-b1" style={{ marginTop: 6 }} onClick={() => { setOpen(null); onAsk(mine ? { req: 'book', tab: 0, show: sheet.id } : { req: 'spot', show: sheet.id }); }}>{w(mine ? 'Ask to be on this ›' : 'Ask for a spot ›')}</button></>;
             })()}
           </div>
@@ -283,24 +276,23 @@ export function Calendar({ c, busy, skipping, onStop, onSkip, note, awayLog, onA
               <button onClick={() => setSkipSheet(false)} aria-label="Close">✕</button>
             </div>
             {([
-              ['day', days ? 'To tomorrow morning' : 'A day', days ? 'The rest of today' : 'One day'],
-              [{ days: 7 }, 'A week', `To ${fmtDay(addDays(c.today, 7), 'long')}`],
-              [{ days: 30 }, 'A month', `To ${fmtDay(addDays(c.today, 30), 'long')}`],
-              ['booking', 'To my next booking', next ?? 'Nothing booked: up to 60 days'],
+              ['day', 'To next week', days ? 'The rest of this week' : 'One week'],
+              [{ days: 28 }, 'A month', `To ${fmtDay(addWeeks(c.today, 4), 'long')}`],
+              ['booking', 'To my next booking', next ?? 'Nothing booked: up to two months'],
             ] as [SkipTarget, string, string][]).map(([t, l, d]) => (
               <button key={l} className="c-ans" style={{ padding: '8px 10px' }} onClick={() => { setSkipSheet(false); onSkip(t); }}>
                 <b className="c-at" style={{ fontSize: 16 }}>{w(l)}</b><span className="c-ad">{d}</span>
               </button>
             ))}
             <div className="c-ans c-skipn" style={{ padding: '8px 10px' }}>
-              <span className="c-rowsb"><b className="c-at" style={{ fontSize: 16 }}>{w('A number of days')}</b><span className="c-ad">{nDays ? `To ${fmtDay(addDays(c.today, nDays), 'long')}` : '1 to 365'}</span></span>
+              <span className="c-rowsb"><b className="c-at" style={{ fontSize: 16 }}>{w('A number of weeks')}</b><span className="c-ad">{nWeeks ? `To ${fmtDay(addWeeks(c.today, nWeeks), 'long')}` : '1 to 48'}</span></span>
               <div className="c-cyc">
-                <button className="c-stepb" onClick={() => setNDays(Math.max(1, nDays - 1))} aria-label="One day fewer">−</button>
-                <input className="c-fld mid" type="text" inputMode="numeric" pattern="[0-9]*" maxLength={3} value={nText} aria-label="Days to skip"
-                  onChange={(e) => { const d = e.target.value.replace(/\D/g, ''); setNText(d && Number(d) > 365 ? '365' : d); }}
-                  onBlur={() => { if (nText) setNDays(Number(nText)); }} style={{ textAlign: 'center', fontSize: 18 }} />
-                <button className="c-stepb" onClick={() => setNDays(Math.min(365, nDays + 1))} aria-label="One day more">+</button>
-                <button className="c-b1" style={{ minHeight: 44, padding: '0 14px' }} disabled={!nDays} onClick={() => { setSkipSheet(false); onSkip({ days: nDays }); }}>{w('Go ›')}</button>
+                <button className="c-stepb" onClick={() => setNWeeks(Math.max(1, nWeeks - 1))} aria-label="One week fewer">−</button>
+                <input className="c-fld mid" type="text" inputMode="numeric" pattern="[0-9]*" maxLength={2} value={nText} aria-label="Weeks to skip"
+                  onChange={(e) => { const d = e.target.value.replace(/\D/g, ''); setNText(d && Number(d) > 48 ? '48' : d); }}
+                  onBlur={() => { if (nText) setNWeeks(Number(nText)); }} style={{ textAlign: 'center', fontSize: 18 }} />
+                <button className="c-stepb" onClick={() => setNWeeks(Math.min(48, nWeeks + 1))} aria-label="One week more">+</button>
+                <button className="c-b1" style={{ minHeight: 44, padding: '0 14px' }} disabled={!nWeeks} onClick={() => { setSkipSheet(false); onSkip({ days: nWeeks * 7 }); }}>{w('Go ›')}</button>
               </div>
             </div>
             <span className="c-lab" style={{ marginTop: 4 }}>{w('Your mail')}</span>

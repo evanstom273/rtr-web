@@ -1,6 +1,5 @@
-// Days (Lyra's calls): every day has an AM and a PM. What you do with a free phase comes from your
-// routine (train or rest), a day job's shifts, travel and moving take real time, and a booking reserves
-// the whole journey. Everything here is switched on by FEATURES.days / FEATURES.jobs with its screens.
+// Weeks (Lyra's calls): every week has an AM (yours) and a PM (show night). What you do with a free phase comes from
+// your routine (train or rest), travel to a show takes the week's AM, and a booking reserves the journey. Everything here is switched on by FEATURES.days / FEATURES.jobs with its screens.
 import { setAvailability } from './availability';
 import { findWrestler, type Wrestler } from '../data/rtr';
 import { hashSeed, seededRng } from '../engine/rng';
@@ -57,13 +56,11 @@ export function bookings(c: Career, extra?: Show, extraGig?: Gig): Booking[] {
 }
 
 const place = (country: string) => country;
-function legPhases(from: string, to: string, day: Day, after: boolean): Day[] | string[] {
-  if (from === to) return [];
-  const sameRegion = regionOfCountry(from) === regionOfCountry(to);
-  // Going out: the AM of the show day (same region) or the whole day before. Coming home: the next AM or the next day.
-  if (sameRegion) return [pkey(after ? addDays(day, 1) : day, 'am')];
-  const d = after ? addDays(day, 1) : addDays(day, -1);
-  return [pkey(d, 'am'), pkey(d, 'pm')];
+function legPhases(from: string, to: string, day: Day, after: boolean, am = false): Day[] | string[] {
+  // The 48-week calendar: a trip anywhere takes the show week's AM (you're home in time for the next week). Something
+  // that's on in the AM itself (a convention) has no AM to spare: you just go.
+  if (from === to || after || am) return [];
+  return [pkey(day, 'am')];
 }
 
 /** What fills each phase of your coming days: shows, the travel between them, and a move. */
@@ -75,7 +72,7 @@ export function occupied(c: Career, list = bookings(c)): Map<string, string[]> {
   const cities = on('homes');
   const home = { country: base, city: cities ? homeCity(c) : undefined };
   const legs = (from: { country: string; city?: string }, to: { country: string; city?: string }, day: Day, after: boolean, show: string, am = false): string[] =>
-    cities ? legHalves(c, from, to, day, after, show, am).map(([d, h]) => pkey(d, h)) : (legPhases(place(from.country), place(to.country), day, after) as string[]);
+    cities ? legHalves(c, from, to, day, after, show, am).map(([d, h]) => pkey(d, h)) : (legPhases(place(from.country), place(to.country), day, after, am) as string[]);
   list.forEach((b, i) => {
     put(pkey(b.day, b.ph), b.gig ? `the gig (${b.name})` : `the show (${b.name})`);
     // A whole-day gig's two halves are one trip.
@@ -127,8 +124,10 @@ function fitsGig(c: Career, g: Gig): string | null {
 function shiftsOf(job: DayJob): [number, PhaseName][] {
   return job.id === 'gig' ? job.gig ?? GIG_DEFAULT_SHIFTS : (JOBS[job.id].shifts as unknown as [number, PhaseName][]);
 }
+// A week's AM or PM now (the 48-week calendar): a job with any shifts in that half works it, and a shift is that half
+// of the week's work (day jobs are hidden by the big cut; this keeps them sane if they come back).
 export const isShift = (c: Career, day: Day, ph: PhaseName): boolean =>
-  !!c.job && day >= c.job.from && shiftsOf(c.job).some(([d, p]) => d === weekday(day) && p === ph);
+  !!c.job && day >= c.job.from && shiftsOf(c.job).some(([, p]) => p === ph);
 
 /** Shifts a booking (and its travel) would cut into. */
 export function jobClashes(c: Career, show: Show): string[] {
@@ -154,7 +153,8 @@ export function activityAt(c: Career, day: Day, ph: PhaseName): Activity {
   if (plan) return plan === 'work' ? 'work' : plan === 'trained' ? 'train' : plan;
   const r = routineOf(c);
   const want = r.week[weekday(day)]![ph];
-  const matchDay = bookings(c).some((b) => b.day === day);
+  // The AM is yours even in a show week (Lyra's call): only a show-night booking keeps you out of the gym that night.
+  const matchDay = ph === 'pm' && bookings(c).some((b) => b.day === day && b.ph === 'pm');
   if (want === 'content' && FEATURES.hustles) return 'content';
   if (want === 'train' && (!matchDay || r.trainMatchDays) && person(c, c.player).fatigue <= r.maxTrainFatigue) return 'train';
   return 'rest';
@@ -224,7 +224,8 @@ export const wageRegion = (c: Career) => regionOfCountry(baseCountry(c));
 /** Pay for one shift where you live. */
 export function shiftPay(c: Career, id: DayJob['id']): number {
   const j = JOBS[id];
-  const per = id === 'gig' ? GIG_SHIFT_PAY : j.weekly / Math.max(1, j.shifts.length);
+  const halves = new Set((id === 'gig' ? GIG_DEFAULT_SHIFTS : (j.shifts as unknown as [number, PhaseName][])).map(([, p]) => p)).size;
+  const per = id === 'gig' ? GIG_SHIFT_PAY * (GIG_DEFAULT_SHIFTS.length / Math.max(1, halves)) : j.weekly / Math.max(1, halves);
   return Math.round(per * COST_INDEX[wageRegion(c)]);
 }
 
@@ -386,7 +387,7 @@ function daily(c: Career): void {
   if (!(FEATURES.jobs && c.job) && c.money <= MONEY_TROUBLE_AT && (!c.moneyTroubleAt || daysBetween(c.moneyTroubleAt, c.today) >= MONEY_TROUBLE_EVERY)) {
     if (!Object.values(c.events?.open ?? {}).some((o) => o.id === 'money_trouble') && fire(ctxFor(c), TROUBLE, {})) c.moneyTroubleAt = c.today;
   }
-  if (c.job && new Date(`${c.today}T12:00:00Z`).getUTCDay() === 1 && c.today.slice(5) === '01-01') c.job.holiday = JOB_HOLIDAY;
+  if (c.job && c.today.slice(5) === '01-01') c.job.holiday = JOB_HOLIDAY;
 }
 
 const PROMO_COUNTRY: Record<string, string> = { VWF: 'USA', TCG: 'Canada', SLN: 'Mexico', END: 'UK', IVW: 'France', NWGP: 'Japan', ZWA: 'China', UFC: 'Samoa', SSWC: 'Argentina', AAWA: 'Egypt' };
@@ -413,7 +414,7 @@ export async function advancePhase(c: Career, run: (jobs: SimJob[]) => Promise<S
   const wrestling = !!myBoutToday(c) || showsOn(c, c.today).some((s) => s.card?.some((b) => (b.a === c.player || b.b === c.player)));
   if (!wrestling) runPhase(c, 'pm');
   else if (FEATURES.jobs && c.job && isShift(c, c.today, 'pm') && !c.job.off.includes(c.today)) strike(c, 'Missed your PM shift');
-  if (weekday(c.today) === 5) payWages(c);
+  payWages(c);
   await finishDay(c, run);
   c.phase = 'am';
 }

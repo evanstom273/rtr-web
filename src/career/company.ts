@@ -139,10 +139,11 @@ export function foundingProblem(c: Career, f: Founding): string | null {
 }
 
 /** A regular night as a schedule rule. */
-export function nightRule(name: string, every: 'weekly' | 'fortnightly' | 'monthly', day: string, from: Day, kind: ShowKind = 'weekly'): Rule {
-  const when = every === 'weekly' ? { every: day }
-    : every === 'fortnightly' ? { everyN: { day, weeks: 2, anchor: weekStart(from) } }
-    : { nth: 1, day, month: 'every' };
+export function nightRule(name: string, every: 'weekly' | 'fortnightly' | 'monthly', _day: string, from: Day, kind: ShowKind = 'weekly'): Rule {
+  // The 48-week calendar: every show's on its week's show night, so the weekday no longer matters.
+  const when = every === 'weekly' ? { weeks: [1, 2, 3, 4] }
+    : every === 'fortnightly' ? { everyN: { weeks: 2, anchor: weekStart(from) } }
+    : { week: 4, month: 'every' };
   return { name, kind, when } as Rule;
 }
 

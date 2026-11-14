@@ -9,7 +9,7 @@ import { activeWorld } from '../world/world';
 import { bookerOf, kindOf, type BondKind } from '../world/people';
 import { promoRegion, titleClass } from './booker';
 import { formOf, letter, makeOffer, person, promoName, resultWorth, setCareerHooks, setSigningPick } from './career';
-import { daysBetween, type Day } from './dates';
+import { daysBetween, YEAR_DAYS, type Day } from './dates';
 import { dealsOf, openToSecond } from './deals';
 import { patienceOf } from './patience';
 import { trust } from './relations';
@@ -60,7 +60,7 @@ function today(c: Career): Day0 {
     const cls = titleClass(id);
     const base = cls === 'world' ? T.world : cls === 'secondary' || cls === 'alliance' ? T.secondary : cls === 'regional' ? T.regional : id.startsWith('WORLD_') ? T.indieWorld : T.indie;
     for (const r of reigns) {
-      const years = Math.max(0, daysBetween(r.from, r.to ?? c.today)) / 365;
+      const years = Math.max(0, daysBetween(r.from, r.to ?? c.today)) / YEAR_DAYS;
       const pts = base * (r.to ? T.past : 1) + r.defences * T.perDefence + years * T.perYear;
       titles.set(r.holder, (titles.get(r.holder) ?? 0) + pts);
     }

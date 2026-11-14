@@ -4,22 +4,27 @@
       "name": "Loaded",
       "kind": "weekly",
       "when": {
-        "every": "Monday"
+        "weeks": [
+          1,
+          3
+        ]
       }
     },
     {
       "name": "Defiance",
       "kind": "weekly",
       "when": {
-        "every": "Thursday"
+        "weeks": [
+          2,
+          4
+        ]
       }
     },
     {
       "name": "Ignition",
       "kind": "special",
       "when": {
-        "nth": 1,
-        "day": "Saturday",
+        "week": 1,
         "month": "February"
       }
     },
@@ -27,8 +32,7 @@
       "name": "Uprising",
       "kind": "flagship",
       "when": {
-        "nth": 1,
-        "day": "Saturday",
+        "week": 1,
         "month": "April"
       }
     },
@@ -36,8 +40,7 @@
       "name": "Resurrection",
       "kind": "special",
       "when": {
-        "nth": 1,
-        "day": "Saturday",
+        "week": 1,
         "month": "June"
       }
     },
@@ -45,8 +48,7 @@
       "name": "Deadlock",
       "kind": "special",
       "when": {
-        "nth": 1,
-        "day": "Saturday",
+        "week": 1,
         "month": "August"
       }
     },
@@ -54,8 +56,7 @@
       "name": "Unstoppable",
       "kind": "special",
       "when": {
-        "nth": 1,
-        "day": "Saturday",
+        "week": 1,
         "month": "October"
       }
     },
@@ -63,7 +64,7 @@
       "name": "Anniversary",
       "kind": "special",
       "when": {
-        "date": 7,
+        "week": 1,
         "month": "December"
       }
     }
@@ -73,7 +74,12 @@
       "name": "TCG Saturday Night",
       "kind": "weekly",
       "when": {
-        "every": "Saturday"
+        "weeks": [
+          1,
+          2,
+          3,
+          4
+        ]
       }
     }
   ],
@@ -81,14 +87,13 @@
     {
       "name": "ENDEAVOUR: Chapter {n}",
       "kind": "special",
-      "numbered": true,
       "when": {
         "irregular": {
-          "minGapDays": 21,
-          "maxGapDays": 49,
-          "day": "Sunday"
+          "minGapWeeks": 3,
+          "maxGapWeeks": 7
         }
-      }
+      },
+      "numbered": true
     }
   ],
   "SLN": [
@@ -96,21 +101,27 @@
       "name": "SLN Lunes",
       "kind": "weekly",
       "when": {
-        "every": "Monday"
+        "weeks": [
+          1,
+          3
+        ]
       }
     },
     {
       "name": "SLN Miércoles",
       "kind": "weekly",
       "when": {
-        "every": "Wednesday"
+        "weeks": [
+          2
+        ]
       }
     },
     {
       "name": "SLN Viernes de Oro",
-      "kind": "flagship",
+      "kind": "special",
       "when": {
-        "every": "Friday"
+        "week": 4,
+        "month": "every"
       }
     }
   ],
@@ -119,8 +130,7 @@
       "name": "IVW: After Eight — {month}",
       "kind": "special",
       "when": {
-        "nth": "last",
-        "day": "Saturday",
+        "week": 4,
         "month": "every"
       }
     }
@@ -130,7 +140,7 @@
       "name": "Golden Challenge",
       "kind": "flagship",
       "when": {
-        "date": 1,
+        "week": 1,
         "month": "January"
       }
     },
@@ -138,7 +148,7 @@
       "name": "KUSO!",
       "kind": "special",
       "when": {
-        "date": 1,
+        "week": 1,
         "month": "April"
       }
     },
@@ -146,7 +156,7 @@
       "name": "Rikidōzan no kioku",
       "kind": "special",
       "when": {
-        "date": 1,
+        "week": 1,
         "month": "July"
       }
     },
@@ -154,7 +164,7 @@
       "name": "Powder Keg",
       "kind": "special",
       "when": {
-        "date": 1,
+        "week": 1,
         "month": "October"
       }
     },
@@ -164,8 +174,7 @@
       "when": {
         "tour": {
           "leadsTo": "Golden Challenge",
-          "weeks": 4,
-          "showsPerWeek": 3
+          "weeks": 4
         }
       }
     },
@@ -175,8 +184,7 @@
       "when": {
         "tour": {
           "leadsTo": "KUSO!",
-          "weeks": 2,
-          "showsPerWeek": 2
+          "weeks": 2
         }
       }
     },
@@ -186,8 +194,7 @@
       "when": {
         "tour": {
           "leadsTo": "Rikidōzan no kioku",
-          "weeks": 2,
-          "showsPerWeek": 2
+          "weeks": 2
         }
       }
     },
@@ -197,8 +204,7 @@
       "when": {
         "tour": {
           "leadsTo": "Powder Keg",
-          "weeks": 2,
-          "showsPerWeek": 2
+          "weeks": 2
         }
       }
     }
@@ -207,35 +213,30 @@
     {
       "name": "ZWA：第{n:zh}章",
       "kind": "special",
-      "numbered": true,
-      "numberingNeverResets": true,
       "when": {
-        "every": "Wednesday"
-      }
+        "weeks": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "numbered": true,
+      "numberingNeverResets": true
     }
   ],
   "UFC": [
     {
       "name": "UFC: {month} {n}",
       "kind": "tour",
-      "numbered": true,
-      "numberingResets": "month",
       "when": {
         "touringMonths": {
           "pattern": "alternate",
-          "startMonth": "January",
-          "showsPerWeek": [
-            2,
-            3
-          ],
-          "days": [
-            "Thursday",
-            "Saturday",
-            "Friday"
-          ],
-          "note": "2-3 shows a week: Thursday and Saturday every touring week, Friday added some weeks"
+          "startMonth": "January"
         }
-      }
+      },
+      "numbered": true,
+      "numberingResets": "month"
     }
   ],
   "SSWC": [
@@ -243,22 +244,27 @@
       "name": "SSWC: Estrellas del Martes por la Noche",
       "kind": "weekly",
       "when": {
-        "every": "Tuesday"
+        "weeks": [
+          1,
+          3
+        ]
       }
     },
     {
       "name": "SSWC: Relámpagos del Domingo por la Noche",
       "kind": "weekly",
       "when": {
-        "every": "Sunday"
+        "weeks": [
+          2,
+          4
+        ]
       }
     },
     {
       "name": "SSWC: Corazón de Oro",
       "kind": "special",
       "when": {
-        "nth": 1,
-        "day": "Saturday",
+        "week": 1,
         "month": "March"
       }
     },
@@ -266,8 +272,7 @@
       "name": "SSWC: Río de la Plata",
       "kind": "special",
       "when": {
-        "nth": 1,
-        "day": "Saturday",
+        "week": 1,
         "month": "September"
       }
     }
@@ -276,15 +281,14 @@
     {
       "name": "AAWA: Chapter {n:roman}",
       "kind": "special",
-      "numbered": true,
-      "numberingNeverResets": true,
       "when": {
         "irregular": {
-          "minGapDays": 14,
-          "maxGapDays": 63,
-          "day": null
+          "minGapWeeks": 3,
+          "maxGapWeeks": 5
         }
-      }
+      },
+      "numbered": true,
+      "numberingNeverResets": true
     }
   ],
   "TIS": [
@@ -298,11 +302,10 @@
             5,
             9
           ],
-          "countries": "all",
-          "sameDayAllowed": true
+          "countries": "all"
         }
       },
-      "notes": "Not an employer: TIS is where a wrestler is when they're not signed anywhere. Released wrestlers go here; the wrestlers listed under TIS at the start are the opening free agents. A worldwide pool of one-off bookings; names come from src/career/indieEvents.ts. A wrestler can't be booked on two shows the same day. The three TIS titles (World Independent Championship, Independent Women's Grand Prix, Open-Challenge Title) stay: held by free agents and defended on indie shows."
+      "notes": "Not an employer: TIS is where a wrestler is when they're not signed anywhere. Released wrestlers go here; the wrestlers listed under TIS at the start are the opening free agents. A worldwide pool of one-off bookings; names come from src/career/indieEvents.ts. A wrestler can't be booked on two shows the same week. The three TIS titles (World Independent Championship, Independent Women's Grand Prix, Open-Challenge Title) stay: held by free agents and defended on indie shows."
     }
   ],
   "joint": [
@@ -315,7 +318,7 @@
         "NWGP"
       ],
       "perYear": [
-        1,
+        2,
         2
       ],
       "titles": [
@@ -325,13 +328,12 @@
       "when": {
         "dates": [
           {
-            "date": 5,
+            "week": 1,
             "month": "May"
           },
           {
-            "date": 3,
-            "month": "November",
-            "optional": true
+            "week": 1,
+            "month": "November"
           }
         ]
       }

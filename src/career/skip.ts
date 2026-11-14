@@ -5,7 +5,7 @@
 // answered for you).
 import { findWrestler } from '../data/rtr';
 import { myBoutToday } from './career';
-import { addDays, type Day } from './dates';
+import { addDays, weeksBetween, type Day } from './dates';
 import { answerForMe } from './away';
 import { advancePhase, bookings, phaseOf, routineOf } from './day';
 import type { SimJob, SimOut } from './sim';
@@ -46,7 +46,7 @@ export async function skip(c: Career, target: SkipTarget, run: (jobs: SimJob[]) 
   const next = bookings(c).find((b) => b.day > c.today || (b.day === c.today && phaseOf(c) === 'am'));
   const untilDay = target === 'phase' ? null : target === 'day' ? addDays(c.today, 1) : target === 'booking' ? next?.day ?? addDays(c.today, 60)
     : 'days' in target ? addDays(c.today, target.days) : target.until;
-  const total = target === 'phase' ? 1 : Math.max(1, Math.round((new Date(`${untilDay}T12:00:00Z`).getTime() - new Date(`${c.today}T12:00:00Z`).getTime()) / 864e5) * per);
+  const total = target === 'phase' ? 1 : Math.max(1, weeksBetween(c.today, untilDay!) * per);
   let done = 0;
   // While you're away (Lyra's call): your character answers mail by your standing orders, summed up at the end.
   const handled: string[] = [...answerForMe(c), ...answerStory(c)];

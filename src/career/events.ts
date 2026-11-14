@@ -13,7 +13,7 @@ import { letter, person, setCareerHooks, spend } from './career';
 import { C } from './clauses';
 import { approves, sideWork } from './deals';
 import { ATTR_KEYS, ATTR_LONG } from './create';
-import { addDays, daysBetween, type Day } from './dates';
+import { addDays, daysBetween, perWeek, type Day } from './dates';
 import { indieFee } from './economy';
 import { REGION_KEY } from './places';
 import { movePatience, showBooker } from './patience';
@@ -187,9 +187,10 @@ const blankEvents = (): NonNullable<Career['events']> => ({ seen: {}, log: [], o
 /** How likely an event is today, from your situation: quiet spells get more, busy weeks fewer, big names more. */
 export function eventChance(x: EvCtx): number {
   const { c } = x;
-  const recent = c.history.filter((m) => daysBetween(m.day, c.today) <= 10).length;
+  // A week a tick (the 48-week calendar): quiet is no match last week either; busy is a match every week this month.
+  const recent = c.history.filter((m) => daysBetween(m.day, c.today) <= 28).length;
   const lastMatch = c.history[0]?.day;
-  const quiet = !lastMatch || daysBetween(lastMatch, c.today) >= 7;
+  const quiet = !lastMatch || daysBetween(lastMatch, c.today) >= 14;
   let m = EVENT_DAILY_BASE;
   if (quiet) m *= EVENT_QUIET_MULT;
   if (recent >= 4) m *= EVENT_BUSY_MULT;
@@ -300,7 +301,7 @@ function daily(c: Career): void {
   // Pacing: not too close together, not too many waiting, and a chance shaped by your situation.
   if (Object.keys(ev.open).length >= EVENT_MAX_OPEN) return;
   if (ev.lastAt && daysBetween(ev.lastAt, c.today) < EVENT_MIN_GAP) return;
-  if (rnd() >= eventChance(x)) return;
+  if (rnd() >= perWeek(eventChance(x))) return;
   const pool = eligible(x);
   const total = pool.reduce((t, e) => t + e.w, 0);
   let r = rnd() * total;

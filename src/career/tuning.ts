@@ -125,10 +125,10 @@ export const EXCL_COST = [0.15, 0.08, 0, -0.12];
 export const EXCL_ATTITUDE = { resist: 1.4, neutral: 1, flexible: 0.6 };
 /** Working for several majors: at most this many at once; the dates a month split between them when you sign another, and the new deal's share by default. */
 export const MAX_MAJORS = 3;
-export const SPLIT_DATES_TOTAL = 12;
-export const SPLIT_DEFAULT_NEW = 4;
+export const SPLIT_DATES_TOTAL = 4;
+export const SPLIT_DEFAULT_NEW = 1;
 /** An AI star on two majors: the dates a month the second promotion gets. */
-export const AI_SECOND_DATES = 4;
+export const AI_SECOND_DATES = 1;
 /** First Refusal: the chance they block another major's deal (higher when it's a rival in their own region); blocking pays you this many weekly fees and their booker's patience moves your way. */
 export const FIRST_REFUSAL_BLOCK = { base: 0.35, sameRegion: 0.3 };
 export const FIRST_REFUSAL_COMP_FEES = 4;
@@ -138,8 +138,8 @@ export const EXCL_APPROVAL = { base: 0.3, perPatience: 0.006 };
 /** AI: each month, the chance a promotion with room signs a non-exclusive star from another major as a second deal. */
 export const AI_SECOND_DEAL_CHANCE = 0.12;
 /** Agreed dates a month by package (part-timers, special attractions); a deal without them is the booker's call. Fewer dates lift the fee a date. */
-export const DATES_FEE_LIFT = 0.05;
-export const DATES_FULL = 10;
+export const DATES_FEE_LIFT = 0.12;
+export const DATES_FULL = 4;
 /** AI deals by package (Lyra's call): stars are the top 15% of a roster (a fifth of them special attractions), veterans 38+ in the top 60% go part-time, the young (23 and under) below halfway developmental. */
 export const PACKAGE_RULES = { starTop: 0.15, attractionShare: 0.2, veteranAge: 38, veteranTop: 0.6, youngAge: 23, youngBelow: 0.5 };
 
@@ -700,11 +700,12 @@ export const MERCH_TABLE = { cost: 8, price: 20, batches: [10, 25, 50], base: 2,
 /** Names (25k+ fans) get a guarantee: £60 × (fans in thousands)^0.6, at most £6,000 (about £400 at 25k, £950 at 100k, £3,800 at 1M). */
 export const CONVENTION = { table: 40, photo: 15, photoPerDecade: 5, perFan: 0.9, exp: 0.35, guaranteeFans: 25000, guaranteeK: 60, guaranteeExp: 0.6, guaranteeMax: 6000, weeksAhead: 4, swing: 0.3, fatigue: 2 };
 /** A class pays on reputation and skill, and more as you get experienced: up to ×2.5 after about 90 classes. */
-export const COACHING = { base: 25, perRep: 0.4, perSkill: 0.5, skillFrom: 60, fatigue: 1, maxSlots: 8, expPer: 60, expMax: 1.5 };
+/** A coaching slot is a week's AM or PM now (the 48-week calendar), four classes. */
+export const COACHING = { base: 25, perRep: 0.4, perSkill: 0.5, skillFrom: 60, fatigue: 1, maxSlots: 2, classesPerPhase: 4, expPer: 60, expMax: 1.5 };
 export const SHOW_WORK = { ref: 45, crew: 35, commentary: 50, patience: 1, fatigue: { ref: 3, crew: 4, commentary: 0 } } as const;
 /** Subscribers head for 2.5% of fans^0.95 (slower past 100k fans), £3 a month each: ~£245 a month at 5k fans, ~£26k at 4M. */
 /** Content sessions (half-days) raise where subscribers are heading: ×(1 + 0.4 per session in the last 14 days), up to ×3. Weeks vary ±30%. */
-export const CONTENT = { share: 0.025, exp: 0.95, bigFrom: 100000, bigExp: 0.5, price: 3, grow: 0.15, decay: 0.03, idleDays: 14, perSession: 0.4, maxSessions: 5, swing: 0.3 };
+export const CONTENT = { share: 0.025, exp: 0.95, bigFrom: 100000, bigExp: 0.5, price: 3, grow: 0.15, decay: 0.03, idleDays: 14, perSession: 1, maxSessions: 2, swing: 0.3 };
 /** Merch sold online each week from your stock: per subscriber and per √fan, ±30%. */
 export const MERCH_ONLINE = { perSub: 0.03, perRootFan: 0.02, swing: 0.3 };
 /** Sponsors once a region has 5k of your fans; they renew at +25% only if you've kept posting. */
@@ -837,7 +838,8 @@ export const PAY = {
   rep: [0.85, 1.2] as [number, number],
   title: { world: 1.2, other: 1.08 },
   scale: { topPop: 80, bottomPop: 46, bottom: 0.5, floorPop: 10, belowExp: 1.5 },
-  datesPerMonth: 4.5,
+  /** Four weeks a month, a show night each (the 48-week calendar): a busy month is four dates. */
+  datesPerMonth: 4,
   ppaPremium: 1.15,
   bothBase: 0.6,
   bothShow: 0.45,
@@ -955,13 +957,15 @@ export const SOCIAL_FEED_MAX = 30;
  * (−4 after a match). Travel: same country no time; same region the AM of the show day; another
  * continent the whole day before. Back-to-back dates in a region within TOUR_DAYS keep you out on tour.
  */
-export const REST_RECOVERY = 4;
+/** The 48-week calendar: a phase is half a week now, so a rest phase recovers about what three and a half days did. */
+export const REST_RECOVERY = 14;
 export const SLEEP_RECOVERY = 10;
 export const SLEEP_RECOVERY_AFTER_MATCH = 4;
-export const TRAIN_SESSION_POINTS = 2;
-export const TRAIN_SESSION_FATIGUE = 6;
+/** A session is half a week's training now (about five of the old daily sessions, a bit easier on the body). */
+export const TRAIN_SESSION_POINTS = 10;
+export const TRAIN_SESSION_FATIGUE = 20;
 /** Injury chance in a session by fatigue before it: [from fatigue, chance]. */
-export const TRAIN_INJURY: [number, number][] = [[40, 0.0025], [60, 0.0075], [80, 0.02]];
+export const TRAIN_INJURY: [number, number][] = [[40, 0.0125], [60, 0.0375], [80, 0.1]];
 export const TOUR_DAYS = 4;
 /** Moving (Lyra's call): within your region, abroad; days it takes; a promotion abroad pays this share. */
 export const RELOCATE_COST = { region: 300, abroad: 1500 };

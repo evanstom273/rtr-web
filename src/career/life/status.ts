@@ -7,7 +7,7 @@ import { findWrestler, WRESTLERS } from '../../data/rtr';
 import { activeWorld } from '../../world/world';
 import { bondOf } from '../../world/people';
 import { letter, person, spend } from '../career';
-import { daysBetween } from '../dates';
+import { daysBetween, YEAR_DAYS } from '../dates';
 import { capLeft, sendIn } from '../phone';
 import { moveRelation } from '../relations';
 import { partnerOf } from '../romance';
@@ -96,7 +96,7 @@ export function flaunt(c: Career, kind: FlauntKind): string {
  */
 export function monthlyStatus(c: Career, month: string): void {
   const L = life(c), mine = netWorth(c);
-  if (month.endsWith('-06') && mine >= PB.status.humbleAt && !flauntCount(c) && !(L.flaunts ?? []).some((d) => daysBetween(d, c.today) <= 365)) {
+  if (month.endsWith('-06') && mine >= PB.status.humbleAt && !flauntCount(c) && !(L.flaunts ?? []).some((d) => daysBetween(d, c.today) <= YEAR_DAYS)) {
     const k = person(c, c.player).contract;
     let n = 0;
     for (const w of WRESTLERS) if (k && w.promotion === k.promo && w.id !== c.player && n < 12) { moveRelation(c, w.id, 2, 'Rich, and never shows it'); n++; }

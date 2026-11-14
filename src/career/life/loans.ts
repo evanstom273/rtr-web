@@ -1,7 +1,7 @@
 // Life: borrowing. Mortgages, car and bus finance, jet finance (and business loans later). Repayments go out on the
 // 1st; miss three in a row and whatever it's for is taken and sold. Credit (0–100) sets the rate and the deposit.
 import { letter, spend } from '../career';
-import { addDays } from '../dates';
+import { addDays, YEAR_DAYS } from '../dates';
 import { PRICE_BOOK as PB } from '../tuning';
 import type { Career } from '../types';
 import { life, newId, type Loan, type LoanKind } from './state';
@@ -25,7 +25,7 @@ export function monthlyFor(principal: number, rate: number, years: number): numb
 /** What you've earned (taxable) over the last twelve months; newly signed, a year of your contract if that's more. */
 export function yearEarned(c: Career): number {
   const L = life(c);
-  const cut = addDays(c.today, -365).slice(0, 7);
+  const cut = addDays(c.today, -YEAR_DAYS).slice(0, 7);
   const past = Object.entries(L.months ?? {}).filter(([m]) => m > cut).reduce((t, [, v]) => t + v, 0);
   const k = c.people[c.player]?.contract;
   const contract = k ? k.fee * (k.dates ?? 4) * 12 : 0;

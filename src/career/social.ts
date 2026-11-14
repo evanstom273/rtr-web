@@ -9,7 +9,7 @@ import { activeWorld } from '../world/world';
 import { bondsOf, kindOf, moveBond } from '../world/people';
 import { letter, person, setCareerHooks } from './career';
 import { calledOut } from './mail';
-import { addDays, daysBetween, fmtDay, type Day } from './dates';
+import { daysBetween, fmtDay, norm, type Day } from './dates';
 import { leanTo } from './leans';
 import { moveRelation } from './relations';
 import { SOCIAL_AMPLIFY,
@@ -37,7 +37,7 @@ export interface SocialState {
 }
 
 const state = (c: Career): SocialState => (c.social ??= { recent: [], weekFans: 0, callouts: {}, feed: [] });
-const mondayOf = (d: Day) => { const w = new Date(`${d}T12:00:00Z`).getUTCDay(); return addDays(d, -((w + 6) % 7)); };
+const mondayOf = (d: Day) => norm(d);
 
 /** How many people a post of yours reaches: a floor for newcomers, growing slower than your fanbase. */
 export const reach = (w: Wrestler): number => SOCIAL_REACH_BASE + SOCIAL_REACH_MULT * fansTotal(w) ** SOCIAL_REACH_EXP;
@@ -216,7 +216,7 @@ function aiWeek(c: Career): void {
 
 function daily(c: Career): void {
   if (!FEATURES.social) return;
-  if (new Date(`${c.today}T12:00:00Z`).getUTCDay() === 1) aiWeek(c);
+  aiWeek(c);
 }
 
 setCareerHooks({ daily });

@@ -116,9 +116,9 @@ export function Negotiate({ c, offerId, onBack, onDone }: Props) {
             <span className="c-lab">{w('Dates a month')}</span>
             <div className="c-chips">
               {!o.second && <button className={`c-chip${!p.dates ? ' on' : ''}`} onClick={() => { const { dates: _d, ...rest } = p; setP(rest); }}>{w('Booker’s call')}</button>}
-              {[2, 4, 6, 8].map((n) => <button key={n} className={`c-chip${p.dates === n ? ' on' : ''}`} onClick={() => setP({ ...p, dates: n })}>{n}</button>)}
+              {(o.second ? [1, 2] : [1, 2, 3]).map((n) => <button key={n} className={`c-chip${p.dates === n ? ' on' : ''}`} onClick={() => setP({ ...p, dates: n })}>{n}</button>)}
             </div>
-            <span className="c-hint">Fewer dates pay more a date.{o.second ? ` ${others.map((k) => k.promo).join(' and ')} would keep ${SPLIT_DATES_TOTAL - (p.dates ?? 4)}.` : ''}</span>
+            <span className="c-hint">Fewer dates pay more a date.{o.second ? ` ${others.map((k) => k.promo).join(' and ')} would keep ${SPLIT_DATES_TOTAL - (p.dates ?? 1)}.` : ''}</span>
           </>
         )}
         <div className="c-rowsb"><span className="c-sec c-grow">{w('The 25 clauses', 'Clauses')}</span><span className="c-hint">{w('Tap a section to open it')}</span></div>

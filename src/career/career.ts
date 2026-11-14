@@ -14,7 +14,7 @@ import { drawCalendar } from './calendar';
 import { BUDGET, C, tierOf } from './clauses';
 import { addDeal, aiContract, dealWith, dropDeal, promoteDeal, sideWork } from './deals';
 import { makeRookie } from './create';
-import { addDays, addMonths, type Day, daysBetween, fmtDay, weekday } from './dates';
+import { addDays, addMonths, dayOf, daysBetween, fmtDay, norm, WEEK_DAYS, weekday, yearOf, type Day } from './dates';
 import { baseRegion, indieFee, isWeeklyFlagship, livingCost, matchPay, merchShare, payWords, preferredPay, round5, yearlyPay } from './economy';
 import { REGION_KEY, REGION_LABEL } from './places';
 import { calendarExtras } from '../world/companies';
@@ -69,6 +69,8 @@ const H0 = history;
 
 /** Start a career in the active world (which the caller has just reset to the shipped database). */
 export function startCareer(o: StartOptions): Career {
+  // The 48-week calendar: a career starts in a week (any date given is the week it falls in).
+  o = { ...o, today: norm(o.today) };
   const rnd = seededRng(o.seed);
   const k = o.carry;
   // Carrying on from a simulated history: the world's state comes with it; only your side starts fresh.
@@ -672,18 +674,20 @@ export function endOfDay(c: Career): void {
   for (const id of Object.keys(c.indie)) if ((c.shows[id]?.date ?? '') <= day) delete c.indie[id];
   for (const id of Object.keys(c.tryouts)) if ((c.shows[id]?.date ?? '') <= day) delete c.tryouts[id];
   const tomorrow = addDays(day, 1);
-  const mmdd = tomorrow.slice(5);
   for (const w of WRESTLERS) {
     const p = person(c, w.id);
-    if (FEATURES.days && w.id === c.player) p.fatigue = Math.max(0, p.fatigue - (worked.has(w.id) ? SLEEP_RECOVERY_AFTER_MATCH : SLEEP_RECOVERY) * mod('recovery', c, w.id));
-    else if (!worked.has(w.id)) p.fatigue = Math.max(0, p.fatigue - FATIGUE_RECOVERY_PER_DAY);
+    // A week of nights now (the 48-week calendar): the night after a match is a poor one.
+    const nights = worked.has(w.id) ? WEEK_DAYS - 1 : WEEK_DAYS;
+    if (FEATURES.days && w.id === c.player) p.fatigue = Math.max(0, p.fatigue - ((worked.has(w.id) ? SLEEP_RECOVERY_AFTER_MATCH : 0) + nights * SLEEP_RECOVERY) * mod('recovery', c, w.id));
+    else p.fatigue = Math.max(0, p.fatigue - FATIGUE_RECOVERY_PER_DAY * nights);
     // Wear fades a week at a time; a physio or a recovery kit (Life) makes it fade faster.
-    if (FEATURES.matches && p.wear) fadeWear(p, w.id === c.player ? mod('wear', c, w.id) : 1);
+    if (FEATURES.matches && p.wear) fadeWear(p, WEEK_DAYS * (w.id === c.player ? mod('wear', c, w.id) : 1));
     if (p.injury && p.injury.until <= tomorrow) {
       p.injury = null;
       if (w.id === c.player) letter(c, { kind: 'injury', from: 'The doctor', subject: 'You’re fit again', body: ['Cleared to wrestle.'] });
     }
-    if (p.birthday === mmdd) w.age++;
+    // Birthdays: the week it falls in.
+    if (p.birthday && dayOf(yearOf(tomorrow), Number(p.birthday.slice(0, 2)) - 1, Number(p.birthday.slice(3, 5))) === tomorrow) w.age++;
   }
   if (tomorrow.endsWith('-01')) monthly(c, tomorrow, rnd);
   contractsEnding(c, tomorrow, rnd);
@@ -800,7 +804,7 @@ export function release(c: Career, w: Wrestler, how: 'released' | 'expired', fro
   if (w.id === c.player && how === 'released' && !c.spectator) {
     const k = dealWith(p, from);
     const share = k ? RELEASE_PAYOUT[tierOf(k, 'guaranteed')] ?? 0 : 0;
-    const months = k ? Math.max(0, daysBetween(c.today, k.end)) / 30.44 : 0;
+    const months = k ? Math.max(0, daysBetween(c.today, k.end)) / 28 : 0;
     const owed = k && share ? round5((yearlyPay(k) / 12) * months * share) : 0;
     if (owed) {
       spend(c, owed, `Paid out: the rest of your ${from} deal (Guaranteed Pay)`, 'fee', { contract: true });

@@ -14,7 +14,7 @@ import { bondOf, bondsOf, bookerOf, feelPair, leaveJob, likeOf, together, type B
 import { genderOf, into, orientationOf, seedCouples, spark } from '../world/social';
 import { personName } from '../data/rtr/names';
 import { letter, person, setCareerHooks, spend } from './career';
-import { addDays, daysBetween, weekday, type Day } from './dates';
+import { addDays, daysBetween, perWeek, weekday, yearsBetween, type Day } from './dates';
 import { baseRegion } from './economy';
 import { registerReplies } from './mail';
 import { add, capLeft, nameOf, phoneOn, pvoice, registerTopics, sendIn, state } from './phone';
@@ -39,7 +39,7 @@ function ageOf(c: Career, id: string): number {
   const w = findWrestler(id);
   if (w) return w.age;
   const born = P().staff[id]?.born ?? P().folk?.[id]?.born;
-  return born ? Math.floor(daysBetween(born, c.today) / 365.25) : 30;
+  return born ? Math.floor(yearsBetween(born, c.today)) : 30;
 }
 /** Their orientation (yours only once you've set it). */
 const orient = (c: Career, id: string) => (id === c.player ? P().lives?.[id]?.orient : orientationOf(seed(), id, P().lives?.[id]));
@@ -244,9 +244,9 @@ function yourLife(c: Career, rnd: Rng): void {
   }
   // A partner misses you now and then.
   const p = partnerOf(c.player);
-  if (p && capLeft(c) > 0 && rnd() < 0.08) sendIn(c, p.other, pickLine(LOVE_SENT.miss, pvoice(p.other), rnd), [{ id: 'chat', label: 'Miss you too', detail: 'Closer' }, { id: 'brief', label: 'x', detail: '' }]);
+  if (p && capLeft(c) > 0 && rnd() < perWeek(0.08)) sendIn(c, p.other, pickLine(LOVE_SENT.miss, pvoice(p.other), rnd), [{ id: 'chat', label: 'Miss you too', detail: 'Closer' }, { id: 'brief', label: 'x', detail: '' }]);
   // Admirers (only if you've set your orientation): a crush, a flirt, then they ask you out.
-  if (!phoneOn() || !P().lives?.[c.player]?.orient || capLeft(c) <= 0 || rnd() >= 0.04) return;
+  if (!phoneOn() || !P().lives?.[c.player]?.orient || capLeft(c) <= 0 || rnd() >= perWeek(0.04)) return;
   for (const { other, bond } of bondsOf(P(), c.player)) {
     if (together(bond) || bond.love?.st === 'ex' || dead(c, other) || partnerOf(other)) continue;
     if (theirLike(c, other) < 50 || bond.f < 30 || attraction(c, other, c.player) < ROMANCE.spark || !couldFall(c, c.player, other)) continue;
@@ -361,7 +361,7 @@ function lifeEvents(c: Career, rnd: Rng): void {
   }
   for (const s of Object.values(P().staff)) {
     if (s.retired || P().lives?.[s.id]?.died) continue;
-    const age = Math.floor(daysBetween(s.born, c.today) / 365.25);
+    const age = Math.floor(yearsBetween(s.born, c.today));
     if (rnd() < L.death.base + Math.max(0, age - L.death.from) * L.death.perYear) die(c, s.id, rnd);
   }
   if (FEATURES.romance) familyOf(c, rnd);
@@ -383,7 +383,7 @@ function familyOf(c: Career, rnd: Rng): void {
   const kin = Object.values(F).filter((f) => f.kind === 'family' && f.of === c.player && !f.died);
   const sender = (not: string) => kin.find((f) => f.id !== not)?.id;
   for (const f of kin) {
-    const age = f.born ? Math.floor(daysBetween(f.born, c.today) / 365.25) : 50;
+    const age = f.born ? Math.floor(yearsBetween(f.born, c.today)) : 50;
     const rel = f.rel ?? 'family';
     if (rnd() < LIFE.ill * 2 * (age > 55 ? 2 : 1)) {
       shock(c.player, 'ill', c);

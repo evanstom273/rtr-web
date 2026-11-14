@@ -13,7 +13,7 @@ import { C } from './clauses';
 import { approves, sideWork } from './deals';
 import { getInTouch, gradeOf, holdingBack, startWatching } from './scouting';
 import { leaveContract, matchRival, payReview } from './contracts';
-import { addDays, daysBetween, fmtDay, weekday, type Day } from './dates';
+import { addDays, addMonths, daysBetween, fmtDay, weekday, type Day } from './dates';
 import { indieFee } from './economy';
 import { dayOff, indieAllowed, joinIndie } from './offers';
 import { bookerKey, movePatience, patienceOf, patienceWeek, showBooker } from './patience';
@@ -510,7 +510,7 @@ export function askShow(c: Career, showId: string): Ask {
   return record(c, { kind: 'show', to: promo, what, key, answer: 'no', said: '“The card’s spoken for.”' });
 }
 
-const nextMonth = (c: Career): string => { const d = new Date(`${c.today}T00:00:00Z`); d.setUTCMonth(d.getUTCMonth() + 1, 1); return d.toISOString().slice(0, 7); };
+const nextMonth = (c: Career): string => addMonths(c.today, 1).slice(0, 7);
 const monthName = (m: string): string => ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][Number(m.slice(5, 7)) - 1]!;
 
 export function previewMore(c: Career): Preview {

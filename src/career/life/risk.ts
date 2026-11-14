@@ -3,7 +3,7 @@
 // (crashes, slumps and businesses folding, already in stage 3). Monthly, on their own dice.
 import { seededRng, hashSeed } from '../../engine/rng';
 import { letter, person, spend } from '../career';
-import { addDays } from '../dates';
+import { addDays, YEAR_DAYS } from '../dates';
 import { registerReplies } from '../mail';
 import { PRICE_BOOK as PB } from '../tuning';
 import type { Career } from '../types';
@@ -88,7 +88,7 @@ registerReplies({
     spend(c, -amount, 'A sure thing', 'invest', { untaxed: true });
     const r = seededRng(hashSeed(c.seed, 'scam', l.id));
     if (r() < PB.risk.scamReal) {
-      (life(c).sure ??= []).push({ amount: amount * 2, due: addDays(c.today, 365) });
+      (life(c).sure ??= []).push({ amount: amount * 2, due: addDays(c.today, YEAR_DAYS) });
       return 'In. They say a year.';
     }
     (life(c).sure ??= []).push({ amount: 0, due: addDays(c.today, 120), lost: amount });

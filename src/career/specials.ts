@@ -10,7 +10,7 @@ import { addEvent } from '../world/history';
 import { hashSeed } from './booker';
 import { letter, person, setCareerHooks, spend } from './career';
 import { approves, sideWork } from './deals';
-import { addDays, daysBetween, fmtDay, weekStart, type Day } from './dates';
+import { addDays, daysBetween, fmtDay, perWeek, weekStart, type Day } from './dates';
 import { indieFee } from './economy';
 import { type EvCtx, type EvData, type EventDef, type FollowDef, ctxFor, fire, fx, homeRegion, join, money, registerEvents, round5 } from './events';
 import { indieAllowed, joinIndie } from './offers';
@@ -435,7 +435,7 @@ function daily(c: Career): void {
   for (const k of kinds) {
     const last = w.last[k];
     if (last && daysBetween(last, c.today) < SPECIAL_GAP[k]) continue;
-    if (rnd() >= SPECIAL_DAILY) continue;
+    if (rnd() >= perWeek(SPECIAL_DAILY)) continue;
     if (MAKERS[k](c, rnd)) { w.last[k] = c.today; return; }
   }
 }

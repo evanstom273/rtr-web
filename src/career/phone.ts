@@ -11,7 +11,7 @@ import { hashSeed, seededRng } from '../engine/rng';
 import { activeWorld } from '../world/world';
 import { bondOf, bondsOf, likeOf, respectOf, type People } from '../world/people';
 import { letter, person, setCareerHooks } from './career';
-import { addDays, daysBetween, weekday, type Day } from './dates';
+import { addDays, daysBetween, perWeek, weekday, type Day } from './dates';
 import { dealsOf } from './deals';
 import { leanTo } from './leans';
 import { isPhoneLetter, registerReplies } from './mail';
@@ -351,7 +351,7 @@ function incoming(c: Career): void {
   S.q = [];
   if (S.incoming >= I.weekCap) return;
   // Otherwise: a chance today, more the more close people you have.
-  if (rnd() >= I.daily + I.perFriend * Math.min(I.friendsMax, close.length)) return;
+  if (rnd() >= perWeek(I.daily + I.perFriend * Math.min(I.friendsMax, close.length))) return;
   const me = findWrestler(c.player)!;
   const pool: { who: string; kind: 'checkin' | 'advice' | 'dig'; w: number }[] = [];
   for (const b of mine) {

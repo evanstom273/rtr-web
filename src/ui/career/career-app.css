@@ -35,6 +35,9 @@
 .cr .c-month button{min-width:40px;min-height:36px;border:1px solid var(--cr-line);background:var(--cr-panel);color:var(--cr-fg)}
 .cr .c-month span{flex:1;text-align:center;background:var(--cr-fg);color:var(--cr-bg);font-family:var(--cr-display);font-weight:900;font-size:20px;letter-spacing:.08em;padding:3px 0;text-transform:var(--cr-upper)}
 .cr .c-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px;margin-top:8px}
+.cr .c-grid.weeks{grid-template-columns:repeat(4,minmax(0,1fr))}
+.cr .c-grid.weeks .c-dcell{height:min(76px,9dvh)}
+.cr .c-grid.weeks .c-dcell b{font-size:15px;letter-spacing:.02em}
 .cr .c-dow{text-align:center;font-family:var(--cr-mono);font-size:10px;letter-spacing:.1em;color:var(--cr-dim)}
 .cr .c-dcell{position:relative;height:min(54px,6.2dvh);padding:3px 4px;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;text-align:left;background:var(--cr-panel);border:2px solid transparent;color:var(--cr-fg);min-width:0}
 .cr .c-dcell b{font-family:var(--cr-display);font-weight:900;font-size:17px;line-height:1}

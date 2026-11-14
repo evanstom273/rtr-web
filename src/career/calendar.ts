@@ -1,10 +1,9 @@
 // The calendar: turns each promotion's schedule (schedules.json) into dated shows, a week at a time,
-// so a career can draw it up as far ahead as it needs and always get the same answer for a seed.
+// so a career can draw it up as far ahead as it needs and always get the same answer for a seed. Lyra's call: four
+// weeks a month, every show in a week on its show night, and a special takes the place of that week's TV.
 import schedulesJson from '../data/rtr/schedules.json';
 import { seededRng, type Rng } from '../engine/rng';
-import {
-  addDays, dateOf, dayOf, daysBetween, monthIndex, MONTHS, monthOf, nthWeekday, weekday, weekdayIndex, weekStart, yearOf, type Day,
-} from './dates';
+import { addWeeks, dateOf, daysBetween, monthIndex, MONTHS, monthOf, norm, weekIn, weekOf, weeksBetween, yearOf, type Day } from './dates';
 import { INDIE_COUNTRIES, indieEventName } from './indieEvents';
 import { CITIES, PROMO_COUNTRIES, regionOfCountry } from './places';
 import {
@@ -14,16 +13,20 @@ import type { Brand } from '../world/people';
 import type { PopRegion, Show, ShowKind } from './types';
 
 export type When =
-  | { every: string }
-  /** Every so many weeks on a weekday, counted from a Monday (booker mode: a fortnightly show). */
-  | { everyN: { day: string; weeks: number; anchor: Day } }
-  | { nth: number | 'last'; day: string; month: string }
-  | { date: number; month: string }
-  | { irregular: { minGapDays: number; maxGapDays: number; day: string | null } }
-  | { tour: { leadsTo: string; weeks: number; showsPerWeek: number } }
-  | { touringMonths: { pattern: string; startMonth: string; showsPerWeek: [number, number]; days: string[] } }
-  | { procedural: { eventsPerWeek: [number, number]; countries: string; sameDayAllowed: boolean } }
-  | { dates: { date: number; month: string; optional?: boolean }[] };
+  /** The weeks of every month it runs (1–4): [1, 2, 3, 4] every week, [1, 3] alternate weeks, [4] once a month. */
+  | { weeks: number[] }
+  /** Every so many weeks, counted from a week (booker mode: a fortnightly show). */
+  | { everyN: { weeks: number; anchor: Day } }
+  /** A week of one month, or of every month ('every'). */
+  | { week: number; month: string }
+  /** No fixed schedule: the next one between so many weeks on. */
+  | { irregular: { minGapWeeks: number; maxGapWeeks: number } }
+  /** A show a week for the weeks running up to its big show. */
+  | { tour: { leadsTo: string; weeks: number } }
+  /** Every week of its touring months ('alternate': every other month from the start month). */
+  | { touringMonths: { pattern: string; startMonth: string } }
+  | { procedural: { eventsPerWeek: [number, number]; countries: string } }
+  | { dates: { week: number; month: string; optional?: boolean }[] };
 
 export interface Rule {
   name: string;
@@ -68,7 +71,7 @@ export const indieTarget = (pool: number): number =>
  * the target number, never more than the weekly maximum. No region is promised a show every week.
  */
 function brandWeek(r: Rng, ind: IndieCalendar, ws: Day, used: Set<string>): { date: Day; country: string; city?: string; name: string; brand: string }[] {
-  const open = ind.brands.filter((b) => !b.closed && b.from <= addDays(ws, 6) && CITIES[b.country]?.length);
+  const open = ind.brands.filter((b) => !b.closed && b.from <= ws && CITIES[b.country]?.length);
   const target = Math.min(open.length, INDIE_SHOWS_MAX_WEEK, Math.max(INDIE_SHOWS_PER_WEEK[0], Math.min(INDIE_SHOWS_PER_WEEK[1], indieTarget(ind.pool) + randInt(r, -1, 1))));
   const score = (b: Brand) => {
     const last = ind.last[b.id];
@@ -79,8 +82,8 @@ function brandWeek(r: Rng, ind: IndieCalendar, ws: Day, used: Set<string>): { da
   };
   const picked = open.map((b) => ({ b, s: score(b) })).sort((x, y) => y.s - x.s || (x.b.id < y.b.id ? -1 : 1)).slice(0, target);
   return picked.map(({ b }) => {
-    const shift = r() < 0.25 ? (r() < 0.5 ? -1 : 1) : 0;
-    const date = addDays(ws, Math.max(0, Math.min(6, b.dow + shift)));
+    // Every show in a week is on its show night (the brand's old night of the week no longer matters).
+    const date = ws;
     ind.last[b.id] = date;
     if (!ind.regionLast[b.region] || ind.regionLast[b.region]! < date) ind.regionLast[b.region] = date;
     // Most nights at home; now and then a road show elsewhere in the country.
@@ -131,86 +134,48 @@ function showName(rule: Rule, date: Day, n: number): string {
 
 interface Draft { date: Day; promo: string; rule: Rule; country?: string; city?: string; name?: string; promos?: string[]; irregular?: string; brand?: string }
 
-/** Every date in [from, to] with the given weekday. */
-function weekdaysIn(from: Day, to: Day, wd: number): Day[] {
-  const out: Day[] = [];
-  let d = addDays(from, (wd - weekday(from) + 7) % 7);
-  while (d <= to) { out.push(d); d = addDays(d, 7); }
-  return out;
+/** The week of a fixed-week rule in the given year and month, or null if it doesn't run then. */
+function fixedWeek(when: { week: number; month: string }, y: number, m: number): Day | null {
+  return when.month === 'every' || monthIndex(when.month) === m ? weekIn(y, m, when.week) : null;
 }
 
-/** Dates of fixed-date and nth-weekday rules in [from, to]. */
-function fixedDates(when: When, from: Day, to: Day): Day[] {
-  const out: Day[] = [];
-  for (let y = yearOf(from); y <= yearOf(to); y++) {
-    for (let m = 0; m < 12; m++) {
-      let d: Day | null = null;
-      if ('date' in when) {
-        if (monthIndex(when.month) === m) d = dayOf(y, m, when.date);
-      } else if ('nth' in when) {
-        if (when.month === 'every' || monthIndex(when.month) === m) d = nthWeekday(y, m, weekdayIndex(when.day), when.nth);
-      }
-      if (d && d >= from && d <= to) out.push(d);
-    }
-  }
-  return out;
-}
-
-const TOUR_DAYS: Record<number, number[]> = { 1: [6], 2: [3, 6], 3: [2, 4, 6], 4: [2, 3, 5, 6] };
-
-/** The shows one week (Monday `ws` to Sunday) brings, before numbering. */
+/** The shows one week `ws` brings, before numbering. */
 function draftWeek(state: CalendarState, ws: Day): Draft[] {
-  const we = addDays(ws, 6);
   const out: Draft[] = [];
+  const y = yearOf(ws), m = monthOf(ws), wk = weekOf(ws);
   const all = state.schedules ? { ...SCHEDULES, ...state.schedules } : SCHEDULES;
   for (const [promo, rules] of Object.entries(all)) {
     if (state.closed?.includes(promo) || (state.only && promo !== state.only)) continue;
     for (const rule of rules) {
-      const w = rule.when;
+      const w = rule.when as When;
       const key = `${promo}:${rule.name}`;
-      if ('every' in w) {
-        for (const d of weekdaysIn(ws, we, weekdayIndex(w.every))) out.push({ date: d, promo, rule });
+      if ('weeks' in w) {
+        if (w.weeks.includes(wk)) out.push({ date: ws, promo, rule });
       } else if ('everyN' in w) {
-        for (const d of weekdaysIn(ws, we, weekdayIndex(w.everyN.day))) if (Math.floor(daysBetween(w.everyN.anchor, d) / 7) % w.everyN.weeks === 0 && d >= w.everyN.anchor) out.push({ date: d, promo, rule });
-      } else if ('date' in w || 'nth' in w) {
-        for (const d of fixedDates(w, ws, we)) out.push({ date: d, promo, rule });
+        const n = weeksBetween(w.everyN.anchor, ws);
+        if (n >= 0 && n % w.everyN.weeks === 0) out.push({ date: ws, promo, rule });
+      } else if ('week' in w) {
+        if (fixedWeek(w, y, m) === ws) out.push({ date: ws, promo, rule });
       } else if ('irregular' in w) {
         const r = rngFor(state.seed, key, 'irregular');
         let next = state.nextIrregular[key];
-        if (!next) {
-          next = addDays(ws, randInt(r, 0, w.irregular.maxGapDays));
-          if (w.irregular.day) next = addDays(next, (weekdayIndex(w.irregular.day) - weekday(next) + 7) % 7);
-        }
-        while (next <= we) {
-          if (next >= ws) out.push({ date: next, promo, rule, irregular: key });
-          const rr = rngFor(state.seed, key, next);
-          let n = addDays(next, randInt(rr, w.irregular.minGapDays, w.irregular.maxGapDays));
-          if (w.irregular.day) n = addDays(n, (weekdayIndex(w.irregular.day) - weekday(n) + 7) % 7);
-          next = n;
+        if (!next) next = addWeeks(ws, randInt(r, 0, w.irregular.maxGapWeeks));
+        while (next <= ws) {
+          if (next === ws) out.push({ date: ws, promo, rule, irregular: key });
+          next = addWeeks(next, randInt(rngFor(state.seed, key, next), w.irregular.minGapWeeks, w.irregular.maxGapWeeks));
         }
         state.nextIrregular[key] = next;
       } else if ('tour' in w) {
         const target = rules.find((x) => x.name === w.tour.leadsTo);
-        if (!target) continue;
-        // A tour runs the `weeks` weeks before its show: find any of those shows this week leads to.
-        for (const big of fixedDates(target.when, ws, addDays(we, w.tour.weeks * 7))) {
-          const tourFrom = addDays(big, -w.tour.weeks * 7), tourTo = addDays(big, -1);
-          for (const wd of TOUR_DAYS[w.tour.showsPerWeek] ?? TOUR_DAYS[2]!) {
-            for (const d of weekdaysIn(tourFrom, tourTo, wd)) if (d >= ws && d <= we) out.push({ date: d, promo, rule });
-          }
+        if (!target || !('week' in target.when)) continue;
+        // A tour runs the `weeks` weeks before its show: is its show that close ahead?
+        for (let k = 1; k <= w.tour.weeks; k++) {
+          const big = addWeeks(ws, k);
+          if (fixedWeek(target.when as { week: number; month: string }, yearOf(big), monthOf(big)) === big) out.push({ date: ws, promo, rule });
         }
       } else if ('touringMonths' in w) {
-        const t = w.touringMonths;
-        const start = monthIndex(t.startMonth);
-        const r = rngFor(state.seed, key, ws);
-        const three = randInt(r, t.showsPerWeek[0], t.showsPerWeek[1]) >= 3;
-        const days = t.days.slice(0, three ? 3 : 2).map(weekdayIndex);
-        for (const wd of days) {
-          for (const d of weekdaysIn(ws, we, wd)) {
-            const m = monthOf(d);
-            if (t.pattern === 'alternate' ? (m - start + 12) % 2 === 0 : true) out.push({ date: d, promo, rule });
-          }
-        }
+        const start = monthIndex(w.touringMonths.startMonth);
+        if (w.touringMonths.pattern !== 'alternate' || (m - start + 12) % 2 === 0) out.push({ date: ws, promo, rule });
       } else if ('procedural' in w) {
         const r = rngFor(state.seed, key, ws);
         const used = new Set<string>();
@@ -221,16 +186,14 @@ function draftWeek(state: CalendarState, ws: Day): Draft[] {
         const n = randInt(r, w.procedural.eventsPerWeek[0], w.procedural.eventsPerWeek[1]);
         for (let i = 0; i < n; i++) {
           const country = INDIE_COUNTRIES[Math.floor(r() * INDIE_COUNTRIES.length)]!;
-          const date = addDays(ws, Math.floor(r() * 7));
-          out.push({ date, promo, rule, country, name: indieEventName(r, country, used) });
+          out.push({ date: ws, promo, rule, country, name: indieEventName(r, country, used) });
         }
       } else if ('dates' in w) {
         for (const spec of w.dates) {
-          for (const d of fixedDates({ date: spec.date, month: spec.month }, ws, we)) {
-            if (spec.optional && rngFor(state.seed, key, yearOf(d))() < 0.5) continue;
-            const promos = rule.promotions ?? [];
-            out.push({ date: d, promo: promos[0] ?? promo, rule, promos, country: PROMO_COUNTRIES[promos[yearOf(d) % 2] ?? 'NWGP']?.[0] });
-          }
+          if (fixedWeek(spec, y, m) !== ws) continue;
+          if (spec.optional && rngFor(state.seed, key, y)() < 0.5) continue;
+          const promos = rule.promotions ?? [];
+          out.push({ date: ws, promo: promos[0] ?? promo, rule, promos, country: PROMO_COUNTRIES[promos[y % 2] ?? 'NWGP']?.[0] });
         }
       }
     }
@@ -238,13 +201,16 @@ function draftWeek(state: CalendarState, ws: Day): Draft[] {
   return out;
 }
 
-/** Draw up the shows for the week starting `ws` (a Monday). Updates numbering in `state`. */
+/** Draw up the shows for the week `ws`. Updates numbering in `state`. */
 export function drawWeek(state: CalendarState, ws: Day): Show[] {
-  let drafts = draftWeek(state, ws).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  ws = norm(ws);
+  let drafts = draftWeek(state, ws);
   if (SPECIAL_REPLACES_WEEKLY) {
-    // A special on a weekly show's night takes its place: one show that night, not two.
-    const big = new Set(drafts.filter((d) => d.rule.kind === 'special' || d.rule.kind === 'flagship').map((d) => `${d.promo}|${d.date}`));
-    drafts = drafts.filter((d) => d.rule.kind !== 'weekly' || !big.has(`${d.promo}|${d.date}`));
+    // Lyra's call: a special's week has no TV (that week's weekly or tour show). A joint show takes the place of its
+    // promotions' shows that week (all but a flagship).
+    const big = new Set(drafts.filter((d) => !d.promos?.length && (d.rule.kind === 'special' || d.rule.kind === 'flagship')).map((d) => d.promo));
+    const joint = new Set(drafts.filter((d) => d.promos?.length).flatMap((d) => d.promos!));
+    drafts = drafts.filter((d) => d.promos?.length || !((big.has(d.promo) && (d.rule.kind === 'weekly' || d.rule.kind === 'tour')) || (joint.has(d.promo) && d.rule.kind !== 'flagship')));
   }
   const shows: Show[] = [];
   drafts.forEach((d, i) => {
@@ -287,13 +253,14 @@ export function drawWeek(state: CalendarState, ws: Day): Show[] {
 
 /** Draw up every week from the one containing `from` until the calendar reaches `to`. */
 export function drawCalendar(state: CalendarState, drawnTo: Day | null, from: Day, to: Day): { shows: Show[]; drawnTo: Day } {
-  let ws = drawnTo ? addDays(drawnTo, 1) : weekStart(from);
+  let ws = drawnTo ? addWeeks(drawnTo, 1) : norm(from);
+  const start = norm(from);
   const shows: Show[] = [];
   while (ws <= to) {
-    for (const s of drawWeek(state, ws)) if (s.date >= from) shows.push(s);
-    ws = addDays(ws, 7);
+    for (const s of drawWeek(state, ws)) if (s.date >= start) shows.push(s);
+    ws = addWeeks(ws, 1);
   }
-  return { shows, drawnTo: addDays(ws, -1) };
+  return { shows, drawnTo: addWeeks(ws, -1) };
 }
 
 /** For the calendar grid: is `d` inside the month (year, 0-based month)? */
