@@ -1,7 +1,7 @@
 // Life: getting to the shows. With cities, a trip is a distance; what you travel in decides the cost, the fatigue
 // and how much of your week it takes. With Life off it's today's rules (by country), from where you live.
 import { findWrestler } from '../../data/rtr';
-import { addDays, type Day } from '../dates';
+import { type Day } from '../dates';
 import { travelCost } from '../economy';
 import { cityFor, cityKm, regionOfCountry } from '../places';
 import { PRICE_BOOK as PB, TRAVEL_FATIGUE } from '../tuning';
@@ -91,13 +91,11 @@ export const fastAbroad = (c: Career, showId?: string): boolean => !!jetOf(c) ||
  */
 export function legHalves(c: Career, from: Place, to: Place, day: Day, after: boolean, showId?: string, amStart = false): [Day, 'am' | 'pm'][] {
   const b = band(from, to);
-  if (b === 'local') return [];
-  // Something that starts in the morning (a convention): you go the evening before.
-  const out: [Day, 'am' | 'pm'] = amStart ? [addDays(day, -1), 'pm'] : [day, 'am'];
-  if (b === 'short') return after ? [] : [out];
-  if (b === 'long' || (b === 'abroad' && fastAbroad(c, showId))) return [after ? [addDays(day, 1), 'am'] : out];
-  const d = after ? addDays(day, 1) : addDays(day, -1);
-  return [[d, 'am'], [d, 'pm']];
+  // The 48-week calendar: any trip takes the show week's AM, and you're home for the next week (an AM booking, a
+  // convention, has no AM to spare: you just go). How you travel still sets the fatigue and the cost.
+  void c; void showId;
+  if (b === 'local' || after || amStart) return [];
+  return [[day, 'am']];
 }
 
 /** On the bus (or with a driver), a road trip's half-days count as rest. */

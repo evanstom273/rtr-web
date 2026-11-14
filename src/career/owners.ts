@@ -11,7 +11,7 @@ import { makeOwner, TIER_LABEL, type Company } from '../world/companies';
 import { bookSummary } from './books';
 import { letter, promoName, setCareerHooks, spend } from './career';
 import { canRun, companies, companyOf, leaveRole, playerRuns, roleIn, rolesOf, takeRole } from './company';
-import { addDays, daysBetween, type Day } from './dates';
+import { addDays, daysBetween, yearsBetween, type Day } from './dates';
 import { registerReplies } from './mail';
 import { BIZ, FEATURES, OWNER } from './tuning';
 import type { Career, Show } from './types';
@@ -198,7 +198,7 @@ function monthly(c: Career): void {
     }
     // An old owner steps back (or dies): to you, if you're close and can take it; or a new face.
     const o = ownerOf(co.promo);
-    if (o && !playerRuns(co.promo) && Math.floor(daysBetween(o.born, c.today) / 365.25) >= OWNER.oldAge && rnd() < OWNER.handOn) {
+    if (o && !playerRuns(co.promo) && Math.floor(yearsBetween(o.born, c.today)) >= OWNER.oldAge && rnd() < OWNER.handOn) {
       if (likeOf(P(), o.id, c.player) >= OWNER.closeLike && !canRun(c, co.promo)) {
         letter(c, { kind: 'contract', from: o.name, subject: `I want you to have ${promoName(co.promo)}`, body: [`I’m done. I’d rather it went to someone I trust than to the suits. It’s yours if you want it.`],
           replies: [{ id: 'own_take', label: 'Take it on' }, { id: 'own_pass', label: 'I can’t' }], ctx: { promo: co.promo } });

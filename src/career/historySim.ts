@@ -4,7 +4,7 @@
 import { fansTotal, findWrestler, PROMOTIONS, TITLES, WRESTLERS } from '../data/rtr';
 import { activeWorld, saveWorld } from '../world/world';
 import type { WorldEvent } from '../world/history';
-import { addMonths, type Day } from './dates';
+import { addMonths, norm, weeksBetween, type Day } from './dates';
 import { attributeTotal } from './economy';
 import type { SimJob, SimOut } from './sim';
 import { FEATURES } from './tuning';
@@ -14,6 +14,7 @@ export const historyOf = () => activeWorld().sim;
 
 /** Rewind the active (fresh) world `years` years and get history ready to run. */
 export function beginHistory(years: number, today: Day): void {
+  today = norm(today);
   const w = activeWorld();
   const { start, waiting } = backdate(years, today, w.seed);
   const career = startSpectator({ today: start, seed: w.seed });
@@ -37,7 +38,7 @@ export async function runHistoryYear(run: (jobs: SimJob[]) => Promise<SimOut[]>,
   if (!s || s.reached >= s.years) return false;
   addNobody();
   const from = s.career.today, to = addMonths(s.start, 12 * (s.reached + 1));
-  const total = Math.max(1, Math.round((Date.parse(to) - Date.parse(from)) / 864e5));
+  const total = Math.max(1, weeksBetween(from, to));
   let done = 0;
   await simulateTo(s.career, to, run, async () => { done++; await onDay?.(done, total); }, cancelled);
   if (s.career.today < to) return false;

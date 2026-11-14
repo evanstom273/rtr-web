@@ -4,7 +4,7 @@ import { findWrestler } from '../../data/rtr';
 import { activeWorld } from '../../world/world';
 import { bondsOf, kindOf, moveBond } from '../../world/people';
 import { spend } from '../career';
-import { daysBetween } from '../dates';
+import { daysBetween, YEAR_DAYS } from '../dates';
 import { PRICE_BOOK as PB } from '../tuning';
 import type { Career } from '../types';
 import { borrow } from './loans';
@@ -14,7 +14,7 @@ const money = (n: number) => `£${Math.round(n).toLocaleString('en-GB')}`;
 export const VEHICLE_TIERS = Object.keys(PB.vehicles) as VehicleTier[];
 /** What they lose a year: cars and vans about 15%, the bus and a jet share 10%, a jet 7%, a banger 10%. */
 const KEEP: Record<VehicleTier, number> = { used_car: 0.9, car: 0.85, luxury_car: 0.85, van: 0.85, tour_bus: 0.9, jet_share: 0.9, jet: 0.93 };
-export const vehicleValue = (c: Career, v: Vehicle): number => Math.round(v.paid * KEEP[v.tier] ** (daysBetween(v.since, c.today) / 365) / 100) * 100;
+export const vehicleValue = (c: Career, v: Vehicle): number => Math.round(v.paid * KEEP[v.tier] ** (daysBetween(v.since, c.today) / YEAR_DAYS) / 100) * 100;
 export const vehicleName = (v: Pick<Vehicle, 'tier'>): string => PB.vehicles[v.tier].name;
 const loanKind = (t: VehicleTier) => (t === 'jet' || t === 'jet_share' ? 'jet' as const : 'car' as const);
 

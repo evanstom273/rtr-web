@@ -26,6 +26,7 @@ import { hashSeed } from '../career/booker';
 import { boutEngine, boutLabel } from '../career/bouts';
 import type { SideKey } from '../engine/types';
 import { activeWorld, resetCareer } from '../world/world';
+import { weeksBetween } from '../career/dates';
 
 /** A career match being played: which show and which match on its card. */
 /** Your career match: the show and the bout, and (a tag match) who starts for your team, picked on the tale of the tape. */
@@ -45,8 +46,8 @@ type Screen =
 function careerLine(): string | null {
   const c = activeWorld().career;
   const me = c ? findWrestler(c.player) : undefined;
-  if (!c || !me) return null;
-  return `${me.name} · ${me.promotion === 'TIS' ? 'free agent' : promoName(me.promotion)} · day ${Math.round((Date.parse(c.today) - Date.parse(c.startedOn)) / 864e5) + 1}`;
+  if (!c || !me) return activeWorld().notice ?? null;
+  return `${me.name} · ${me.promotion === 'TIS' ? 'free agent' : promoName(me.promotion)} · week ${weeksBetween(c.startedOn, c.today) + 1}`;
 }
 
 function careerName(): string | null {

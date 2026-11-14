@@ -12,7 +12,7 @@ import { hashSeed, seededRng } from '../engine/rng';
 import { activeWorld } from '../world/world';
 import { bondOf, bondsOf, feelPair, likeOf, respectOf, type People } from '../world/people';
 import { person, setCareerHooks, showsOn, spend } from './career';
-import { addDays, daysBetween, fmtDay, weekday, type Day } from './dates';
+import { addDays, daysBetween, fmtDay, perWeek, weekday, type Day } from './dates';
 import { activityAt, baseCountry, trainSession } from './day';
 import { baseRegion } from './economy';
 import { registerReplies } from './mail';
@@ -299,7 +299,7 @@ function invitations(c: Career): void {
   repayments(c, rnd);
   birthdays(c);
   shareOffers(c, rnd);
-  if (capLeft(c) <= 0 || rnd() >= PLANS_IN.daily) return;
+  if (capLeft(c) <= 0 || rnd() >= perWeek(PLANS_IN.daily)) return;
   const me = findWrestler(c.player)!;
   const pool: { who: string; kind: MeetKind; purpose?: 'intro' | 'mentor'; promo?: string; text: string; w: number }[] = [];
   for (const b of bondsOf(P(), c.player)) {
@@ -350,7 +350,7 @@ function repayments(c: Career, rnd: () => number): void {
     else if (!l.chased && daysBetween(l.due, c.today) === 0) add(c, l.who, { sys: true, text: `${first(l.who)} was meant to pay you back ${money(l.amount)} today.` });
   }
   // A friend in a hole asks to borrow (now and then, if there's room this week).
-  if (capLeft(c) <= 0 || rnd() >= LEND.ask / 7) return;
+  if (capLeft(c) <= 0 || rnd() >= LEND.ask) return;
   const friend = bondsOf(P(), c.player).find((b) => findWrestler(b.other) && theirLike(c, b.other) >= 40 && b.bond.f >= 40 && !c.lent?.some((l) => l.who === b.other)
     && (moodOf(b.other) < 45 || P().lives?.[b.other]?.goal?.kind === 'money' || c.people[b.other]?.injury));
   if (!friend) return;

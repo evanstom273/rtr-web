@@ -10,6 +10,7 @@ import {
   APPEARANCE_BONUS_T3, REBRAND, COST_INDEX, INDIE_FEE_BASE, INDIE_FEE_BRAND, INDIE_FEE_CHAMP, INDIE_FEE_EXP, INDIE_FEE_FANS_REF, INDIE_FEE_RANGE, INDIE_FEE_REP, INDIE_FEE_SPECIAL, LIVING_COST_EUROPE, PAY, SHOW_MULT, SHOW_MULT_WEEKLY_FLAGSHIP, TRAIN_DIVISOR, TRAIN_LEVEL_OFFSET, TRAVEL,
 } from './tuning';
 import type { Career, Contract, PayType, PopRegion, Show, ShowKind } from './types';
+import { addWeeks, daysBetween } from './dates';
 
 export const round5 = (v: number): number => Math.round(v / 5) * 5;
 
@@ -91,12 +92,12 @@ export function promoDates(promo: string): number {
   const n = Object.keys(c.shows).length;
   if (datesCache?.c !== c || datesCache.day !== c.today || datesCache.n !== n) {
     const by = new Map<string, number>();
-    const to = new Date(Date.parse(`${c.today}T12:00:00Z`) + 56 * 864e5).toISOString().slice(0, 10);
+    const to = addWeeks(c.today, 8);
     for (const s of Object.values(c.shows)) if (s.date > c.today && s.date <= to) for (const x of s.promos ?? [s.promo]) by.set(x, (by.get(x) ?? 0) + 1);
     datesCache = { c, day: c.today, n, by };
   }
   const shows = datesCache.by.get(promo);
-  return shows === undefined ? PAY.datesPerMonth : Math.max(1, Math.min(PAY.datesPerMonth, (shows * 30.44) / 56));
+  return shows === undefined ? PAY.datesPerMonth : Math.max(1, Math.min(PAY.datesPerMonth, (shows * 28) / 56));
 }
 
 /** How a deal pays (PPA if it doesn't say: every deal before the rework). */
@@ -170,12 +171,10 @@ export function indieFee(w: Wrestler, at: PopRegion | Show): number {
   return Math.max(INDIE_FEE_RANGE[0], Math.min(INDIE_FEE_RANGE[1], round5(fee)));
 }
 
-/** SLN-style flagships that run every week (from the schedules): paid like a big weekly show. */
-const WEEKLY_FLAGSHIP = new Set(Object.entries(schedulesJson as unknown as Record<string, { kind: string; when: { every?: string } }[]>)
-  .flatMap(([promo, rules]) => rules.filter((r) => r.kind === 'flagship' && r.when.every).map((r) => `${promo}:${r.when.every}`)));
-const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-export const isWeeklyFlagship = (show: Pick<Show, 'kind' | 'promo' | 'date'>): boolean =>
-  show.kind === 'flagship' && WEEKLY_FLAGSHIP.has(`${show.promo}:${DAY_NAMES[new Date(`${show.date}T12:00:00Z`).getUTCDay()]}`);
+/** Flagships that run every week (from the schedules): paid like a big weekly show. None since the 48-week calendar. */
+const WEEKLY_FLAGSHIP = new Set(Object.entries(schedulesJson as unknown as Record<string, { kind: string; when: { weeks?: number[] } }[]>)
+  .flatMap(([promo, rules]) => rules.filter((r) => r.kind === 'flagship' && (r.when.weeks?.length ?? 0) >= 4).map(() => promo)));
+export const isWeeklyFlagship = (show: Pick<Show, 'kind' | 'promo' | 'date'>): boolean => show.kind === 'flagship' && WEEKLY_FLAGSHIP.has(show.promo);
 
 export function travelCost(home: string, showCountry: string): number {
   if (home === showCountry) return TRAVEL.country;
@@ -245,7 +244,7 @@ setRescalePay(rescaleDeals);
 /** After a rebrand your merch builds back up over a year (Lyra's call): this month's share of it. */
 export function merchShare(c: Career): number {
   if (!c.merchSince) return 1;
-  const months = Math.max(0, (Date.parse(`${c.today}T12:00:00Z`) - Date.parse(`${c.merchSince}T12:00:00Z`)) / (30.44 * 864e5));
+  const months = Math.max(0, daysBetween(c.merchSince, c.today) / 28);
   const share = REBRAND.merchStart + (1 - REBRAND.merchStart) * Math.min(1, months / REBRAND.merchMonths);
   if (share >= 1) delete c.merchSince;
   return share;

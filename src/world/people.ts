@@ -10,6 +10,7 @@ import { PROMOTIONS, shippedStaff, type Job, type SpellWhy, type Staffer } from 
 import { BOND_KIND, BOND_LOG, BOND_MARK } from '../career/tuning';
 import type { Day } from '../career/dates';
 import type { PopRegion } from '../career/types';
+import { daysBetween } from '../career/dates';
 
 /** An indie promotion with a life of its own: where it runs, how often, and who runs it. */
 export interface Brand {
@@ -267,7 +268,7 @@ export function kindOf(x: Bond, day?: Day): BondKind | undefined {
   if (m.lo >= BOND_KIND.friend && x.f >= BOND_KIND.friendFam) return 'friend';
   return undefined;
 }
-const daysApart = (a: Day, b: Day) => Math.abs(Date.parse(b) - Date.parse(a)) / 86_400_000;
+const daysApart = (a: Day, b: Day) => Math.abs(daysBetween(a, b));
 
 /** Everyone `id` has a bond with. */
 export function bondsOf(P: People, id: string): { other: string; bond: Bond }[] {

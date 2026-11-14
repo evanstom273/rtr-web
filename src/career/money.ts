@@ -8,7 +8,7 @@ import { letter, person, promoName, setCareerHooks, spend } from './career';
 import { BONUS_TRIGGERS, tierOf, triggerSlots, type BonusTrigger } from './clauses';
 import { onSigned } from './contracts';
 import { registerReplies } from './mail';
-import { addDays, daysBetween, type Day } from './dates';
+import { addDays, daysBetween, weekOf, WEEKS_A_MONTH, YEAR_DAYS, yearsBetween, type Day } from './dates';
 import { dealsOf, dealWith } from './deals';
 import { isWeeklyFlagship, matchPay, merchShare, monthlySalary, payOf, round5 } from './economy';
 import {
@@ -17,7 +17,7 @@ import {
 } from './tuning';
 import type { Bout, Career, Contract, PlayerMatch, Show } from './types';
 
-const yearsSince = (from: Day, to: Day): number => Math.floor(daysBetween(from, to) / 365.25);
+const yearsSince = (from: Day, to: Day): number => Math.floor(yearsBetween(from, to));
 const money = (n: number): string => `£${n.toLocaleString('en-GB')}`;
 
 // ------------------------------------------------------------------ signing money
@@ -170,7 +170,7 @@ function anniversaries(c: Career, k: Contract): void {
     const t = tierOf(k, 'wage');
     let rise = YEARLY_RAISE[t] ?? 0;
     // A great year (Tier 2+): a performance raise on top.
-    const year = c.history.filter((m) => m.promo === k.promo && daysBetween(m.day, c.today) <= 365);
+    const year = c.history.filter((m) => m.promo === k.promo && daysBetween(m.day, c.today) <= YEAR_DAYS);
     if (t >= 2 && year.length >= 10 && year.reduce((a, m) => a + m.stars, 0) / year.length >= PERF_RAISE_STARS) rise += PERF_RAISE;
     if (rise) {
       k.fee = round5(k.fee * (1 + rise));
@@ -228,9 +228,8 @@ function monthly(c: Career, _rnd: Rng): void {
 
 /** The share of a month left from today (today included). */
 function daysLeftInMonth(day: Day): number {
-  const [y, m, d] = day.split('-').map(Number) as [number, number, number];
-  const days = new Date(Date.UTC(y, m, 0)).getUTCDate();
-  return (days - d + 1) / days;
+  // Four weeks a month (the 48-week calendar): week 2 is three quarters of it.
+  return (WEEKS_A_MONTH - weekOf(day) + 1) / WEEKS_A_MONTH;
 }
 /** Payday: a salary (or a share of one), and an advance comes back out of it. */
 function payday(c: Career, k: Contract, share: number): void {
@@ -262,7 +261,7 @@ function leaving(c: Career, k: Contract, how: 'ended' | 'left' | 'released' | 'm
   const image = tierOf(k, 'image');
   if (image >= 2) return;
   const me = findWrestler(c.player)!;
-  const years = Math.max(0, daysBetween(k.since ?? k.start, c.today) / 365.25);
+  const years = Math.max(0, yearsBetween(k.since ?? k.start, c.today));
   const share = Math.min(REBRAND_LOSS.max, REBRAND_LOSS.base + REBRAND_LOSS.perYear * years) * (image === 1 ? 0.5 : 1);
   const before = fansTotal(me);
   for (const r of Object.keys(me.fans) as (keyof typeof me.fans)[]) me.fans[r] = Math.round(me.fans[r] * (1 - share));

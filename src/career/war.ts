@@ -10,7 +10,7 @@ import { closeCompany } from './books';
 import { letter, person, promoName, release, setCareerHooks } from './career';
 import { companies, companyOf, playerRuns, redraw, roleIn } from './company';
 import { aiContract } from './deals';
-import { addDays, WEEKDAYS } from './dates';
+import { addDays } from './dates';
 import { registerReplies } from './mail';
 import { PROMO_COUNTRIES } from './places';
 import { REGION_DATA } from '../world/populate';
@@ -79,8 +79,7 @@ function startups(c: Career, rnd: Rng): void {
     PROMOTIONS.push(p);
     PROMO_COUNTRIES[ini] = [b.country];
     const city = b.city ?? 'Leeds';
-    const day = WEEKDAYS[(b.dow + 1) % 7]!;
-    companies()[ini] = { promo: ini, owner: pr.id, tier: 'local', bank: WAR.startupBank, founded: c.today, home: { country: b.country, city }, schedule: [{ name: b.name, kind: 'weekly', when: { every: day } } as never] };
+    companies()[ini] = { promo: ini, owner: pr.id, tier: 'local', bank: WAR.startupBank, founded: c.today, home: { country: b.country, city }, schedule: [{ name: b.name, kind: 'weekly', when: { weeks: [1, 2, 3, 4] } } as never] };
     b.closed = c.today;
     // The indie scene keeps its shape: a new brand opens in the region.
     openBrand(c, b.region, rnd);

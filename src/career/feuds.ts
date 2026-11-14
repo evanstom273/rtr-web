@@ -21,7 +21,7 @@ import { tierOf } from './clauses';
 import { multiBout } from './bouts';
 import { playerRuns } from './company';
 import { rateSegment, SEG_LABEL } from './card';
-import { addDays, daysBetween, fmtDay, weekday } from './dates';
+import { addDays, daysBetween, fmtDay, perWeek, weekday } from './dates';
 import { registerReplies, replyTo } from './mail';
 import { setSegStop, setStoryAnswer } from './skip';
 import { routineOf } from './day';
@@ -247,7 +247,8 @@ function comesToYou(c: Career): void {
   const pool = rivalsFor(c).slice(0, 12);
   if (!pool.length) return;
   // The booker: about one a month when you're not in one.
-  if (r() < FEUD.assignDaily) {
+  // Rolled once a week now (the 48-week calendar): the week's chance of the day's.
+  if (r() < perWeek(FEUD.assignDaily)) {
     const rival = pool[Math.floor(r() * Math.min(5, pool.length))]!;
     makeFeud(c, promo, rival.id, 'booker');
     letter(c, { kind: 'news', from: office(promo), subject: `A storyline: you and ${rival.name}`, body: [`The office has you in a feud with ${rival.name}. It starts on the next show.`, 'Make it worth watching.'] });
@@ -255,7 +256,7 @@ function comesToYou(c: Career): void {
   }
   // A rival comes for you (hot-heads and egos, mostly): bite or don't.
   const hungry = pool.filter((w) => hasTrait(w, 'hot_headed') || hasTrait(w, 'egotistical') || hasTrait(w, 'showboat'));
-  if (hungry.length && r() < FEUD.rivalComesDaily) {
+  if (hungry.length && r() < perWeek(FEUD.rivalComesDaily)) {
     const w = hungry[Math.floor(r() * hungry.length)]!;
     letter(c, {
       kind: 'news', from: w.name, fromId: w.id, subject: 'You and me',
@@ -643,7 +644,7 @@ function rivalMoves(c: Career, f: Feud): void {
   const rival = W(rivalOf(c, f));
   if (!rival || c.people[rival.id]?.injury) return;
   const r = rngOf(c, 'rival', f.id, c.today);
-  if (r() > FEUD.rivalDaily * (0.4 + feudHeat(f) / 100)) return;
+  if (r() > perWeek(FEUD.rivalDaily * (0.4 + feudHeat(f) / 100))) return;
   const P = activeWorld().people;
   const like = P ? likeOf(P, rival.id, c.player) ?? 0 : 0;
   const kind = hasTrait(rival, 'hot_headed') || hasTrait(rival, 'aggressive') ? (r() < 0.6 ? 'attack' : 'post')
@@ -693,7 +694,7 @@ function goingWrong(c: Career, f: Feud): void {
   // A real fight backstage: hot, and they genuinely can't stand each other.
   const P = activeWorld().people;
   const like = P ? likeOf(P, f.a, f.b) ?? 0 : 0;
-  if (heat >= FEUD.realFightAt && like <= FEUD.realFightLike && rngOf(c, 'realfight', f.id, c.today)() < FEUD.realFightDaily) {
+  if (heat >= FEUD.realFightAt && like <= FEUD.realFightLike && rngOf(c, 'realfight', f.id, c.today)() < perWeek(FEUD.realFightDaily)) {
     moment(c, f, 'real_fight', 'A real fight backstage', 6);
     if (mine(c, f)) {
       const p = person(c, c.player), r = rngOf(c, 'realfight2', f.id, c.today);

@@ -8,7 +8,7 @@ import { hashSeed, seededRng } from '../engine/rng';
 import { letter, person, setCareerHooks, spend } from './career';
 import { tierOf } from './clauses';
 import { dealsOf, dealWith, sideWork } from './deals';
-import { addDays, daysBetween, fmtDay, weekday, type Day } from './dates';
+import { addDays, addWeeks, daysBetween, fmtDay, weekday, weeksBetween, type Day } from './dates';
 import { attributeTotal, indieFee, livingCost, baseRegion } from './economy';
 import { ctxFor, fire, registerEvents, type EventDef } from './events';
 import { patienceOf } from './patience';
@@ -103,10 +103,10 @@ export function conventionsAhead(c: Career): Convention[] {
   const region = baseRegion(c);
   const countries = Object.keys(REGION_OF).filter((x) => REGION_OF[x] === region && CITIES[x]);
   const out: Convention[] = [];
-  let d = addDays(c.today, 1);
-  while (weekday(d) !== 6) d = addDays(d, 1);
-  for (let i = 0; i < CONVENTION.weeksAhead; i++, d = addDays(d, 7)) {
-    for (const day of [d, addDays(d, 1)]) {
+  // One a week now (the 48-week calendar), in the week's AM.
+  let d = addWeeks(c.today, 1);
+  for (let i = 0; i < CONVENTION.weeksAhead; i++, d = addWeeks(d, 1)) {
+    for (const day of [d]) {
       const rnd = seededRng(hashSeed(c.seed, 'con', region, day));
       const country = countries[Math.floor(rnd() * countries.length)]!;
       const city = CITIES[country]![Math.floor(rnd() * CITIES[country]!.length)]!;
@@ -178,7 +178,8 @@ export function setCoaching(c: Career, slots: [number, PhaseName][] | null): str
 }
 export const isCoaching = (c: Career, day: Day, ph: PhaseName): boolean => {
   const k = c.hustle?.coaching;
-  return !!k && day >= k.since && k.slots.some(([d, p]) => d === weekday(day) && p === ph);
+  // A week's AM or PM now (the 48-week calendar): the slot's weekday no longer matters.
+  return !!k && day >= k.since && k.slots.some(([, p]) => p === ph);
 };
 
 // ------------------------------------------------------------------ the phase: coaching and gigs pay out
@@ -210,9 +211,11 @@ function phase(c: Career, ph: PhaseName, a: string): void {
     return;
   }
   if (isCoaching(c, c.today, ph)) {
-    spend(c, classFee(c), 'Coaching · a class', 'event');
-    hustleOf(c).taught = (hustleOf(c).taught ?? 0) + 1;
-    p.fatigue = Math.min(100, p.fatigue + COACHING.fatigue);
+    // Half a week's coaching: a few classes.
+    const n = COACHING.classesPerPhase;
+    spend(c, classFee(c) * n, `Coaching · ${n} classes`, 'event');
+    hustleOf(c).taught = (hustleOf(c).taught ?? 0) + n;
+    p.fatigue = Math.min(100, p.fatigue + COACHING.fatigue * n);
   }
 }
 
@@ -301,7 +304,7 @@ const FUND_OFFER: EventDef = {
   from: () => 'A friend', subject: () => 'Let people help?',
   body: (_x, d) => [`You’re out for ${String(d.days)} days and the bills are piling up. A fundraiser could bring in around ${money(Number(d.total))} over the next two weeks.`, 'Some people will think less of you for asking. Most won’t.'],
   options: [
-    { id: 'yes', label: 'Start the fundraiser', run: (x, d) => { const h = hustleOf(x.c); h.fund = { until: addDays(x.c.today, FUND.overDays), perDay: Math.round(Number(d.total) / FUND.overDays), raised: 0 }; h.fundAt = x.c.today; return 'It’s up. People are sharing it.'; } },
+    { id: 'yes', label: 'Start the fundraiser', run: (x, d) => { const h = hustleOf(x.c); h.fund = { until: addDays(x.c.today, FUND.overDays), perDay: Math.round(Number(d.total) / Math.max(1, weeksBetween(x.c.today, addDays(x.c.today, FUND.overDays)))), raised: 0 }; h.fundAt = x.c.today; return 'It’s up. People are sharing it.'; } },
     { id: 'no', label: 'No, I’ll manage', decline: true, run: () => 'Pride intact. Bank balance less so.' },
   ],
 };

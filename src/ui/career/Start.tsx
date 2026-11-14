@@ -148,7 +148,7 @@ function AlsoDeal({ who, d, taken, onChange, onRemove }: { who: Wrestler; d: One
       <PayBoxes promo={d.promo} deal={d} onChange={(m) => onChange({ ...d, ...m })} />
       <span className="c-val">{payWords(d)}</span>
       <span className="c-lab">{w('Dates a month')}</span>
-      <div className="c-chips">{[2, 4, 6, 8].map((n) => <button key={n} className={`c-chip${(d.dates ?? SPLIT_DEFAULT_NEW) === n ? ' on' : ''}`} onClick={() => onChange({ ...d, dates: n })}>{n}</button>)}</div>
+      <div className="c-chips">{[1, 2].map((n) => <button key={n} className={`c-chip${(d.dates ?? SPLIT_DEFAULT_NEW) === n ? ' on' : ''}`} onClick={() => onChange({ ...d, dates: n })}>{n}</button>)}</div>
       <div className="c-chips">{LENGTHS.map((m) => <button key={m} className={`c-chip${m === d.months ? ' on' : ''}`} onClick={() => onChange({ ...d, months: m })}>{m} {w('months')}</button>)}</div>
     </div>
   );
@@ -205,7 +205,7 @@ export function DealEditor({ who, initial, onCancel, onDone, created }: { who: W
               <button className="c-chip" onClick={() => setClauses(NO_CLAUSES())}>{w('Nothing')}</button>
             </div>
             <span className="c-lab">{w('Dates a month')}</span>
-            <div className="c-chips">{[0, 2, 4, 6, 8].map((n) => <button key={n} className={`c-chip${(dates ?? 0) === n ? ' on' : ''}`} onClick={() => setDates(n || undefined)}>{n ? n : w('Booker’s call')}</button>)}</div>
+            <div className="c-chips">{[0, 1, 2, 3].map((n) => <button key={n} className={`c-chip${(dates ?? 0) === n ? ' on' : ''}`} onClick={() => setDates(n || undefined)}>{n ? n : w('Booker’s call')}</button>)}</div>
             <span className="c-sec">{w('Other majors')}</span>
             <span className="c-note">Sign with more than one major from the start (up to {MAX_MAJORS} in all): none of the deals can be exclusive, and {SPLIT_DATES_TOTAL} dates a month split between them.</span>
             {also.map((d, i) => <AlsoDeal key={i} who={who} d={d} taken={taken} onChange={(n) => setAlso(also.map((x, k) => (k === i ? n : x)))} onRemove={() => setAlso(also.filter((_, k) => k !== i))} />)}

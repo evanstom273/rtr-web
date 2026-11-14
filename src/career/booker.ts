@@ -8,7 +8,7 @@ import { tierOf } from './clauses';
 import { dealWith, sideWork } from './deals';
 import type { StipulationId } from '../engine/types';
 import { hashSeed, seededRng, type Rng } from '../engine/rng';
-import { addDays, daysBetween, type Day } from './dates';
+import { addDays, daysBetween, YEAR_DAYS, type Day } from './dates';
 import { NEIGHBOURS, REGION_KEY } from './places';
 import { activeWorld } from '../world/world';
 import { likeOf } from '../world/people';
@@ -213,7 +213,7 @@ export const titleMinGap = (id: string): number => TITLE_RHYTHM[titleClass(id)].
 /** The booker's chance of planning the champion to retain this defence: by class, less likely the longer the reign. */
 export function planRetain(c: Career, titleId: string, day: Day): number {
   const ts = c.titles[titleId];
-  const years = ts?.since ? Math.max(0, daysBetween(ts.since, day)) / 365 : 0;
+  const years = ts?.since ? Math.max(0, daysBetween(ts.since, day)) / YEAR_DAYS : 0;
   return 1 - Math.min(TITLE_CHANGE_MAX, TITLE_PLANNED_CHANGE[titleClass(titleId)] + years * TITLE_CHANGE_PER_REIGN_YEAR);
 }
 

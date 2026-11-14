@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { baseCountry, hireable, hireFee, ownBudget, putOnShow, venues, type Career } from '../../career';
 import { fansIn, fmtFans } from '../../data/rtr';
-import { addDays, fmtDay, weekday } from '../../career/dates';
+import { addDays, addWeeks, fmtDay } from '../../career/dates';
 import { CITIES, REGION_OF, regionOfCountry } from '../../career/places';
 import { OWN_SHOW } from '../../career/tuning';
 import { commit, Head, money, Screen, useToast, useWords } from './parts';
@@ -13,9 +13,8 @@ export function OwnShow({ c, onBack }: { c: Career; onBack: () => void }) {
   const region = regionOfCountry(baseCountry(c));
   const countries = Object.keys(REGION_OF).filter((x) => REGION_OF[x] === region && CITIES[x]);
   const dates = useMemo(() => {
-    let d = addDays(c.today, OWN_SHOW.minLead);
-    while (weekday(d) !== 6) d = addDays(d, 1);
-    return Array.from({ length: 6 }, (_, i) => addDays(d, i * 7));
+    const d = addDays(c.today, OWN_SHOW.minLead);
+    return Array.from({ length: 6 }, (_, i) => addWeeks(d, i));
   }, [c.today]);
   const [date, setDate] = useState(dates[0]!);
   const [place, setPlace] = useState(() => { const k = countries.includes(baseCountry(c)) ? baseCountry(c) : countries[0]!; return `${k}|${CITIES[k]![0]}`; });

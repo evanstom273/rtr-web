@@ -310,7 +310,7 @@ const MEDIA: EventDef[] = [
     ],
   },
   {
-    id: 'meet_fans', cat: 'media', weight: 3, cooldown: 20, when: (x) => !!x.c.history[0] && daysBetween(x.c.history[0].day, x.day) <= 1,
+    id: 'meet_fans', cat: 'media', weight: 3, cooldown: 20, when: (x) => !!x.c.history[0] && daysBetween(x.c.history[0].day, x.day) <= 7,
     setup: (x) => ({ show: x.c.history[0]!.showName, region: x.c.shows[x.c.history[0]!.show]?.region ?? homeRegion(x) }),
     from: (_x, d) => String(d.show), subject: () => 'There’s a queue at the merch table',
     body: () => ['After the show a line of fans has formed by the merch table. You’re aching and the hotel’s calling.'],
@@ -468,7 +468,7 @@ const BACKSTAGE: EventDef[] = [
     ],
   },
   {
-    id: 'great_match_praise', cat: 'backstage', weight: 3, cooldown: 20, when: (x) => !!x.c.history[0] && x.c.history[0].stars >= 4 && daysBetween(x.c.history[0].day, x.day) <= 2,
+    id: 'great_match_praise', cat: 'backstage', weight: 3, cooldown: 20, when: (x) => !!x.c.history[0] && x.c.history[0].stars >= 4 && daysBetween(x.c.history[0].day, x.day) <= 7,
     setup: (x) => ({ who: x.c.history[0]!.opp, show: x.c.history[0]!.showName }),
     from: (_x, d) => nameOf(d), subject: () => 'That was something',
     body: (_x, d) => [`${first(d)} finds you after ${d.show}. “That’s the best match I’ve had in years. We should do it again.”`],
@@ -694,7 +694,7 @@ const PERSONAL: EventDef[] = [
     ],
   },
   {
-    id: 'wrong_music', cat: 'fun', weight: 0.7, cooldown: 180, when: (x) => !!x.c.history[0] && daysBetween(x.c.history[0].day, x.day) <= 3,
+    id: 'wrong_music', cat: 'fun', weight: 0.7, cooldown: 180, when: (x) => !!x.c.history[0] && daysBetween(x.c.history[0].day, x.day) <= 7,
     setup: (x) => { const m = x.c.history[0]!; const s = x.c.shows[m.show]; return { show: m.showName, key: s ? showBooker(s) : m.promo, song: pick(x.rnd, ['a boy band’s greatest hit', 'the theme from a children’s cartoon', 'your opponent’s music', 'a hold-music loop'])! }; },
     from: (_x, d) => String(d.show), subject: () => 'About your entrance…',
     body: (_x, d) => [`At ${d.show} the sound desk played ${d.song} for your entrance. You walked out to it anyway. Someone filmed it.`],

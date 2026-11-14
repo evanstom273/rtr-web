@@ -1,7 +1,7 @@
 import { useState, type KeyboardEvent } from 'react';
 import { findWrestler, type Staffer } from '../../data/rtr';
 import { bookerName, cliqueOf, dealsOf, leadersOf, memoryLine, memoryOf, MOOD_WHY, moodLabel, moodOf, patienceOf, person, phoneOn, roomLabel, standingOf, promoName, readOf, relLabel, relationsList, trust, trustLabel, type Career } from '../../career';
-import { daysBetween, fmtDay } from '../../career/dates';
+import { fmtDay, yearsBetween } from '../../career/dates';
 import { FEATURES } from '../../career/tuning';
 import { askTeamUp, splitOffer, splitWith, teamUpOffer } from '../../career/teamPhone';
 import { activeWorld } from '../../world/world';
@@ -153,7 +153,7 @@ export function Relationships({ c, onBack, onMessage }: Props) {
 function BookerFile({ c, s, onClose }: { c: Career; s: Staffer; onClose: () => void }) {
   const { skin, w } = useWords();
   const P = activeWorld().people!;
-  const age = Math.floor(daysBetween(s.born, c.today) / 365.25);
+  const age = Math.floor(yearsBetween(s.born, c.today));
   const v = likeOf(P, s.id, c.player);
   const t = trust(c, s.id);
   const where = (j: Staffer['spells'][number]['job']) => (j.kind === 'booker' ? `Booker, ${promoName(j.promo)}` : j.kind === 'owner' ? `Owner, ${promoName(j.promo)}` : j.kind === 'staff' ? `${j.role}, ${promoName(j.promo)}` : `Promoter, ${P.brands[j.brand]?.name ?? 'an indie'}`);

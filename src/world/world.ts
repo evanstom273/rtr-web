@@ -18,12 +18,19 @@ import { crownIndies, growIndies, populateIndies } from './populate';
 import { ensureCompanies, type Company } from './companies';
 
 /** The world save's revision: each step in `upgrade` runs once, in order, on older saves. */
-export const WORLD_REV = 12;
+export const WORLD_REV = 13;
+/**
+ * Rev 13 (Lyra's call): the 48-week calendar. Saves from before it can't carry on (every date in them is a day, not a
+ * week), so they start a fresh world; the old save is kept aside, not played.
+ */
+export const FRESH_FROM_REV = 13;
 
 export interface World {
   v: 1;
   /** Which upgrade steps this save has had (missing: 1, from before revisions). */
   rev?: number;
+  /** A note for the menu (why the world's fresh), until a career starts. */
+  notice?: string;
   /** Seeds everything the world rolls, so a day plays out the same if it's replayed. */
   seed: number;
   createdAt: number;
@@ -315,8 +322,13 @@ async function loadSaved(): Promise<World | null> {
 export async function bootWorld(stillWanted: () => boolean = () => true): Promise<World> {
   const saved = await loadSaved();
   if (!stillWanted()) return activeWorld();
-  if (saved) return setWorld(saved);
+  if (saved && (saved.rev ?? 1) >= FRESH_FROM_REV) return setWorld(saved);
+  if (saved) {
+    // From before the 48-week calendar: put it aside and start again.
+    try { await tx('world', 'readwrite', (s) => s.put(saved, `before-weeks-${Date.now()}`)); } catch { /* nowhere to keep it */ }
+  }
   const w = setWorld(freshWorld());
+  if (saved) w.notice = 'The calendar’s four weeks a month now: older saves can’t carry on, so it’s a fresh world. Start a new career.';
   await saveWorld(w);
   return w;
 }

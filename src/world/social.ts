@@ -12,6 +12,7 @@ import { CITIES } from '../career/places';
 import { CHEMISTRY, CIRCLE, ORIENTATION, ROMANCE, SCHOOLS_PER_COUNTRY, SOCIAL_RESPECT, SOCIAL_SEED } from '../career/tuning';
 import type { Day } from '../career/dates';
 import { bondOf, bondsOf, ensureBond, feelPair, type Folk, type Life, type Orientation, type People } from './people';
+import { yearsBetween } from '../career/dates';
 
 // ------------------------------------------------------------------ where people live and trained
 
@@ -81,7 +82,7 @@ export function orientationOf(seed: number, id: string, life?: Life): Orientatio
 export interface Persona { id: string; traits: readonly TraitId[]; age: number; country: string; ability?: number }
 
 export const personaOf = (w: Wrestler): Persona => ({ id: w.id, traits: w.traits ?? [], age: w.age, country: w.country, ability: abilityOf(w) });
-export const staffPersona = (s: Staffer, today: Day): Persona => ({ id: s.id, traits: s.traits, age: Math.floor((Date.parse(today) - Date.parse(s.born)) / (365.25 * 86_400_000)), country: s.country });
+export const staffPersona = (s: Staffer, today: Day): Persona => ({ id: s.id, traits: s.traits, age: Math.floor(yearsBetween(s.born, today)), country: s.country });
 /** Attribute total, the measure of a worker. */
 export const abilityOf = (w: Pick<Wrestler, 'stats'>): number => w.stats.strength + w.stats.speed + w.stats.stamina + w.stats.skill + w.stats.striking + w.stats.charisma;
 

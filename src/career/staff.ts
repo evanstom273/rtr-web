@@ -14,7 +14,7 @@ import { bookerOf, freshPeople, jobLabel, leaveJob, takeJob, type People } from 
 import { countriesIn, makePromoter, REGION_DATA } from '../world/populate';
 import { pledgeDone } from './booker';
 import { letter, promoName, setCareerHooks } from './career';
-import { addDays, daysBetween, type Day } from './dates';
+import { addDays, daysBetween, YEAR_DAYS, yearsBetween, type Day } from './dates';
 import { CITIES, PROMO_COUNTRIES, REGION_OF } from './places';
 import {
   BOOKER_BAD_STARS, BOOKER_FIRE_BAD, BOOKER_FIRE_MONTHLY, BOOKER_FX, BOOKER_QUIT_MONTHLY, BOOKER_RETIRE_AGE, BOOKER_RETIRE_BASE, BOOKER_RETIRE_PER_YEAR, BOOKER_RETURN_DAYS, BOOKER_RETURN_MAX_AGE, BRAND_POP_BOUNDS, INDIE_BRAND_EVERY, INDIE_DOW, PLEDGE_HONOUR_BASE, PLEDGE_HONOUR_SWING, PROMOTER_CLOSE_MONTHLY, PROMOTER_PROMOTE_MIN_REP, STAFF_REP_PER_YEAR, TRUST_INHERIT,
@@ -23,7 +23,7 @@ import type { BookerMemory, Career, PopRegion } from './types';
 
 const people = (): People => (activeWorld().people ??= freshPeople());
 const history = () => activeWorld().history;
-const age = (s: Staffer, day: Day) => Math.floor(daysBetween(s.born, day) / 365.25);
+const age = (s: Staffer, day: Day) => Math.floor(yearsBetween(s.born, day));
 const has = (s: Staffer, t: TraitId) => s.traits.includes(t);
 const pick = <T>(rnd: Rng, xs: readonly T[]): T => xs[Math.floor(rnd() * xs.length)]!;
 const weighted = <T>(rnd: Rng, xs: readonly T[], w: (x: T) => number): T | undefined => {
@@ -80,7 +80,7 @@ function wrestlerTurnedBooker(c: Career, rnd: Rng, promo: string): Staffer | und
   const w = weighted(rnd, cands, (x) => globalScore(x));
   if (!w) return undefined;
   const s: Staffer = {
-    id: w.id, name: w.name, born: addDays(c.today, -Math.round(w.age * 365.25)), country: w.country, gender: w.gender === 'FEMALE' ? 'FEMALE' : 'MALE', background: 'wrestler',
+    id: w.id, name: w.name, born: addDays(c.today, -Math.round(w.age * YEAR_DAYS)), country: w.country, gender: w.gender === 'FEMALE' ? 'FEMALE' : 'MALE', background: 'wrestler',
     traits: backstageTraits(rnd, w.traits ?? []), rep: Math.min(80, 40 + Math.round(globalScore(w) / 2)), job: null, spells: [],
     bio: `${w.gimmick} in the ring for years. Now on the other side of the curtain.`,
   };

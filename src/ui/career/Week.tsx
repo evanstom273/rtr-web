@@ -3,7 +3,7 @@ import { findWrestler } from '../../data/rtr';
 import { activeWorld } from '../../world/world';
 import { activityAt, baseCountry, MEET_LABEL, jobBoard, livingCost, phaseOf, quitJob, relocate, relocateCost, routineOf, shiftPay, takeJob, type Activity, type Career, type DayJob } from '../../career';
 import { ATTR_KEYS, ATTR_SHORT } from '../../career/create';
-import { addDays, fmtDay, weekday } from '../../career/dates';
+import { addWeeks, fmtDay, weekday } from '../../career/dates';
 import { occupied, pkey } from '../../career/day';
 import { REGION_LABEL, REGION_OF, regionOfCountry } from '../../career/places';
 import { FEATURES, JOB_HOLIDAY, JOB_STRIKES, JOBS } from '../../career/tuning';
@@ -29,7 +29,7 @@ export function shiftText(shifts: readonly (readonly [number, string])[]): strin
   }).join(' · ');
 }
 
-/** Your week (days on): the next seven days half by half, your routine, your day job and where you live. */
+/** Your week (Lyra's call: an AM that's yours, a PM that's show night): the coming weeks half by half, your routine and where you live. */
 export function Week({ c, onBack, onOwnShow }: Props) {
   const { skin, w } = useWords();
   const [toast, say] = useToast();
@@ -43,7 +43,7 @@ export function Week({ c, onBack, onOwnShow }: Props) {
   const done = (f: () => string | void) => { const s = f(); commit(); if (s) say(s); };
   const chip = (on: boolean, label: string, f: () => void) => <button key={label} className={`c-chip${on ? ' on' : ''}`} onClick={() => { f(); commit(); }}>{w(label)}</button>;
 
-  const week = Array.from({ length: 7 }, (_, i) => addDays(c.today, i));
+  const week = Array.from({ length: 6 }, (_, i) => addWeeks(c.today, i));
   const cell = (d: string, p: 'am' | 'pm') => {
     const a = activityAt(c, d, p);
     const past = d === c.today && p === 'am' && ph === 'pm';
@@ -83,21 +83,19 @@ export function Week({ c, onBack, onOwnShow }: Props) {
               <span /><span className="c-lab">AM</span><span className="c-lab">PM</span>
               {week.map((d) => (
                 <span key={d} style={{ display: 'contents' }}>
-                  <span className="c-wkd"><b>{fmtDay(d).split(' ')[0]!.replace(',', '')}</b><span>{fmtDay(d, 'dm')}</span></span>
+                  <span className="c-wkd"><b>{d === c.today ? w('This week') : `Wk ${fmtDay(d, 'dm').split(' ')[1]}`}</b><span>{fmtDay(d, 'dm').split(' ')[2]}</span></span>
                   {cell(d, 'am')}{cell(d, 'pm')}
                 </span>
               ))}
             </div>
-            <span className="c-note">Tap a free half-day to switch between rest, training{FEATURES.hustles ? ' and making content' : ''}. Your week repeats; shows, travel, work and gigs come first.</span>
+            <span className="c-note">The AM is your week; the PM is show night. Tap a free half to switch between rest, training{FEATURES.hustles ? ' and making content' : ''}. Every week runs the same; shows, travel{FEATURES.jobs ? ', work' : ''} and gigs come first.</span>
             <span className="c-sec">{w('Training sessions')}</span>
             <div className="c-kv">
               <span className="c-lab">{w('Build first')}</span>
               <div className="c-chips">{chip(!r.focus, 'Any', () => { delete r.focus; })}{ATTR_KEYS.map((k, i) => <span key={k} style={{ display: 'contents' }}>{chip(r.focus === k, ATTR_SHORT[i]!, () => { r.focus = k; })}</span>)}</div>
               <span className="c-lab">{w('Skip if tired')}</span>
               <div className="c-chips">{[40, 50, 60, 70, 80].map((f) => chip(r.maxTrainFatigue === f, `over ${f}`, () => { r.maxTrainFatigue = f; }))}</div>
-              <span className="c-lab">{w('Match days')}</span>
-              <div className="c-chips">{chip(r.trainMatchDays, 'Train', () => { r.trainMatchDays = true; })}{chip(!r.trainMatchDays, 'Rest', () => { r.trainMatchDays = false; })}</div>
-              {FEATURES.skip && <><span className="c-lab">{w('Skipping')}</span><div className="c-chips">{chip(!r.simMine, 'Stop for my matches and segments', () => { r.simMine = false; })}{chip(r.simMine, 'Sim them', () => { r.simMine = true; })}</div></>}
+              {FEATURES.skip && <><span className="c-lab">{w('Skipping')}</span><div className="c-chips">{chip(!r.simMine, FEATURES.playSegments ? 'Stop for my matches and segments' : 'Stop for my matches', () => { r.simMine = false; })}{chip(r.simMine, 'Sim them', () => { r.simMine = true; })}</div></>}
             </div>
           </>
         )}

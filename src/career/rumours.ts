@@ -11,7 +11,7 @@ import { activeWorld } from '../world/world';
 import { bondsOf, bookerOf, feelPair, kindOf, likeOf, together, type People } from '../world/people';
 import { setAngles } from './booker';
 import { letter, setCareerHooks } from './career';
-import { daysBetween, weekday, type Day } from './dates';
+import { daysBetween, type Day } from './dates';
 import { dealsOf } from './deals';
 import { leanTo } from './leans';
 import { registerReplies } from './mail';
@@ -256,7 +256,7 @@ setAngles(
 
 function daily(c: Career): void {
   // The big cut (Lyra's call): gossip goes with locker-room politics.
-  if (!FEATURES.politics || weekday(c.today) !== 3) return; // Wednesdays: the week's gossip.
+  if (!FEATURES.politics) return; // Every week: the week's gossip.
   const rnd = seededRng(hashSeed(c.seed, 'rumours', c.today));
   arise(c, rnd);
   spread(c, rnd);

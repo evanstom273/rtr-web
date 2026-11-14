@@ -5,7 +5,7 @@
 import { HARDCORE_STIPS, setBookableHook, setCardHook } from './booker';
 import { letter, mod, person, promoName, setCareerHooks, setMod, spend } from './career';
 import { tierOf, type ClauseId } from './clauses';
-import { addDays, addMonths, daysBetween, fmtDay, weekday, type Day } from './dates';
+import { addDays, addMonths, addWeeks, fmtDay, norm, yearsBetween, type Day } from './dates';
 import { dealsOf, dealWith } from './deals';
 import { round5 } from './economy';
 import { homeCountry, tripCost, tripFatigue, upgradeCost } from './life/travel';
@@ -127,7 +127,7 @@ export function holidays(c: Career, promo?: string): { used: number; allowed: nu
   const p = person(c, c.player);
   const k = promo ? dealWith(p, promo) : p.contract ?? undefined;
   if (!k) return { used: 0, allowed: 0 };
-  const yearStart = addMonths(k.start, 12 * Math.floor(daysBetween(k.start, c.today) / 365.25));
+  const yearStart = addMonths(k.start, 12 * Math.floor(yearsBetween(k.start, c.today)));
   return { used: (k.holidays ?? []).filter((d) => d >= yearStart).length, allowed: HOLIDAY_WEEKS[tierOf(k, 'schedule')] ?? 0, k };
 }
 
@@ -137,15 +137,14 @@ export function bookHoliday(c: Career, from: Day, promo?: string): string {
   if (!h.k) return 'You’re not under contract.';
   if (!h.allowed) return 'Your contract has no holiday weeks.';
   if (h.used >= h.allowed) return `You’ve used your ${h.allowed} holiday week${h.allowed === 1 ? '' : 's'} this contract year.`;
-  let monday = from;
-  while (weekday(monday) !== 1) monday = addDays(monday, 1);
-  if (monday <= c.today) monday = addDays(monday, 7);
+  let monday = norm(from);
+  if (monday <= c.today) monday = addWeeks(monday, 1);
   const p = person(c, c.player);
-  const week = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
+  const week = [monday];
   p.daysOff = [...new Set([...(p.daysOff ?? []), ...week])];
   (h.k.holidays ??= []).push(monday);
   for (const s of Object.values(c.shows)) if (!s.done && week.includes(s.date) && s.card) s.card = s.card.filter((b) => b.result || (b.a !== c.player && b.b !== c.player));
-  return `Holiday booked: ${fmtDay(monday, 'dm')} to ${fmtDay(addDays(monday, 6), 'dm')}. Nobody will book you.`;
+  return `Holiday booked: ${fmtDay(monday, 'long')}. Nobody will book you.`;
 }
 
 /** Schedule Flexibility Tier 2+: go part-time (a few dates a month), or back to full-time. */

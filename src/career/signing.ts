@@ -17,7 +17,7 @@ import { letter, person, release, setCareerHooks } from './career';
 import { companyOf, officeOf, playerRuns, roleIn } from './company';
 import { clauseCost } from './contracts';
 import { dropDeal } from './deals';
-import { addMonths, daysBetween, type Day } from './dates';
+import { addMonths, daysBetween, WEEK_DAYS, weeksBetween, type Day } from './dates';
 import { registerReplies } from './mail';
 import { regionOfCountry } from './places';
 import { BOND_LOG, FEATURES, SIGN } from './tuning';
@@ -202,7 +202,7 @@ function renewals(c: Career): void {
   for (const r of officeOf(c).roles) {
     for (const w of rosterOf(r.promo)) {
       const k = contractWith(c, w.id, r.promo);
-      if (!k || k.walk || daysBetween(c.today, k.end) !== SIGN.renewNotice) continue;
+      if (!k || k.walk || weeksBetween(c.today, k.end) !== Math.round(SIGN.renewNotice / WEEK_DAYS)) continue;
       letter(c, { kind: 'contract', from: `${r.promo} · the office`, subject: `${w.name}’s contract is up on ${k.end}`, body: [`£${k.fee.toLocaleString('en-GB')} a date. Renew for a year at ${Math.round((SIGN.renewLift - 1) * 100)}% more, or let it run out?`],
         replies: [{ id: 'renew_yes', label: 'Renew it' }, { id: 'renew_no', label: 'Let it run out' }], ctx: { renew: w.id, promo: r.promo } });
     }
